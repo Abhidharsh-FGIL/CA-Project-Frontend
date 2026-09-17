@@ -328,7 +328,7 @@ describe('§18 explainability', () => {
   it('produces a ranked, non-empty set of findings', () => {
     const m = buildAttemptReport(detail([...block('Tamil', 10, 24, 100), ...block('Polity', 0, 0, 66)]));
     expect(m.diagnostics.length).toBeGreaterThanOrEqual(3);
-    expect(m.diagnostics.length).toBeLessThanOrEqual(7);
+    expect(m.diagnostics.length).toBeLessThanOrEqual(8);
     expect(m.diagnostics.map(d => d.rank)).toEqual(m.diagnostics.map((_, i) => i + 1));
     // Every finding quotes at least one figure rather than generalising.
     expect(m.diagnostics.every(d => /\d/.test(d.text))).toBe(true);

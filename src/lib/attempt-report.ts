@@ -319,7 +319,17 @@ export interface AttemptReportModel {
     timeAllowedSec: number | null;
     avgTimePerAttemptedSec: number | null;
   };
+  /**
+   * The headline verdict. `severity` is always computed deterministically from
+   * `summary` (it decides color-coding in the UI and must never depend on
+   * generated text); `label`/`note`/`detail` come from the backend's
+   * LLM-generated insights when available, and from `buildVerdict` otherwise —
+   * see `reportSource`.
+   */
+  verdict: VerdictResult;
   diagnostics: DiagnosticFinding[];
+  /** Whether `verdict`/`diagnostics` came from the cached backend insight or were computed locally. */
+  reportSource: 'llm' | 'deterministic';
   /**
    * The proficiency radar.
    *
@@ -1053,7 +1063,38 @@ export function buildAttemptReport(
   // Only subjects that actually cost marks, heaviest first.
   const errorFocus = subjectShares.filter(r => r.incorrect > 0).sort((a, b) => b.incorrect - a.incorrect);
   const timeRows = timeBandRows(questions, medianSec, cfg);
+  const coverage = buildCoverage(subjects, exam, cfg);
 
+  /**
+   * The backend generates this once at submission time, grounded in the same
+   * server-computed numbers, and caches it — see
+   * app/tasks/ai_tasks.py:generate_report_insights_task. `severity` (and thus
+   * the verdict's color) always comes from `buildVerdict`'s own thresholds
+   * regardless of source, so generated text can never change what color the
+   * card renders as; only the wording of `label`/`note`/`detail` and the
+   * `diagnostics` sentences comes from the backend when present.
+   */
+  const cachedInsights = detail.report_insights ?? null;
+  const deterministicVerdict = buildVerdict(summary, subjects, coverage.rows, errorFocus, cfg);
+  const verdict: VerdictResult = cachedInsights?.verdict
+    ? {
+        severity: deterministicVerdict.severity,
+        label: cachedInsights.verdict.label,
+        note: cachedInsights.verdict.note,
+        detail: cachedInsights.verdict.detail,
+      }
+    : deterministicVerdict;
+  const diagnostics: DiagnosticFinding[] =
+    Array.isArray(cachedInsights?.quick_insights) && cachedInsights.quick_insights.length > 0
+      ? cachedInsights.quick_insights.map((f: { text: string; evidence?: string[]; basis: string }, i: number) => ({
+          rank: i + 1,
+          text: f.text,
+          evidence: f.evidence ?? [],
+          confidence: 'HIGH' as Confidence,
+          basis: f.basis,
+        }))
+      : buildDiagnostics(summary, subjects, medianSec, cfg, avgSec, idealSec, difficulty, negativeLoss);
+  const reportSource: 'llm' | 'deterministic' = cachedInsights?.verdict ? 'llm' : 'deterministic';
 
   return {
     meta: {
@@ -1066,7 +1107,9 @@ export function buildAttemptReport(
       autoSubmitted: !!detail.attempt?.auto_submitted,
     },
     summary,
-    diagnostics: buildDiagnostics(summary, subjects, medianSec, cfg, avgSec, idealSec),
+    verdict,
+    diagnostics,
+    reportSource,
     radar: subjects.map(s => ({
       subjectId: s.subjectId,
       label: s.name,
@@ -1157,7 +1200,7 @@ export function buildAttemptReport(
           'Error causes are not recorded. A wrong answer alone does not show whether it was a concept gap or a slip.',
       },
     },
-    coverage: buildCoverage(subjects, exam, cfg),
+    coverage,
     ...buildInsights(subjects, summary, cfg),
     ...splitPriorities(buildPriorities(subjects, summary, cfg), cfg),
     questions,
@@ -1199,6 +1242,95 @@ function diagnoseSubject(
   return `${base}. Performing at target on the evidence available.`;
 }
 
+export type VerdictSeverity = 'not_assessed' | 'needs_coverage' | 'needs_focus' | 'on_track';
+
+export interface VerdictResult {
+  /** Which of the four bands this attempt falls in — drives color-coding in the UI. */
+  severity: VerdictSeverity;
+  label: string;
+  note: string;
+  detail: string;
+}
+
+/**
+ * The headline verdict, taken from whichever metric is actually limiting the
+ * score. The stat tiles already show attempt rate and accuracy, and Quick
+ * Insights gives the paper-wide arithmetic — so this card's job is different:
+ * name the single biggest, most specific lever for *this* attempt (which
+ * subject, which topic) rather than repeating the same percentages.
+ */
+function buildVerdict(
+  summary: AttemptReportModel['summary'],
+  subjects: SubjectNode[],
+  coverageRows: CoverageRow[],
+  errorFocusRows: SubjectShareRow[],
+  cfg: ReportConfig,
+): VerdictResult {
+  const s = summary;
+
+  if (s.attempted === 0) {
+    return {
+      severity: 'not_assessed',
+      label: 'Not assessed',
+      note: 'No answers recorded yet.',
+      detail: `None of the ${s.totalQuestions} questions in this paper were attempted, so this attempt cannot yet say what you know — that is true of the whole paper, not one subject.`,
+    };
+  }
+
+  if ((s.attemptRate ?? 0) < cfg.targetCoverage) {
+    const topGap = coverageRows[0] ?? null;
+    const addlCorrect = Math.round(((s.accuracy ?? 0) / 100) * s.unattempted);
+    const startWhere = topGap
+      ? `Start in ${topGap.name}: ${topGap.skipped} of its ${topGap.questions} questions are still blank${
+          topGap.marksAtStake != null ? `, worth ${topGap.marksAtStake} marks` : ''
+        }.`
+      : `${s.unattempted} questions across the paper are still blank.`;
+    return {
+      severity: 'needs_coverage',
+      label: 'Needs coverage',
+      note: `${s.unattempted} blanks outweigh any accuracy gain available right now`,
+      detail: `${startWhere} Every blank scores zero no matter what you know, so closing them is the fastest points on the board — worth roughly ${addlCorrect} more correct answers at today's accuracy, before improving a single concept. Coverage comes before accuracy from here.`,
+    };
+  }
+
+  if ((s.accuracy ?? 0) < cfg.targetAccuracy) {
+    const worstErr = errorFocusRows[0] ?? null;
+    const focus = worstErr
+      ? `${worstErr.name} is doing the most damage: ${worstErr.incorrect} wrong answer${worstErr.incorrect === 1 ? '' : 's'} there alone${
+          worstErr.shareOfErrors != null ? ` — ${worstErr.shareOfErrors}% of every mistake in the paper` : ''
+        }.`
+      : `${s.incorrect} of the ${s.attempted} you answered came back wrong.`;
+    return {
+      severity: 'needs_focus',
+      label: 'Needs focus',
+      note: worstErr ? `${worstErr.name} alone is costing you the most marks` : 'Accuracy is the constraint.',
+      detail: `Coverage is already healthy, so the score is limited by accuracy, not time or nerve. ${focus} More practice volume will not help here; reworking the wrong answers in ${
+        worstErr ? worstErr.name : 'your weakest subject'
+      } will.`,
+    };
+  }
+
+  const strongest = subjects
+    .filter(sub => sub.state === 'MEASURED')
+    .reduce<SubjectNode | null>(
+      (hi, sub) => (hi == null || (sub.metrics.accuracy ?? 0) > (hi.metrics.accuracy ?? 0) ? sub : hi),
+      null,
+    );
+  const stretch = coverageRows[0] ?? null;
+  return {
+    severity: 'on_track',
+    label: 'On track',
+    note: strongest ? `${strongest.name} is carrying this attempt at ${strongest.metrics.accuracy}%` : 'Coverage and accuracy both at target.',
+    detail: `You are clearing both the ${cfg.targetCoverage}% coverage and ${cfg.targetAccuracy}% accuracy targets${
+      strongest ? `, led by ${strongest.name}` : ''
+    }. ${
+      stretch
+        ? `The next stretch is ${stretch.name}, where ${stretch.skipped} of ${stretch.questions} questions are still unanswered.`
+        : 'The work now is holding this while widening into the subjects that carried fewer questions.'
+    }`,
+  };
+}
+
 function buildDiagnostics(
   summary: AttemptReportModel['summary'],
   subjects: SubjectNode[],
@@ -1206,11 +1338,15 @@ function buildDiagnostics(
   cfg: ReportConfig,
   avgSec: number | null,
   idealSec: number | null,
+  difficulty: DifficultyRow[],
+  negativeLoss: { marks: number; perWrong: number } | null,
 ): DiagnosticFinding[] {
   const out: Array<Omit<DiagnosticFinding, 'rank'>> = [];
   const { attempted, totalQuestions, correct, attemptRate, accuracy } = summary;
+  const measured = subjects.filter(s => s.state === 'MEASURED');
 
-  // 1. Coverage vs accuracy — the spec's central distinction (§4).
+  // 1. Coverage vs accuracy — the spec's central distinction (§4). The verdict
+  // card above this list names where to start; this is the arithmetic behind it.
   if (attemptRate != null && attemptRate < cfg.targetCoverage) {
     const accPart =
       accuracy != null
@@ -1244,46 +1380,68 @@ function buildDiagnostics(
     });
   }
 
-  // 3. The weakest measured subject.
-  const measured = subjects.filter(s => s.state === 'MEASURED');
+  // 3. The weakest measured subject, drilled down to its weakest topic where the
+  // paper's tags go that deep — the narrowest place to actually start revising.
   const weakest = measured.reduce<SubjectNode | null>(
     (lo, s) => (lo == null || (s.metrics.accuracy ?? 0) < (lo.metrics.accuracy ?? 0) ? s : lo),
     null,
   );
   if (weakest && (weakest.metrics.accuracy ?? 0) < cfg.targetAccuracy) {
+    const weakTopic = weakest.topics
+      .filter(t => t.state === 'MEASURED')
+      .reduce<TopicNode | null>(
+        (lo, t) => (lo == null || (t.metrics.accuracy ?? 0) < (lo.metrics.accuracy ?? 0) ? t : lo),
+        null,
+      );
+    const topicPart =
+      weakTopic && (weakTopic.metrics.accuracy ?? 0) < cfg.targetAccuracy
+        ? ` Within it, ${weakTopic.name} is the softest spot at ${weakTopic.metrics.accuracy}% (${weakTopic.metrics.correct}/${weakTopic.metrics.attempted}) — the narrowest place to start revising.`
+        : '';
     out.push({
-      text: `${weakest.name} is the weakest measured subject at ${weakest.metrics.accuracy}% (${weakest.metrics.correct}/${weakest.metrics.attempted}), across ${weakest.metrics.questions} questions in this paper.`,
+      text: `${weakest.name} is the weakest measured subject at ${weakest.metrics.accuracy}% (${weakest.metrics.correct}/${weakest.metrics.attempted}), across ${weakest.metrics.questions} questions in this paper.${topicPart}`,
       evidence: [`${weakest.metrics.correct}/${weakest.metrics.attempted} correct`, `${weakest.metrics.questions} questions available`],
       confidence: weakest.confidence,
       basis: basisFromSample(weakest.metrics.attempted, cfg, `answered ${weakest.name} questions`),
     });
   }
 
-  // 4. Strongest measured subject, when there is one worth naming.
-  const strongest = measured.reduce<SubjectNode | null>(
-    (hi, s) => (hi == null || (s.metrics.accuracy ?? 0) > (hi.metrics.accuracy ?? 0) ? s : hi),
-    null,
-  );
-  if (strongest && (strongest.metrics.accuracy ?? 0) >= cfg.targetAccuracy) {
+  // 4. Easy-vs-hard split — tells the difference between a slip and a knowledge
+  // gap, which a raw accuracy number cannot (§4 interrogate the mistake, not just
+  // count it).
+  const scoredDiff = difficulty.filter(d => d.accuracy != null && d.attempted >= 3);
+  const easyRow = scoredDiff.find(d => d.label.toLowerCase() === 'easy');
+  const hardRow = scoredDiff.find(d => d.label.toLowerCase() === 'hard');
+  if (easyRow && hardRow && easyRow.accuracy != null && hardRow.accuracy != null) {
+    if (easyRow.accuracy < cfg.strongAccuracy && easyRow.accuracy <= hardRow.accuracy + 10) {
+      out.push({
+        text: `${100 - easyRow.accuracy}% of Easy questions were missed (${easyRow.correct}/${easyRow.attempted} correct) — close to the ${hardRow.accuracy}% seen on Hard ones. That pattern reads as slips and misreads rather than a knowledge gap, since the easy questions should have been the safest marks.`,
+        evidence: [`Easy: ${easyRow.correct}/${easyRow.attempted} (${easyRow.accuracy}%)`, `Hard: ${hardRow.correct}/${hardRow.attempted} (${hardRow.accuracy}%)`],
+        confidence: 'MEDIUM',
+        basis: basisFromSample(easyRow.attempted, cfg, 'Easy questions'),
+      });
+    } else if (hardRow.accuracy < easyRow.accuracy - 15) {
+      out.push({
+        text: `Easy questions are solid at ${easyRow.accuracy}% but Hard ones drop to ${hardRow.accuracy}% (${hardRow.correct}/${hardRow.attempted}) — the gap widens with difficulty, which is concept depth rather than carelessness.`,
+        evidence: [`Easy: ${easyRow.correct}/${easyRow.attempted} (${easyRow.accuracy}%)`, `Hard: ${hardRow.correct}/${hardRow.attempted} (${hardRow.accuracy}%)`],
+        confidence: 'MEDIUM',
+        basis: basisFromSample(hardRow.attempted, cfg, 'Hard questions'),
+      });
+    }
+  }
+
+  // 5. What guessing under negative marking actually cost — a different lever
+  // than accuracy, because it is about whether a wrong answer should have been
+  // attempted at all.
+  if (negativeLoss && negativeLoss.marks > 0) {
     out.push({
-      text: `${strongest.name} is holding up at ${strongest.metrics.accuracy}% (${strongest.metrics.correct}/${strongest.metrics.attempted}) — enough evidence to treat it as a strength to maintain rather than rebuild.`,
-      evidence: [`${strongest.metrics.correct}/${strongest.metrics.attempted} correct`],
-      confidence: strongest.confidence,
-      basis: basisFromSample(strongest.metrics.attempted, cfg, `answered ${strongest.name} questions`),
+      text: `Negative marking took ${negativeLoss.marks} mark${negativeLoss.marks === 1 ? '' : 's'} off this attempt — ${summary.incorrect} wrong answer${summary.incorrect === 1 ? '' : 's'} at ${negativeLoss.perWrong} each. Where those were guesses rather than reasoned answers, leaving them blank would have scored higher.`,
+      evidence: [`${summary.incorrect} wrong answers`, `${negativeLoss.perWrong} lost per wrong answer`],
+      confidence: 'HIGH',
+      basis: COUNTED,
     });
   }
 
-  // 5. Pace, only where timing exists.
-  if (medianSec != null && attempted > 0) {
-    out.push({
-      text: `Median time per attempted question was ${Math.round(medianSec)}s across ${attempted} questions.`,
-      evidence: [`${attempted} timed responses`],
-      confidence: attempted >= cfg.minEvidence * 3 ? 'HIGH' : 'MEDIUM',
-      basis: basisFromSample(attempted, cfg, 'timed answers'),
-    });
-  }
-
-  // 4. Where the mistakes concentrate — the single most actionable line.
+  // 6. Where the mistakes concentrate — the single most actionable line.
   const worstSubjects = [...subjects]
     .filter(x => x.metrics.incorrect > 0)
     .sort((a, b) => b.metrics.incorrect - a.metrics.incorrect);
@@ -1298,22 +1456,22 @@ function buildDiagnostics(
     });
   }
 
-  // 5. Marks left on the table, where subject marks are known.
-  const uncollected = subjects
-    .filter(x => x.metrics.marksEarned != null && x.metrics.marksAvailable != null)
-    .map(x => ({ name: x.name, lost: (x.metrics.marksAvailable ?? 0) - (x.metrics.marksEarned ?? 0) }))
-    .sort((a, b) => b.lost - a.lost);
-  if (uncollected.length > 0 && uncollected[0].lost > 0) {
-    const totalLost = Math.round(uncollected.reduce((n, x) => n + x.lost, 0) * 10) / 10;
+  // 7. Strongest measured subject, when there is one worth naming.
+  const strongest = measured.reduce<SubjectNode | null>(
+    (hi, s) => (hi == null || (s.metrics.accuracy ?? 0) > (hi.metrics.accuracy ?? 0) ? s : hi),
+    null,
+  );
+  if (strongest && (strongest.metrics.accuracy ?? 0) >= cfg.targetAccuracy) {
     out.push({
-      text: `${totalLost} marks went uncollected across the paper, the largest single block being ${Math.round(uncollected[0].lost * 10) / 10} in ${uncollected[0].name}.`,
-      evidence: uncollected.slice(0, 3).map(x => `${x.name}: ${Math.round(x.lost * 10) / 10} marks`),
-      confidence: 'HIGH',
-      basis: COUNTED,
+      text: `${strongest.name} is holding up at ${strongest.metrics.accuracy}% (${strongest.metrics.correct}/${strongest.metrics.attempted}) — enough evidence to treat it as a strength to maintain rather than rebuild.`,
+      evidence: [`${strongest.metrics.correct}/${strongest.metrics.attempted} correct`],
+      confidence: strongest.confidence,
+      basis: basisFromSample(strongest.metrics.attempted, cfg, `answered ${strongest.name} questions`),
     });
   }
 
-  // 6. Pace, stated against the paper's own allowance where one is configured.
+  // 8. Pace, stated against the paper's own allowance where one is configured,
+  // falling back to the student's own median when it is not.
   if (avgSec != null && idealSec != null) {
     const ratio = avgSec / idealSec;
     out.push({
@@ -1329,9 +1487,16 @@ function buildDiagnostics(
       // because a steady pace and a lopsided one produce the same number.
       basis: 'Based on your average pace across the paper',
     });
+  } else if (medianSec != null && attempted > 0) {
+    out.push({
+      text: `Median time per attempted question was ${Math.round(medianSec)}s across ${attempted} questions.`,
+      evidence: [`${attempted} timed responses`],
+      confidence: attempted >= cfg.minEvidence * 3 ? 'HIGH' : 'MEDIUM',
+      basis: basisFromSample(attempted, cfg, 'timed answers'),
+    });
   }
 
-  return out.slice(0, 7).map((f, i) => ({ ...f, rank: i + 1 }));
+  return out.slice(0, 8).map((f, i) => ({ ...f, rank: i + 1 }));
 }
 
 function buildRadarInterpretation(subjects: SubjectNode[], cfg: ReportConfig): string[] {

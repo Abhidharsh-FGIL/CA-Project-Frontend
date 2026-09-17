@@ -75,6 +75,7 @@ import {
   type NodeStatus,
   type SubjectNode,
   type TopicNode,
+  type VerdictSeverity,
 } from '@/lib/attempt-report';
 import {
   langModeOptions,
@@ -106,6 +107,19 @@ const CONFIDENCE_TONE: Record<Confidence, string> = {
   HIGH: 'text-gray-400 dark:text-gray-500',
   MEDIUM: 'text-amber-600 dark:text-amber-400',
   LOW: 'text-amber-600 dark:text-amber-400',
+};
+
+/**
+ * Presentation only. `verdict.severity` is always computed deterministically
+ * (see `buildVerdict` in attempt-report.ts) even when the wording came from
+ * the backend's LLM-generated text, so color-coding never depends on
+ * generated content.
+ */
+const VERDICT_STYLE: Record<VerdictSeverity, { accent: Accent; tone: StatusTone }> = {
+  not_assessed: { accent: 'slate', tone: 'unknown' },
+  needs_coverage: { accent: 'rose', tone: 'focus' },
+  needs_focus: { accent: 'amber', tone: 'developing' },
+  on_track: { accent: 'emerald', tone: 'strong' },
 };
 
 // ─── Report cover (reference screen 1) ─────────────────────────────────────────
@@ -417,37 +431,14 @@ export function ReportTitleRow({
 export function AttemptSummary({ model }: { model: AttemptReportModel }) {
   const s = model.summary;
 
-  /** The headline verdict, taken from whichever metric is actually limiting the score. */
-  const verdict = useMemo(() => {
-    if (s.attempted === 0) {
-      return { label: 'Not assessed', accent: 'slate' as Accent, tone: 'unknown' as StatusTone, note: 'Nothing was attempted.' };
-    }
-    if ((s.attemptRate ?? 0) < model.config.targetCoverage) {
-      return {
-        label: 'Needs coverage',
-        accent: 'rose' as Accent,
-        tone: 'focus' as StatusTone,
-        note: 'Unanswered questions score nothing.',
-        detail: `You reached ${s.attemptRate}% of the paper, leaving ${s.unattempted} of ${s.totalQuestions} questions unanswered. Those score zero regardless of what you know, so they are the cheapest marks available — at your current ${s.accuracy}% accuracy, attempting them would be expected to add roughly ${Math.round(((s.accuracy ?? 0) / 100) * s.unattempted)} more correct answers. Raising attempt rate comes before raising accuracy.`,
-      };
-    }
-    if ((s.accuracy ?? 0) < model.config.targetAccuracy) {
-      return {
-        label: 'Needs focus',
-        accent: 'amber' as Accent,
-        tone: 'developing' as StatusTone,
-        note: 'Accuracy is the constraint.',
-        detail: `Coverage is healthy at ${s.attemptRate}% — you reached ${s.attempted} of ${s.totalQuestions} questions — so the score is limited by accuracy, not time or nerve. ${s.incorrect} of the ${s.attempted} you answered came back wrong (${s.accuracy}% correct against a ${model.config.targetAccuracy}% target). More practice volume will not help here; working the wrong answers will.`,
-      };
-    }
-    return {
-      label: 'On track',
-      accent: 'emerald' as Accent,
-      tone: 'strong' as StatusTone,
-      note: 'Coverage and accuracy both at target.',
-      detail: `You reached ${s.attemptRate}% of the paper and got ${s.accuracy}% of those right, clearing both the ${model.config.targetCoverage}% coverage and ${model.config.targetAccuracy}% accuracy targets. The work now is holding this while widening into the subjects that carried fewer questions.`,
-    };
-  }, [s, model.config]);
+  /**
+   * `model.verdict` is server-generated (cached at submission time, grounded
+   * in the same numbers the PDF export reads) when available, and computed
+   * locally otherwise — see `buildVerdict` in attempt-report.ts. Either way,
+   * `severity` always drives the color here, never the generated wording.
+   */
+  const verdict = model.verdict;
+  const verdictStyle = VERDICT_STYLE[verdict.severity];
 
   return (
     <ReportCard>
@@ -474,7 +465,7 @@ export function AttemptSummary({ model }: { model: AttemptReportModel }) {
             secondary={s.maxMarks != null ? `/ ${s.maxMarks}` : undefined}
           />
           <div className="sm:hidden">
-            <StatusPill tone={verdict.tone}>{verdict.label}</StatusPill>
+            <StatusPill tone={verdictStyle.tone}>{verdict.label}</StatusPill>
           </div>
         </div>
 
@@ -517,7 +508,7 @@ export function AttemptSummary({ model }: { model: AttemptReportModel }) {
           />
           <StatTile
             icon={<AlertTriangle className="w-3.5 h-3.5" />}
-            accent={verdict.accent}
+            accent={verdictStyle.accent}
             value={verdict.label}
             label="Verdict"
             hint={verdict.note}
@@ -527,8 +518,8 @@ export function AttemptSummary({ model }: { model: AttemptReportModel }) {
       </div>
 
       {/* The verdict tile is a label; this is the reasoning behind it. */}
-      <div className={cn('mt-3 rounded-xl px-3.5 py-3', ACCENT[verdict.accent].wash)}>
-        <p className={cn('text-[11px] font-bold', ACCENT[verdict.accent].text)}>{verdict.label}</p>
+      <div className={cn('mt-3 rounded-xl px-3.5 py-3', ACCENT[verdictStyle.accent].wash)}>
+        <p className={cn('text-[11px] font-bold', ACCENT[verdictStyle.accent].text)}>{verdict.label}</p>
         <p className="text-[11px] leading-relaxed text-gray-700 dark:text-gray-200 mt-1">{verdict.detail}</p>
       </div>
 

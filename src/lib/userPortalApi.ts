@@ -609,6 +609,19 @@ export interface AttemptDetailResponse {
     question_reviews: any[];
     recommendations: string[];
   } | null;
+  /**
+   * The LLM-generated verdict + quick insights, cached server-side at
+   * submission time. Null while generation is still running, if it failed, or
+   * for an attempt that predates this feature — `buildAttemptReport` falls
+   * back to computing the same sections deterministically in that case.
+   */
+  report_insights?: {
+    verdict: { label: string; note: string; detail: string };
+    quick_insights: Array<{ text: string; evidence?: string[]; basis: string }>;
+    model: string;
+    generated_at: string | null;
+    source: 'llm';
+  } | null;
   questions: QuestionReviewItem[];
 }
 
