@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useAIContext } from '@/contexts/AIContextProvider';
+import { PASSAGE_SET_SIZE } from '@/constants';
 import { toast } from 'sonner';
 
 const LANGUAGE_LABELS: Record<string, string> = {
@@ -13,9 +14,19 @@ const LANGUAGE_LABELS: Record<string, string> = {
 
 export interface EvalPaperConfig {
   title: string;
-  grade?: number;
-  board?: string;
+  testType?: string;
   classId?: string;
+  /**
+   * Paper default language sent to the generator: 'ta' | 'en'.
+   * Resolution is most-specific-wins — a section's own `language`, then the
+   * section's name ("General Tamil" generates Tamil on its own), then this.
+   */
+  language?: 'ta' | 'en';
+  /**
+   * Bilingual papers: every question is printed again in this language under the
+   * same number. Undefined/null = single language. Sections can override it.
+   */
+  secondaryLanguage?: 'ta' | 'en' | null;
   difficulty: string;
   mode: string;
   timeLimitSeconds?: number;
@@ -32,6 +43,10 @@ export interface EvalSubjectConfig {
   id: string;
   subject: string;
   weightage: number;
+  /** Optional per-section language override — beats the subject name and the paper default. */
+  language?: 'ta' | 'en';
+  /** Optional per-section translation language, overriding the paper's `secondaryLanguage`. */
+  secondaryLanguage?: 'ta' | 'en' | null;
   sourceType: 'online' | 'file' | 'text';
   sourceText?: string;
   sourceRefId?: string;
@@ -119,8 +134,6 @@ export function useEvalSubjectSuggestions(filters?: { grade?: number; board?: st
     queryFn: () => {
       const params = new URLSearchParams();
       if (orgId) params.set('org_id', orgId);
-      if (filters?.grade) params.set('grade', String(filters.grade));
-      if (filters?.board) params.set('board', filters.board);
       if (filters?.sourceType) params.set('source', filters.sourceType);
       return api.get<any[]>(`/api/v1/evaluation/subjects?${params}`);
     },
@@ -153,14 +166,22 @@ export function useStartEvalGeneration() {
 
   return useMutation({
     mutationFn: async (config: EvalPaperConfig): Promise<string> => {
-      const languageLabel = LANGUAGE_LABELS[language] || 'English';
+      // Paper default language. The admin's explicit choice wins; the workspace AI
+      // language is only a fallback. Sections can override it individually.
+      const paperLanguage: 'ta' | 'en' = config.language ?? (language === 'ta' ? 'ta' : 'en');
       const payload = {
         title: config.title,
-        grade: config.grade,
-        board: config.board,
-        language,
-        language_label: languageLabel,
-        language_instruction: `Generate ALL question text, options, and any explanatory content strictly in ${languageLabel}. Do not mix languages. Proper nouns and standard scientific/mathematical symbols may remain in English.`,
+        test_type: config.testType,
+        passage_set_size: PASSAGE_SET_SIZE,
+        language: paperLanguage,
+        language_label: LANGUAGE_LABELS[paperLanguage],
+        // Bilingual papers: each question is printed again in this language under
+        // the same number. Omitted entirely for single-language papers.
+        ...(config.secondaryLanguage ? { secondary_language: config.secondaryLanguage } : {}),
+        // MUST stay empty. Any text here overrides the generator's per-section
+        // language resolution and forces the whole paper into a single language —
+        // which breaks mixed papers like Group 4 (Tamil section + English sections).
+        language_instruction: '',
         difficulty: config.difficulty,
         question_count: config.questionCount,
         question_types: config.questionTypes,
@@ -171,6 +192,10 @@ export function useStartEvalGeneration() {
         subjects: config.subjects.map(s => ({
           subject: s.subject,
           weightage: s.weightage,
+          // Omitted unless the admin set an override — an absent field lets the
+          // generator fall back to the subject name, then the paper default.
+          ...(s.language ? { language: s.language } : {}),
+          ...(s.secondaryLanguage ? { secondary_language: s.secondaryLanguage } : {}),
           source_type: s.sourceType,
           source_text: s.sourceText,
           source_ref_id: s.sourceRefId,
@@ -200,14 +225,22 @@ export function useGenerateEvalPaper(
 
   return useMutation({
     mutationFn: async (config: EvalPaperConfig) => {
-      const languageLabel = LANGUAGE_LABELS[language] || 'English';
+      // Paper default language. The admin's explicit choice wins; the workspace AI
+      // language is only a fallback. Sections can override it individually.
+      const paperLanguage: 'ta' | 'en' = config.language ?? (language === 'ta' ? 'ta' : 'en');
       const payload = {
         title: config.title,
-        grade: config.grade,
-        board: config.board,
-        language,
-        language_label: languageLabel,
-        language_instruction: `Generate ALL question text, options, and any explanatory content strictly in ${languageLabel}. Do not mix languages. Proper nouns and standard scientific/mathematical symbols may remain in English.`,
+        test_type: config.testType,
+        passage_set_size: PASSAGE_SET_SIZE,
+        language: paperLanguage,
+        language_label: LANGUAGE_LABELS[paperLanguage],
+        // Bilingual papers: each question is printed again in this language under
+        // the same number. Omitted entirely for single-language papers.
+        ...(config.secondaryLanguage ? { secondary_language: config.secondaryLanguage } : {}),
+        // MUST stay empty. Any text here overrides the generator's per-section
+        // language resolution and forces the whole paper into a single language —
+        // which breaks mixed papers like Group 4 (Tamil section + English sections).
+        language_instruction: '',
         difficulty: config.difficulty,
         question_count: config.questionCount,
         question_types: config.questionTypes,
@@ -218,6 +251,10 @@ export function useGenerateEvalPaper(
         subjects: config.subjects.map(s => ({
           subject: s.subject,
           weightage: s.weightage,
+          // Omitted unless the admin set an override — an absent field lets the
+          // generator fall back to the subject name, then the paper default.
+          ...(s.language ? { language: s.language } : {}),
+          ...(s.secondaryLanguage ? { secondary_language: s.secondaryLanguage } : {}),
           source_type: s.sourceType,
           source_text: s.sourceText,
           source_ref_id: s.sourceRefId,
@@ -336,6 +373,36 @@ export function useUpdateEvalQuestion() {
       toast.success('Question updated');
     },
   });
+}
+
+/**
+ * Create a single manually-authored question in the question bank (under a subject).
+ * Backend: POST /api/v1/evaluation/questions  (admin auth)
+ * Body: { org_id, subject, chapter, difficulty, question_text, question_image_url,
+ *         options: [{ text, image_url }], correct_index, marks, explanation? }
+ * The question then appears in GET /questions?subject=… (Question Bank).
+ */
+export function useCreateEvalQuestion() {
+  const { orgId } = useWorkspaceContext();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (question: Record<string, any>) =>
+      api.post('/api/v1/evaluation/questions', { org_id: orgId, ...question }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['eval-questions'] });
+      qc.invalidateQueries({ queryKey: ['eval-papers'] });
+      qc.invalidateQueries({ queryKey: ['eval-subject-suggestions'] });
+      toast.success('Question added');
+    },
+    onError: (err: Error) => toast.error(err.message || 'Failed to add question'),
+  });
+}
+
+/** Upload a question / option image. Backend: POST /questions/upload-image → { url, name }. */
+export function uploadEvalQuestionImage(file: File) {
+  const fd = new FormData();
+  fd.append('file', file);
+  return api.upload<{ url: string; name: string }>('/api/v1/evaluation/questions/upload-image', fd);
 }
 
 export function useUpdateEvalPaperMeta() {

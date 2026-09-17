@@ -132,7 +132,21 @@ function ProfileSection({
   user: ReturnType<typeof useUserPortal>['user'];
   updateProfile: ReturnType<typeof useUserPortal>['updateProfile'];
 }) {
-  const [form, setForm] = useState({ name: user!.name, email: user!.email, phone: user!.phone });
+  const initialForm = {
+    name: user!.name,
+    email: user!.email,
+    phone: user!.phone,
+    date_of_birth: user!.date_of_birth ?? '',
+    gender: user!.gender ?? '',
+    student_class: user!.student_class ?? '',
+    section: user!.section ?? '',
+    roll_no: user!.roll_no ?? '',
+    school_name: user!.school_name ?? '',
+    medium: user!.medium ?? '',
+    class_teacher: user!.class_teacher ?? '',
+    academic_year: user!.academic_year ?? '',
+  };
+  const [form, setForm] = useState(initialForm);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -141,9 +155,25 @@ function ProfileSection({
       toast.error('Phone must be 10 digits');
       return;
     }
+    if (form.academic_year && !/^\d{4}-\d{2}$/.test(form.academic_year.trim())) {
+      toast.error('Academic year must use format YYYY-YY (e.g. 2025-26)');
+      return;
+    }
     setSaving(true);
-    // Backend profile endpoint only accepts name + phone — email is immutable here.
-    const res = await updateProfile({ name: form.name, phone: form.phone });
+    // Email is immutable here; all other fields are forwarded.
+    const res = await updateProfile({
+      name: form.name,
+      phone: form.phone,
+      date_of_birth: form.date_of_birth,
+      gender: form.gender,
+      student_class: form.student_class,
+      section: form.section,
+      roll_no: form.roll_no,
+      school_name: form.school_name,
+      medium: form.medium,
+      class_teacher: form.class_teacher,
+      academic_year: form.academic_year,
+    });
     setSaving(false);
     if (res.ok) {
       setEditing(false);
@@ -199,13 +229,68 @@ function ProfileSection({
           editing={editing}
           onChange={v => setForm(f => ({ ...f, phone: v.replace(/\D/g, '').slice(0, 10) }))}
         />
+        <FormRow
+          label="Date of Birth"
+          type="date"
+          value={form.date_of_birth}
+          editing={editing}
+          onChange={v => setForm(f => ({ ...f, date_of_birth: v }))}
+        />
+        <FormRow
+          label="Gender"
+          value={form.gender}
+          editing={editing}
+          onChange={v => setForm(f => ({ ...f, gender: v }))}
+        />
+        <FormRow
+          label="Class"
+          value={form.student_class}
+          editing={editing}
+          onChange={v => setForm(f => ({ ...f, student_class: v }))}
+        />
+        <FormRow
+          label="Section"
+          value={form.section}
+          editing={editing}
+          onChange={v => setForm(f => ({ ...f, section: v.toUpperCase().slice(0, 3) }))}
+        />
+        <FormRow
+          label="Roll No."
+          value={form.roll_no}
+          editing={editing}
+          onChange={v => setForm(f => ({ ...f, roll_no: v }))}
+        />
+        <FormRow
+          label="School Name"
+          value={form.school_name}
+          editing={editing}
+          onChange={v => setForm(f => ({ ...f, school_name: v }))}
+        />
+        <FormRow
+          label="Medium"
+          value={form.medium}
+          editing={editing}
+          onChange={v => setForm(f => ({ ...f, medium: v }))}
+        />
+        <FormRow
+          label="Class Teacher"
+          value={form.class_teacher}
+          editing={editing}
+          onChange={v => setForm(f => ({ ...f, class_teacher: v }))}
+        />
+        <FormRow
+          label="Academic Year"
+          value={form.academic_year}
+          editing={editing}
+          onChange={v => setForm(f => ({ ...f, academic_year: v.replace(/[^\d-]/g, '').slice(0, 7) }))}
+        />
       </div>
 
       {editing && (
         <div className="flex gap-2 mt-5 pt-5 border-t border-gray-100 dark:border-gray-800">
           <button
             onClick={() => {
-              setForm({ name: user!.name, email: user!.email, phone: user!.phone });
+              setForm(initialForm);
               setEditing(false);
             }}
             className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60"
@@ -231,12 +316,14 @@ function FormRow({
   editing,
   onChange,
   hint,
+  type = 'text',
 }: {
   label: string;
   value: string;
   editing: boolean;
   onChange: (v: string) => void;
   hint?: string;
+  type?: string;
 }) {
   return (
     <div className="grid sm:grid-cols-[140px_1fr] gap-2 items-center">
@@ -244,13 +331,13 @@ function FormRow({
       <div>
         {editing ? (
           <input
-            type="text"
+            type={type}
             value={value}
             onChange={e => onChange(e.target.value)}
             className="w-full px-3 py-2 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400"
           />
         ) : (
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{value}</p>
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{value || '—'}</p>
         )}
         {hint && <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">{hint}</p>}
       </div>

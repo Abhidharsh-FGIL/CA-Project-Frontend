@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { DownloadDropdown } from './DownloadDropdown';
 import { exportReport, type ExportFormat, type MetaField, type StudentRow } from '@/lib/eval-export-utils';
 import { format } from 'date-fns';
 import { MathText } from '@/components/ui/MathText';
+import { AttemptReport } from '@/components/user/ReportBody';
 
 interface Props {
   assessmentId: string;
@@ -39,8 +40,60 @@ const STATUS_LABELS: Record<string, string> = {
   evaluated: 'Evaluated',
 };
 
-// ── Attempt Detail View ──
-function AttemptDetailView({ assessmentId, attemptId, onBack }: {
+// ── Attempt Detail View — renders the full student-style report ──
+function AttemptDetailView({ assessmentId, attemptId, studentLabel, onBack }: {
+  assessmentId: string;
+  attemptId: string;
+  studentLabel: string;
+  onBack: () => void;
+}) {
+  const { data: raw, isLoading } = useEvalAttemptDetail(assessmentId, attemptId);
+  // Pass the response straight through. If it has no nested `attempt`, build one from the flat fields.
+  const attempt = raw?.attempt ?? {
+    attempt_id: attemptId,
+    test_name: raw?.assessment_title ?? raw?.test_name ?? null,
+    course_id: null,
+    start_time: raw?.started_at ?? null,
+    end_time: raw?.submitted_at ?? null,
+    score: raw?.score ?? null,
+    max_score: raw?.max_score ?? null,
+    percentage: raw?.percentage ?? null,
+    status: raw?.status ?? 'submitted',
+    auto_submitted: raw?.auto_submitted ?? false,
+    malpractice_events: [],
+    attempt_type: 'eval',
+    analysis_text: raw?.analysis_text ?? null,
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8">
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div className="min-w-0">
+          <h3 className="font-semibold text-lg truncate">
+            {raw?.student_name || raw?.student_email || studentLabel || 'Student'} — Report
+          </h3>
+          {raw?.attempt?.test_name && <p className="text-xs text-muted-foreground truncate">{raw.attempt.test_name}</p>}
+        </div>
+      </div>
+
+      <AttemptReport
+        detail={raw ?? null}
+        attempt={attempt}
+        courseName={null}
+        canDownloadPDF
+        loading={isLoading}
+        fetchError={!isLoading && !raw}
+        studentName={raw?.student_name || raw?.student_email || studentLabel || 'Student'}
+      />
+    </div>
+  );
+}
+
+// Legacy detailed breakdown — replaced by the student-style report above; no longer rendered.
+function AttemptDetailViewLegacy({ assessmentId, attemptId, onBack }: {
   assessmentId: string;
   attemptId: string;
   studentLabel: string;
@@ -61,7 +114,15 @@ function AttemptDetailView({ assessmentId, attemptId, onBack }: {
 
   if (!detail) return <p className="text-muted-foreground">Failed to load attempt details.</p>;
 
-  const questions = detail.questions || [];
+  // Normalize backend question fields → what this view reads.
+  // Backend sends: question_id/text/type/user_answer; correct_answer is the option TEXT.
+  const questions = (detail.questions || []).map((q: any) => ({
+    ...q,
+    id: q.id ?? q.question_id,
+    question_type: q.question_type ?? q.type,
+    question_text: q.question_text ?? q.text,
+    student_answer: q.student_answer ?? q.user_answer ?? null,
+  }));
   const filtered = filter === 'all' ? questions
     : filter === 'correct' ? questions.filter((q: any) => q.is_correct)
     : filter === 'wrong' ? questions.filter((q: any) => q.student_answer && !q.is_correct)
@@ -195,7 +256,7 @@ function AttemptDetailView({ assessmentId, attemptId, onBack }: {
                     <div className="min-w-0">
                       <p className="text-sm font-medium whitespace-pre-wrap"><MathText text={q.question_text} /></p>
                       <div className="flex flex-wrap items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-[10px]">{q.question_type.toUpperCase()}</Badge>
+                        <Badge variant="outline" className="text-[10px]">{(q.question_type || '').toUpperCase()}</Badge>
                         <span className="text-[10px] text-muted-foreground">{q.marks} mark{q.marks !== 1 ? 's' : ''}</span>
                         {q.subject && <span className="text-[10px] text-muted-foreground">{q.subject}</span>}
                         {q.chapter && <span className="text-[10px] text-muted-foreground">• {q.chapter}</span>}
@@ -209,8 +270,9 @@ function AttemptDetailView({ assessmentId, attemptId, onBack }: {
                 {(q.question_type === 'mcq' || q.question_type === 'true_false') && q.options && (
                   <div className="space-y-1.5 ml-11">
                     {Object.entries(q.options).map(([key, val]) => {
-                      const isCorrectOption = key === q.correct_answer;
-                      const isStudentChoice = key === q.student_answer;
+                      // correct_answer may be the letter key OR the option text; student_answer is the letter.
+                      const isCorrectOption = key === q.correct_answer || String(val) === q.correct_answer;
+                      const isStudentChoice = key === q.student_answer || String(val) === q.student_answer;
                       let bg = 'bg-white border-gray-200';
                       let icon = null;
 
@@ -308,6 +370,30 @@ function AttemptDetailView({ assessmentId, attemptId, onBack }: {
   );
 }
 
+// The backend may return attempts in two shapes:
+//   1) a top-level `detail.attempts[]` linked by `invitation_id`, OR
+//   2) the latest attempt summary embedded directly on each invitation
+//      (attempt_id, attempt_status, score, max_score, percentage, submitted_at).
+// Normalize to an attempts array for a given invitation so the report works with either.
+function invitationAttempts(detail: any, inv: any): any[] {
+  const linked = ((detail?.attempts as any[]) || []).filter((a: any) => a.invitation_id === inv.id);
+  if (linked.length > 0) return linked;
+  if (inv.attempt_id) {
+    return [{
+      id: inv.attempt_id,
+      invitation_id: inv.id,
+      status: inv.attempt_status || inv.status,
+      score: inv.score,
+      max_score: inv.max_score,
+      percentage: inv.percentage,
+      started_at: inv.started_at ?? null,
+      submitted_at: inv.submitted_at ?? null,
+      attempt_metadata: inv.attempt_metadata ?? null,
+    }];
+  }
+  return [];
+}
+
 // ── Main Report Component ──
 export function EvalAssessmentReport({ assessmentId, onBack }: Props) {
   const { data: detail, isLoading } = useEvalAssessmentDetail(assessmentId);
@@ -343,14 +429,13 @@ export function EvalAssessmentReport({ assessmentId, onBack }: Props) {
     const directAttempts: any[] = (detail as any).direct_attempts || [];
 
     // Invitation-based: pick latest submitted attempt per invitation
+    // (attempts may be linked in detail.attempts OR embedded on the invitation).
     const latestByInvitation = new Map<string, any>();
-    for (const att of attempts) {
-      if (att.status !== 'submitted' && att.status !== 'evaluated') continue;
-      const key = att.invitation_id || att.student_id || att.id;
-      const existing = latestByInvitation.get(key);
-      if (!existing || new Date(att.submitted_at) > new Date(existing.submitted_at)) {
-        latestByInvitation.set(key, att);
-      }
+    for (const inv of invitations) {
+      const submitted = invitationAttempts(detail, inv)
+        .filter((a: any) => a.status === 'submitted' || a.status === 'evaluated')
+        .sort((a: any, b: any) => new Date(b.submitted_at || 0).getTime() - new Date(a.submitted_at || 0).getTime());
+      if (submitted.length > 0) latestByInvitation.set(inv.id, submitted[0]);
     }
 
     // Direct attempts (portal users): latest completed attempt per user
@@ -394,15 +479,14 @@ export function EvalAssessmentReport({ assessmentId, onBack }: Props) {
 
     // Invitation-based rows
     invitations.forEach((inv: any) => {
-      const invAttempts = attempts
-        .filter((a: any) => a.invitation_id === inv.id)
+      const invAttempts = invitationAttempts(detail, inv)
         .sort((a: any, b: any) => new Date(a.started_at || 0).getTime() - new Date(b.started_at || 0).getTime());
       if (invAttempts.length === 0) {
-        rows.push({ email: inv.email, name: inv.name || '-', status: inv.status, score: '-', maxScore: '-', percentage: '-', timeTaken: '-', violations: '-', submitType: '-', startedAt: '-', submittedAt: '-', attempt: '0' });
+        rows.push({ email: inv.email, name: inv.name || inv.full_name || '-', status: inv.status, score: '-', maxScore: '-', percentage: '-', timeTaken: '-', violations: '-', submitType: '-', startedAt: '-', submittedAt: '-', attempt: '0' });
       }
       invAttempts.forEach((att: any, idx: number) => {
         rows.push({
-          email: inv.email, name: inv.name || '-', status: att.status,
+          email: inv.email, name: inv.name || inv.full_name || '-', status: att.status,
           score: att.score?.toString() || '-',
           maxScore: att.max_score?.toString() || detail.max_score?.toString() || '-',
           percentage: att.percentage != null ? `${Math.round(att.percentage)}%` : '-',
@@ -633,8 +717,7 @@ export function EvalAssessmentReport({ assessmentId, onBack }: Props) {
                 </TableHeader>
                 <TableBody>
                   {visibleInvitations.map((inv: any) => {
-                    const invAttempts = (detail.attempts as any[])
-                      .filter((a: any) => a.invitation_id === inv.id)
+                    const invAttempts = invitationAttempts(detail, inv)
                       .sort((a: any, b: any) => new Date(b.started_at || 0).getTime() - new Date(a.started_at || 0).getTime());
                     const latestAttempt = invAttempts[0];
                     const status = latestAttempt?.status || inv.status;
@@ -642,8 +725,8 @@ export function EvalAssessmentReport({ assessmentId, onBack }: Props) {
                     const isExpanded = expandedInvitations.has(inv.id);
 
                     return (
-                      <>
-                        <TableRow key={inv.id}>
+                      <Fragment key={inv.id}>
+                        <TableRow>
                           {!isExpired && (
                             <TableCell>
                               <Checkbox
@@ -660,8 +743,8 @@ export function EvalAssessmentReport({ assessmentId, onBack }: Props) {
                           <TableCell className="text-sm">
                             <div className="flex items-center gap-1.5">
                               <div>
-                                <div className="font-medium">{inv.name || inv.email}</div>
-                                {inv.name && <div className="text-xs text-muted-foreground">{inv.email}</div>}
+                                <div className="font-medium">{inv.name || inv.full_name || inv.email}</div>
+                                {(inv.name || inv.full_name) && <div className="text-xs text-muted-foreground">{inv.email}</div>}
                               </div>
                               {hasOlderAttempts && (
                                 <button
@@ -730,7 +813,12 @@ export function EvalAssessmentReport({ assessmentId, onBack }: Props) {
                               : '-'}
                           </TableCell>
                           <TableCell>
-                            {latestAttempt?.status === 'submitted' && (
+                            {latestAttempt && (
+                              latestAttempt.status === 'submitted' ||
+                              latestAttempt.status === 'auto_submitted' ||
+                              latestAttempt.attempt_metadata?.auto_submitted ||
+                              latestAttempt.submitted_at
+                            ) && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -809,7 +897,7 @@ export function EvalAssessmentReport({ assessmentId, onBack }: Props) {
                             </TableCell>
                           </TableRow>
                         ))}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </TableBody>
@@ -851,8 +939,8 @@ export function EvalAssessmentReport({ assessmentId, onBack }: Props) {
                     const hasMultiple = sorted.length > 1;
                     const isExpandedDirect = expandedInvitations.has(u.user_id);
                     return (
-                      <>
-                        <TableRow key={u.user_id}>
+                      <Fragment key={u.user_id}>
+                        <TableRow>
                           <TableCell className="text-sm">
                             <div className="flex items-center gap-1.5">
                               <div>
@@ -949,7 +1037,7 @@ export function EvalAssessmentReport({ assessmentId, onBack }: Props) {
                             </TableCell>
                           </TableRow>
                         ))}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </TableBody>

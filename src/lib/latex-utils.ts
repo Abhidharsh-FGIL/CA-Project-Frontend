@@ -9,6 +9,13 @@
 export function normalizeLatex(content: string | null | undefined): string {
   if (!content) return '';
   return content
+    // Unescape literal newline / tab / carriage-return escape sequences that arrive
+    // as text (double-escaped by the backend, so they render on screen as "\n").
+    // Only when NOT followed by a lowercase letter, so real LaTeX commands such as
+    // \neq, \nabla, \ne, \ni, \nu, \theta, \times, \to, \rho, \right survive.
+    .replace(/\\r(?![a-z])/g, '')
+    .replace(/\\n(?![a-z])/g, '\n')
+    .replace(/\\t(?![a-z])/g, '\t')
     .replace(/\\\((.+?)\\\)/gs, (_, math) => `$${math}$`)
     .replace(/\\\[(.+?)\\\]/gs, (_, math) => `$$${math}$$`);
 }

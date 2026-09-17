@@ -8,10 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Search, Trash2, FileText, Hash, Download, Eye, Pencil, Loader2 } from 'lucide-react';
+import { Search, Trash2, FileText, Hash, Download, Eye, Pencil, Loader2, Plus } from 'lucide-react';
 import { useEvalPapers, useDeleteEvalPaper, useUpdateEvalPaperMeta } from '@/hooks/use-evaluation';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { DownloadDropdown } from './DownloadDropdown';
+import { AddQuestionDialog } from './AddQuestionDialog';
 import { api } from '@/lib/api';
 import { exportAssessment, type ExportFormat, type QuestionData } from '@/lib/eval-export-utils';
 import { downloadPaperAsDocx } from '@/lib/eval-docx-export';
@@ -32,7 +33,10 @@ export function EvalPapersList() {
   const [search, setSearch] = useState('');
   const [editPaper, setEditPaper] = useState<any | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [addToPaper, setAddToPaper] = useState<any | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const isCustomCollection = (p: any) => p?.id === 'custom-questions' || p?.source_type === 'manual';
 
   const filtered = useMemo(() => {
     if (!papers) return [];
@@ -41,6 +45,8 @@ export function EvalPapersList() {
       const lower = search.toLowerCase();
       result = result.filter((p: any) => p.title?.toLowerCase().includes(lower));
     }
+    // Pin the "Custom Questions" collection (manually-added questions) to the front.
+    result = [...result].sort((a: any, b: any) => Number(isCustomCollection(b)) - Number(isCustomCollection(a)));
     return result;
   }, [papers, search]);
 
@@ -112,15 +118,24 @@ export function EvalPapersList() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visiblePapers.map((paper: any) => (
-            <Card key={paper.id} className="group hover:shadow-md transition-shadow">
+            <Card key={paper.id} className={`group hover:shadow-md transition-shadow ${isCustomCollection(paper) ? 'border-primary/40 ring-1 ring-primary/20' : ''}`}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-sm truncate">{paper.title}</h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {paper.board && `${paper.board} • `}
-                      {paper.grade && `Grade ${paper.grade}`}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="font-semibold text-sm truncate">{paper.title}</h4>
+                      {isCustomCollection(paper) && (
+                        <Badge className="shrink-0 bg-primary/10 text-primary text-[9px] px-1.5 hover:bg-primary/10">Custom</Badge>
+                      )}
+                    </div>
+                    {isCustomCollection(paper) ? (
+                      <p className="text-xs text-muted-foreground mt-0.5">Manually added questions</p>
+                    ) : (paper.board || paper.grade) ? (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {paper.board && `${paper.board} • `}
+                        {paper.grade && `Grade ${paper.grade}`}
+                      </p>
+                    ) : null}
                   </div>
                   {paper.difficulty && (
                     <Badge variant="outline" className={`text-[10px] shrink-0 ${DIFFICULTY_COLORS[paper.difficulty] || DIFFICULTY_COLORS.medium}`}>
@@ -145,38 +160,45 @@ export function EvalPapersList() {
                     Created {format(new Date(paper.created_at), 'dd MMM yyyy')}
                   </span>
                   <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAddToPaper(paper)} title="Add question">
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/org/evaluation/paper/${paper.id}`, { state: { from: '/org/evaluation', tab: 'papers' } })} title="View">
                       <Eye className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(paper)} title="Edit">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
+                    {!isCustomCollection(paper) && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(paper)} title="Edit">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <DownloadDropdown
                       onDownload={(fmt) => handleDownloadPaper(paper, fmt)}
                       size="icon"
                       variant="ghost"
                     />
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Collection?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            "{paper.title}" will be removed from your collections. This action can be undone by an admin.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => deletePaper.mutate(paper.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                            Delete Collection
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    {!isCustomCollection(paper) && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Collection?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              "{paper.title}" will be removed from your collections. This action can be undone by an admin.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => deletePaper.mutate(paper.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              Delete Collection
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -192,6 +214,17 @@ export function EvalPapersList() {
             {hasMore ? `Loading more… (${shown} of ${total})` : `All ${total} papers loaded`}
           </p>
         </>
+      )}
+
+      {/* Add Question Dialog */}
+      {addToPaper && (
+        <AddQuestionDialog
+          paperTitle={addToPaper.title}
+          defaultSubject={addToPaper.subject}
+          defaultDifficulty={addToPaper.difficulty}
+          open={!!addToPaper}
+          onOpenChange={open => !open && setAddToPaper(null)}
+        />
       )}
 
       {/* Edit Collection Dialog */}

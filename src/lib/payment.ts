@@ -57,8 +57,8 @@ export async function createCheckoutSession(
     amount_inr: item.amount_inr,
     org_id: orgId || undefined,
     promo_code: promoCode || undefined,
-    success_url: `${window.location.origin}/u/plans?payment=success`,
-    cancel_url: `${window.location.origin}/u/plans?payment=cancelled`,
+    success_url: `${window.location.origin}${import.meta.env.BASE_URL}#/user/subscription?payment=success`,
+    cancel_url: `${window.location.origin}${import.meta.env.BASE_URL}#/user/subscription?payment=cancelled`,
   });
 }
 

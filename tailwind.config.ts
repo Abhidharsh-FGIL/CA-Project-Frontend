@@ -11,6 +11,9 @@ export default {
       screens: { "2xl": "1400px" },
     },
     extend: {
+      // Narrow-phone breakpoint — below this, secondary labels are dropped
+      // rather than wrapped (see the brand block in UserShell).
+      screens: { xs: '400px' },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

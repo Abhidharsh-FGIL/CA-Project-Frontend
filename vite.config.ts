@@ -7,7 +7,7 @@ export default defineConfig({
   //   host: "::",
   //   port: 4201,
   // },
-  base:'/GKR/',
+  base:'/assessment/',
   plugins: [react()],
   resolve: {
     alias: {

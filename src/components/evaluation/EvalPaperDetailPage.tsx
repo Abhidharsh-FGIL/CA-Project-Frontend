@@ -35,9 +35,21 @@ export function EvalPaperDetailPage() {
     navigate('/org/evaluation', { state: { tab } });
   };
   const { data: papers } = useEvalPapers();
-  const { data: questions = [], isLoading: questionsLoading } = useEvalPaperQuestions(paperId);
+  const { data: fetchedQuestions = [], isLoading: questionsLoading } = useEvalPaperQuestions(paperId);
 
   const paper = (papers || []).find((p: any) => p.id === paperId);
+
+  // The virtual "Custom Questions" collection embeds its questions in the /papers
+  // response — the per-paper questions endpoint returns nothing for it. Fall back to
+  // the embedded list (normalizing field names) when the fetch comes back empty.
+  const embeddedQuestions = (paper?.questions || []).map((q: any) => ({
+    ...q,
+    text: q.question_text ?? q.text,
+    type: q.question_type ?? q.type,
+    points: q.marks ?? q.points ?? 1,
+    attachment_url: q.attachment_url ?? q.question_image_url ?? null,
+  }));
+  const questions = fetchedQuestions.length > 0 ? fetchedQuestions : embeddedQuestions;
 
   const handleDownload = async (fmt: ExportFormat) => {
     if (!paper) return;

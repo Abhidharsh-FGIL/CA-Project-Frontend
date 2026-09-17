@@ -5,7 +5,7 @@ export type AssessmentMode = 'practice' | 'mock';
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'mixed';
 
 // All questions on this platform are MCQ-family — but the question stem/structure varies.
-// These subtypes match the patterns used by ICAI/ICMAI/ICSI examinations.
+// These subtypes match the patterns used by CBSE/ICSE/State Board school examinations.
 export type McqSubtype =
   | 'standard'           // Plain single-correct MCQ
   | 'multi_correct'      // Multiple correct options
@@ -86,7 +86,7 @@ export const SUBTYPE_META: Record<McqSubtype, { label: string; short: string; de
   case_study: {
     label: 'Case Study',
     short: 'Case',
-    description: 'A scenario / case-let followed by 4–6 inter-linked MCQs. Heavily used in ICAI Inter & Final papers.',
+    description: 'A scenario / case-let followed by 4–6 inter-linked MCQs. Heavily used in CBSE board competency-based papers.',
   },
   hots: {
     label: 'Higher Order Thinking',
@@ -188,6 +188,19 @@ export interface SampleUser {
   otp_verified: boolean;
   created_at: string;
   usage: UserUsage;
+  // Student details (school portal) — optional so existing sample literals stay valid.
+  board?: string;
+  date_of_birth?: string;
+  gender?: string;
+  student_class?: string;
+  section?: string;
+  roll_no?: string;
+  school_name?: string;
+  medium?: string;
+  class_teacher?: string;
+  academic_year?: string;
+  /** Exam chosen at registration — a TNPSC_GROUPS id. Drives the default filters. */
+  preferred_exam?: string;
 }
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlanInfo[] = [
@@ -275,80 +288,80 @@ export const SAMPLE_USER: SampleUser = {
 export const SAMPLE_COURSES: SampleCourse[] = [
   {
     course_id: 'crs_ca_foundation',
-    name: 'CA Foundation',
-    description: 'Principles of Accounting, Business Laws, Quantitative Aptitude & Business Economics — ICAI entry level.',
-    subject: 'Chartered Accountancy',
+    name: 'SSC CGL — Quantitative Aptitude',
+    description: 'Number System & Simplification, Percentages & Ratio, Averages, Time & Work, Mensuration and Data Interpretation — full SSC CGL Tier-1 Quant syllabus.',
+    subject: 'Quantitative Aptitude',
     total_tests: 22,
     thumbnail_color: 'from-blue-700 to-indigo-800',
     enrolled_at: '2026-01-20T00:00:00Z',
-    exam_body: 'ICAI',
+    exam_body: 'Other',
   },
   {
     course_id: 'crs_ca_inter',
-    name: 'CA Intermediate',
-    description: 'Advanced Accounting, Corporate Laws, Cost & Management Accounting, Taxation (DT + GST), Auditing & FM.',
-    subject: 'Chartered Accountancy',
+    name: 'SSC — General Science',
+    description: 'Physics, Chemistry and Biology fundamentals — Motion & Force, Acids & Bases, Human Physiology, Cell Biology and everyday science for SSC & Railways.',
+    subject: 'General Science',
     total_tests: 26,
     thumbnail_color: 'from-indigo-700 to-violet-800',
     enrolled_at: '2026-02-25T00:00:00Z',
-    exam_body: 'ICAI',
+    exam_body: 'Other',
   },
   {
     course_id: 'crs_ca_final',
-    name: 'CA Final',
-    description: 'Financial Reporting (Ind AS), SFM, Advanced Auditing, Corporate & Economic Laws, Direct & Indirect Tax Laws.',
-    subject: 'Chartered Accountancy',
+    name: 'IBPS Banking — English Language',
+    description: 'Reading Comprehension, Error Spotting, Cloze Test, Para Jumbles, Sentence Improvement and Vocabulary for IBPS/SBI PO & Clerk.',
+    subject: 'English Language',
     total_tests: 30,
     thumbnail_color: 'from-purple-700 to-fuchsia-800',
     enrolled_at: '2026-03-10T00:00:00Z',
-    exam_body: 'ICAI',
+    exam_body: 'Other',
   },
   {
     course_id: 'crs_gst',
-    name: 'GST Mastery',
-    description: 'Registration, ITC, Returns, e-Invoicing, Reverse Charge, Refunds — practical GST for accountants.',
-    subject: 'Indirect Tax',
+    name: 'UPSC — General Studies (Polity & History)',
+    description: 'Indian Polity & Constitution, Modern & Ancient History, Geography and Economy — core General Studies for UPSC Prelims.',
+    subject: 'General Studies',
     total_tests: 14,
     thumbnail_color: 'from-amber-600 to-orange-700',
     enrolled_at: '2026-04-02T00:00:00Z',
   },
   {
     course_id: 'crs_income_tax',
-    name: 'Income Tax Practice',
-    description: 'Slabs & deductions, Capital Gains, TDS, Salary, House Property — Direct Tax computation drills.',
-    subject: 'Direct Tax',
+    name: 'SSC CGL — Advanced Maths',
+    description: 'Algebra, Trigonometry, Geometry, Coordinate Geometry and advanced Arithmetic drills for SSC CGL Tier-2.',
+    subject: 'Quantitative Aptitude',
     total_tests: 16,
     thumbnail_color: 'from-rose-600 to-red-700',
     enrolled_at: '2026-04-15T00:00:00Z',
   },
   {
     course_id: 'crs_audit',
-    name: 'Audit & Assurance',
-    description: 'Standards on Auditing (SAs), Internal Audit, Bank Audit, Forensic Audit, Professional Ethics.',
-    subject: 'Auditing',
+    name: 'RRB — General Science',
+    description: 'Chemical Reactions, Acids Bases & Salts, Human Physiology, Light, Electricity and the Periodic Table for Railways (RRB) exams.',
+    subject: 'General Science',
     total_tests: 12,
     thumbnail_color: 'from-emerald-700 to-teal-800',
     enrolled_at: '2026-04-18T00:00:00Z',
   },
   {
     course_id: 'crs_cma_foundation',
-    name: 'CMA Foundation',
-    description: 'Cost & Management Accountancy entry — Fundamentals of Economics, Accounting, Laws & Business Math (ICMAI).',
-    subject: 'Cost & Management Accountancy',
+    name: 'IBPS — Computer Aptitude',
+    description: 'Computer fundamentals for banking exams — Hardware & Software, MS Office, Networking & Internet, Database basics and Computer Abbreviations.',
+    subject: 'Computer Aptitude',
     total_tests: 18,
     thumbnail_color: 'from-slate-700 to-gray-900',
     enrolled_at: '2026-04-22T00:00:00Z',
-    exam_body: 'ICMAI',
+    exam_body: 'Other',
   },
 ];
 
 export const SAMPLE_TESTS: SampleTest[] = [
-  // ─── CA Foundation ───
+  // ─── SSC CGL — Quantitative Aptitude ───
   {
     test_id: 'tst_caf_p1',
     course_id: 'crs_ca_foundation',
-    name: 'Accounting — Capital vs Revenue Items',
-    subject: 'Principles of Accounting',
+    name: 'Quantitative Aptitude — Number System & Simplification',
+    subject: 'Quantitative Aptitude',
     mode: 'practice',
     question_count: 30,
     time_limit_min: 45,
@@ -366,8 +379,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_caf_p2',
     course_id: 'crs_ca_foundation',
-    name: 'Business Laws — Indian Contract Act Drill',
-    subject: 'Business Laws',
+    name: 'Quantitative Aptitude — Percentages & Ratio',
+    subject: 'Quantitative Aptitude',
     mode: 'practice',
     question_count: 25,
     time_limit_min: 40,
@@ -386,8 +399,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_caf_p3',
     course_id: 'crs_ca_foundation',
-    name: 'Business Economics — Demand, Supply & Elasticity',
-    subject: 'Business Economics',
+    name: 'Quantitative Aptitude — Averages, Time & Work',
+    subject: 'Quantitative Aptitude',
     mode: 'practice',
     question_count: 20,
     time_limit_min: 30,
@@ -405,8 +418,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_caf_m1',
     course_id: 'crs_ca_foundation',
-    name: 'CA Foundation — Full Mock Paper 1',
-    subject: 'All 4 Papers',
+    name: 'SSC CGL Quant — Full Length Mock',
+    subject: 'Quantitative Aptitude',
     mode: 'mock',
     question_count: 100,
     time_limit_min: 180,
@@ -416,7 +429,7 @@ export const SAMPLE_TESTS: SampleTest[] = [
     required_tier: 'standard',
     published_at: '2026-05-13T00:00:00Z',
     is_new: true,
-    promo_code: 'CAFOUND26',
+    promo_code: 'MATHS26',
     promo_discount_pct: 100, // 100% off — completely free
     subtype_mix: [
       { subtype: 'standard', count: 50 },
@@ -426,12 +439,12 @@ export const SAMPLE_TESTS: SampleTest[] = [
     ],
   },
 
-  // ─── CA Intermediate ───
+  // ─── SSC — General Science ───
   {
     test_id: 'tst_cai_p1',
     course_id: 'crs_ca_inter',
-    name: 'Advanced Accounting — Partnership Accounts',
-    subject: 'Advanced Accounting',
+    name: 'General Science — Human Physiology & Nutrition',
+    subject: 'General Science',
     mode: 'practice',
     question_count: 30,
     time_limit_min: 50,
@@ -450,8 +463,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_cai_p2',
     course_id: 'crs_ca_inter',
-    name: 'Cost & Management Accounting — Standard Costing',
-    subject: 'Cost Accounting',
+    name: 'General Science — Heat & Thermodynamics',
+    subject: 'General Science',
     mode: 'practice',
     question_count: 25,
     time_limit_min: 40,
@@ -469,8 +482,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_cai_p3',
     course_id: 'crs_ca_inter',
-    name: 'Auditing — Standards on Auditing (SA 200–299)',
-    subject: 'Auditing',
+    name: 'General Science — Acids, Bases & Salts',
+    subject: 'General Science',
     mode: 'practice',
     question_count: 25,
     time_limit_min: 40,
@@ -489,8 +502,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_cai_p4',
     course_id: 'crs_ca_inter',
-    name: 'Taxation — GST Input Tax Credit Drill',
-    subject: 'Taxation',
+    name: 'General Science — Motion & Force',
+    subject: 'General Science',
     mode: 'practice',
     question_count: 25,
     time_limit_min: 40,
@@ -509,8 +522,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_cai_m1',
     course_id: 'crs_ca_inter',
-    name: 'CA Inter — Group I Full Mock',
-    subject: 'Accounts, Laws, Cost, Tax',
+    name: 'SSC General Science — Part 1 Full Mock',
+    subject: 'General Science',
     mode: 'mock',
     question_count: 100,
     time_limit_min: 180,
@@ -520,7 +533,7 @@ export const SAMPLE_TESTS: SampleTest[] = [
     required_tier: 'standard',
     published_at: '2026-05-13T00:00:00Z',
     is_new: true,
-    promo_code: 'CAINTER26',
+    promo_code: 'SCIENCE26',
     promo_discount_pct: 50, // 50% off
     subtype_mix: [
       { subtype: 'standard', count: 45 },
@@ -532,8 +545,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_cai_m2',
     course_id: 'crs_ca_inter',
-    name: 'CA Inter — Group II Full Mock',
-    subject: 'Auditing, EIS, FM, SM',
+    name: 'SSC General Science — Part 2 Full Mock',
+    subject: 'General Science',
     mode: 'mock',
     question_count: 100,
     time_limit_min: 180,
@@ -551,12 +564,12 @@ export const SAMPLE_TESTS: SampleTest[] = [
     ],
   },
 
-  // ─── CA Final ───
+  // ─── IBPS Banking — English Language ───
   {
     test_id: 'tst_cafin_p1',
     course_id: 'crs_ca_final',
-    name: 'Financial Reporting — Ind AS 115 Revenue Recognition',
-    subject: 'Financial Reporting',
+    name: 'English Language — Reading Comprehension',
+    subject: 'English Language',
     mode: 'practice',
     question_count: 25,
     time_limit_min: 45,
@@ -575,8 +588,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_cafin_p2',
     course_id: 'crs_ca_final',
-    name: 'SFM — Capital Budgeting & Risk Analysis',
-    subject: 'Strategic Financial Management',
+    name: 'English Language — Error Spotting & Grammar',
+    subject: 'English Language',
     mode: 'practice',
     question_count: 25,
     time_limit_min: 45,
@@ -595,8 +608,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_cafin_p3',
     course_id: 'crs_ca_final',
-    name: 'Advanced Auditing — SA 700 Series & Professional Ethics',
-    subject: 'Advanced Auditing',
+    name: 'English Language — Vocabulary & Cloze Test',
+    subject: 'English Language',
     mode: 'practice',
     question_count: 20,
     time_limit_min: 35,
@@ -614,8 +627,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_cafin_p4',
     course_id: 'crs_ca_final',
-    name: 'Direct Tax Laws — International Taxation',
-    subject: 'Direct Tax Laws',
+    name: 'English Language — Para Jumbles & Sentence Improvement',
+    subject: 'English Language',
     mode: 'practice',
     question_count: 30,
     time_limit_min: 50,
@@ -634,8 +647,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_cafin_m1',
     course_id: 'crs_ca_final',
-    name: 'CA Final — Group I Full Mock',
-    subject: 'FR, SFM, Audit, Laws',
+    name: 'IBPS English — Full Length Mock',
+    subject: 'English Language',
     mode: 'mock',
     question_count: 100,
     time_limit_min: 180,
@@ -645,7 +658,7 @@ export const SAMPLE_TESTS: SampleTest[] = [
     required_tier: 'ultimate',
     published_at: '2026-05-13T00:00:00Z',
     is_new: true,
-    promo_code: 'CAFINAL26',
+    promo_code: 'ENGLISH26',
     subtype_mix: [
       { subtype: 'standard', count: 35 },
       { subtype: 'case_study', count: 40 },
@@ -654,12 +667,12 @@ export const SAMPLE_TESTS: SampleTest[] = [
     ],
   },
 
-  // ─── GST Mastery ───
+  // ─── UPSC — General Studies ───
   {
     test_id: 'tst_gst_p1',
     course_id: 'crs_gst',
-    name: 'GST — Registration & Threshold Limits',
-    subject: 'GST Registration',
+    name: 'General Studies — Modern Indian History',
+    subject: 'General Studies',
     mode: 'practice',
     question_count: 20,
     time_limit_min: 25,
@@ -677,8 +690,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_gst_p2',
     course_id: 'crs_gst',
-    name: 'Input Tax Credit — Eligibility & Blocked Credits',
-    subject: 'ITC',
+    name: 'General Studies — Indian Geography & Climate',
+    subject: 'General Studies',
     mode: 'practice',
     question_count: 25,
     time_limit_min: 35,
@@ -697,8 +710,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_gst_m1',
     course_id: 'crs_gst',
-    name: 'GST — Complete Practitioner Mock',
-    subject: 'CGST + IGST + Returns',
+    name: 'UPSC General Studies — Full Length Mock',
+    subject: 'General Studies',
     mode: 'mock',
     question_count: 80,
     time_limit_min: 120,
@@ -708,7 +721,7 @@ export const SAMPLE_TESTS: SampleTest[] = [
     required_tier: 'standard',
     published_at: '2026-05-12T00:00:00Z',
     is_new: true,
-    promo_code: 'GST26',
+    promo_code: 'UPSC9GS',
     promo_discount_pct: 25, // 25% off
     subtype_mix: [
       { subtype: 'standard', count: 40 },
@@ -718,12 +731,12 @@ export const SAMPLE_TESTS: SampleTest[] = [
     ],
   },
 
-  // ─── Income Tax Practice ───
+  // ─── SSC CGL — Advanced Maths ───
   {
     test_id: 'tst_it_p1',
     course_id: 'crs_income_tax',
-    name: 'Salary Head — Allowances & Perquisites',
-    subject: 'Income from Salary',
+    name: 'Advanced Maths — Number System & HCF/LCM',
+    subject: 'Quantitative Aptitude',
     mode: 'practice',
     question_count: 20,
     time_limit_min: 30,
@@ -741,8 +754,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_it_p2',
     course_id: 'crs_income_tax',
-    name: 'Capital Gains — Section 54 / 54F Exemptions',
-    subject: 'Capital Gains',
+    name: 'Advanced Maths — Algebra & Equations',
+    subject: 'Quantitative Aptitude',
     mode: 'practice',
     question_count: 25,
     time_limit_min: 40,
@@ -761,8 +774,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_it_m1',
     course_id: 'crs_income_tax',
-    name: 'Income Tax — Full Computation Mock',
-    subject: 'All 5 Heads of Income',
+    name: 'SSC CGL Advanced Maths — Full Length Mock',
+    subject: 'Quantitative Aptitude',
     mode: 'mock',
     question_count: 75,
     time_limit_min: 120,
@@ -772,7 +785,7 @@ export const SAMPLE_TESTS: SampleTest[] = [
     required_tier: 'standard',
     published_at: '2026-05-13T00:00:00Z',
     is_new: true,
-    promo_code: 'IT26',
+    promo_code: 'SSC10',
     subtype_mix: [
       { subtype: 'standard', count: 35 },
       { subtype: 'case_study', count: 25 },
@@ -781,12 +794,12 @@ export const SAMPLE_TESTS: SampleTest[] = [
     ],
   },
 
-  // ─── Audit & Assurance ───
+  // ─── RRB — General Science ───
   {
     test_id: 'tst_aud_p1',
     course_id: 'crs_audit',
-    name: 'Standards on Auditing — Risk Assessment Series',
-    subject: 'Standards on Auditing',
+    name: 'General Science — Chemical Reactions & Equations',
+    subject: 'General Science',
     mode: 'practice',
     question_count: 25,
     time_limit_min: 35,
@@ -804,8 +817,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_aud_p2',
     course_id: 'crs_audit',
-    name: 'Bank Audit — Concurrent & LFAR',
-    subject: 'Bank Audit',
+    name: 'General Science — Life Processes & Human Body',
+    subject: 'General Science',
     mode: 'practice',
     question_count: 20,
     time_limit_min: 30,
@@ -822,12 +835,12 @@ export const SAMPLE_TESTS: SampleTest[] = [
     ],
   },
 
-  // ─── CMA Foundation ───
+  // ─── IBPS — Computer Aptitude ───
   {
     test_id: 'tst_cma_p1',
     course_id: 'crs_cma_foundation',
-    name: 'Fundamentals of Accounting — Journal & Ledger',
-    subject: 'Accounting',
+    name: 'Computer Aptitude — Hardware & Software Basics',
+    subject: 'Computer Aptitude',
     mode: 'practice',
     question_count: 25,
     time_limit_min: 35,
@@ -845,8 +858,8 @@ export const SAMPLE_TESTS: SampleTest[] = [
   {
     test_id: 'tst_cma_m1',
     course_id: 'crs_cma_foundation',
-    name: 'CMA Foundation — Pattern Mock',
-    subject: 'All Papers',
+    name: 'IBPS Computer Aptitude — Full Length Mock',
+    subject: 'Computer Aptitude',
     mode: 'mock',
     question_count: 100,
     time_limit_min: 120,
@@ -856,7 +869,7 @@ export const SAMPLE_TESTS: SampleTest[] = [
     required_tier: 'standard',
     published_at: '2026-05-12T00:00:00Z',
     is_new: true,
-    promo_code: 'CMA26',
+    promo_code: 'COMPSCI26',
     subtype_mix: [
       { subtype: 'standard', count: 55 },
       { subtype: 'case_study', count: 25 },
@@ -871,7 +884,7 @@ export const SAMPLE_NOTIFICATIONS: SampleNotification[] = [
     notification_id: 'ntf_01',
     user_id: 'usr_001',
     type: 'new_test',
-    message: 'New mock test available: CA Foundation Full Mock Paper 1',
+    message: 'New mock test available: SSC CGL Quant Full Length Mock',
     test_id: 'tst_caf_m1',
     course_id: 'crs_ca_foundation',
     is_read: false,
@@ -881,7 +894,7 @@ export const SAMPLE_NOTIFICATIONS: SampleNotification[] = [
     notification_id: 'ntf_02',
     user_id: 'usr_001',
     type: 'new_test',
-    message: 'New practice test: Capital Gains — Section 54 / 54F Exemptions',
+    message: 'New practice test: Advanced Maths — Algebra & Equations',
     test_id: 'tst_it_p2',
     course_id: 'crs_income_tax',
     is_read: false,
@@ -891,7 +904,7 @@ export const SAMPLE_NOTIFICATIONS: SampleNotification[] = [
     notification_id: 'ntf_03',
     user_id: 'usr_001',
     type: 'report_ready',
-    message: 'Your AI report for "Accounting — Capital vs Revenue Items" is ready.',
+    message: 'Your AI report for "Quantitative Aptitude — Number System & Simplification" is ready.',
     test_id: 'tst_caf_p1',
     is_read: true,
     created_at: '2026-05-10T14:20:00Z',
@@ -910,24 +923,24 @@ const SAMPLE_AI_REPORT_1: SampleAIReport = {
   report_id: 'rpt_01',
   attempt_id: 'att_01',
   summary:
-    'Strong grasp of accounting fundamentals and journal entries. Accuracy on revenue recognition under Ind AS dipped to 55% — case-study questions tripped you up. Focus on the 5-step Ind AS 115 model and revisit AS 9 vs Ind AS 115 distinctions before the next mock.',
+    'Strong grasp of BODMAS simplification and place-value basics. Accuracy on percentage-to-fraction conversions dipped to 55% — data-interpretation word problems slowed you down. Focus on quick fraction–percentage equivalents and speed techniques before the next mock.',
   strengths: [
-    'Journal entries & Trial Balance — 95% accuracy',
-    'Capital vs Revenue classification — 92% accuracy',
-    'Quick on direct-rule questions (≤45s per Q)',
+    'BODMAS simplification — 95% accuracy',
+    'Number system divisibility rules — 92% accuracy',
+    'Quick on direct-recall questions (≤45s per Q)',
   ],
   weaknesses: [
     {
-      topic: 'Ind AS 115 — Revenue Recognition',
+      topic: 'Percentage & Fraction Conversions',
       accuracy: 55,
       recommendation:
-        'Revise the 5-step model: identify contract → identify performance obligations → determine transaction price → allocate → recognise. Solve 15 case-study questions this week.',
+        'Memorise common fraction–percentage pairs (1/2 = 50%, 1/4 = 25%, 3/4 = 75%). Solve 15 conversion questions this week to build speed.',
     },
     {
-      topic: 'Depreciation — Component Accounting',
+      topic: 'Data Interpretation Word Problems',
       accuracy: 62,
       recommendation:
-        'Practice AS 10 / Ind AS 16 component-wise depreciation problems. Focus on residual value re-estimation and useful life changes.',
+        'Read the problem twice and underline what is asked. Practise finding a percentage of a quantity (e.g. 60% of 90) under a timer.',
     },
   ],
   time_analysis: { avg_seconds_per_question: 72, slow_questions: 4 },
@@ -935,40 +948,40 @@ const SAMPLE_AI_REPORT_1: SampleAIReport = {
     {
       q_no: 1,
       question:
-        'A machinery is purchased for ₹5,00,000 on 1-Apr-2025. Installation charges ₹50,000 and freight ₹20,000 are also paid. What is the cost of the machinery?',
-      your_answer: '₹5,70,000',
-      correct_answer: '₹5,70,000',
+        'Simplify: 3/4 + 1/4',
+      your_answer: '1',
+      correct_answer: '1',
       is_correct: true,
       explanation:
-        'Per AS 10 / Ind AS 16, all directly attributable costs to bring the asset to its location and condition for intended use form part of cost: 5,00,000 + 50,000 + 20,000 = ₹5,70,000.',
+        'When fractions have the same denominator, add the numerators: 3/4 + 1/4 = 4/4 = 1.',
       time_spent_sec: 45,
     },
     {
       q_no: 2,
       question:
-        'XYZ Ltd. sold goods worth ₹10,00,000 on 25-Mar-2026 with a buy-back option at ₹10,50,000 within 30 days. Under Ind AS 115, how should this be recognised?',
-      your_answer: 'Revenue of ₹10,00,000',
-      correct_answer: 'Treat as a financing arrangement — no revenue',
+        'Express 3/5 as a percentage.',
+      your_answer: '35%',
+      correct_answer: '60%',
       is_correct: false,
       explanation:
-        'A repurchase right at a higher price means control has not transferred. Under Ind AS 115, this is a financing arrangement; the ₹50,000 difference is interest expense over the buy-back period.',
+        'Multiply the fraction by 100: (3/5) × 100 = 60%. (3/5 is the same as 6/10, which is 60%.)',
       time_spent_sec: 110,
     },
     {
       q_no: 3,
       question:
-        'An asset costing ₹1,00,000 with useful life of 5 years and salvage ₹10,000 is depreciated on SLM. Annual depreciation?',
-      your_answer: '₹18,000',
-      correct_answer: '₹18,000',
+        'Which value is greater: 0.7 or 0.07?',
+      your_answer: '0.7',
+      correct_answer: '0.7',
       is_correct: true,
-      explanation: '(Cost − Salvage) / Useful Life = (1,00,000 − 10,000) / 5 = ₹18,000.',
+      explanation: '0.7 means 7 tenths while 0.07 means 7 hundredths, so 0.7 is greater.',
       time_spent_sec: 35,
     },
   ],
   recommendations: [
-    'Revisit Ind AS 115 — focus on case-study drills (45 min/day for 1 week).',
-    'Attempt "Financial Reporting — Ind AS 115 Revenue Recognition" before next mock.',
-    'Build a quick-reference sheet for AS vs Ind AS differences — bind it inside your study folder.',
+    'Revisit fraction–percentage conversion — practise 45 min/day for 1 week.',
+    'Attempt "Quantitative Aptitude — Number System & Simplification" again before the next mock.',
+    'Make a quick-reference card of common fraction–percentage pairs and keep it handy while practising.',
   ],
   generated_at: '2026-05-10T14:20:00Z',
 };
@@ -977,9 +990,9 @@ export const SAMPLE_HISTORY: SampleAttempt[] = [
   {
     attempt_id: 'att_01',
     test_id: 'tst_caf_p1',
-    test_name: 'Accounting — Capital vs Revenue Items',
+    test_name: 'Quantitative Aptitude — Number System & Simplification',
     course_id: 'crs_ca_foundation',
-    course_name: 'CA Foundation',
+    course_name: 'SSC CGL — Quantitative Aptitude',
     mode: 'practice',
     score: 25,
     total_marks: 30,
@@ -997,9 +1010,9 @@ export const SAMPLE_HISTORY: SampleAttempt[] = [
   {
     attempt_id: 'att_02',
     test_id: 'tst_gst_p1',
-    test_name: 'GST — Registration & Threshold Limits',
+    test_name: 'General Studies — Modern Indian History',
     course_id: 'crs_gst',
-    course_name: 'GST Mastery',
+    course_name: 'UPSC — General Studies (Polity & History)',
     mode: 'practice',
     score: 16,
     total_marks: 20,
@@ -1017,9 +1030,9 @@ export const SAMPLE_HISTORY: SampleAttempt[] = [
   {
     attempt_id: 'att_03',
     test_id: 'tst_cai_p2',
-    test_name: 'Cost & Management Accounting — Standard Costing',
+    test_name: 'General Science — Heat & Thermodynamics',
     course_id: 'crs_ca_inter',
-    course_name: 'CA Intermediate',
+    course_name: 'SSC — General Science',
     mode: 'practice',
     score: 18,
     total_marks: 25,
@@ -1037,9 +1050,9 @@ export const SAMPLE_HISTORY: SampleAttempt[] = [
   {
     attempt_id: 'att_04',
     test_id: 'tst_it_p1',
-    test_name: 'Salary Head — Allowances & Perquisites',
+    test_name: 'Advanced Maths — Number System & HCF/LCM',
     course_id: 'crs_income_tax',
-    course_name: 'Income Tax Practice',
+    course_name: 'SSC CGL — Advanced Maths',
     mode: 'practice',
     score: 12,
     total_marks: 20,
@@ -1127,7 +1140,7 @@ export const SUBSCRIPTION_PROMO_CODES: SubscriptionPromoCode[] = [
     label: 'New learner welcome offer — 50% off your first plan',
   },
   {
-    code: 'CAYEAR26',
+    code: 'TERM2026',
     discount_pct: 25,
     label: '25% off any yearly plan',
     applies_to_billing: ['yearly'],
@@ -1232,7 +1245,7 @@ export const SAMPLE_USER_TRANSACTIONS: PaymentTransaction[] = [
     base_amount: 4999,
     discount_amount: 1250,
     final_amount: 3749,
-    promo_code: 'CAYEAR26',
+    promo_code: 'TERM2026',
     status: 'success',
     payment_method: 'upi',
     invoice_no: 'INV-2026-00821',
@@ -1242,7 +1255,7 @@ export const SAMPLE_USER_TRANSACTIONS: PaymentTransaction[] = [
     txn_id: 'txn_u_002',
     type: 'test',
     item_id: 'test_inter_mock_1',
-    item_name: 'CA Inter — Group I Full Mock',
+    item_name: 'SSC General Science — Part 1 Full Mock',
     mode: 'mock',
     base_amount: 299,
     discount_amount: 0,
@@ -1256,12 +1269,12 @@ export const SAMPLE_USER_TRANSACTIONS: PaymentTransaction[] = [
     txn_id: 'txn_u_003',
     type: 'test',
     item_id: 'test_gst_practice_3',
-    item_name: 'GST — Input Tax Credit Drills',
+    item_name: 'General Studies — Indian Geography Drills',
     mode: 'practice',
     base_amount: 49,
     discount_amount: 12,
     final_amount: 37,
-    promo_code: 'GST26',
+    promo_code: 'UPSC9GS',
     status: 'success',
     payment_method: 'upi',
     invoice_no: 'INV-2026-00917',
@@ -1271,12 +1284,12 @@ export const SAMPLE_USER_TRANSACTIONS: PaymentTransaction[] = [
     txn_id: 'txn_u_004',
     type: 'test',
     item_id: 'test_found_mock_2',
-    item_name: 'CA Foundation — Paper 2 Mock',
+    item_name: 'SSC CGL Quant — Practice Mock 2',
     mode: 'mock',
     base_amount: 99,
     discount_amount: 99,
     final_amount: 0,
-    promo_code: 'CAFOUND26',
+    promo_code: 'MATHS26',
     status: 'success',
     payment_method: 'wallet',
     invoice_no: 'INV-2026-00951',
@@ -1286,7 +1299,7 @@ export const SAMPLE_USER_TRANSACTIONS: PaymentTransaction[] = [
     txn_id: 'txn_u_005',
     type: 'test',
     item_id: 'test_itax_mock_1',
-    item_name: 'Income Tax — Returns & Computations',
+    item_name: 'SSC CGL Advanced Maths — Trigonometry Mock',
     mode: 'mock',
     base_amount: 199,
     discount_amount: 0,

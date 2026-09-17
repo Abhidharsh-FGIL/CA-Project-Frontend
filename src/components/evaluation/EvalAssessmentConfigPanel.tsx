@@ -3,7 +3,6 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { useAllowedBoards } from '@/hooks/use-boards';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -36,16 +35,24 @@ import {
 import { cn } from '@/lib/utils';
 import { useEvalSubjectSuggestions, useEvalChapterSuggestions, useEvalPapers, useEvalQuestions } from '@/hooks/use-evaluation';
 import { useCreateEvalAssessment, type EvalAssessmentConfig } from '@/hooks/use-eval-assessments';
-import { useAdminCourses } from '@/hooks/use-admin-courses';
 import { WeightageEditor } from '@/components/personal-assessments/WeightageEditor';
 import { distributeEvenly, distributeQuestions, validateWeightage } from '@/lib/distribution-utils';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { api } from '@/lib/api';
+import { TnpscTagFields } from '@/components/evaluation/TnpscTagFields';
+import { EMPTY_TAG, describeTag, examTypeLabel, tagAssessment, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
+import {
+  hasPerSectionNegative,
+  leastNegative,
+  stageForExamType,
+  type TnpscPatternSection,
+} from '@/config/tnpsc';
+import { findStage } from '@/config/tnpsc';
 
 interface Props {
-  onCreated: (assessmentId: string, meta: { grade?: number; board?: string }) => void;
+  onCreated: (assessmentId: string) => void;
   onBack?: () => void;
 }
 
@@ -60,22 +67,22 @@ const STEPS = [
 type StepKey = (typeof STEPS)[number]['key'];
 
 export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
-  const BOARDS = useAllowedBoards();
   const { profileContext } = useWorkspaceContext();
   const createAssessment = useCreateEvalAssessment();
-  const { data: coursesData } = useAdminCourses(1, 100);
-  const courses = coursesData?.items?.filter(c => c.status === 'active') ?? [];
 
   // ── Form state ──
   const [title, setTitle] = useState('');
-  const [courseId, setCourseId] = useState<string>('');
+  // TNPSC placement — decides where this paper appears in the aspirant portal.
+  // `track` is driven by the assessment mode below, so it is not editable here.
+  const [tnpscTag, setTnpscTag] = useState<TnpscTagValue>({ ...EMPTY_TAG, track: 'mock' });
   const [sourceType, setSourceType] = useState<'online' | 'text' | 'file' | 'all' | ''>('');
   const [source, setSource] = useState<'bank' | 'paper'>('bank');
   const [paperIds, setPaperIds] = useState<string[]>([]);
   const [paperWeights, setPaperWeights] = useState<Record<string, number>>({});
-  const [grade, setGrade] = useState<number | undefined>();
-  const [board, setBoard] = useState('');
   const [difficulty, setDifficulty] = useState('medium');
+  // Test type is no longer picked by hand — it follows the TNPSC placement below
+  // (e.g. "TNPSC Group 1 Prelims"), which keeps it aligned with the syllabus keys
+  // used by the question generator.
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
   const [questionCount, setQuestionCount] = useState(20);
@@ -84,11 +91,50 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
   const [mode, setMode] = useState('exam');
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<number | undefined>();
   const [negativeMarking, setNegativeMarking] = useState(false);
+  /**
+   * 'paper' applies one deduction everywhere; 'section' gives each section of the
+   * exam pattern its own. Only offered when the pattern actually disagrees —
+   * GAT-B takes 0.5 in Section A and 1 in Section B.
+   */
+  const [negativeScope, setNegativeScope] = useState<'paper' | 'section'>('paper');
+  /** Deduction per section, keyed by section name. Seeded from the exam pattern. */
+  const [sectionNegatives, setSectionNegatives] = useState<Record<string, number>>({});
   // Unified model: "for every {wrongs} wrong answer(s), deduct {deduction} mark(s)"
   const [negativeMarkWrongs, setNegativeMarkWrongs] = useState(1);
   const [negativeMarkDeduction, setNegativeMarkDeduction] = useState(0.25);
   // Derived for backward-compatible backend payload
   const negativeMarkMode: 'per_question' | 'per_group' = negativeMarkWrongs === 1 ? 'per_question' : 'per_group';
+
+  // The exam pattern behind the chosen TNPSC/GAT-B placement, and whether its
+  // sections are marked differently from one another.
+  const examStage = stageForExamType(examTypeLabel(tnpscTag) ?? undefined);
+  const examPattern = examStage?.pattern;
+  const perSectionAvailable = hasPerSectionNegative(examPattern);
+  const patternSections: TnpscPatternSection[] = examPattern?.sections ?? [];
+  const usingPerSection = negativeMarking && negativeScope === 'section' && perSectionAvailable;
+
+  // Seed the per-section values from the pattern the first time a paper whose
+  // sections differ is placed, and default the scope to 'section' — that is the
+  // correct setting for such a paper, and the one an admin would otherwise have to
+  // know to go and find.
+  useEffect(() => {
+    if (!perSectionAvailable) {
+      setNegativeScope('paper');
+      return;
+    }
+    setSectionNegatives(prev => {
+      const next = { ...prev };
+      for (const sec of patternSections) {
+        if (next[sec.name] == null) {
+          next[sec.name] = sec.negative_mark_value ?? examPattern?.negative_mark_value ?? 0.25;
+        }
+      }
+      return next;
+    });
+    setNegativeScope('section');
+    setNegativeMarking(true);
+    // Keyed on the placement, not the objects, so re-renders don't fight the admin's edits.
+  }, [perSectionAvailable, examStage?.id]);
   const [maxAttempts, setMaxAttempts] = useState<number | undefined>();
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [subjectWeights, setSubjectWeights] = useState<Record<string, number>>({});
@@ -105,41 +151,45 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
   const handleModeChange = (next: string) => {
     setMode(next);
     if (maxAttempts === undefined) {
-      setMaxAttempts(next === 'practice' ? 3 : 1);
+      // TNPSC mocks stay retryable on purpose: with the level gate, a single failed
+      // attempt on a one-shot mock would lock the aspirant out of every later level.
+      setMaxAttempts(next === 'practice' ? 3 : 3);
     }
+    // Mode is the track: "exam" → mock, "practice" → practice.
+    setTnpscTag(t => ({
+      ...t,
+      track: next === 'practice' ? 'practice' : 'mock',
+      level: next === 'practice' ? null : t.level ?? 'simple',
+      subject_id: next === 'practice' ? t.subject_id : null,
+      topic_id: next === 'practice' ? t.topic_id : null,
+    }));
   };
 
-  // Pre-fill grade and board from workspace profile
-  useEffect(() => {
-    if (!grade && profileContext?.gradePreference) {
-      setGrade(profileContext.gradePreference);
-    }
-    if (!board && (profileContext?.boardPreference || BOARDS.length > 0)) {
-      setBoard(profileContext?.boardPreference || BOARDS[0]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profileContext?.gradePreference, profileContext?.boardPreference, BOARDS.length]);
+  /** The exam pattern of the selected stage — drives the "apply pattern" shortcut. */
+  const tnpscStage = findStage(tnpscTag.group_id ?? undefined, tnpscTag.stage_id ?? undefined)?.stage;
+  const testType = examTypeLabel(tnpscTag) ?? '';
+
+  const applyTnpscPattern = () => {
+    const p = tnpscStage?.pattern;
+    if (!p) return;
+    setQuestionCount(p.total_questions);
+    setTimeLimitMinutes(p.duration_minutes);
+    setNegativeMarking(p.negative_marking);
+    toast.success(`Applied ${tnpscStage!.short_name} pattern — ${p.total_questions} questions, ${p.duration_minutes} min.`);
+  };
 
   // 'all' means no source filter
   const effectiveSourceFilter = sourceType && sourceType !== 'all' ? sourceType : undefined;
 
-  // When a course is selected, use its exam_body as the board for question filtering.
-  // This ensures only questions tagged with the course's board (or untagged questions)
-  // are shown. Fall back to the workspace profile board when no course is chosen.
-  const selectedCourse = useMemo(
-    () => courses.find(c => c.course_id === courseId) ?? null,
-    [courses, courseId],
-  );
-  const effectiveBoard = selectedCourse?.exam_body || board || undefined;
-
   const { data: papers = [] } = useEvalPapers(effectiveSourceFilter ? { sourceType: effectiveSourceFilter } : undefined);
 
   const subjectFilters = useMemo(() => ({
-    grade: grade || undefined,
-    board: effectiveBoard,
     sourceType: effectiveSourceFilter,
-  }), [grade, effectiveBoard, effectiveSourceFilter]);
+  }), [effectiveSourceFilter]);
   const { data: subjectSuggestions = [] } = useEvalSubjectSuggestions(subjectFilters);
+  // Unfiltered — the source-type filter hides subjects that exist in the bank but
+  // were ingested a different way, which left the picker showing four of them.
+  const { data: allSubjectSuggestions = [] } = useEvalSubjectSuggestions();
 
   const activeSubject = selectedSubjects[0];
   const { data: chapterSuggestions = [] } = useEvalChapterSuggestions(activeSubject, effectiveSourceFilter);
@@ -148,9 +198,29 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
     subject: selectedSubjects.length === 1 ? selectedSubjects[0] : undefined,
     difficulty: difficulty !== 'all' ? difficulty : undefined,
     source: effectiveSourceFilter,
-    board: effectiveBoard,
-  }), [selectedSubjects, difficulty, effectiveSourceFilter, effectiveBoard]);
+  }), [selectedSubjects, difficulty, effectiveSourceFilter]);
   const { data: bankQuestions = [] } = useEvalQuestions(source === 'bank' && sourceType ? bankFilters : undefined);
+
+  /**
+   * Every subject the question bank actually holds: the unfiltered suggestion list,
+   * whatever the source-filtered call returned, and any subject seen on a loaded
+   * question. Already-selected subjects are kept even if a filter would now hide
+   * them, so changing the source can't silently drop a choice.
+   */
+  const subjectOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    const add = (value?: string) => {
+      const label = (value ?? '').trim();
+      if (!label) return;
+      const key = label.toLowerCase();
+      if (!seen.has(key)) seen.set(key, label);
+    };
+    (allSubjectSuggestions as string[]).forEach(add);
+    (subjectSuggestions as string[]).forEach(add);
+    (bankQuestions as any[]).forEach(q => add(q?.subject));
+    selectedSubjects.forEach(add);
+    return Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
+  }, [allSubjectSuggestions, subjectSuggestions, bankQuestions, selectedSubjects]);
 
   const matchingQuestions = useMemo(() => {
     if (source === 'paper') return [];
@@ -212,9 +282,13 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
 
   const effectiveCount = Math.min(questionCount, availableCount);
 
+  // A paper with no stage/track never surfaces in the aspirant portal, so the
+  // placement is part of step-1 validity rather than an optional extra.
+  const tnpscValidation = validateTnpscTag(tnpscTag, effectiveCount || questionCount);
+
   // ── Per-step validity ──
   const stepValidity: Record<StepKey, boolean> = {
-    basics: !!title.trim() && !!mode,
+    basics: !!title.trim() && !!mode && tnpscValidation.ok,
     content:
       source === 'paper'
         ? paperIds.length > 0 && paperWeightsValid && effectiveCount > 0
@@ -226,6 +300,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
 
   const canSubmit =
     !!title.trim() &&
+    tnpscValidation.ok &&
     effectiveCount > 0 &&
     (source === 'paper' ? paperIds.length > 0 && paperWeightsValid : selectedSubjects.length > 0 && subjectWeightsValid);
 
@@ -305,14 +380,32 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
       return;
     }
 
+    // A paper that offers a choice cannot be scored by summing every question's
+    // marks. GAT-B prints 160 questions worth 360 between them, but asks for 120
+    // and is marked out of 240. When the paper matches its pattern exactly, the
+    // pattern's own total is the truth; a partial paper keeps the computed sum,
+    // since there is no way to know how the shortfall splits across sections.
+    if (
+      examPattern?.total_marks != null &&
+      examPattern.total_questions === effectiveCount &&
+      examPattern.sections.some(sec => sec.attempt != null && sec.attempt < sec.questions)
+    ) {
+      maxScore = examPattern.total_marks;
+    }
+
     const result = await createAssessment.mutateAsync({
       title,
-      courseId: courseId || undefined,
+      testType: testType || undefined,
+      // TNPSC placement — sent at create; also PATCHed below for backends that
+      // don't yet accept the tags inline.
+      tnpscStageId: tnpscTag.stage_id ?? undefined,
+      track: tnpscTag.track ?? undefined,
+      tnpscLevel: tnpscTag.track === 'mock' ? tnpscTag.level ?? undefined : undefined,
+      tnpscSubjectId: tnpscTag.track === 'practice' ? tnpscTag.subject_id ?? undefined : undefined,
+      tnpscTopicId: tnpscTag.track === 'practice' ? tnpscTag.topic_id ?? undefined : undefined,
       paperId: source === 'paper' && paperIds.length === 1 ? paperIds[0] : undefined,
       paperIds: source === 'paper' && paperIds.length > 1 ? paperIds : undefined,
       paperWeights: source === 'paper' && paperIds.length > 1 ? paperWeights : undefined,
-      grade,
-      board: board || undefined,
       difficulty,
       questionIds: qIds,
       questionCount: effectiveCount,
@@ -321,9 +414,26 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
       mode,
       timeLimitSeconds: mode === 'exam' && timeLimitMinutes ? timeLimitMinutes * 60 : undefined,
       negativeMarking,
-      negativeMarkValue: negativeMarking ? negativeMarkDeduction : undefined,
+      // With per-section marking the flat value still goes out, set to the *least*
+      // punitive section, so a backend that ignores `negativeMarkSections` scores the
+      // paper leniently rather than inventing lost marks. See GAT_B_BACKEND_CHANGES.md §6.
+      negativeMarkValue: negativeMarking
+        ? usingPerSection
+          ? leastNegative({ ...examPattern!, sections: patternSections.map(sec => ({ ...sec, negative_mark_value: sectionNegatives[sec.name] })) })
+          : negativeMarkDeduction
+        : undefined,
       negativeMarkMode: negativeMarking ? negativeMarkMode : undefined,
       negativeMarkGroupSize: negativeMarking && negativeMarkMode === 'per_group' ? negativeMarkWrongs : undefined,
+      negativeMarkSections: usingPerSection
+        ? patternSections.map(sec => ({
+            name: sec.name,
+            subjectIds: sec.subject_ids,
+            negativeMarkValue: sectionNegatives[sec.name],
+            marksPerQuestion: sec.marks_per_question,
+            questions: sec.questions,
+            attempt: sec.attempt,
+          }))
+        : undefined,
       maxAttempts,
       shuffleQuestions,
       subjectWeights: source !== 'paper' && selectedSubjects.length > 1 ? subjectWeights : undefined,
@@ -333,7 +443,18 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
       promoDiscountPct: pricingType === 'paid' && promoCode.trim() ? promoDiscountPct : undefined,
     });
 
-    onCreated(result.id, { grade, board: board || undefined });
+    // Confirm the TNPSC placement. Non-fatal: the assessment exists either way,
+    // but until it is tagged it will not appear under any group/stage.
+    try {
+      await tagAssessment(result.id, tnpscTag);
+    } catch (err: any) {
+      toast.warning(
+        `Assessment created, but the TNPSC placement (${describeTag(tnpscTag)}) could not be saved — ` +
+          `tag it from the Assessments tab once PATCH /evaluation/assessments/{id}/tnpsc is available.`,
+      );
+    }
+
+    onCreated(result.id);
   };
 
   return (
@@ -376,25 +497,9 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
               <Input
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                placeholder="e.g. CA Inter — Taxation Mock"
+                placeholder="e.g. SSC CGL — Tier 1 Full Mock"
                 className="h-10"
               />
-            </Field>
-
-            <Field label="Course" hint="Attach this assessment to a course (optional).">
-              <Select value={courseId || '__none__'} onValueChange={v => setCourseId(v === '__none__' ? '' : v)}>
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Select a course…" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No course</SelectItem>
-                  {courses.map(c => (
-                    <SelectItem key={c.course_id} value={c.course_id}>
-                      {c.name}{c.subject ? ` — ${c.subject}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </Field>
 
             <Field label="Assessment Mode">
@@ -404,14 +509,12 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
                   onClick={() => handleModeChange('exam')}
                   icon={<Clock className="h-4 w-4" />}
                   title="Mock test"
-                  description="Timed, single attempt. Can be free or paid."
                 />
                 <ModeCard
                   active={mode === 'practice'}
                   onClick={() => handleModeChange('practice')}
                   icon={<Sparkles className="h-4 w-4" />}
                   title="Practice"
-                  description="Untimed by default, multiple attempts allowed."
                 />
               </div>
             </Field>
@@ -425,6 +528,35 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
                   <SelectItem value="hard">Hard</SelectItem>
                 </SelectContent>
               </Select>
+            </Field>
+
+            {/* TNPSC placement — required, decides where aspirants see this paper */}
+            <Field
+              label="TNPSC placement"
+              required
+              hint="Where this paper appears in the aspirant portal. Untagged papers stay invisible."
+            >
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3.5">
+                <TnpscTagFields
+                  value={tnpscTag}
+                  onChange={setTnpscTag}
+                  questionCount={effectiveCount || questionCount}
+                  hideTrack
+                />
+                {tnpscStage?.pattern && tnpscTag.track === 'mock' && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={applyTnpscPattern}
+                    className="mt-3 h-8 text-xs gap-1.5"
+                  >
+                    <Target className="h-3.5 w-3.5" />
+                    Apply {tnpscStage.short_name} pattern — {tnpscStage.pattern.total_questions} Qs ·{' '}
+                    {tnpscStage.pattern.duration_minutes} min
+                  </Button>
+                )}
+              </div>
             </Field>
           </StepShell>
         )}
@@ -559,10 +691,12 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-[--radix-popover-trigger-width] p-2 max-h-60 overflow-y-auto" align="start">
-                          {subjectSuggestions.length === 0 ? (
-                            <p className="text-xs text-slate-500 p-2">No subjects found for this filter.</p>
+                          {subjectOptions.length === 0 ? (
+                            <p className="text-xs text-slate-500 p-2">
+                              No subjects in the question bank yet — generate or import a paper first.
+                            </p>
                           ) : (
-                            subjectSuggestions.filter((s: string) => s?.trim()).map((s: string) => (
+                            subjectOptions.map((s: string) => (
                               <label key={s} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer text-sm">
                                 <Checkbox checked={selectedSubjects.includes(s)} onCheckedChange={() => toggleSubject(s)} />
                                 {s}
@@ -668,7 +802,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
                     type="number"
                     min={1}
                     max={300}
-                    placeholder="60"
+                    placeholder="0"
                     value={timeLimitMinutes ?? ''}
                     onChange={e => setTimeLimitMinutes(e.target.value ? parseInt(e.target.value) : undefined)}
                     className="h-10 pr-16"
@@ -796,7 +930,80 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
                 <Switch checked={negativeMarking} onCheckedChange={setNegativeMarking} />
               </div>
 
-              {negativeMarking && (
+              {negativeMarking && perSectionAvailable && (
+                <div className="mt-3 rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-3">
+                  <div className="flex gap-2">
+                    {(['paper', 'section'] as const).map(scope => (
+                      <button
+                        key={scope}
+                        type="button"
+                        onClick={() => setNegativeScope(scope)}
+                        className={
+                          'flex-1 rounded-lg border px-3 py-2 text-left transition-colors ' +
+                          (negativeScope === scope
+                            ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/30'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300')
+                        }
+                      >
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                          {scope === 'paper' ? 'One value' : 'Per section'}
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {scope === 'paper'
+                            ? 'Same deduction everywhere.'
+                            : `${patternSections.length} sections, marked separately.`}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+
+                  {usingPerSection && (
+                    <div className="space-y-2">
+                      {patternSections.map(sec => (
+                        <div
+                          key={sec.name}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                              {sec.name}
+                            </p>
+                            <p className="text-[11px] text-slate-500">
+                              {sec.attempt && sec.attempt !== sec.questions
+                                ? `any ${sec.attempt} of ${sec.questions}`
+                                : `${sec.questions} questions`}
+                              {sec.marks_per_question ? ` · ${sec.marks_per_question} mark${sec.marks_per_question === 1 ? '' : 's'} each` : ''}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className="text-[11px] text-slate-500">deduct</span>
+                            <Select
+                              value={String(sectionNegatives[sec.name] ?? 0.25)}
+                              onValueChange={v =>
+                                setSectionNegatives(prev => ({ ...prev, [sec.name]: parseFloat(v) }))
+                              }
+                            >
+                              <SelectTrigger className="h-8 w-[92px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {[0.25, 0.33, 0.5, 0.75, 1, 1.5, 2].map(d => (
+                                  <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      ))}
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-md px-2.5 py-2">
+                        Per-section deductions are saved with the paper, but scoring applies
+                        them only once the backend supports it (GAT_B_BACKEND_CHANGES.md §6).
+                        Until then this paper is scored at −{leastNegative({ ...examPattern!, sections: patternSections.map(sec => ({ ...sec, negative_mark_value: sectionNegatives[sec.name] })) })} for every wrong answer.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {negativeMarking && !usingPerSection && (
                 <div className="mt-3 space-y-3 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -886,6 +1093,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
             <ReviewSummary
               title={title}
               mode={mode}
+              testType={testType}
               difficulty={difficulty}
               source={source}
               sourceType={sourceType}
@@ -952,6 +1160,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
           <LiveSummary
             title={title}
             mode={mode}
+            testType={testType}
             difficulty={difficulty}
             source={source}
             sourceType={sourceType}
@@ -1114,7 +1323,8 @@ function ModeCard({
   onClick: () => void;
   icon: React.ReactNode;
   title: string;
-  description: string;
+  /** Optional — the Mock test / Practice pair is self-explanatory and shows none. */
+  description?: string;
 }) {
   return (
     <button
@@ -1127,7 +1337,7 @@ function ModeCard({
           : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
       )}
     >
-      <div className="flex items-center gap-2 mb-1">
+      <div className={cn('flex items-center gap-2', description && 'mb-1')}>
         <span className={cn('flex items-center justify-center w-6 h-6 rounded-md', active ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500')}>
           {icon}
         </span>
@@ -1135,7 +1345,9 @@ function ModeCard({
           {title}
         </p>
       </div>
-      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">{description}</p>
+      {description && (
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">{description}</p>
+      )}
     </button>
   );
 }
@@ -1170,6 +1382,7 @@ function PoolButton({
 function ReviewSummary(props: {
   title: string;
   mode: string;
+  testType?: string;
   difficulty: string;
   source: 'bank' | 'paper';
   sourceType: string;
@@ -1202,6 +1415,7 @@ function ReviewSummary(props: {
     <div className="rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">
       <SummaryRow label="Title" value={props.title || <em className="text-slate-400">Untitled</em>} />
       <SummaryRow label="Mode" value={modeLabel} />
+      <SummaryRow label="Test Type" value={props.testType || <em className="text-slate-400">Not set</em>} />
       <SummaryRow label="Difficulty" value={<span className="capitalize">{props.difficulty}</span>} />
       <SummaryRow label="Question Order" value={props.shuffleQuestions ? 'Shuffled per student' : 'Same fixed order'} />
       <SummaryRow label="Source" value={sourceLabel} />
@@ -1308,6 +1522,7 @@ function LiveSummary(props: LiveSummaryProps) {
   const rows: { label: string; value: React.ReactNode; placeholder?: string }[] = [
     { label: 'Title', value: props.title || null, placeholder: 'Untitled' },
     { label: 'Mode', value: props.mode ? (props.mode === 'exam' ? 'Mock test' : 'Practice') : null },
+    { label: 'Test Type', value: props.testType || null, placeholder: 'Not set' },
     { label: 'Difficulty', value: props.difficulty ? <span className="capitalize">{props.difficulty}</span> : null },
     {
       label: 'Source',

@@ -1,0 +1,799 @@
+{
+  "groups": [
+    {
+      "id": "group-1",
+      "name": "TNPSC Group 1",
+      "short_name": "Group 1",
+      "tagline": "Combined Civil Services Examination — I",
+      "description": "Deputy Collector, Deputy Superintendent of Police, Assistant Commissioner and other Group 1 services.",
+      "accent": "from-indigo-500 via-violet-500 to-purple-600",
+      "posts": [
+        "Deputy Collector",
+        "DSP (Category-1)",
+        "Assistant Commissioner (Commercial Taxes)",
+        "District Revenue Officer"
+      ],
+      "display_order": 1,
+      "stages": [
+        {
+          "id": "group-1-prelims",
+          "group_id": "group-1",
+          "name": "Preliminary Examination",
+          "short_name": "Prelims",
+          "description": "Single objective paper of 200 questions — General Studies with Aptitude & Mental Ability.",
+          "status": "active",
+          "paper_type": "objective",
+          "bilingual": false,
+          "secondary_language": null,
+          "display_order": 1,
+          "pattern": {
+            "total_questions": 200,
+            "total_marks": 300,
+            "duration_minutes": 180,
+            "negative_marking": false,
+            "negative_mark_value": null,
+            "sections": [
+              {
+                "name": "General Studies",
+                "questions": 175,
+                "marks": null
+              },
+              {
+                "name": "Aptitude & Mental Ability",
+                "questions": 25,
+                "marks": null
+              }
+            ]
+          },
+          "subjects": [
+            {
+              "id": "general-science",
+              "name": "General Science",
+              "name_ta": "பொது அறிவியல்",
+              "display_order": 1,
+              "topics": [
+                {
+                  "id": "physics",
+                  "name": "Physics",
+                  "display_order": 1
+                },
+                {
+                  "id": "chemistry",
+                  "name": "Chemistry",
+                  "display_order": 2
+                },
+                {
+                  "id": "botany",
+                  "name": "Botany",
+                  "display_order": 3
+                },
+                {
+                  "id": "zoology",
+                  "name": "Zoology",
+                  "display_order": 4
+                },
+                {
+                  "id": "science-in-everyday-life",
+                  "name": "Science in Everyday Life",
+                  "display_order": 5
+                }
+              ]
+            },
+            {
+              "id": "current-events",
+              "name": "Current Events",
+              "name_ta": "நடப்பு நிகழ்வுகள்",
+              "display_order": 2,
+              "topics": [
+                {
+                  "id": "national-current-affairs",
+                  "name": "National Current Affairs",
+                  "display_order": 1
+                },
+                {
+                  "id": "international-current-affairs",
+                  "name": "International Current Affairs",
+                  "display_order": 2
+                },
+                {
+                  "id": "tamil-nadu-current-affairs",
+                  "name": "Tamil Nadu Current Affairs",
+                  "display_order": 3
+                },
+                {
+                  "id": "sports-and-awards",
+                  "name": "Sports & Awards",
+                  "display_order": 4
+                },
+                {
+                  "id": "schemes-and-policies",
+                  "name": "Government Schemes & Policies",
+                  "display_order": 5
+                }
+              ]
+            },
+            {
+              "id": "geography",
+              "name": "Geography of India",
+              "name_ta": "இந்திய புவியியல்",
+              "display_order": 3,
+              "topics": [
+                {
+                  "id": "physical-geography",
+                  "name": "Physical Geography",
+                  "display_order": 1
+                },
+                {
+                  "id": "climate-and-monsoon",
+                  "name": "Climate & Monsoon",
+                  "display_order": 2
+                },
+                {
+                  "id": "rivers-and-water-resources",
+                  "name": "Rivers & Water Resources",
+                  "display_order": 3
+                },
+                {
+                  "id": "agriculture-and-minerals",
+                  "name": "Agriculture & Minerals",
+                  "display_order": 4
+                },
+                {
+                  "id": "tamil-nadu-geography",
+                  "name": "Tamil Nadu Geography",
+                  "display_order": 5
+                }
+              ]
+            },
+            {
+              "id": "history-and-culture",
+              "name": "History and Culture of India",
+              "name_ta": "இந்திய வரலாறு மற்றும் பண்பாடு",
+              "display_order": 4,
+              "topics": [
+                {
+                  "id": "ancient-india",
+                  "name": "Ancient India",
+                  "display_order": 1
+                },
+                {
+                  "id": "medieval-india",
+                  "name": "Medieval India",
+                  "display_order": 2
+                },
+                {
+                  "id": "modern-india",
+                  "name": "Modern India",
+                  "display_order": 3
+                },
+                {
+                  "id": "art-and-architecture",
+                  "name": "Art & Architecture",
+                  "display_order": 4
+                }
+              ]
+            },
+            {
+              "id": "indian-polity",
+              "name": "Indian Polity",
+              "name_ta": "இந்திய அரசியலமைப்பு",
+              "display_order": 5,
+              "topics": [
+                {
+                  "id": "constitution-basics",
+                  "name": "Constitution — Basics & Preamble",
+                  "display_order": 1
+                },
+                {
+                  "id": "fundamental-rights-duties",
+                  "name": "Fundamental Rights & Duties",
+                  "display_order": 2
+                },
+                {
+                  "id": "union-and-state-executive",
+                  "name": "Union & State Executive",
+                  "display_order": 3
+                },
+                {
+                  "id": "parliament-and-judiciary",
+                  "name": "Parliament & Judiciary",
+                  "display_order": 4
+                },
+                {
+                  "id": "local-self-government",
+                  "name": "Local Self Government",
+                  "display_order": 5
+                }
+              ]
+            },
+            {
+              "id": "indian-economy",
+              "name": "Indian Economy",
+              "name_ta": "இந்தியப் பொருளாதாரம்",
+              "display_order": 6,
+              "topics": [
+                {
+                  "id": "national-income",
+                  "name": "National Income",
+                  "display_order": 1
+                },
+                {
+                  "id": "planning-and-niti-aayog",
+                  "name": "Planning & NITI Aayog",
+                  "display_order": 2
+                },
+                {
+                  "id": "banking-and-finance",
+                  "name": "Banking & Finance",
+                  "display_order": 3
+                },
+                {
+                  "id": "rural-and-urban-economy",
+                  "name": "Rural & Urban Economy",
+                  "display_order": 4
+                },
+                {
+                  "id": "tamil-nadu-economy",
+                  "name": "Tamil Nadu Economy",
+                  "display_order": 5
+                }
+              ]
+            },
+            {
+              "id": "indian-national-movement",
+              "name": "Indian National Movement",
+              "name_ta": "இந்திய தேசிய இயக்கம்",
+              "display_order": 7,
+              "topics": [
+                {
+                  "id": "freedom-struggle",
+                  "name": "Freedom Struggle",
+                  "display_order": 1
+                },
+                {
+                  "id": "national-leaders",
+                  "name": "National Leaders",
+                  "display_order": 2
+                },
+                {
+                  "id": "role-of-tamil-nadu",
+                  "name": "Role of Tamil Nadu in Freedom Struggle",
+                  "display_order": 3
+                }
+              ]
+            },
+            {
+              "id": "tamil-nadu-history-and-society",
+              "name": "History, Culture & Socio-Political Movements of Tamil Nadu",
+              "name_ta": "தமிழ்நாட்டு வரலாறு மற்றும் சமூக இயக்கங்கள்",
+              "display_order": 8,
+              "topics": [
+                {
+                  "id": "sangam-age",
+                  "name": "Sangam Age",
+                  "display_order": 1
+                },
+                {
+                  "id": "tamil-society-and-culture",
+                  "name": "Tamil Society & Culture",
+                  "display_order": 2
+                },
+                {
+                  "id": "dravidian-movement",
+                  "name": "Dravidian Movement",
+                  "display_order": 3
+                },
+                {
+                  "id": "social-reformers",
+                  "name": "Social Reformers of Tamil Nadu",
+                  "display_order": 4
+                }
+              ]
+            },
+            {
+              "id": "development-administration-tn",
+              "name": "Development Administration in Tamil Nadu",
+              "name_ta": "தமிழ்நாட்டில் வளர்ச்சி நிர்வாகம்",
+              "display_order": 9,
+              "topics": [
+                {
+                  "id": "welfare-schemes-tn",
+                  "name": "Welfare Schemes of Tamil Nadu",
+                  "display_order": 1
+                },
+                {
+                  "id": "human-development-indicators",
+                  "name": "Human Development Indicators",
+                  "display_order": 2
+                },
+                {
+                  "id": "e-governance-tn",
+                  "name": "e-Governance in Tamil Nadu",
+                  "display_order": 3
+                }
+              ]
+            },
+            {
+              "id": "aptitude-and-mental-ability",
+              "name": "Aptitude & Mental Ability",
+              "name_ta": "திறனறிவு மற்றும் மனத்திறன்",
+              "display_order": 10,
+              "topics": [
+                {
+                  "id": "simplification-and-percentage",
+                  "name": "Simplification & Percentage",
+                  "display_order": 1
+                },
+                {
+                  "id": "ratio-and-proportion",
+                  "name": "Ratio & Proportion",
+                  "display_order": 2
+                },
+                {
+                  "id": "time-work-distance",
+                  "name": "Time, Work & Distance",
+                  "display_order": 3
+                },
+                {
+                  "id": "number-series",
+                  "name": "Number Series",
+                  "display_order": 4
+                },
+                {
+                  "id": "logical-reasoning",
+                  "name": "Logical Reasoning",
+                  "display_order": 5
+                },
+                {
+                  "id": "data-interpretation",
+                  "name": "Data Interpretation",
+                  "display_order": 6
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "group-1-mains",
+          "group_id": "group-1",
+          "name": "Main Written Examination",
+          "short_name": "Mains",
+          "description": "Three descriptive papers followed by the interview. Coming soon on the portal.",
+          "status": "coming_soon",
+          "paper_type": "descriptive",
+          "bilingual": false,
+          "secondary_language": null,
+          "display_order": 2,
+          "pattern": null,
+          "subjects": []
+        }
+      ]
+    },
+    {
+      "id": "group-4",
+      "name": "TNPSC Group 4",
+      "short_name": "Group 4",
+      "tagline": "Combined Civil Services Examination — IV (incl. VAO)",
+      "description": "Village Administrative Officer, Junior Assistant, Bill Collector, Typist and Steno-Typist posts.",
+      "accent": "from-emerald-500 via-teal-500 to-cyan-600",
+      "posts": [
+        "Village Administrative Officer",
+        "Junior Assistant",
+        "Bill Collector",
+        "Typist"
+      ],
+      "display_order": 2,
+      "stages": [
+        {
+          "id": "group-4-written",
+          "group_id": "group-4",
+          "name": "Written Examination",
+          "short_name": "Written",
+          "description": "Single objective paper of 200 questions — General Tamil/English, General Studies and Aptitude.",
+          "status": "active",
+          "paper_type": "objective",
+          "bilingual": true,
+          "secondary_language": "ta",
+          "display_order": 1,
+          "pattern": {
+            "total_questions": 200,
+            "total_marks": 300,
+            "duration_minutes": 180,
+            "negative_marking": false,
+            "negative_mark_value": null,
+            "sections": [
+              {
+                "name": "General Tamil / General English",
+                "questions": 100,
+                "marks": null
+              },
+              {
+                "name": "General Studies",
+                "questions": 75,
+                "marks": null
+              },
+              {
+                "name": "Aptitude & Mental Ability",
+                "questions": 25,
+                "marks": null
+              }
+            ]
+          },
+          "subjects": [
+            {
+              "id": "general-tamil",
+              "name": "General Tamil",
+              "name_ta": "பொதுத் தமிழ்",
+              "display_order": 1,
+              "topics": [
+                {
+                  "id": "grammar",
+                  "name": "இலக்கணம் (Grammar)",
+                  "display_order": 1
+                },
+                {
+                  "id": "literature",
+                  "name": "இலக்கியம் (Literature)",
+                  "display_order": 2
+                },
+                {
+                  "id": "authors-and-works",
+                  "name": "ஆசிரியர்களும் நூல்களும் (Authors & Works)",
+                  "display_order": 3
+                },
+                {
+                  "id": "comprehension",
+                  "name": "பொருள் உணர்தல் (Comprehension)",
+                  "display_order": 4
+                },
+                {
+                  "id": "vocabulary",
+                  "name": "சொல்லறிவு (Vocabulary)",
+                  "display_order": 5
+                }
+              ]
+            },
+            {
+              "id": "general-english",
+              "name": "General English",
+              "name_ta": null,
+              "display_order": 2,
+              "topics": [
+                {
+                  "id": "grammar",
+                  "name": "Grammar",
+                  "display_order": 1
+                },
+                {
+                  "id": "literature",
+                  "name": "Literature",
+                  "display_order": 2
+                },
+                {
+                  "id": "authors-and-works",
+                  "name": "Authors & Works",
+                  "display_order": 3
+                },
+                {
+                  "id": "comprehension",
+                  "name": "Comprehension",
+                  "display_order": 4
+                },
+                {
+                  "id": "vocabulary",
+                  "name": "Vocabulary",
+                  "display_order": 5
+                }
+              ]
+            },
+            {
+              "id": "general-science",
+              "name": "General Science",
+              "name_ta": "பொது அறிவியல்",
+              "display_order": 3,
+              "topics": [
+                {
+                  "id": "physics",
+                  "name": "Physics",
+                  "display_order": 1
+                },
+                {
+                  "id": "chemistry",
+                  "name": "Chemistry",
+                  "display_order": 2
+                },
+                {
+                  "id": "botany",
+                  "name": "Botany",
+                  "display_order": 3
+                },
+                {
+                  "id": "zoology",
+                  "name": "Zoology",
+                  "display_order": 4
+                },
+                {
+                  "id": "science-in-everyday-life",
+                  "name": "Science in Everyday Life",
+                  "display_order": 5
+                }
+              ]
+            },
+            {
+              "id": "current-events",
+              "name": "Current Events",
+              "name_ta": "நடப்பு நிகழ்வுகள்",
+              "display_order": 4,
+              "topics": [
+                {
+                  "id": "national-current-affairs",
+                  "name": "National Current Affairs",
+                  "display_order": 1
+                },
+                {
+                  "id": "international-current-affairs",
+                  "name": "International Current Affairs",
+                  "display_order": 2
+                },
+                {
+                  "id": "tamil-nadu-current-affairs",
+                  "name": "Tamil Nadu Current Affairs",
+                  "display_order": 3
+                },
+                {
+                  "id": "sports-and-awards",
+                  "name": "Sports & Awards",
+                  "display_order": 4
+                },
+                {
+                  "id": "schemes-and-policies",
+                  "name": "Government Schemes & Policies",
+                  "display_order": 5
+                }
+              ]
+            },
+            {
+              "id": "geography",
+              "name": "Geography of India",
+              "name_ta": "இந்திய புவியியல்",
+              "display_order": 5,
+              "topics": [
+                {
+                  "id": "physical-geography",
+                  "name": "Physical Geography",
+                  "display_order": 1
+                },
+                {
+                  "id": "climate-and-monsoon",
+                  "name": "Climate & Monsoon",
+                  "display_order": 2
+                },
+                {
+                  "id": "rivers-and-water-resources",
+                  "name": "Rivers & Water Resources",
+                  "display_order": 3
+                },
+                {
+                  "id": "agriculture-and-minerals",
+                  "name": "Agriculture & Minerals",
+                  "display_order": 4
+                },
+                {
+                  "id": "tamil-nadu-geography",
+                  "name": "Tamil Nadu Geography",
+                  "display_order": 5
+                }
+              ]
+            },
+            {
+              "id": "history-and-culture",
+              "name": "History and Culture of India",
+              "name_ta": "இந்திய வரலாறு மற்றும் பண்பாடு",
+              "display_order": 6,
+              "topics": [
+                {
+                  "id": "ancient-india",
+                  "name": "Ancient India",
+                  "display_order": 1
+                },
+                {
+                  "id": "medieval-india",
+                  "name": "Medieval India",
+                  "display_order": 2
+                },
+                {
+                  "id": "modern-india",
+                  "name": "Modern India",
+                  "display_order": 3
+                },
+                {
+                  "id": "art-and-architecture",
+                  "name": "Art & Architecture",
+                  "display_order": 4
+                }
+              ]
+            },
+            {
+              "id": "indian-polity",
+              "name": "Indian Polity",
+              "name_ta": "இந்திய அரசியலமைப்பு",
+              "display_order": 7,
+              "topics": [
+                {
+                  "id": "constitution-basics",
+                  "name": "Constitution — Basics & Preamble",
+                  "display_order": 1
+                },
+                {
+                  "id": "fundamental-rights-duties",
+                  "name": "Fundamental Rights & Duties",
+                  "display_order": 2
+                },
+                {
+                  "id": "union-and-state-executive",
+                  "name": "Union & State Executive",
+                  "display_order": 3
+                },
+                {
+                  "id": "parliament-and-judiciary",
+                  "name": "Parliament & Judiciary",
+                  "display_order": 4
+                },
+                {
+                  "id": "local-self-government",
+                  "name": "Local Self Government",
+                  "display_order": 5
+                }
+              ]
+            },
+            {
+              "id": "indian-economy",
+              "name": "Indian Economy",
+              "name_ta": "இந்தியப் பொருளாதாரம்",
+              "display_order": 8,
+              "topics": [
+                {
+                  "id": "national-income",
+                  "name": "National Income",
+                  "display_order": 1
+                },
+                {
+                  "id": "planning-and-niti-aayog",
+                  "name": "Planning & NITI Aayog",
+                  "display_order": 2
+                },
+                {
+                  "id": "banking-and-finance",
+                  "name": "Banking & Finance",
+                  "display_order": 3
+                },
+                {
+                  "id": "rural-and-urban-economy",
+                  "name": "Rural & Urban Economy",
+                  "display_order": 4
+                },
+                {
+                  "id": "tamil-nadu-economy",
+                  "name": "Tamil Nadu Economy",
+                  "display_order": 5
+                }
+              ]
+            },
+            {
+              "id": "indian-national-movement",
+              "name": "Indian National Movement",
+              "name_ta": "இந்திய தேசிய இயக்கம்",
+              "display_order": 9,
+              "topics": [
+                {
+                  "id": "freedom-struggle",
+                  "name": "Freedom Struggle",
+                  "display_order": 1
+                },
+                {
+                  "id": "national-leaders",
+                  "name": "National Leaders",
+                  "display_order": 2
+                },
+                {
+                  "id": "role-of-tamil-nadu",
+                  "name": "Role of Tamil Nadu in Freedom Struggle",
+                  "display_order": 3
+                }
+              ]
+            },
+            {
+              "id": "tamil-nadu-history-and-society",
+              "name": "History, Culture & Socio-Political Movements of Tamil Nadu",
+              "name_ta": "தமிழ்நாட்டு வரலாறு மற்றும் சமூக இயக்கங்கள்",
+              "display_order": 10,
+              "topics": [
+                {
+                  "id": "sangam-age",
+                  "name": "Sangam Age",
+                  "display_order": 1
+                },
+                {
+                  "id": "tamil-society-and-culture",
+                  "name": "Tamil Society & Culture",
+                  "display_order": 2
+                },
+                {
+                  "id": "dravidian-movement",
+                  "name": "Dravidian Movement",
+                  "display_order": 3
+                },
+                {
+                  "id": "social-reformers",
+                  "name": "Social Reformers of Tamil Nadu",
+                  "display_order": 4
+                }
+              ]
+            },
+            {
+              "id": "development-administration-tn",
+              "name": "Development Administration in Tamil Nadu",
+              "name_ta": "தமிழ்நாட்டில் வளர்ச்சி நிர்வாகம்",
+              "display_order": 11,
+              "topics": [
+                {
+                  "id": "welfare-schemes-tn",
+                  "name": "Welfare Schemes of Tamil Nadu",
+                  "display_order": 1
+                },
+                {
+                  "id": "human-development-indicators",
+                  "name": "Human Development Indicators",
+                  "display_order": 2
+                },
+                {
+                  "id": "e-governance-tn",
+                  "name": "e-Governance in Tamil Nadu",
+                  "display_order": 3
+                }
+              ]
+            },
+            {
+              "id": "aptitude-and-mental-ability",
+              "name": "Aptitude & Mental Ability",
+              "name_ta": "திறனறிவு மற்றும் மனத்திறன்",
+              "display_order": 12,
+              "topics": [
+                {
+                  "id": "simplification-and-percentage",
+                  "name": "Simplification & Percentage",
+                  "display_order": 1
+                },
+                {
+                  "id": "ratio-and-proportion",
+                  "name": "Ratio & Proportion",
+                  "display_order": 2
+                },
+                {
+                  "id": "time-work-distance",
+                  "name": "Time, Work & Distance",
+                  "display_order": 3
+                },
+                {
+                  "id": "number-series",
+                  "name": "Number Series",
+                  "display_order": 4
+                },
+                {
+                  "id": "logical-reasoning",
+                  "name": "Logical Reasoning",
+                  "display_order": 5
+                },
+                {
+                  "id": "data-interpretation",
+                  "name": "Data Interpretation",
+                  "display_order": 6
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

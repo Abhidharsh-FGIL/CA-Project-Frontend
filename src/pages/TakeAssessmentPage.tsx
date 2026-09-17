@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BASE_URL, buildUrl } from '@/lib/api';
 import { MathText } from '@/components/ui/MathText';
+import { MarkdownText } from '@/components/ui/MarkdownText';
 import { SAMPLE_TESTS, SAMPLE_COURSES } from '@/data/userPortalSampleData';
 import { generateDemoQuestions } from '@/data/sampleQuestions';
 
@@ -39,12 +40,24 @@ interface Question {
   order_index: number;
   attachment_url?: string;
   attachment_name?: string;
+  /** Shared reading-comprehension / context passage (shown alongside the question). */
+  passage?: string;
+  /** Optional passage/context image (shown alongside the question). */
+  passage_image_url?: string;
+  /** Groups questions that share the same passage/context. */
+  group_id?: string;
 }
 
 const resolveUrl = (url: string | undefined) => {
   if (!url) return '';
   return buildUrl(url);
 };
+
+/** True if the string is an image path/URL (so an image option renders as a picture, not text). */
+const isImageUrl = (s: string) =>
+  /^\/static\//i.test(s) ||
+  /\.(png|jpe?g|webp|gif|svg)(\?|#|$)/i.test(s) ||
+  (/^https?:\/\//i.test(s) && /\.(png|jpe?g|webp|gif|svg)/i.test(s));
 
 interface AttemptData {
   attempt_id: string;
@@ -53,6 +66,69 @@ interface AttemptData {
   time_limit: number | null;
   started_at: string;
   responses?: Record<string, string> | null;
+}
+
+// ── Normalize the backend /start payload to the shape this page renders ──
+// Backend sends: question_id/text/type, options as a raw array, pairs, time_limit_seconds, start_time.
+// This page reads: id/question_text/question_type, options as {A,B,C,D}, options.pairs, time_limit, started_at.
+function normalizeOptions(raw: any): any {
+  // Prefer an explicit letter-map if the backend provides one
+  if (raw?.options_map && typeof raw.options_map === 'object' && !Array.isArray(raw.options_map)) {
+    return raw.options_map;
+  }
+  const opts = raw?.options;
+  if (Array.isArray(opts)) {
+    const map: Record<string, string> = {};
+    opts.forEach((o: any, i: number) => {
+      // Option may be a {text, image_url} object or a plain string.
+      map[String.fromCharCode(65 + i)] = o && typeof o === 'object' ? (o.image_url ?? o.text ?? '') : String(o);
+    });
+    return map;
+  }
+  return opts ?? null; // already an object (or null)
+}
+
+function normalizeQuestion(raw: any, idx: number): Question {
+  const type = raw.question_type ?? raw.type ?? 'mcq';
+  return {
+    id: raw.id ?? raw.question_id,
+    question_type: type,
+    question_text: raw.question_text ?? raw.text ?? '',
+    options: type === 'match'
+      ? { pairs: raw.pairs ?? raw.options?.pairs ?? [] }
+      : normalizeOptions(raw),
+    marks: raw.marks ?? raw.points ?? 1,
+    negative_marks: raw.negative_marks ?? 0,
+    subject: raw.subject ?? undefined,
+    chapter: raw.chapter ?? undefined,
+    order_index: raw.order_index ?? idx,
+    attachment_url: raw.attachment_url ?? undefined,
+    attachment_name: raw.attachment_name ?? undefined,
+    passage: raw.passage ?? undefined,
+    passage_image_url: raw.passage_image_url ?? raw.passage_image ?? undefined,
+    group_id: raw.group_id ?? undefined,
+  };
+}
+
+function normalizeResponses(r: any): Record<string, string> | null {
+  if (!r) return null;
+  if (Array.isArray(r)) {
+    const map: Record<string, string> = {};
+    r.forEach((x: any) => { if (x && x.question_id != null) map[x.question_id] = x.answer ?? ''; });
+    return map;
+  }
+  return r; // already a {question_id: answer} map
+}
+
+function normalizeStart(raw: any): AttemptData {
+  return {
+    attempt_id: raw.attempt_id,
+    assessment_id: raw.assessment_id ?? '',
+    questions: (raw.questions ?? []).map((q: any, i: number) => normalizeQuestion(q, i)),
+    time_limit: raw.time_limit ?? raw.time_limit_seconds ?? null,
+    started_at: raw.started_at ?? raw.start_time ?? new Date().toISOString(),
+    responses: normalizeResponses(raw.responses),
+  };
 }
 
 // ── Icons ──
@@ -79,6 +155,71 @@ const XIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
   </svg>
 );
+
+// ── Student-details form helpers ──
+const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
+const MEDIUM_OPTIONS = ['English', 'Tamil', 'Hindi', 'Telugu', 'Kannada', 'Malayalam', 'Marathi', 'Bengali', 'Gujarati', 'Other'];
+
+interface StudentDetails {
+  full_name: string;
+  date_of_birth: string;
+  gender: string;
+  student_class: string;
+  section: string;
+  roll_no: string;
+  school_name: string;
+  medium: string;
+  class_teacher: string;
+  academic_year: string;
+}
+
+function DetailInput({
+  label, value, onChange, error, type = 'text', placeholder, readOnly, maxLength,
+}: {
+  label: string; value: string; onChange?: (v: string) => void; error?: string;
+  type?: string; placeholder?: string; readOnly?: boolean; maxLength?: number;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <input
+        type={type}
+        value={value}
+        readOnly={readOnly}
+        maxLength={maxLength}
+        onChange={e => onChange?.(e.target.value)}
+        placeholder={placeholder}
+        className={`w-full px-3 py-2 border rounded-lg text-sm outline-none transition-colors focus:ring-2 ${
+          readOnly ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'bg-white text-gray-900'
+        } ${error ? 'border-red-300 focus:ring-red-100 focus:border-red-400' : 'border-gray-200 focus:ring-indigo-100 focus:border-indigo-400'}`}
+      />
+      {error && <p className="text-[11px] text-red-600 mt-0.5">{error}</p>}
+    </div>
+  );
+}
+
+function DetailSelect({
+  label, value, onChange, error, options,
+}: {
+  label: string; value: string; onChange: (v: string) => void; error?: string; options: string[];
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className={`w-full px-3 py-2 border rounded-lg text-sm outline-none transition-colors focus:ring-2 ${
+          value ? 'text-gray-900' : 'text-gray-400'
+        } ${error ? 'border-red-300 focus:ring-red-100 focus:border-red-400' : 'border-gray-200 focus:ring-indigo-100 focus:border-indigo-400'}`}
+      >
+        <option value="" disabled>Select…</option>
+        {options.map(o => <option key={o} value={o} className="text-gray-900">{o}</option>)}
+      </select>
+      {error && <p className="text-[11px] text-red-600 mt-0.5">{error}</p>}
+    </div>
+  );
+}
 
 // ── Modal Component ──
 function Modal({ open, children }: { open: boolean; children: React.ReactNode }) {
@@ -150,6 +291,14 @@ export default function TakeAssessmentPage() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [totalTime, setTotalTime] = useState<number>(0);
   const [name, setName] = useState('');
+  // Invited-student details form (collected before the test starts)
+  const [details, setDetails] = useState<StudentDetails>({
+    full_name: '', date_of_birth: '', gender: '', student_class: '', section: '',
+    roll_no: '', school_name: '', medium: '', class_teacher: '', academic_year: '',
+  });
+  const [detailsErr, setDetailsErr] = useState<Partial<Record<keyof StudentDetails, string>>>({});
+  const [savingDetails, setSavingDetails] = useState(false);
+  const setDetail = (k: keyof StudentDetails, v: string) => setDetails(d => ({ ...d, [k]: v }));
   const [errorMsg, setErrorMsg] = useState('');
   const [questionStatuses, setQuestionStatuses] = useState<Record<string, QuestionStatus>>({});
   const [visitedQuestions, setVisitedQuestions] = useState<Set<number>>(new Set([0]));
@@ -201,8 +350,8 @@ export default function TakeAssessmentPage() {
         attempts_used: 0,
         can_attempt: true,
         invitation_status: 'pending',
-        email: 'demo@fgil-learn.com',
-        organization_name: course?.name || 'FGIL CA Academy',
+        email: 'demo@brightlearn.academy',
+        organization_name: course?.name || 'BrightLearn Academy',
       });
       setPageState('landing');
       return;
@@ -476,7 +625,7 @@ export default function TakeAssessmentPage() {
         const err = await res.json();
         throw new Error(err.detail || 'Failed to start assessment');
       }
-      const data: AttemptData = await res.json();
+      const data: AttemptData = normalizeStart(await res.json());
       setAttempt(data);
       if (data.time_limit) {
         // On resume, calculate remaining time from started_at
@@ -514,7 +663,7 @@ export default function TakeAssessmentPage() {
     // Open a new browser window for the exam
     const w = window.screen.width;
     const h = window.screen.height;
-    const popupUrl = `${window.location.pathname}?token=${token}&popup=1`;
+    const popupUrl = `${import.meta.env.BASE_URL}#/take-assessment?token=${token}&popup=1`;
     const newWin = window.open(
       popupUrl,
       '_blank',
@@ -527,6 +676,57 @@ export default function TakeAssessmentPage() {
     } else {
       // Popup blocked — start in same tab
       doStart();
+    }
+  };
+
+  const validateDetails = (): boolean => {
+    const e: Partial<Record<keyof StudentDetails, string>> = {};
+    if (!details.full_name.trim() || details.full_name.trim().length < 2) e.full_name = 'Enter your full name';
+    else if (!/^[A-Za-z .]+$/.test(details.full_name.trim())) e.full_name = 'Only letters and spaces';
+    if (!details.date_of_birth) e.date_of_birth = 'Required';
+    else if (new Date(details.date_of_birth) > new Date()) e.date_of_birth = 'Cannot be in the future';
+    if (!details.gender) e.gender = 'Select gender';
+    if (!details.medium) e.medium = 'Select medium';
+    // Roll / Registration No. is optional for competitive-exam candidates.
+    // Class / Section / School / Teacher / Academic Year are not collected for competitive exams.
+    setDetailsErr(e);
+    return Object.keys(e).length === 0;
+  };
+
+  // Save the invited student's details, then open the test.
+  const handleSubmitDetails = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (!info || !validateDetails()) return;
+    setSavingDetails(true);
+    try {
+      const res = await fetch(`${API_BASE}/public/assessment/${token}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: details.full_name.trim(),
+          email_address: info.email, // invited email — unique per invitation, not editable
+          date_of_birth: details.date_of_birth,
+          gender: details.gender,
+          student_class: details.student_class.trim(),
+          section: details.section.trim(),
+          roll_no: details.roll_no.trim(),
+          school_name: details.school_name.trim(),
+          medium: details.medium,
+          class_teacher: details.class_teacher.trim(),
+          academic_year: details.academic_year.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Could not save your details. Please try again.');
+      }
+      setName(details.full_name.trim());
+      handleStart(); // opens the test (popup) — or starts in-tab if popups are blocked
+    } catch (e: any) {
+      setErrorMsg(e.message);
+      setPageState('error');
+    } finally {
+      setSavingDetails(false);
     }
   };
 
@@ -792,8 +992,13 @@ export default function TakeAssessmentPage() {
                   }`}>
                     {optionLabel}
                   </span>
-                  <span className={`text-sm ${isSelected ? 'text-indigo-900 font-medium' : 'text-gray-700'}`}>
-                    <MathText text={String(val)} />
+                  <span className={`text-sm flex-1 ${isSelected ? 'text-indigo-900 font-medium' : 'text-gray-700'}`}>
+                    {(() => {
+                      const v = val && typeof val === 'object' ? ((val as any).image_url ?? (val as any).text ?? '') : String(val);
+                      return isImageUrl(v)
+                        ? <img src={resolveUrl(v)} alt={`Option ${optionLabel}`} className="max-h-32 rounded border border-gray-200 object-contain" />
+                        : <MathText text={v} />;
+                    })()}
                   </span>
                 </button>
               );
@@ -979,7 +1184,7 @@ export default function TakeAssessmentPage() {
                 {info.mode === 'exam' ? 'You have already taken this exam.' : 'Maximum attempts reached.'}
               </p>
             </div>
-          ) : (
+          ) : isPopup || isDemoToken(token) ? (
             <>
               <button
                 onClick={handleStart}
@@ -987,12 +1192,36 @@ export default function TakeAssessmentPage() {
               >
                 Start Assessment
               </button>
+              <p className="text-xs text-gray-400 text-center mt-5">
+                Taking as: <span className="font-medium">{info.email}</span>
+              </p>
             </>
+          ) : (
+            <form onSubmit={handleSubmitDetails} className="space-y-3 text-left">
+              <p className="text-sm font-semibold text-gray-800">Confirm your details to begin</p>
+              <DetailInput label="Email" value={info.email} readOnly />
+              <DetailInput
+                label="Full Name"
+                value={details.full_name}
+                onChange={v => setDetail('full_name', v)}
+                error={detailsErr.full_name}
+                placeholder="Your full name"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <DetailInput label="Date of Birth" type="date" value={details.date_of_birth} onChange={v => setDetail('date_of_birth', v)} error={detailsErr.date_of_birth} />
+                <DetailSelect label="Gender" value={details.gender} onChange={v => setDetail('gender', v)} error={detailsErr.gender} options={GENDER_OPTIONS} />
+                <DetailInput label="Roll / Registration No." value={details.roll_no} onChange={v => setDetail('roll_no', v)} error={detailsErr.roll_no} placeholder="Optional" />
+                <DetailSelect label="Medium" value={details.medium} onChange={v => setDetail('medium', v)} error={detailsErr.medium} options={MEDIUM_OPTIONS} />
+              </div>
+              <button
+                type="submit"
+                disabled={savingDetails}
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3.5 rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg shadow-indigo-200 active:scale-[0.98] disabled:opacity-60"
+              >
+                {savingDetails ? 'Saving…' : 'Submit & Start Assessment'}
+              </button>
+            </form>
           )}
-
-          <p className="text-xs text-gray-400 text-center mt-5">
-            Taking as: <span className="font-medium">{info.email}</span>
-          </p>
         </div>
       </div>
     );
@@ -1003,6 +1232,7 @@ export default function TakeAssessmentPage() {
     const questions = attempt.questions.sort((a, b) => a.order_index - b.order_index);
     const q = questions[currentQ];
     const counts = getStatusCounts();
+    const hasPassage = !!(q && (q.passage || q.passage_image_url));
 
     return (
       <div className="h-screen flex flex-col bg-gray-50 overflow-hidden select-none">
@@ -1060,9 +1290,24 @@ export default function TakeAssessmentPage() {
         <div className="flex-1 flex overflow-hidden">
           {/* Question area */}
           <main className="flex-1 overflow-y-auto">
-            <div className="max-w-3xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
-              <div className="bg-white rounded-2xl border shadow-sm p-4 sm:p-6 lg:p-8">
-                {q && renderQuestion(q)}
+            <div className={`mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 ${hasPassage ? 'max-w-6xl' : 'max-w-3xl'}`}>
+              <div className={hasPassage ? 'grid lg:grid-cols-2 gap-4 sm:gap-5 items-start' : ''}>
+                {hasPassage && (
+                  <div className="bg-white rounded-2xl border shadow-sm p-4 sm:p-6 lg:p-7 lg:sticky lg:top-2 lg:max-h-[calc(100vh-150px)] overflow-y-auto order-first">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600 mb-2">Passage</p>
+                    {q.passage && <MarkdownText text={q.passage} />}
+                    {q.passage_image_url && (
+                      <img
+                        src={resolveUrl(q.passage_image_url)}
+                        alt="Passage reference"
+                        className="mt-3 max-w-full rounded-lg border border-gray-200"
+                      />
+                    )}
+                  </div>
+                )}
+                <div className="bg-white rounded-2xl border shadow-sm p-4 sm:p-6 lg:p-8">
+                  {q && renderQuestion(q)}
+                </div>
               </div>
 
               {/* Bottom navigation */}

@@ -41,7 +41,7 @@ const STATUS_META: Record<CourseStatus, { label: string; cls: string }> = {
   },
 };
 
-const EXAM_BODIES: string[] = ['ICAI', 'ICMAI', 'ICSI', 'Other'];
+const EXAM_BODIES: string[] = ['UPSC', 'SSC', 'IBPS', 'SBI', 'RRB', 'State PSC'];
 
 export default function AdminCoursesPage() {
   const { data: coursesData, isLoading: coursesLoading } = useAdminCourses(1, 100);
@@ -352,7 +352,7 @@ function CourseEditor({
       enrolled_users: 0,
       total_tests: 0,
       thumbnail_color: 'from-indigo-500 to-purple-500',
-      exam_body: 'ICAI',
+      exam_body: 'UPSC',
     },
   );
 
@@ -400,7 +400,7 @@ function CourseEditor({
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               maxLength={200}
-              placeholder="e.g. CA Foundation"
+              placeholder="e.g. Grade 10 Mathematics"
               className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700"
             />
           </FormField>
@@ -411,13 +411,13 @@ function CourseEditor({
                 type="text"
                 value={form.subject ?? ''}
                 onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
-                placeholder="e.g. Accounting"
+                placeholder="e.g. Mathematics"
                 className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700"
               />
             </FormField>
-            <FormField label="Exam Body">
+            <FormField label="Exam">
               <select
-                value={form.exam_body || 'ICAI'}
+                value={form.exam_body || 'UPSC'}
                 onChange={e => setForm(f => ({ ...f, exam_body: e.target.value }))}
                 className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700"
               >

@@ -45,6 +45,25 @@ const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   file: { label: 'File', color: 'bg-orange-500/10 text-orange-700 dark:text-orange-400' },
 };
 
+const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+/** Normalize options into a display list, handling both the new array
+ *  `[{text, image_url}]` shape and the legacy `{A: "text"}` map. */
+function displayOptions(options: any): { label: string; text: string | null; image_url: string | null }[] {
+  if (!options) return [];
+  const asEntry = (v: any, label: string) =>
+    v && typeof v === 'object'
+      ? { label, text: v.text ?? null, image_url: v.image_url ?? v.imageUrl ?? null }
+      : { label, text: v == null ? null : String(v), image_url: null };
+  if (Array.isArray(options)) return options.map((v, i) => asEntry(v, OPTION_LETTERS[i] || String(i + 1)));
+  if (typeof options === 'object') {
+    return Object.entries(options)
+      .filter(([k]) => k !== 'pairs')
+      .map(([k, v]) => asEntry(v, k));
+  }
+  return [];
+}
+
 export function EvalQuestionBank() {
   const [search, setSearch] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
@@ -56,7 +75,7 @@ export function EvalQuestionBank() {
   const [editQuestion, setEditQuestion] = useState<any | null>(null);
   const [editText, setEditText] = useState('');
   const [editPoints, setEditPoints] = useState(1);
-  const [editOptions, setEditOptions] = useState<string[]>([]);
+  const [editOptions, setEditOptions] = useState<{ text: string; image_url: string | null }[]>([]);
   const [editCorrectAnswer, setEditCorrectAnswer] = useState<any>(null);
   const [editExplanation, setEditExplanation] = useState('');
   const [editPairs, setEditPairs] = useState<any[]>([]);
@@ -161,14 +180,17 @@ export function EvalQuestionBank() {
     setEditQuestion(q);
     setEditText(q.text || '');
     setEditPoints(q.points || 1);
-    // Options come from backend as dict {A: "...", B: "..."} or array
+    // Options come from backend as an array [{text, image_url}] (manual questions)
+    // or a legacy dict {A: "..."} / [string]. Normalize to a uniform {text, image_url} list.
     const rawOpts = q.options;
+    const toOpt = (v: any) =>
+      v && typeof v === 'object'
+        ? { text: v.text ?? '', image_url: v.image_url ?? v.imageUrl ?? null }
+        : { text: v == null ? '' : String(v), image_url: null };
     if (Array.isArray(rawOpts)) {
-      setEditOptions([...rawOpts]);
+      setEditOptions(rawOpts.map(toOpt));
     } else if (rawOpts && typeof rawOpts === 'object') {
-      // Convert dict to ordered array: A, B, C, D...
-      const keys = Object.keys(rawOpts).sort();
-      setEditOptions(keys.map(k => rawOpts[k]));
+      setEditOptions(Object.keys(rawOpts).sort().map(k => toOpt(rawOpts[k])));
     } else {
       setEditOptions([]);
     }
@@ -177,10 +199,14 @@ export function EvalQuestionBank() {
     setEditPairs(Array.isArray(q.pairs) ? q.pairs.map((p: any) => ({ ...p })) : []);
     setEditAttachmentUrl(q.attachment_url || q.attachmentUrl || undefined);
     setEditAttachmentName(q.attachment_name || q.attachmentName || undefined);
-    // Parse correct_answer
+    // Parse correct_answer → for MCQ we track the option INDEX.
     let ca = q.correct_answer;
     if (typeof ca === 'string') {
       try { ca = JSON.parse(ca); } catch { /* keep as string */ }
+    }
+    if (q.type === 'mcq') {
+      if (q.correct_index != null) ca = q.correct_index;
+      else if (typeof ca === 'string' && /^[a-z]$/i.test(ca)) ca = ca.toUpperCase().charCodeAt(0) - 65;
     }
     setEditCorrectAnswer(ca);
   };
@@ -196,11 +222,18 @@ export function EvalQuestionBank() {
       attachment_name: editAttachmentName || null,
     };
     if (editQuestion.type === 'mcq') {
-      // Convert array back to dict {A: "...", B: "...", ...}
-      const optDict: Record<string, string> = {};
-      editOptions.forEach((opt, i) => { optDict[String.fromCharCode(65 + i)] = opt; });
-      updates.options = optDict;
-      updates.correct_answer = editCorrectAnswer != null ? JSON.stringify(editCorrectAnswer) : null;
+      const hasImageOption = editOptions.some(o => o.image_url);
+      if (hasImageOption) {
+        // Preserve the array shape (with per-option images) used for manual questions.
+        updates.options = editOptions.map(o => ({ text: o.text?.trim() || null, image_url: o.image_url || null }));
+        updates.correct_index = typeof editCorrectAnswer === 'number' ? editCorrectAnswer : null;
+      } else {
+        // Legacy text-only shape: dict {A: "..."} + correct_answer index.
+        const optDict: Record<string, string> = {};
+        editOptions.forEach((opt, i) => { optDict[String.fromCharCode(65 + i)] = opt.text; });
+        updates.options = optDict;
+        updates.correct_answer = editCorrectAnswer != null ? JSON.stringify(editCorrectAnswer) : null;
+      }
     } else if (editQuestion.type === 'true_false' || editQuestion.type === 'fill' || editQuestion.type === 'short') {
       updates.correct_answer = editCorrectAnswer != null ? JSON.stringify(editCorrectAnswer) : null;
     } else if (editQuestion.type === 'match') {
@@ -319,7 +352,35 @@ export function EvalQuestionBank() {
                       <Checkbox checked={selected.has(q.id)} onCheckedChange={() => toggleSelect(q.id)} />
                     </TableCell>
                     <TableCell className="text-sm max-w-[400px]">
-                      <p className="line-clamp-2"><MathText text={q.text} /></p>
+                      {(q.attachment_url || q.question_image_url) && (
+                        <img
+                          src={buildUrl(q.attachment_url || q.question_image_url)}
+                          alt="Question"
+                          className="mb-1 max-h-24 rounded border border-border object-contain"
+                        />
+                      )}
+                      {q.text && <p className="line-clamp-2"><MathText text={q.text} /></p>}
+                      {(() => {
+                        const opts = displayOptions(q.options);
+                        if (!opts.length) return null;
+                        return (
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                            {opts.map((o, i) => (
+                              <span key={i} className="inline-flex items-center gap-1">
+                                <span className="font-medium">{o.label}.</span>
+                                {o.image_url ? (
+                                  <img src={buildUrl(o.image_url)} alt={`Option ${o.label}`} className="h-6 max-w-[80px] rounded border border-border object-contain" />
+                                ) : (
+                                  <MathText text={o.text || '—'} />
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                      {!q.text && !q.attachment_url && !q.question_image_url && displayOptions(q.options).length === 0 && (
+                        <span className="text-xs italic text-muted-foreground">Untitled question</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {q.subject && <Badge variant="outline" className="text-[10px]">{q.subject}</Badge>}
@@ -393,7 +454,7 @@ export function EvalQuestionBank() {
             {editQuestion?.type === 'mcq' && (
               <div className="space-y-2">
                 <Label>Options</Label>
-                {(editOptions || []).map((opt: string, i: number) => (
+                {(editOptions || []).map((opt, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <input
                       type="radio"
@@ -403,15 +464,22 @@ export function EvalQuestionBank() {
                       className="accent-primary"
                     />
                     <span className="text-sm font-medium text-muted-foreground w-5">{String.fromCharCode(65 + i)}.</span>
-                    <MathInput
-                      value={opt}
-                      onChange={(val) => {
-                        const next = [...editOptions];
-                        next[i] = val;
-                        setEditOptions(next);
-                      }}
-                      className="flex-1"
-                    />
+                    {opt.image_url ? (
+                      <div className="flex flex-1 items-center gap-2">
+                        <img src={buildUrl(opt.image_url)} alt={`Option ${String.fromCharCode(65 + i)}`} className="h-10 rounded border border-border object-contain" />
+                        <span className="text-xs text-muted-foreground">Image option</span>
+                      </div>
+                    ) : (
+                      <MathInput
+                        value={opt.text}
+                        onChange={(val) => {
+                          const next = [...editOptions];
+                          next[i] = { ...next[i], text: val };
+                          setEditOptions(next);
+                        }}
+                        className="flex-1"
+                      />
+                    )}
                   </div>
                 ))}
                 <p className="text-xs text-muted-foreground">Select the radio button for the correct answer.</p>

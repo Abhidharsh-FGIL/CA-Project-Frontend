@@ -27,15 +27,18 @@ import {
   updateUserProfile,
   changeUserPassword,
   type UserProfile,
+  type StudentDetailFields,
+  type UpdateProfilePayload,
 } from '@/lib/userAuthApi';
 import {
-  getEnrolledCourses,
+  getUserAssessments,
   getAttemptHistory,
   getNotifications,
   markNotificationReadApi,
   markAllNotificationsReadApi,
   clearAllNotificationsApi,
   type ApiCourse,
+  type ApiEvalAssessment,
   type ApiAttempt,
   type ApiNotification,
 } from '@/lib/userPortalApi';
@@ -51,12 +54,14 @@ interface UserPortalContextValue {
   history: ApiAttempt[];
   tests: SampleTest[];
   courses: ApiCourse[];
+  /** Assessments available to the student (board + grade filtered). Powers the dashboard. */
+  assessments: ApiEvalAssessment[];
   plans: SubscriptionPlanInfo[];
   lastLoginAt: string | null;
   redeemedPromoCodes: Set<string>;
 
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
-  register: (data: { name: string; email: string; phone: string; password: string }) => Promise<{ ok: boolean; error?: string; otpSentTo?: string }>;
+  register: (data: { name: string; email: string; phone: string; password: string } & StudentDetailFields) => Promise<{ ok: boolean; error?: string; otpSentTo?: string }>;
   verifyOtp: (otp: string) => Promise<{ ok: boolean; error?: string }>;
   resendOtp: () => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -72,7 +77,25 @@ interface UserPortalContextValue {
   isTestUnlocked: (test: SampleTest) => { unlocked: boolean; reason?: 'tier' | 'monthly_limit' | 'mock_disabled' };
   redeemPromoCode: (testId: string, code: string) => { ok: boolean; error?: string; discountPct?: number };
   upgradeSubscription: (tier: SubscriptionTier) => Promise<{ ok: boolean }>;
-  updateProfile: (data: Partial<Pick<SampleUser, 'name' | 'email' | 'phone'>>) => Promise<{ ok: boolean; error?: string }>;
+  updateProfile: (
+    data: Partial<
+      Pick<
+        SampleUser,
+        | 'name'
+        | 'email'
+        | 'phone'
+        | 'date_of_birth'
+        | 'gender'
+        | 'student_class'
+        | 'section'
+        | 'roll_no'
+        | 'school_name'
+        | 'medium'
+        | 'class_teacher'
+        | 'academic_year'
+      >
+    >,
+  ) => Promise<{ ok: boolean; error?: string }>;
   changePassword: (oldPwd: string, newPwd: string) => Promise<{ ok: boolean; error?: string }>;
   payForSubscription: (
     tier: SubscriptionTier,
@@ -115,23 +138,44 @@ function mapProfileToSampleUser(p: UserProfile): SampleUser {
     otp_verified: p.otp_verified,
     created_at: p.created_at,
     usage: { practice_tests_attempted_month: 0, mock_tests_attempted_month: 0, period_start: new Date().toISOString() },
+    // Student details (school portal)
+    board: p.board,
+    date_of_birth: p.date_of_birth,
+    gender: p.gender,
+    student_class: p.student_class,
+    section: p.section,
+    roll_no: p.roll_no,
+    school_name: p.school_name,
+    medium: p.medium,
+    class_teacher: p.class_teacher,
+    academic_year: p.academic_year,
+    // This mapper is a whitelist — a field missing here is silently dropped, which
+    // is how the dashboard came to ignore the registered exam entirely. The API
+    // returns `target_groups` alongside `preferred_exam`, so accept either.
+    preferred_exam: p.preferred_exam ?? p.target_groups?.[0],
   };
 }
 
-/** Fetch all portal data (courses, history, notifications) after login or mount. */
-async function fetchPortalData(): Promise<{
-  courses: ApiCourse[];
+/** Derive the assessments filter (board + grade) from the mapped student profile. */
+function assessmentFilter(u: SampleUser): { board?: string; grade?: number } {
+  const grade = u.student_class ? parseInt(u.student_class, 10) : undefined;
+  return { board: u.board || undefined, grade: Number.isFinite(grade) ? grade : undefined };
+}
+
+/** Fetch all portal data (assessments, history, notifications) after login or mount. */
+async function fetchPortalData(u: SampleUser): Promise<{
+  assessments: ApiEvalAssessment[];
   history: ApiAttempt[];
   notifications: ApiNotification[];
 }> {
-  const [coursesRes, historyRes, notificationsRes] = await Promise.allSettled([
-    getEnrolledCourses(),
+  const [assessmentsRes, historyRes, notificationsRes] = await Promise.allSettled([
+    getUserAssessments(assessmentFilter(u)),
     getAttemptHistory(1, 50),
     getNotifications(1, 50),
   ]);
 
   return {
-    courses: coursesRes.status === 'fulfilled' ? coursesRes.value : [],
+    assessments: assessmentsRes.status === 'fulfilled' ? assessmentsRes.value : [],
     history: historyRes.status === 'fulfilled' ? historyRes.value.items : [],
     notifications: notificationsRes.status === 'fulfilled' ? notificationsRes.value.items : [],
   };
@@ -152,7 +196,8 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
   const [pendingRegistrationEmail, setPendingRegistrationEmail] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<ApiNotification[]>([]);
   const [history, setHistory] = useState<ApiAttempt[]>([]);
-  const [courses, setCourses] = useState<ApiCourse[]>([]);
+  const [courses] = useState<ApiCourse[]>([]);
+  const [assessments, setAssessments] = useState<ApiEvalAssessment[]>([]);
   const [redeemedPromoCodes, setRedeemedPromoCodes] = useState<Set<string>>(new Set());
   const [paidTestIds, setPaidTestIds] = useState<Set<string>>(new Set());
   const [lastLoginAt, setLastLoginAt] = useState<string | null>(null);
@@ -162,24 +207,23 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (!getUserToken()) return;
     let cancelled = false;
-    Promise.all([
-      getUserProfile(),
-      fetchPortalData(),
-    ])
-      .then(([profile, portalData]) => {
+    (async () => {
+      try {
+        const profile = await getUserProfile();
+        const su = mapProfileToSampleUser(profile);
+        const portalData = await fetchPortalData(su);
         if (cancelled) return;
-        setUser(mapProfileToSampleUser(profile));
-        setCourses(portalData.courses);
+        setUser(su);
+        setAssessments(portalData.assessments);
         setHistory(portalData.history);
         setNotifications(portalData.notifications);
         setLastLoginAt(new Date().toISOString());
-      })
-      .catch(() => {
+      } catch {
         // Token invalid / expired — let the user log in again
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setIsLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -189,12 +233,11 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
     try {
       await loginUser({ email, password });
       setIsLoading(true);
-      const [profile, portalData] = await Promise.all([
-        getUserProfile(),
-        fetchPortalData(),
-      ]);
-      setUser(mapProfileToSampleUser(profile));
-      setCourses(portalData.courses);
+      const profile = await getUserProfile();
+      const su = mapProfileToSampleUser(profile);
+      const portalData = await fetchPortalData(su);
+      setUser(su);
+      setAssessments(portalData.assessments);
       setHistory(portalData.history);
       setNotifications(portalData.notifications);
       setLastLoginAt(new Date().toISOString());
@@ -207,13 +250,23 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const register = useCallback(
-    async (data: { name: string; email: string; phone: string; password: string }) => {
+    async (data: { name: string; email: string; phone: string; password: string } & StudentDetailFields) => {
       try {
         await registerUser({
           full_name: data.name,
           email_address: data.email,
           mobile_number: data.phone,
           password: data.password,
+          date_of_birth: data.date_of_birth,
+          gender: data.gender,
+          student_class: data.student_class,
+          section: data.section,
+          roll_no: data.roll_no,
+          school_name: data.school_name,
+          medium: data.medium,
+          class_teacher: data.class_teacher,
+          academic_year: data.academic_year,
+          preferred_exam: data.preferred_exam,
         });
         setPendingRegistrationEmail(data.email);
         return { ok: true, otpSentTo: data.email };
@@ -230,12 +283,11 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
       try {
         await verifyUserOtp({ email_address: pendingRegistrationEmail, otp });
         setIsLoading(true);
-        const [profile, portalData] = await Promise.all([
-          getUserProfile(),
-          fetchPortalData(),
-        ]);
-        setUser(mapProfileToSampleUser(profile));
-        setCourses(portalData.courses);
+        const profile = await getUserProfile();
+        const su = mapProfileToSampleUser(profile);
+        const portalData = await fetchPortalData(su);
+        setUser(su);
+        setAssessments(portalData.assessments);
         setHistory(portalData.history);
         setNotifications(portalData.notifications);
         setLastLoginAt(new Date().toISOString());
@@ -267,7 +319,7 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
       /* server-side logout failure is non-fatal — tokens cleared in logoutUser's finally */
     }
     setUser(null);
-    setCourses([]);
+    setAssessments([]);
     setHistory([]);
     setNotifications([]);
     setLastLoginAt(null);
@@ -469,11 +521,38 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
   );
 
   const updateProfile = useCallback(
-    async (data: Partial<Pick<SampleUser, 'name' | 'email' | 'phone'>>) => {
-      // Backend only accepts { name, phone } today — email is immutable via this endpoint.
-      const payload: { name?: string; phone?: string } = {};
+    async (
+      data: Partial<
+        Pick<
+          SampleUser,
+          | 'name'
+          | 'email'
+          | 'phone'
+          | 'date_of_birth'
+          | 'gender'
+          | 'student_class'
+          | 'section'
+          | 'roll_no'
+          | 'school_name'
+          | 'medium'
+          | 'class_teacher'
+          | 'academic_year'
+        >
+      >,
+    ) => {
+      // Email is immutable via this endpoint; everything else is forwarded when provided.
+      const payload: UpdateProfilePayload = {};
       if (data.name !== undefined) payload.name = data.name;
       if (data.phone !== undefined) payload.phone = data.phone;
+      if (data.date_of_birth !== undefined) payload.date_of_birth = data.date_of_birth;
+      if (data.gender !== undefined) payload.gender = data.gender;
+      if (data.student_class !== undefined) payload.student_class = data.student_class;
+      if (data.section !== undefined) payload.section = data.section;
+      if (data.roll_no !== undefined) payload.roll_no = data.roll_no;
+      if (data.school_name !== undefined) payload.school_name = data.school_name;
+      if (data.medium !== undefined) payload.medium = data.medium;
+      if (data.class_teacher !== undefined) payload.class_teacher = data.class_teacher;
+      if (data.academic_year !== undefined) payload.academic_year = data.academic_year;
       try {
         const profile = await updateUserProfile(payload);
         setUser(mapProfileToSampleUser(profile));
@@ -518,6 +597,7 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
     history,
     tests: SAMPLE_TESTS,
     courses,
+    assessments,
     plans: SUBSCRIPTION_PLANS,
     lastLoginAt,
     redeemedPromoCodes,

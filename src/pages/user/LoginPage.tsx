@@ -54,10 +54,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="h-[100dvh] overflow-y-auto bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-100 dark:from-slate-950 dark:via-indigo-950/60 dark:to-purple-950/60 flex items-center justify-center p-4 py-8 relative">
+    <div className="h-[100dvh] overflow-y-auto bg-gradient-to-br from-orange-50 via-amber-50 to-rose-100 dark:from-stone-950 dark:via-orange-950/50 dark:to-rose-950/40 flex justify-center p-4 py-8 relative">
       {/* Decorative blobs */}
-      <div className="absolute top-1/4 -left-20 w-80 h-80 bg-purple-300/30 dark:bg-purple-700/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-indigo-300/30 dark:bg-indigo-700/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/4 -left-20 w-80 h-80 bg-amber-300/30 dark:bg-amber-700/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-orange-300/30 dark:bg-orange-700/20 rounded-full blur-3xl pointer-events-none" />
 
       {/* Back to Home */}
       <Link
@@ -68,17 +68,17 @@ export default function LoginPage() {
         <span>Back to Home</span>
       </Link>
 
-      <div className="max-w-md w-full relative z-10 animate-fadeIn">
+      <div className="max-w-md w-full relative z-10 animate-fadeIn my-auto">
         <Link to="/" className="flex items-center justify-center gap-2 mb-8 group">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-indigo-900/50 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center shadow-lg shadow-orange-200 dark:shadow-orange-900/50 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <GraduationCap className="w-6 h-6 text-white" />
           </div>
-          <span className="text-lg font-bold gradient-text">FGIL CA Academy</span>
+          <span className="text-lg font-bold gradient-text">BrightLearn Academy</span>
         </Link>
 
         <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur rounded-2xl shadow-xl shadow-indigo-100/50 dark:shadow-black/40 border border-white dark:border-gray-800 p-5 sm:p-7 animate-scaleIn">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Welcome back</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Log in to continue your CA prep journey.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Log in to continue your learning journey.</p>
 
           {locked && (
             <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-xl p-3 mb-4 text-xs text-red-700 dark:text-red-300">

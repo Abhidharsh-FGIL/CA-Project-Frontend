@@ -11,6 +11,7 @@ import { Loader2, CheckCircle2, XCircle, BookOpen, Brain } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { stripInlineOptions, stripInlineOptionsFromTranslation } from '@/lib/question-text';
 
 type JobStatus = 'running' | 'completed' | 'failed';
 
@@ -146,7 +147,9 @@ export function EvalGeneratingPage() {
                     id: q.id,
                     type: q.type,
                     subtype: q.subtype,   // MCQ subtype from AI (e.g. 'standard', 'higher_order')
-                    text: q.text,
+                    // The generator sometimes repeats the choices inside the stem;
+                    // drop that run so the paper doesn't show them twice.
+                    text: stripInlineOptions(q.text, q.options),
                     options: q.options,
                     points: q.points || 1,
                     pairs: q.pairs,
@@ -161,12 +164,24 @@ export function EvalGeneratingPage() {
                     explanation: ak?.explanation,
                     subject: q.subject,
                     chapter: q.chapter,
+                    // Shared-passage grouping emitted by the backend (optional).
+                    passage: q.passage,
+                    group_id: q.group_id,
+                    // Bilingual payload — carried through review into /papers/save.
+                    translations: q.translations
+                      ? Object.fromEntries(
+                          Object.entries(q.translations).map(([lang, tr]) => [
+                            lang,
+                            stripInlineOptionsFromTranslation(tr as any),
+                          ]),
+                        )
+                      : undefined,
                   };
                 });
                 setReviewQuestions(mapped);
                 toast.success(`Generated ${mapped.length} question${mapped.length !== 1 ? 's' : ''}!`);
                 if (data.capped) {
-                  toast.info('Max 75 questions per generation — run another batch to add more.');
+                  toast.info('The generator returned fewer questions than requested — run another batch to top up.');
                 }
               }
             } catch {
@@ -196,6 +211,10 @@ export function EvalGeneratingPage() {
         ...q,
         subject: (q as any).subject || config.subjects[0]?.subject,
         chapter: (q as any).chapter,
+        // Pass shared-passage grouping back through so it persists (optional fields).
+        passage: (q as any).passage,
+        group_id: (q as any).group_id,
+        translations: (q as any).translations,
       })),
       answerKey: genState.answerKeyJson || [],
     });

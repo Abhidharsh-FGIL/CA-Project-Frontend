@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 // Backend root URL — read from VITE_API_BASE_URL in .env, no trailing slash.
 export const BASE_URL: string =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ??
-  'http://localhost:8000';
+  'https://futuregenautomation.com/school_assessment/api';
 
 // Loud, unmistakable log so it's obvious in DevTools Console what URL is live
 console.log(
@@ -51,6 +51,30 @@ export function buildUrl(path: string): string {
   }
 
   return `${BASE_URL}${path}`;
+}
+
+/**
+ * Turn an error body into a throwable Error.
+ *
+ * `detail` may be a plain string or a structured object — the backend uses the
+ * structured form for business-rule failures (e.g. `{code: "LEVEL_LOCKED",
+ * message, required_level, ...}`). Surface `message` as the Error text so toasts
+ * stay readable, and hang the parsed object off `.code` / `.detail` so callers
+ * can branch on it.
+ */
+export function toRequestError(body: any, status: number): Error {
+  const detail = body?.detail ?? body;
+  if (detail && typeof detail === 'object' && typeof detail.message === 'string') {
+    const error = new Error(detail.message);
+    (error as any).code = detail.code;
+    (error as any).detail = detail;
+    (error as any).status = status;
+    return error;
+  }
+  const msg: unknown = body?.detail ?? body?.message ?? `Request failed: ${status}`;
+  const error = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+  (error as any).status = status;
+  return error;
 }
 
 const TOKEN_KEY = 'access_token';
@@ -109,8 +133,7 @@ async function publicApiRequest<T>(path: string, options: RequestInit = {}): Pro
     const err = await res.json().catch(() => ({ message: res.statusText }));
     // user-auth API: { success, error_code, message, details }
     // FastAPI standard: { detail }
-    const msg: unknown = err.detail ?? err.message ?? `Request failed: ${res.status}`;
-    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    throw toRequestError(err, res.status);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
@@ -142,15 +165,14 @@ async function userApiRequest<T>(path: string, options: RequestInit = {}): Promi
     if (newToken) {
       res = await makeUserRequest(newToken);
     } else {
-      window.location.href = `${import.meta.env.BASE_URL || '/'}user/login`;
+      window.location.href = `${import.meta.env.BASE_URL || '/'}#/user/login`;
       throw new Error('Session expired');
     }
   }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
-    const msg: unknown = err.detail ?? err.message ?? `Request failed: ${res.status}`;
-    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    throw toRequestError(err, res.status);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
@@ -257,7 +279,7 @@ function parseApiError(detail: any, status: number): { message: string; handled:
     toast.error('Insufficient Points', {
       description: msg,
       duration: 6000,
-      action: { label: 'Upgrade', onClick: () => { window.location.href = `${import.meta.env.BASE_URL || '/'}u/plans`; } },
+      action: { label: 'Upgrade', onClick: () => { window.location.href = `${import.meta.env.BASE_URL || '/'}#/user/subscription`; } },
     });
     return { message: msg, handled: true };
   }
@@ -268,7 +290,7 @@ function parseApiError(detail: any, status: number): { message: string; handled:
     toast.error('Usage Limit Reached', {
       description: msg,
       duration: 6000,
-      action: { label: 'Upgrade', onClick: () => { window.location.href = `${import.meta.env.BASE_URL || '/'}u/plans`; } },
+      action: { label: 'Upgrade', onClick: () => { window.location.href = `${import.meta.env.BASE_URL || '/'}#/user/subscription`; } },
     });
     return { message: msg, handled: true };
   }
@@ -279,7 +301,7 @@ function parseApiError(detail: any, status: number): { message: string; handled:
     toast.error('Feature Restricted', {
       description: msg,
       duration: 6000,
-      action: { label: 'Upgrade', onClick: () => { window.location.href = `${import.meta.env.BASE_URL || '/'}u/plans`; } },
+      action: { label: 'Upgrade', onClick: () => { window.location.href = `${import.meta.env.BASE_URL || '/'}#/user/subscription`; } },
     });
     return { message: msg, handled: true };
   }
@@ -289,7 +311,7 @@ function parseApiError(detail: any, status: number): { message: string; handled:
     toast.error('Subscription Inactive', {
       description: msg,
       duration: 6000,
-      action: { label: 'View Plans', onClick: () => { window.location.href = `${import.meta.env.BASE_URL || '/'}u/plans`; } },
+      action: { label: 'View Plans', onClick: () => { window.location.href = `${import.meta.env.BASE_URL || '/'}#/user/subscription`; } },
     });
     return { message: msg, handled: true };
   }
@@ -299,7 +321,7 @@ function parseApiError(detail: any, status: number): { message: string; handled:
     toast.error('No Subscription', {
       description: msg,
       duration: 6000,
-      action: { label: 'Subscribe', onClick: () => { window.location.href = `${import.meta.env.BASE_URL || '/'}u/plans`; } },
+      action: { label: 'Subscribe', onClick: () => { window.location.href = `${import.meta.env.BASE_URL || '/'}#/user/subscription`; } },
     });
     return { message: msg, handled: true };
   }
@@ -413,7 +435,7 @@ export async function apiRequest<T>(
       res = await makeRequest(url, token);
     } else {
       // Redirect to login if we can't refresh
-      window.location.href = `${import.meta.env.BASE_URL || '/'}login`;
+      window.location.href = `${import.meta.env.BASE_URL || '/'}#/adminlogin`;
       throw new Error('Session expired');
     }
   }
@@ -488,7 +510,7 @@ export async function apiDownload(path: string): Promise<Blob> {
     if (token) {
       res = await makeRequest(token);
     } else {
-      window.location.href = `${import.meta.env.BASE_URL || '/'}login`;
+      window.location.href = `${import.meta.env.BASE_URL || '/'}#/adminlogin`;
       throw new Error('Session expired');
     }
   }
@@ -544,7 +566,7 @@ export function streamRequest(
         if (token) {
           res = await makeReq(token);
         } else {
-          window.location.href = `${import.meta.env.BASE_URL || '/'}login`;
+          window.location.href = `${import.meta.env.BASE_URL || '/'}#/adminlogin`;
           onError?.(new Error('Session expired'));
           return;
         }

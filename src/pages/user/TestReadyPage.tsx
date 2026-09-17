@@ -44,6 +44,12 @@ export default function TestReadyPage() {
         },
       });
     } catch (err: any) {
+      if (err?.code === 'LEVEL_LOCKED') {
+        // Server-side level gate — guidance, not a retryable failure.
+        toast.error(err.message || 'Clear the previous level first.', { duration: 6000 });
+        navigate('/user/exams');
+        return;
+      }
       toast.error(err?.message || 'Could not start test. Please try again.');
       setStarting(false);
     }

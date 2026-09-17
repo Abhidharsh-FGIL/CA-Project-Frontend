@@ -11,5 +11,5 @@
 //
 // For local development change this to: http://localhost:8000
 window.__APP_CONFIG__ = {
-  API_BASE_URL: "https://futuregenautomation.com/assessment_portal/api",
+  API_BASE_URL: "https://futuregenautomation.com/school_assessment/api",
 };

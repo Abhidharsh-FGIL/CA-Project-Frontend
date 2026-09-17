@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Download, Sparkles, AlertTriangle, CheckCircle2, XCircle, Brain, Clock, Target } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState, useEffect, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Download, Sparkles, AlertTriangle, CheckCircle2, XCircle, Brain, Clock, Target, TrendingUp, Trophy } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import {
   getAttemptDetail,
@@ -9,9 +9,47 @@ import {
   type StrengthItem,
   type ImprovementAreaItem,
   type QuestionReviewItem,
+  type OverallDistribution,
+  type SubjectBreakdown,
+  type FeedbackStrength,
+  type FeedbackImprovement,
+  type AttemptBadge,
+  type TopicPerformance,
+  type TopicFocus,
 } from '@/lib/userPortalApi';
 import { MathText } from '@/components/ui/MathText';
+import { parseOptionRepr } from '@/lib/question-text';
+import { orderBySection, stageForSubjects, stageForTitle } from '@/config/tnpsc';
+import { MarkdownText } from '@/components/ui/MarkdownText';
+import { buildUrl } from '@/lib/api';
+import { SkhcReport } from '@/components/user/SkhcReport';
+import { ProgressReportView } from '@/components/user/ProgressReportView';
+import { useProgressReport } from '@/hooks/use-progress-report';
+import { resolveGroupKey } from '@/hooks/use-progress-trend';
+import { resolveExamContext, type ExamContext } from '@/lib/exam-report-config';
+import { useTnpscCatalog } from '@/hooks/use-tnpsc';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { translationOf, type LangMode } from '@/lib/question-language';
+import { ReportLanguageProvider, type ReportLanguage } from '@/components/user/report-ui';
 import { cn } from '@/lib/utils';
+import { buildAttemptReport } from '@/lib/attempt-report';
+
+/** Rows per page in the question table — a full 200-question paper needs paging. */
+const QUESTIONS_PER_PAGE = 25;
+import {
+  AttemptSummary,
+  CoverageAnalysis,
+  QuestionInsightsTable,
+  ReportCover,
+  ReportTitleRow,
+  KeyTakeawaysAndNextSteps,
+  PerformanceSnapshot,
+  QuestionErrorAnalysis,
+  QuestionInsightsToolbar,
+  StrengthsAndGaps,
+  SubjectPerformance,
+  type ResultFilter,
+} from '@/components/user/AttemptDiagnosticReport';
 
 interface ReportBodyProps {
   attempt: any;
@@ -23,150 +61,148 @@ interface ReportBodyProps {
 const OPTION_LETTERS = ['a', 'b', 'c', 'd', 'e', 'f'];
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-function resolveOptionText(key: string | null, options: string[] | null): string | null {
-  if (!key) return null;
-  if (!options) return key;
-  const idx = OPTION_LETTERS.indexOf(key.toLowerCase());
-  if (idx >= 0 && options[idx] !== undefined) {
-    const raw = String(options[idx]);
-    // Strip leading "A. " / "A) " prefix if present
-    return raw.replace(/^[A-Fa-f][.)]\s*/, '').trim() || raw;
-  }
-  return key;
+/** True if the string is an image path/URL (so an image option renders as a picture, not text). */
+function isImageUrl(s: string): boolean {
+  return /^\/static\//i.test(s) ||
+    /\.(png|jpe?g|webp|gif|svg)(\?|#|$)/i.test(s) ||
+    (/^https?:\/\//i.test(s) && /\.(png|jpe?g|webp|gif|svg)/i.test(s));
 }
 
-function resolveAnswerLabel(key: string | null, options: string[] | null): { label: string; text: string | null } {
-  if (!key) return { label: '—', text: null };
+/** Look up an option by letter — supports an array (indexed) or a {A: …} map. */
+function optionAt(options: any, key: string, idx: number): any {
+  if (Array.isArray(options)) return idx >= 0 ? options[idx] : undefined;
+  if (options && typeof options === 'object') return options[key?.toUpperCase()] ?? options[key] ?? undefined;
+  return undefined;
+}
+
+function resolveAnswerLabel(key: string | null, options: any): { label: string; text: string | null; image_url: string | null } {
+  if (!key) return { label: '—', text: null, image_url: null };
   const idx = OPTION_LETTERS.indexOf(key.toLowerCase());
   const label = idx >= 0 ? OPTION_LABELS[idx] : key.toUpperCase();
-  const text = resolveOptionText(key, options);
-  return { label, text };
-}
-
-// ── Sub-components ─────────────────────────────────────────────────────────────
-
-function StatTile({
-  label,
-  value,
-  tone,
-  icon,
-}: {
-  label: string;
-  value: string | number;
-  tone: 'green' | 'red' | 'blue' | 'amber' | 'gray';
-  icon: React.ReactNode;
-}) {
-  const colours = {
-    green: 'bg-emerald-50 border-emerald-200 text-emerald-700',
-    red: 'bg-red-50 border-red-200 text-red-700',
-    blue: 'bg-blue-50 border-blue-200 text-blue-700',
-    amber: 'bg-amber-50 border-amber-200 text-amber-700',
-    gray: 'bg-gray-50 border-gray-200 text-gray-600',
-  };
-  const valColours = {
-    green: 'text-emerald-700',
-    red: 'text-red-600',
-    blue: 'text-blue-700',
-    amber: 'text-amber-600',
-    gray: 'text-gray-700',
-  };
-  return (
-    <div className={`rounded-xl border p-3 flex flex-col items-center gap-1 ${colours[tone]}`}>
-      <div className="flex items-center gap-1.5">
-        <span className="opacity-70">{icon}</span>
-        <span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">{label}</span>
-      </div>
-      <span className={`text-xl font-bold tabular-nums ${valColours[tone]}`}>{value}</span>
-    </div>
-  );
-}
-
-function StrengthRow({ item }: { item: StrengthItem | string }) {
-  if (typeof item === 'string') {
-    // Old format: plain string, try to parse "Topic — XX% accurate"
-    const match = item.match(/^(.+?)\s*[—–-]\s*(\d+)%/);
-    if (match) {
-      return (
-        <div className="flex items-start gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-gray-800">{match[1].trim()}</span>
-              <span className="text-sm font-bold text-emerald-600 whitespace-nowrap">{match[2]}%</span>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div className="flex items-start gap-2">
-        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-        <span className="text-sm text-gray-700">{item}</span>
-      </div>
-    );
+  const opt = optionAt(options, key, idx);
+  if (opt && typeof opt === 'object') {
+    return { label, text: opt.text ?? null, image_url: opt.image_url ?? opt.imageUrl ?? null };
   }
-  return (
-    <div className="flex items-start gap-2">
-      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium text-gray-800">{item.topic}</span>
-          <span className="text-sm font-bold text-emerald-600 whitespace-nowrap">{item.accuracy}%</span>
-        </div>
-        {item.detail && (
-          <p className="text-xs text-gray-500 mt-0.5">{item.detail}</p>
-        )}
-      </div>
-    </div>
-  );
+  // An image option serialised by Python's str() rather than as JSON — the URL is
+  // in there, so recover it instead of printing the dict.
+  const rich = parseOptionRepr(opt);
+  if (rich) return { label, text: rich.text, image_url: rich.image_url };
+
+  if (opt != null && opt !== '') {
+    const raw = String(opt);
+    if (isImageUrl(raw)) return { label, text: null, image_url: raw };
+    return { label, text: raw.replace(/^[A-Fa-f][.)]\s*/, '').trim() || raw, image_url: null };
+  }
+  return { label, text: null, image_url: null };
 }
 
-function ImprovementRow({ item }: { item: ImprovementAreaItem | string }) {
-  if (typeof item === 'string') {
-    const match = item.match(/^(.+?)\s*[—–-]\s*(\d+)%/);
-    if (match) {
-      const pct = Number(match[2]);
-      return (
-        <div className="bg-white border border-gray-100 rounded-xl p-3.5">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold text-gray-800">{match[1].trim()}</span>
-            <span className="text-sm font-bold text-amber-600">{pct}%</span>
-          </div>
-          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-amber-400 rounded-full" style={{ width: `${pct}%` }} />
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div className="bg-white border border-gray-100 rounded-xl p-3.5">
-        <div className="flex items-start gap-2">
-          <Target className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-          <span className="text-sm text-gray-700">{item}</span>
-        </div>
-      </div>
-    );
+function reasonLabel(reason: string): string {
+  switch (reason) {
+    case 'tab_violations': return 'Tab violations';
+    case 'time_expired': return 'Time expired';
+    case 'browser_close': return 'Browser closed';
+    case 'manual': return 'Manual submit';
+    default: return reason.replace(/_/g, ' ');
   }
+}
+
+function formatEvent(ev: any): string {
+  if (typeof ev === 'string') return ev;
+  if (ev && typeof ev === 'object') {
+    const type = String(ev.event_type ?? ev.type ?? 'event');
+    const ts = ev.timestamp ?? ev.time ?? null;
+    const d = ts ? new Date(ts) : null;
+    return d && !isNaN(d.getTime()) ? `${type} · ${d.toLocaleString('en-IN')}` : type;
+  }
+  return String(ev);
+}
+function BadgeTile({ badge }: { badge: AttemptBadge }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-xl p-3.5">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-sm font-semibold text-gray-800">{item.topic}</span>
-        <span className="text-sm font-bold text-amber-600">{item.accuracy}%</span>
-      </div>
-      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-2">
-        <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${item.accuracy}%` }} />
-      </div>
-      {item.advice && (
-        <p className="text-xs text-gray-600 leading-relaxed">{item.advice}</p>
+    <div
+      className={cn(
+        'relative rounded-xl border p-3 flex flex-col items-center text-center gap-1 transition-all',
+        badge.earned
+          ? 'bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/20 border-amber-300 dark:border-amber-700 shadow-sm'
+          : 'bg-gray-50 dark:bg-gray-800/40 border-dashed border-gray-200 dark:border-gray-700 opacity-60',
       )}
+      title={badge.criteria}
+    >
+      {badge.earned && (
+        <CheckCircle2 className="absolute top-1.5 right-1.5 w-3.5 h-3.5 text-emerald-500" />
+      )}
+      <span className={cn('text-2xl leading-none', !badge.earned && 'grayscale')}>{badge.icon}</span>
+      <span className="text-xs font-bold text-gray-800 dark:text-gray-200 leading-tight">{badge.title}</span>
+      <span className="text-[10px] text-gray-400 leading-tight">{badge.criteria}</span>
     </div>
   );
 }
 
-function QuestionCard({ q, index }: { q: QuestionReviewItem; index: number }) {
+function BadgesPanel({ badges }: { badges: AttemptBadge[] }) {
+  const earnedLevel = badges.find(b => b.group === 'level' && b.earned);
+  const earnedCount = badges.filter(b => b.earned).length;
+  // Earned badges first
+  const sorted = [...badges].sort((a, b) => Number(b.earned) - Number(a.earned));
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Trophy className="w-4 h-4 text-amber-500" />
+        <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">Badges</h3>
+        <span className="ml-auto text-xs text-gray-400">{earnedCount} of {badges.length} earned</span>
+      </div>
+
+      {/* Earned level highlight */}
+      {earnedLevel && (
+        <div className="flex items-center gap-3 mb-4 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-900/40 p-3">
+          <span className="text-3xl leading-none">{earnedLevel.icon}</span>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{earnedLevel.title}</p>
+            {earnedLevel.message && (
+              <p className="text-xs text-gray-600 dark:text-gray-400 leading-snug">{earnedLevel.message}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
+        {sorted.map(b => (
+          <BadgeTile key={b.id} badge={b} />
+        ))}
+      </div>
+    </div>
+  );
+}
+function QuestionCard({
+  q,
+  index,
+  forceExpanded,
+  langMode = 'both',
+}: {
+  q: QuestionReviewItem;
+  index: number;
+  forceExpanded?: boolean;
+  /** Which language(s) of a bilingual paper to show. Ignored on a single-language one. */
+  langMode?: LangMode;
+}) {
   const [expanded, setExpanded] = useState(false);
+  const isOpen = forceExpanded || expanded;
+
+  // The stored answer stays in the paper's primary language whatever is on
+  // screen — it is what grading matched against, so translating it would print
+  // something the aspirant never chose.
+  const showPrimary = langMode !== 'translation';
+  const tr = translationOf(q, langMode !== 'primary');
   const userAns = resolveAnswerLabel(q.user_answer, q.options);
   const correctAns = resolveAnswerLabel(q.correct_answer, q.options);
+
+  // The stem can arrive as plain text or — like the options on image questions —
+  // as a stringified dict carrying the picture. Normalise before deciding.
+  const stem = parseOptionRepr(q.body) ?? { text: q.body ?? null, image_url: null };
+  // Blank-but-present bodies are common (" ", "\n"). Treated as text they render
+  // nothing *and* used to suppress the image, which is how an image-only question
+  // ended up showing neither.
+  const stemText = stem.text && stem.text.trim() ? stem.text : null;
+  const stemImage = stem.image_url || q.attachment_url || q.question_image_url || null;
 
   const borderColor = !q.user_answer
     ? 'border-gray-200'
@@ -192,9 +228,31 @@ function QuestionCard({ q, index }: { q: QuestionReviewItem; index: number }) {
           {index + 1}
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-gray-800 leading-snug line-clamp-2">
-            <MathText text={q.body} />
-          </p>
+          {showPrimary && stemText && (
+            <p className={`text-sm text-gray-800 leading-snug ${isOpen ? 'whitespace-pre-wrap' : 'line-clamp-2'}`}>
+              <MathText text={stemText} />
+            </p>
+          )}
+          {/* The other language sits under the stem rather than replacing it in
+              'both' mode, which is how the test screen shows it. */}
+          {tr?.text && tr.text.trim() && (
+            <p
+              className={`text-sm leading-snug ${showPrimary ? 'text-gray-500 mt-1' : 'text-gray-800'} ${
+                isOpen ? 'whitespace-pre-wrap' : 'line-clamp-2'
+              }`}
+            >
+              <MathText text={tr.text} />
+            </p>
+          )}
+          {/* Shown whenever there is one — a question can have both a stem and a
+              diagram, and the old `!body &&` guard hid the diagram in that case. */}
+          {stemImage && (
+            <img
+              src={buildUrl(stemImage)}
+              alt={`Question ${index + 1}`}
+              className="max-h-40 rounded-lg border border-gray-200 object-contain"
+            />
+          )}
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
             {q.subject && (
               <span className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded font-medium">
@@ -222,8 +280,15 @@ function QuestionCard({ q, index }: { q: QuestionReviewItem; index: number }) {
         </div>
       </button>
 
-      {expanded && (
+      {isOpen && (
         <div className="border-t border-gray-100 p-4 bg-gray-50/40 space-y-3">
+          {/* Shared passage / context (reading-comprehension groups) */}
+          {(q as any).passage && (
+            <div className="bg-white border border-gray-200 rounded-lg px-3 py-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-1">Passage</p>
+              <MarkdownText text={(q as any).passage} className="text-gray-700" />
+            </div>
+          )}
           {/* Answer comparison */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div
@@ -245,11 +310,13 @@ function QuestionCard({ q, index }: { q: QuestionReviewItem; index: number }) {
                   >
                     {userAns.label}
                   </span>
-                  {userAns.text && (
+                  {userAns.image_url ? (
+                    <img src={buildUrl(userAns.image_url)} alt="Your answer" className="max-h-24 rounded border border-gray-200 object-contain" />
+                  ) : userAns.text ? (
                     <span className="text-sm text-gray-800 leading-snug">
                       <MathText text={userAns.text} />
                     </span>
-                  )}
+                  ) : null}
                 </div>
               ) : (
                 <span className="text-sm text-gray-400 italic">Not answered</span>
@@ -262,11 +329,13 @@ function QuestionCard({ q, index }: { q: QuestionReviewItem; index: number }) {
                 <span className="flex-shrink-0 w-6 h-6 rounded bg-emerald-200 text-emerald-800 font-bold text-xs flex items-center justify-center">
                   {correctAns.label}
                 </span>
-                {correctAns.text && (
+                {correctAns.image_url ? (
+                  <img src={buildUrl(correctAns.image_url)} alt="Correct answer" className="max-h-24 rounded border border-gray-200 object-contain" />
+                ) : correctAns.text ? (
                   <span className="text-sm text-gray-800 leading-snug">
                     <MathText text={correctAns.text} />
                   </span>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
@@ -275,7 +344,12 @@ function QuestionCard({ q, index }: { q: QuestionReviewItem; index: number }) {
           {q.explanation && (
             <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2.5">
               <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-1">Explanation</p>
-              <p className="text-sm text-indigo-900 leading-relaxed">{q.explanation}</p>
+              {showPrimary && <p className="text-sm text-indigo-900 leading-relaxed">{q.explanation}</p>}
+              {tr?.explanation && tr.explanation.trim() && (
+                <p className={`text-sm leading-relaxed ${showPrimary ? 'text-indigo-700/80 mt-1.5' : 'text-indigo-900'}`}>
+                  {tr.explanation}
+                </p>
+              )}
             </div>
           )}
 
@@ -295,7 +369,8 @@ function QuestionCard({ q, index }: { q: QuestionReviewItem; index: number }) {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function ReportBody({ attempt, canDownloadPDF }: ReportBodyProps) {
-  const { courses } = useUserPortal();
+  const { courses, user, history } = useUserPortal();
+  const { groups } = useTnpscCatalog();
   const [detail, setDetail] = useState<AttemptDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
@@ -313,6 +388,168 @@ export function ReportBody({ attempt, canDownloadPDF }: ReportBodyProps) {
     ? (courses.find((c: any) => c.course_id === attempt.course_id)?.name ?? null)
     : null;
 
+  /**
+   * The Progress tab's content, built from the attempt history rather than the
+   * server's SKHC payload. Needs two attempts before it can compare anything.
+   */
+  const submitted = useMemo(
+    () => history.filter(h => h.status !== 'in_progress' && h.percentage != null),
+    [history],
+  );
+  /**
+   * Scoped to the exam this attempt belongs to, so the Progress tab beside a
+   * Group 4 result compares Group 4 attempts and nothing else.
+   */
+  const progressGroupId = resolveGroupKey((attempt as any).group_id ?? user?.preferred_exam);
+
+  const { model: progressModel } = useProgressReport({
+    attempts: submitted,
+    groupId: progressGroupId,
+    enabled: submitted.length >= 2,
+  });
+
+  /**
+   * The exam this attempt belongs to, so the report can read its marking scheme,
+   * duration and syllabus rather than assume product defaults.
+   *
+   * The detail response now states it outright (`group_id` / `stage_id` on the
+   * attempt), which is exact. The history row is tried next, and only then the
+   * exam the aspirant registered for — a guess that is wrong for anyone sitting a
+   * different exam's paper, so it is the last resort rather than the first.
+   */
+  const examContext = useMemo(() => {
+    const fromDetail = (detail as any)?.attempt ?? {};
+    return resolveExamContext(
+      {
+        groupId: fromDetail.group_id ?? (attempt as any).group_id ?? user?.preferred_exam ?? null,
+        stageId: fromDetail.stage_id ?? (attempt as any).stage_id ?? null,
+      },
+      groups,
+    );
+  }, [detail, attempt, user?.preferred_exam, groups]);
+
+  return (
+    <AttemptReport
+      detail={detail}
+      attempt={attempt}
+      courseName={courseName}
+      canDownloadPDF={canDownloadPDF}
+      loading={loading}
+      fetchError={fetchError}
+      examContext={examContext}
+      studentName={user?.name ?? 'Student'}
+      progressView={
+        progressModel && submitted.length >= 2 ? (
+          <ProgressReportView
+            model={progressModel}
+            studentName={user?.name ?? 'You'}
+            examName={examContext?.examName ?? null}
+          />
+        ) : undefined
+      }
+    />
+  );
+}
+
+/**
+ * Presentational report — renders the full student-style report from an already-fetched
+ * AttemptDetailResponse. Decoupled from the user fetch/context so admin can reuse it.
+ */
+export function AttemptReport({
+  detail,
+  attempt,
+  courseName,
+  canDownloadPDF,
+  loading = false,
+  fetchError = false,
+  progressView,
+  examContext = null,
+  studentName = 'Student',
+}: {
+  detail: AttemptDetailResponse | null;
+  attempt: any;
+  courseName: string | null;
+  canDownloadPDF: boolean;
+  loading?: boolean;
+  fetchError?: boolean;
+  /**
+   * The rebuilt multi-attempt Progress Report. Supplied by the student portal,
+   * which has the attempt history; the admin view leaves it undefined and falls
+   * back to whatever `skhc_report` the payload carried.
+   */
+  progressView?: React.ReactNode;
+  /** The selected exam's configuration — marking scheme, duration, syllabus. */
+  examContext?: ExamContext | null;
+  /** Shown on the cover. Admin passes the candidate; the portal passes the aspirant. */
+  studentName?: string;
+}) {
+  const navigate = useNavigate();
+  const [expandAll, setExpandAll] = useState(false);
+  /** Which subject's inline deep dive is open, and which subject filters the questions. */
+  const [openSubject, setOpenSubject] = useState<string | null>(null);
+  const [questionSubject, setQuestionSubject] = useState<string | null>(null);
+  const [resultFilter, setResultFilter] = useState<ResultFilter>('all');
+  const [questionPage, setQuestionPage] = useState(1);
+  const [openQuestion, setOpenQuestion] = useState<string | null>(null);
+  /**
+   * Which language the question stems are read in.
+   *
+   * Opens on 'both', matching the test screen: an aspirant who sat a bilingual
+   * paper read both columns then, and a review that silently drops one of them
+   * is not the paper they sat.
+   */
+  const [questionLang, setQuestionLang] = useState<LangMode>('both');
+  /**
+   * The language the report's labels are read in.
+   *
+   * Fixed to English while the toggle is hidden: subject labels resolve to the
+   * exam catalog's English names, which is what a report shared with a teacher or
+   * a parent needs to read as. Everything the toggle drove is still in place —
+   * `ReportLanguageProvider`, `useLabel`, both labels on every subject and topic
+   * — so restoring it is a `useState` here plus the two props on the title row.
+   */
+  const language: ReportLanguage = 'en';
+
+  /**
+   * One normalized model behind every analytic section (§22.5). Built from the
+   * detail payload only — without it there is nothing to diagnose, and the report
+   * says so rather than rendering empty charts.
+   */
+  const model = useMemo(
+    () => (detail ? buildAttemptReport(detail, {}, examContext) : null),
+    [detail, examContext],
+  );
+
+  const questionCounts = useMemo(() => {
+    const list = model?.questions ?? [];
+    const answered = (q: any) => q.user_answer != null && String(q.user_answer).trim() !== '';
+    return {
+      all: list.length,
+      correct: list.filter(q => answered(q) && q.is_correct).length,
+      incorrect: list.filter(q => answered(q) && !q.is_correct).length,
+      skipped: list.filter(q => !answered(q)).length,
+    };
+  }, [model]);
+
+  useEffect(() => {
+    setQuestionPage(1);
+    setOpenQuestion(null);
+  }, [resultFilter, questionSubject]);
+
+  const visibleQuestions = useMemo(() => {
+    const list = model?.questions ?? [];
+    const subjectName = questionSubject
+      ? model?.subjects.find(sub => sub.subjectId === questionSubject)?.name ?? null
+      : null;
+    return list.filter(q => {
+      if (subjectName && (q.subject ?? '').trim() !== subjectName) return false;
+      const answered = q.user_answer != null && String(q.user_answer).trim() !== '';
+      if (resultFilter === 'correct') return answered && q.is_correct;
+      if (resultFilter === 'incorrect') return answered && !q.is_correct;
+      if (resultFilter === 'skipped') return !answered;
+      return true;
+    });
+  }, [model, questionSubject, resultFilter]);
   const dateStr = attempt.start_time
     ? new Date(attempt.start_time).toLocaleDateString('en-IN', {
         day: '2-digit',
@@ -321,16 +558,26 @@ export function ReportBody({ attempt, canDownloadPDF }: ReportBodyProps) {
       })
     : '—';
 
-  // Use detail data if loaded, fall back to list data
-  const score = detail?.attempt.score ?? attempt.score;
-  const maxScore = detail?.attempt.max_score ?? attempt.max_score ?? null;
-  const pct = detail?.attempt.percentage ?? attempt.percentage;
+  // Use detail data if loaded, fall back to list data (admin /detail may omit `attempt`)
+  const score = detail?.attempt?.score ?? (detail as any)?.score ?? attempt.score;
+  const maxScore = detail?.attempt?.max_score ?? (detail as any)?.max_score ?? attempt.max_score ?? null;
+  const pct = detail?.attempt?.percentage ?? (detail as any)?.percentage ?? attempt.percentage;
   const pctRounded = pct != null ? Math.round(pct) : null;
-  const status = detail?.attempt.status ?? attempt.status;
-  const autoSubmitted = detail?.attempt.auto_submitted ?? attempt.auto_submitted;
+  const status = detail?.attempt?.status ?? (detail as any)?.status ?? attempt.status;
+  const autoSubmitted = detail?.attempt?.auto_submitted ?? (detail as any)?.auto_submitted ?? attempt.auto_submitted;
+
+  // Test integrity / violations — gathered defensively (admin & student payloads differ).
+  const attemptMeta: any =
+    (detail?.attempt as any)?.attempt_metadata ?? (detail as any)?.attempt_metadata ?? (attempt as any)?.attempt_metadata ?? {};
+  const malpracticeEvents: any[] =
+    (detail?.attempt?.malpractice_events as any[]) ?? (attempt.malpractice_events as any[]) ?? [];
+  const tabViolations: number =
+    attemptMeta.tab_violations ?? (Array.isArray(malpracticeEvents) ? malpracticeEvents.length : 0);
+  const submitReason: string | null = attemptMeta.submit_reason ?? null;
+  const hasIntegrityInfo = tabViolations > 0 || malpracticeEvents.length > 0 || !!autoSubmitted;
 
   const timeTakenMin =
-    detail?.stats.time_taken_seconds
+    detail?.stats?.time_taken_seconds
       ? Math.round(detail.stats.time_taken_seconds / 60)
       : attempt.end_time && attempt.start_time
       ? Math.round((new Date(attempt.end_time).getTime() - new Date(attempt.start_time).getTime()) / 60000)
@@ -386,224 +633,232 @@ export function ReportBody({ attempt, canDownloadPDF }: ReportBodyProps) {
 
   const stats = detail?.stats;
   const aiReport = detail?.ai_report;
-  const questions = detail?.questions ?? [];
+  // Normalize backend question fields → what the report card reads.
+  // Admin attempt-detail sends `question_text`/`text` (student portal sends `body`),
+  // and the chosen option as `student_answer` (card reads `user_answer`). Without this
+  // remap every answered question shows as "Not answered"/"Skipped".
+  const mappedQuestions = (model?.questions ?? []).map((q: any) => ({
+    ...q,
+    body: q.body ?? q.question_text ?? q.text ?? '',
+    passage: q.passage ?? undefined,
+    user_answer: q.user_answer ?? q.student_answer ?? null,
+    correct_answer: q.correct_answer ?? q.correctAnswer ?? null,
+  }));
 
+  // Same section order the paper was sat in, so review numbering matches the exam.
+  const reviewStage =
+    stageForTitle(
+      detail?.attempt?.test_name ?? (detail as any)?.test_name ?? attempt.test_name ?? null,
+    ) ?? stageForSubjects(mappedQuestions.map((q: any) => q.subject));
+  const questions = orderBySection(reviewStage, mappedQuestions, (q: any) => q.subject);
+  const skhc = detail?.skhc_report ?? null;
+
+  // New richer payload
+  const pb = detail?.performance_breakdown ?? null;
+  const feedback = pb?.feedback ?? null;
+  const distribution = pb?.overall_distribution ?? null;
+  const subjects = pb?.subject_breakdown ?? [];
+  const badges = pb?.badges ?? [];
+  const topicPerf = pb?.topic_performance ?? null;
+
+  // Prefer new feedback shape; fall back to legacy ai_report
+  const fbStrengths = feedback?.strengths ?? [];
+  const fbImprovements = feedback?.improvement_areas ?? [];
   const strengths = aiReport?.strengths ?? [];
   const improvementAreas = aiReport?.improvement_areas ?? [];
   const overallSummary = aiReport?.overall_summary ?? (attempt.analysis_text ?? null);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  return (
+  const attemptContent = (
     <div className="space-y-5">
-      {/* ── Header ── */}
-      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-100 dark:border-indigo-900/40 rounded-2xl p-4">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-1">
-          AI Performance Report
-        </p>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 break-words">
-          {detail?.attempt.test_name ?? attempt.test_name ?? 'Test Attempt'}
-        </h1>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-          {courseName && <span>{courseName} · </span>}
-          {dateStr}
-        </p>
+      {model && (
+        // Download and share are deliberately not wired: the PDF export does not
+        // exist yet (the handler only raised "coming soon"), and a shared link
+        // needs a viewer who is not signed in as this aspirant. `ReportTitleRow`
+        // hides each button when its handler is absent, so passing neither is all
+        // it takes — and passing them again is all it takes to bring them back.
+        <ReportTitleRow model={model} />
+      )}
 
-        {/* Score / Pct / Time */}
-        <div className="grid grid-cols-3 gap-2 mt-4">
-          <div className="bg-white dark:bg-gray-900 rounded-lg px-2.5 py-2 border border-gray-200 dark:border-gray-800">
-            <p className="text-[9px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Score</p>
-            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{scoreDisplay}</p>
+      {/* ── Diagnostic report (§2 information architecture) ─────────────────
+          Every figure comes from the normalized model, so the snapshot, radar,
+          matrix and priorities cannot disagree with each other or with the
+          question list below. */}
+      {model ? (
+        <div className="space-y-3 sm:space-y-4">
+          <ReportCover
+            model={model}
+            studentName={studentName}
+            examName={examContext?.examName ?? null}
+            exam={examContext}
+          />
+          <AttemptSummary model={model} />
+          <PerformanceSnapshot
+            model={model}
+            onSelectSubject={id => {
+              setOpenSubject(id);
+              document.getElementById('subject-performance')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          />
+          <div id="subject-performance">
+            <SubjectPerformance
+              model={model}
+              expanded={openSubject}
+              onToggle={id => setOpenSubject(cur => (cur === id ? null : id))}
+              onViewQuestions={id => {
+                setQuestionSubject(id);
+                document.getElementById('question-insights')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+            />
           </div>
-          <div
-            className={cn(
-              'rounded-lg px-2.5 py-2 border',
-              pctRounded == null
-                ? 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800'
-                : passed
-                ? 'bg-white dark:bg-gray-900 border-green-300 dark:border-green-700'
-                : 'bg-white dark:bg-gray-900 border-red-300 dark:border-red-700',
-            )}
-          >
-            <p className="text-[9px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Percentage</p>
-            <p
-              className={cn(
-                'text-sm font-bold',
-                pctRounded == null
-                  ? 'text-gray-900 dark:text-gray-100'
-                  : passed
-                  ? 'text-green-700 dark:text-green-400'
-                  : 'text-red-700 dark:text-red-400',
-              )}
-            >
-              {pctRounded != null ? `${pctRounded}%` : '—'}
+          <CoverageAnalysis model={model} />
+          <QuestionErrorAnalysis model={model} />
+          <StrengthsAndGaps model={model} />
+          <KeyTakeawaysAndNextSteps
+            model={model}
+            onOpenPlan={
+              model.meta.attemptId
+                ? () => navigate(`/user/study-plan/${model.meta.attemptId}`)
+                : undefined
+            }
+          />
+        </div>
+      ) : (
+        !loading && (
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6 text-center">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Question-level data for this attempt is unavailable, so the diagnostic breakdown cannot be shown.
             </p>
           </div>
-          <div className="bg-white dark:bg-gray-900 rounded-lg px-2.5 py-2 border border-gray-200 dark:border-gray-800">
-            <p className="text-[9px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Time Taken</p>
-            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-              {timeTakenMin != null ? `${timeTakenMin} min` : '—'}
-            </p>
-          </div>
-        </div>
-
-        {/* Status + download row */}
-        <div className="flex items-center justify-between mt-3 flex-wrap gap-2">
-          <StatusBadge status={status} autoSubmitted={autoSubmitted} />
-          {canDownloadPDF ? (
-            <button
-              onClick={() => toast.info('PDF download coming soon.')}
-              className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" /> Download report
-            </button>
-          ) : (
-            <Link
-              to="/user/subscription"
-              className="inline-flex items-center gap-1.5 bg-amber-400 text-amber-900 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-300 transition-colors"
-            >
-              <Sparkles className="w-3.5 h-3.5" /> Upgrade to download
-            </Link>
-          )}
-        </div>
-      </div>
-
-      {/* ── 5 stat tiles ── */}
-      {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-          <StatTile
-            label="Correct"
-            value={stats.correct_count ?? '—'}
-            tone="green"
-            icon={<CheckCircle2 className="w-3.5 h-3.5" />}
-          />
-          <StatTile
-            label="Incorrect"
-            value={stats.incorrect_count ?? '—'}
-            tone="red"
-            icon={<XCircle className="w-3.5 h-3.5" />}
-          />
-          <StatTile
-            label="Unattempted"
-            value={stats.unattempted_count}
-            tone="blue"
-            icon={<Target className="w-3.5 h-3.5" />}
-          />
-          <StatTile
-            label="Avg time / Q"
-            value={stats.avg_time_per_question != null ? `${stats.avg_time_per_question}s` : '—'}
-            tone="amber"
-            icon={<Clock className="w-3.5 h-3.5" />}
-          />
-          <StatTile
-            label="Slow questions"
-            value={stats.slow_question_count ?? '—'}
-            tone="gray"
-            icon={<Brain className="w-3.5 h-3.5" />}
-          />
-        </div>
+        )
       )}
 
-      {/* ── Overall Summary + Strengths ── */}
-      {(overallSummary || strengths.length > 0) && (
-        <div className={`grid grid-cols-1 gap-4 ${strengths.length > 0 && overallSummary ? 'lg:grid-cols-2' : ''}`}>
-          {/* Strengths */}
-          {strengths.length > 0 && (
-            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">Strengths</h3>
-              </div>
-              <div className="space-y-3">
-                {strengths.map((item, i) => (
-                  <StrengthRow key={i} item={item} />
-                ))}
-              </div>
-            </div>
-          )}
+      {/* ── Badges (above question-level review) ── */}
+      {badges.length > 0 && <BadgesPanel badges={badges} />}
 
-          {/* Overall Summary */}
-          {overallSummary && (
-            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Brain className="w-4 h-4 text-indigo-500" />
-                <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">Overall Summary</h3>
-              </div>
-              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                {overallSummary}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Improvement Areas ── */}
-      {improvementAreas.length > 0 && (
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Target className="w-4 h-4 text-amber-500" />
-            <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">Improvement Areas</h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {improvementAreas.map((item, i) => (
-              <ImprovementRow key={i} item={item} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── AI report pending notice ── */}
-      {!overallSummary && (
-        attempt.attempt_type === 'test'
-          ? (!aiReport || aiReport.generation_status !== 'completed')
-          : attempt.attempt_type === 'eval'
-      ) && (
-        <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl p-3 text-sm text-amber-800 dark:text-amber-300">
-          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-          <p>
-            AI analysis is being generated. Check back in a moment for your performance summary.
-          </p>
-        </div>
-      )}
-
-      {/* ── Question-level review ── */}
+      {/* ── Question Insights (§8) — the evidence layer ──────────────────────
+          Filters exist so a claim made above ("weak in X") can be traced to the
+          exact questions that produced it. */}
       {questions.length > 0 && (
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="flex items-center gap-2 mb-3">
+        <div
+          id="question-insights"
+          className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4"
+        >
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             <Brain className="w-4 h-4 text-indigo-500" />
-            <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">Question-level Review</h3>
-            <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">
-              Click a question to expand
+            <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">Question Insights</h3>
+            <span className="text-xs text-gray-400">
+              {visibleQuestions.length} of {questions.length}
             </span>
+            <button
+              onClick={() => setExpandAll(v => !v)}
+              className="ml-auto text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+            >
+              {expandAll ? 'Collapse all' : 'Expand all'}
+            </button>
           </div>
-          <div className="space-y-2">
-            {questions.map((q, i) => (
-              <QuestionCard key={q.question_id} q={q} index={i} />
-            ))}
-          </div>
+
+          {model && (
+            <QuestionInsightsToolbar
+              model={model}
+              lang={questionLang}
+              onLang={setQuestionLang}
+              result={resultFilter}
+              onResult={setResultFilter}
+              subject={questionSubject}
+              onSubject={setQuestionSubject}
+              counts={questionCounts}
+            />
+          )}
+
+          {visibleQuestions.length === 0 ? (
+            <p className="py-8 text-center text-xs text-gray-400">No questions match this filter.</p>
+          ) : expandAll ? (
+            <div className="space-y-2">
+              {visibleQuestions.map((q, i) => (
+                <QuestionCard key={q.question_id} q={q} index={i} forceExpanded />
+              ))}
+            </div>
+          ) : (
+            <QuestionInsightsTable
+              questions={visibleQuestions as any}
+              page={questionPage}
+              pageSize={QUESTIONS_PER_PAGE}
+              onPage={setQuestionPage}
+              onOpen={id => setOpenQuestion(cur => (cur === id ? null : id))}
+              openId={openQuestion}
+              renderDetail={id => {
+                const idx = visibleQuestions.findIndex(x => x.question_id === id);
+                const q = visibleQuestions[idx];
+                return q ? <QuestionCard q={q} index={idx} forceExpanded langMode={questionLang} /> : null;
+              }}
+            />
+          )}
         </div>
       )}
 
-      {/* ── Malpractice events ── */}
-      {Array.isArray(attempt.malpractice_events) && attempt.malpractice_events.length > 0 && (
+      {/* ── Test integrity / violations ── */}
+      {hasIntegrityInfo && (
         <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2.5">
             <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
-            <h3 className="text-sm font-semibold text-red-700 dark:text-red-300">
-              Flagged Events ({attempt.malpractice_events.length})
-            </h3>
+            <h3 className="text-sm font-semibold text-red-700 dark:text-red-300">Test Integrity &amp; Violations</h3>
           </div>
-          <ul className="space-y-1">
-            {attempt.malpractice_events.map((ev: any, i: number) => (
-              <li key={i} className="text-xs text-red-700 dark:text-red-300 flex items-center gap-1.5">
-                <XCircle className="w-3 h-3 shrink-0" />
-                {typeof ev === 'string' ? ev : JSON.stringify(ev)}
-              </li>
-            ))}
-          </ul>
+          <div className="flex flex-wrap gap-2 mb-2">
+            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">
+              Tab / window switches: {tabViolations}
+            </span>
+            {autoSubmitted && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
+                Auto-submitted{submitReason ? ` · ${reasonLabel(submitReason)}` : ''}
+              </span>
+            )}
+          </div>
+          {malpracticeEvents.length > 0 && (
+            <ul className="space-y-1">
+              {malpracticeEvents.map((ev: any, i: number) => (
+                <li key={i} className="text-xs text-red-700 dark:text-red-300 flex items-center gap-1.5">
+                  <XCircle className="w-3 h-3 shrink-0" />
+                  {formatEvent(ev)}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>
+  );
+
+  const progressTab = progressView ?? (skhc ? <SkhcReport report={skhc} /> : null);
+
+  // Nothing longitudinal to show → the single-attempt breakdown is the report.
+  if (!progressTab) {
+    return <ReportLanguageProvider language={language}>{attemptContent}</ReportLanguageProvider>;
+  }
+
+  /**
+   * Two tabs, opening on This Attempt.
+   *
+   * It used to default to Progress, which meant every rebuilt section opened
+   * behind a tab nobody clicked — you asked for a report on one attempt, so that
+   * is what should be on screen first.
+   */
+  return (
+    <ReportLanguageProvider language={language}>
+      <Tabs defaultValue="attempt" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="attempt">This Attempt</TabsTrigger>
+          <TabsTrigger value="progress">Progress</TabsTrigger>
+        </TabsList>
+        <TabsContent value="attempt" className="mt-4 focus-visible:outline-none">
+          {attemptContent}
+        </TabsContent>
+        <TabsContent value="progress" className="mt-4 focus-visible:outline-none">
+          {progressTab}
+        </TabsContent>
+      </Tabs>
+    </ReportLanguageProvider>
   );
 }
 

@@ -542,12 +542,15 @@ function FreeAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
 // ─── EvalAssessmentCard (Evaluation-Hub assessments) ──────────────────────────
 
 function EvalAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }) {
+  const navigate = useNavigate();
   const isExpired = !!a.due_date && new Date(a.due_date) < new Date();
   const canStart = a.has_invitation && !isExpired;
 
   const handleStart = () => {
-    if (!a.invitation_token) return;
-    window.open(`/take-assessment?token=${a.invitation_token}`, '_blank', 'noopener');
+    // Use the authenticated assessment flow (GET/POST /api/v1/user/eval-assessments/{id}),
+    // which exists on the backend. The token-based /take-assessment public flow is not
+    // implemented on the server, so invited assessments are taken while logged in.
+    navigate(`/user/assessment/${a.assessment_id}`);
   };
 
   return (

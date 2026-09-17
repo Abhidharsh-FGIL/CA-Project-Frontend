@@ -107,9 +107,71 @@ export interface QuestionReviewItem {
   is_correct: boolean;
   time_spent_seconds: number;
   subject: string;
+  /**
+   * Syllabus topic under the subject, and the sub-topic under that.
+   *
+   * The question bank already stores this as `chapter` (the evaluation module
+   * writes it, filters on it, and serves suggestions from
+   * `GET /api/v1/evaluation/chapters`), and the Excel importer reads a Topic
+   * column into its parse report. What is missing is the projection: this
+   * response stops at `subject`, so the report cannot go below subject level.
+   *
+   * Read under every name the pipeline uses, so whichever the backend projects
+   * first lights up the topic breakdown without another client change.
+   */
+  topic?: string | null;
+  subtopic?: string | null;
+  /** The question bank's own name for `topic`. */
+  chapter?: string | null;
+  /**
+   * Stable ids for the three taxonomy levels, where the backend assigns them.
+   *
+   * Preferred over slugging the name: a bilingual paper prints the same subject
+   * under two names, and an id keeps both halves in one row.
+   */
+  subject_id?: string | null;
+  topic_id?: string | null;
+  subtopic_id?: string | null;
+  /**
+   * The canonical subject name, where the backend resolved one.
+   *
+   * `subject` is the wording printed on the paper — Tamil on a Group 4 booklet.
+   * This is the catalog's name for the same subject, so a report read in English
+   * has an English label to use.
+   */
+  subject_name?: string | null;
   difficulty: string;
+  /**
+   * Format of the question, e.g. "standard" / "assertion_reason".
+   *
+   * Present on the wire from the history-detail endpoint though it was missing
+   * from the documented contract — optional here so an older payload still parses.
+   */
+  question_type?: string | null;
   explanation: string | null;
+  /**
+   * The same question in the paper's other language.
+   *
+   * A Group 4 booklet prints every question twice, and the attempt endpoint that
+   * drives the test screen projects both copies. The history-detail endpoint this
+   * shape describes currently sends only one, so the report shows whichever
+   * language the paper was written in. Declared here so the Question Insights
+   * language control lights up the moment the field is projected.
+   */
+  translations?: Record<string, QuestionTranslation>;
   tip: string | null;
+  /**
+   * The stem's diagram, for image-based questions.
+   *
+   * Present on the question record (`attachment_url`, EVALUATION_API.md §5) but
+   * NOT currently projected into this response, so image questions render with an
+   * empty stem — the option images come through only because they are embedded
+   * inside `options`. The client reads it as soon as the backend includes it.
+   */
+  attachment_url?: string | null;
+  attachment_name?: string | null;
+  /** Alias some payloads use for the same thing. */
+  question_image_url?: string | null;
 }
 
 export interface AttemptStats {
@@ -133,6 +195,391 @@ export interface ImprovementAreaItem {
   advice: string | null;
 }
 
+// ── Performance breakdown (richer report payload) ────────────────────────────
+
+export interface OverallDistribution {
+  correct: number;
+  incorrect: number;
+  unattempted: number;
+  total: number;
+}
+
+export interface SubjectBreakdown {
+  subject: string;
+  total_questions: number;
+  correct: number;
+  incorrect: number;
+  unattempted: number;
+  accuracy_percentage: number;
+  estimated_marks: number;
+  max_marks: number;
+}
+
+export interface FeedbackStrength {
+  title: string;
+  accuracy: number | null;
+  note: string | null;
+}
+
+export interface FeedbackImprovement {
+  title: string;
+  accuracy: number | null;
+  suggestion: string | null;
+}
+
+export interface PerformanceFeedback {
+  performance_level: string;
+  motivation: string | null;
+  strengths: FeedbackStrength[];
+  improvement_areas: FeedbackImprovement[];
+}
+
+export interface AttemptBadge {
+  id: string;
+  icon: string;
+  title: string;
+  criteria: string;
+  /** 'achievement' | 'level' */
+  group: string;
+  earned: boolean;
+  message?: string | null;
+}
+
+export interface TopicFocus {
+  topic: string;
+  accuracy: number;
+  recommended_questions: number;
+}
+
+export interface TopicPerformance {
+  well_performed: TopicFocus[];
+  needs_focus: TopicFocus[];
+  summary: string | null;
+}
+
+export interface PerformanceBreakdown {
+  overall_distribution: OverallDistribution;
+  subject_breakdown: SubjectBreakdown[];
+  feedback: PerformanceFeedback;
+  badges?: AttemptBadge[];
+  topic_performance?: TopicPerformance | null;
+}
+
+// ── SKHC progress report (multi-exam knowledge health check) ─────────────────
+
+export interface SkhcExamRow {
+  label: string;
+  attempt_id?: string;
+  date: string;
+  type?: string;
+  score: number;
+  max_score: number;
+  percentage: number;
+  grade?: string;
+}
+
+export interface SkhcProfile {
+  student_name: string;
+  email: string;
+  assessment_title: string;
+  total_exams: number;
+  report_generated: string;
+  /** Auto-generated report identifier, e.g. "SKHC-2025-8A-017" */
+  report_id?: string;
+  date_of_birth?: string;
+  gender?: string;
+  student_class?: string;
+  section?: string;
+  /** Human-readable class + section, e.g. "Class 8 – Section A" */
+  class_section?: string;
+  roll_no?: string;
+  school?: string;
+  medium?: string;
+  class_teacher?: string;
+  academic_year?: string;
+  assessment_platform?: string;
+  latest_grade?: string;
+}
+
+export interface SkhcComparisonSubject {
+  subject: string;
+  previous_marks: number;
+  current_marks: number;
+  delta_marks: number;
+  previous_percentage: number;
+  current_percentage: number;
+  delta_percentage: number;
+  verdict: string;
+}
+
+export interface SkhcComparison {
+  has_previous: boolean;
+  current: SkhcExamRow | null;
+  previous: SkhcExamRow | null;
+  marks_change: number;
+  percentage_change: number;
+  verdict: string;
+  message: string;
+  subjects: SkhcComparisonSubject[];
+}
+
+export interface SkhcTrendPoint {
+  label: string;
+  date: string;
+  score: number;
+  max_score: number;
+  percentage: number;
+}
+
+export interface SkhcTrendSegment {
+  period?: string;
+  start_score: number;
+  end_score: number;
+  points_gained: number;
+  pct_growth: number;
+  observation: string;
+}
+
+export interface SkhcScoreTrend {
+  points: SkhcTrendPoint[];
+  segments: SkhcTrendSegment[];
+  overall: SkhcTrendSegment | null;
+}
+
+export interface SkhcSubjectExam {
+  label: string;
+  scored: number;
+  max_marks: number;
+  percentage: number;
+  correct: number;
+  incorrect: number;
+  unattempted: number;
+}
+
+export interface SkhcSubjectPerformance {
+  subject: string;
+  max_marks: number;
+  exams: SkhcSubjectExam[];
+  first_percentage: number;
+  latest_percentage: number;
+  delta_marks: number;
+  delta_percentage: number;
+  grade: string;
+}
+
+export interface SkhcSubjectDiagnostic {
+  subject: string;
+  scored: number;
+  max_marks: number;
+  percentage: number;
+  grade: string;
+  accuracy_percentage: number;
+  observation: string;
+}
+
+export interface SkhcRadarItem {
+  subject: string;
+  first_percentage: number;
+  latest_percentage: number;
+}
+
+export interface SkhcImprovementPlanItem {
+  priority: string;
+  subject: string;
+  gap_identified: string;
+  recommended_action: string;
+  duration?: string;
+  platform_module?: string;
+}
+
+export interface SkhcOverallAssessment {
+  grade: string;
+  latest_percentage: number;
+  growth_points: number;
+  trajectory: string;
+  recommendation: string;
+  exams_covered: number;
+}
+
+export interface SkhcCohortComparison {
+  cohort_size: number;
+  student_percentage: number;
+  rank: number;
+  percentile: number;
+  mean_percentage: number;
+  median_percentage: number;
+  top_percentage: number;
+  lowest_percentage: number;
+  above_mean: boolean;
+  gap_to_topper: number;
+  message: string;
+}
+
+export interface SkhcBehaviourPerExam {
+  label: string;
+  level: string;
+}
+
+export interface SkhcBehaviourParameter {
+  name: string;
+  category: string;
+  latest_level: string;
+  per_exam: SkhcBehaviourPerExam[] | null;
+  note: string;
+}
+
+export interface SkhcBehaviouralProfile {
+  parameters: SkhcBehaviourParameter[];
+  derived_from: string;
+  note: string;
+}
+
+export interface SkhcWaterfallBar {
+  label: string;
+  /** 'baseline' | 'growth' | 'score' | 'final' */
+  type: string;
+  value: number;
+  display?: string;
+}
+
+export interface SkhcGrowthWaterfall {
+  title: string;
+  y_max: number;
+  bars: SkhcWaterfallBar[];
+}
+
+export interface SkhcSubjectChartSubject {
+  subject: string;
+  max_marks: number;
+  scores: number[];
+  percentages: number[];
+  first_percentage: number;
+  latest_percentage: number;
+  delta_marks: number;
+  grade: string;
+}
+
+export interface SkhcSubjectChart {
+  title: string;
+  exam_labels: string[];
+  subjects: SkhcSubjectChartSubject[];
+}
+
+export interface SkhcPercentilePoint {
+  label: string;
+  percentage: number;
+  percentile: number;
+}
+
+export interface SkhcPercentileChart {
+  title: string;
+  cohort_size: number;
+  median_line: number;
+  x_labels: string[];
+  points: SkhcPercentilePoint[];
+}
+
+export interface SkhcDistributionBin {
+  range: string;
+  from: number;
+  to: number;
+  count: number;
+  is_student_bin: boolean;
+}
+
+export interface SkhcClassDistribution {
+  title: string;
+  max_score: number;
+  class_size: number;
+  mean_score: number;
+  median_score: number;
+  std_deviation: number;
+  minimum_score: number;
+  maximum_score: number;
+  q1: number;
+  q3: number;
+  iqr: number;
+  student_score: number;
+  student_above_n_students: number;
+  student_vs_mean: number;
+  students_above_80?: { threshold_percent: number; threshold_marks: number; count: number; percent: number };
+  students_above_70?: { threshold_percent: number; threshold_marks: number; count: number; percent: number };
+  histogram: SkhcDistributionBin[];
+}
+
+export interface SkhcPsychometricParameter {
+  name: string;
+  category: string;
+  per_exam: string[];
+  first_level: string;
+  latest_level: string;
+  movement: string;
+}
+
+export interface SkhcPsychometricProfile {
+  title: string;
+  note: string;
+  legend: Record<string, string>;
+  exam_labels: string[];
+  parameters: SkhcPsychometricParameter[];
+  summary?: { strengths: number; developing: number; focus_areas: number };
+}
+
+export interface SkhcStakeholderGuideItem {
+  stakeholder: string;
+  name: string | null;
+  actions: string[];
+  /** Optional tool/module per stakeholder (single or list) — shown if present. */
+  tool?: string;
+  tools?: string[];
+}
+
+export interface SkhcCertificationExam {
+  label: string;
+  date: string;
+}
+
+export interface SkhcCertification {
+  report_title?: string;
+  student_id?: string;
+  student_name?: string;
+  academic_year?: string;
+  class_section?: string;
+  school?: string;
+  class_teacher?: string;
+  report_generated?: string;
+  exams_covered?: SkhcCertificationExam[];
+  exams_count?: number;
+  assessment_platform?: string;
+  assessment_methodology?: string;
+  psychometric_framework?: string;
+}
+
+export interface SkhcReport {
+  report_title: string;
+  profile: SkhcProfile;
+  growth_waterfall?: SkhcGrowthWaterfall | null;
+  key_statistics?: any;
+  subject_chart?: SkhcSubjectChart | null;
+  percentile_chart?: SkhcPercentileChart | null;
+  class_distribution?: SkhcClassDistribution | null;
+  psychometric_profile?: SkhcPsychometricProfile | null;
+  stakeholder_guide?: SkhcStakeholderGuideItem[] | null;
+  certification?: SkhcCertification | null;
+  exam_overview: SkhcExamRow[];
+  comparison: SkhcComparison | null;
+  growth_analysis?: SkhcTrendSegment[];
+  cohort_comparison?: SkhcCohortComparison | null;
+  behavioural_profile?: SkhcBehaviouralProfile | null;
+  score_trend: SkhcScoreTrend | null;
+  subject_performance: SkhcSubjectPerformance[];
+  subject_diagnostics: SkhcSubjectDiagnostic[];
+  proficiency_radar: SkhcRadarItem[];
+  improvement_plan: SkhcImprovementPlanItem[];
+  overall_assessment: SkhcOverallAssessment | null;
+  unavailable_sections: string[];
+}
+
 export interface AttemptDetailResponse {
   attempt: {
     attempt_id: string;
@@ -152,6 +599,8 @@ export interface AttemptDetailResponse {
     analysis_text?: string | null;
   };
   stats: AttemptStats;
+  skhc_report?: SkhcReport | null;
+  performance_breakdown?: PerformanceBreakdown | null;
   ai_report: {
     generation_status: string;
     overall_summary: string | null;
@@ -297,11 +746,36 @@ export function getCourseEvalAssessments(courseId: string): Promise<ApiEvalAsses
   return userApi.get<ApiEvalAssessment[]>(`/api/v1/user/courses/${courseId}/assessments`);
 }
 
+/**
+ * GET /api/v1/user/eval-assessments?board=&grade=
+ * All assessments available to the student, filtered by their board + grade.
+ * Used by the dashboard "Your Assessments" list (no enrolled-courses lookup needed).
+ */
+export function getUserAssessments(params?: { board?: string; grade?: number }): Promise<ApiEvalAssessment[]> {
+  const qs = new URLSearchParams();
+  if (params?.board) qs.set('board', params.board);
+  if (params?.grade) qs.set('grade', String(params.grade));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return userApi.get<ApiEvalAssessment[]>(`/api/v1/user/eval-assessments${suffix}`);
+}
+
 // ─── Free Assessment Taking ───────────────────────────────────────────────────
+
+/** One question rendered in a second language. Display only — answers are always
+ *  stored and graded in the paper's primary language. */
+export interface QuestionTranslation {
+  text?: string;
+  options?: string[];
+  passage?: string | null;
+  /** The worked solution in this language, where the paper carries one. */
+  explanation?: string | null;
+}
 
 export interface EvalAttemptQuestion {
   question_id: string;
   text: string;
+  /** Present on bilingual papers, keyed by language code (e.g. `ta`). */
+  translations?: Record<string, QuestionTranslation>;
   type: string;
   subtype?: string;
   options?: any;
@@ -309,7 +783,17 @@ export interface EvalAttemptQuestion {
   marks: number;
   difficulty?: string;
   subject?: string;
+  /**
+   * The canonical subject name, where the backend resolved one.
+   *
+   * `subject` is the wording printed on the booklet — Tamil on a Group 4 paper —
+   * so a filter built from it lists every subject in Tamil. This is the same
+   * subject under the catalog's name. Read when present; the exam configuration
+   * is the fallback.
+   */
+  subject_name?: string | null;
   chapter?: string;
+  subtopic?: string | null;
   attachment_url?: string;
   attachment_name?: string;
   // only present in results
@@ -382,15 +866,28 @@ export function autosaveEvalAttempt(
   );
 }
 
+/** Why an attempt ended. Read back by the report as `attempt_metadata.submit_reason`. */
+export type SubmitReason = 'manual' | 'time_expired' | 'tab_violations' | 'browser_close';
+
 export function submitEvalAttempt(
   assessmentId: string,
   attemptId: string,
   responses: Array<{ question_id: string; answer: any }>,
   autoSubmitted = false,
+  proctoring?: { tab_violations?: number; submit_reason?: SubmitReason },
 ): Promise<SubmitAttemptResponse> {
   return userApi.post<SubmitAttemptResponse>(
     `/api/v1/user/eval-assessments/${assessmentId}/attempts/${attemptId}/submit`,
-    { responses, auto_submitted: autoSubmitted },
+    {
+      responses,
+      auto_submitted: autoSubmitted,
+      // The client is the only place that knows how often the candidate left the
+      // tab and what forced the submit — this flow has no per-violation endpoint
+      // like the test engine's `recordTestMalpractice`. Without these two fields
+      // every report reads "Tab / window switches: 0" no matter what happened.
+      tab_violations: proctoring?.tab_violations ?? 0,
+      submit_reason: proctoring?.submit_reason ?? (autoSubmitted ? 'time_expired' : 'manual'),
+    },
   );
 }
 
@@ -503,8 +1000,17 @@ export interface TestAttemptResult {
   end_time: string | null;
 }
 
-export function submitTestAttempt(attemptId: string): Promise<TestAttemptResult> {
-  return userApi.post<TestAttemptResult>(`/api/v1/test-engine/${attemptId}/submit`);
+export function submitTestAttempt(
+  attemptId: string,
+  proctoring?: { tab_violations?: number; submit_reason?: SubmitReason },
+): Promise<TestAttemptResult> {
+  // Individual violations already go through `recordTestMalpractice`; this records
+  // the outcome — whether the paper was force-submitted, and why.
+  return userApi.post<TestAttemptResult>(`/api/v1/test-engine/${attemptId}/submit`, {
+    auto_submitted: (proctoring?.submit_reason ?? 'manual') !== 'manual',
+    tab_violations: proctoring?.tab_violations ?? 0,
+    submit_reason: proctoring?.submit_reason ?? 'manual',
+  });
 }
 
 /**

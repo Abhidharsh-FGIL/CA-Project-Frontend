@@ -115,7 +115,7 @@ export default function AdminDashboardPage() {
   );
 
   const copyLink = async (token: string) => {
-    const url = `${window.location.origin}/take-assessment?token=${token}`;
+    const url = `${window.location.origin}${import.meta.env.BASE_URL}#/take-assessment?token=${token}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopiedToken(token);
@@ -127,10 +127,10 @@ export default function AdminDashboardPage() {
   };
 
   const shareEmail = (testName: string, token: string) => {
-    const url = `${window.location.origin}/take-assessment?token=${token}`;
+    const url = `${window.location.origin}${import.meta.env.BASE_URL}#/take-assessment?token=${token}`;
     const subject = encodeURIComponent(`Test invitation: ${testName}`);
     const body = encodeURIComponent(
-      `Hi,\n\nYou've been invited to take the following test:\n\n${testName}\n\nClick the link below to begin:\n${url}\n\nGood luck!\nFGIL Services`,
+      `Hi,\n\nYou've been invited to take the following test:\n\n${testName}\n\nClick the link below to begin:\n${url}\n\nGood luck!\nBrightLearn Academy`,
     );
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };

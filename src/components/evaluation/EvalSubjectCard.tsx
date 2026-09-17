@@ -6,9 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { WeightageEditor } from '@/components/personal-assessments/WeightageEditor';
 import { distributeEvenly } from '@/lib/distribution-utils';
-import { Plus, X, Trash2, Globe, FileText, Upload, Loader2 } from 'lucide-react';
+import { Plus, X, Trash2, Globe, FileText, Upload, Loader2, ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { EvalSubjectConfig, EvalChapterConfig } from '@/hooks/use-evaluation';
 import { useUploadEvalSource } from '@/hooks/use-evaluation';
@@ -21,6 +23,8 @@ interface EvalSubjectCardProps {
   chapterSuggestions: string[];
   onChange: (subject: EvalSubjectConfig) => void;
   onRemove: () => void;
+  /** Non-null only on a bilingual paper — enables the per-section translation override. */
+  bilingualLanguage?: 'ta' | 'en' | null;
 }
 
 export function EvalSubjectCard({
@@ -31,21 +35,16 @@ export function EvalSubjectCard({
   chapterSuggestions,
   onChange,
   onRemove,
+  bilingualLanguage,
 }: EvalSubjectCardProps) {
   const [newChapter, setNewChapter] = useState('');
   const [showSubjectSuggestions, setShowSubjectSuggestions] = useState(false);
-  const [showChapterSuggestions, setShowChapterSuggestions] = useState(false);
   const subjectInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadSource = useUploadEvalSource();
 
   const filteredSubjectSuggestions = subjectSuggestions.filter(
     s => s.toLowerCase().includes(subject.subject.toLowerCase()) && s.toLowerCase() !== subject.subject.toLowerCase()
-  );
-
-  const filteredChapterSuggestions = chapterSuggestions.filter(
-    c => c.toLowerCase().includes(newChapter.toLowerCase()) &&
-      !subject.chapters.some(ch => ch.name.toLowerCase() === c.toLowerCase())
   );
 
   const addChapter = (name?: string) => {
@@ -62,7 +61,41 @@ export function EvalSubjectCard({
     const chaptersWithWeights = updated.map(c => ({ ...c, weightage: weights[c.name] || 0 }));
     onChange({ ...subject, chapters: chaptersWithWeights });
     setNewChapter('');
-    setShowChapterSuggestions(false);
+  };
+
+  // ── Multi-select (checkbox) helpers for suggested chapters/topics ──
+  const commitChapters = (names: string[]) => {
+    const existingByName = new Map(subject.chapters.map(c => [c.name.toLowerCase(), c]));
+    const nextChapters = names.map(
+      n => existingByName.get(n.toLowerCase()) || { id: crypto.randomUUID(), name: n, weightage: 0 },
+    );
+    const keys = nextChapters.map(c => c.name);
+    const weights = keys.length ? distributeEvenly(keys) : {};
+    onChange({ ...subject, chapters: nextChapters.map(c => ({ ...c, weightage: weights[c.name] || 0 })) });
+  };
+
+  const selectedChapterNames = subject.chapters.map(c => c.name);
+  const isChapterSelected = (name: string) =>
+    selectedChapterNames.some(n => n.toLowerCase() === name.toLowerCase());
+
+  const toggleChapterName = (name: string) => {
+    const next = isChapterSelected(name)
+      ? selectedChapterNames.filter(n => n.toLowerCase() !== name.toLowerCase())
+      : [...selectedChapterNames, name];
+    commitChapters(next);
+  };
+
+  const selectedSuggestionCount = chapterSuggestions.filter(isChapterSelected).length;
+  const allSuggestionsSelected =
+    chapterSuggestions.length > 0 && selectedSuggestionCount === chapterSuggestions.length;
+  const someSuggestionsSelected = selectedSuggestionCount > 0 && !allSuggestionsSelected;
+
+  const toggleAllSuggestions = () => {
+    const suggestionSet = new Set(chapterSuggestions.map(s => s.toLowerCase()));
+    const next = allSuggestionsSelected
+      ? selectedChapterNames.filter(n => !suggestionSet.has(n.toLowerCase()))
+      : Array.from(new Set([...selectedChapterNames, ...chapterSuggestions]));
+    commitChapters(next);
   };
 
   const removeChapter = (id: string) => {
@@ -134,7 +167,7 @@ export function EvalSubjectCard({
             }}
             onFocus={() => setShowSubjectSuggestions(true)}
             onBlur={() => setTimeout(() => setShowSubjectSuggestions(false), 200)}
-            placeholder="e.g. Accounting, Taxation, Auditing..."
+            placeholder="e.g. Mathematics, Science, English..."
           />
           {showSubjectSuggestions && filteredSubjectSuggestions.length > 0 && (
             <div className="absolute z-10 w-full mt-1 bg-popover border border-border rounded-md shadow-md max-h-32 overflow-y-auto">
@@ -153,6 +186,49 @@ export function EvalSubjectCard({
             </div>
           )}
         </div>
+
+        {/* Language override — most specific wins: this, then the subject name, then the paper */}
+        <div>
+          <Label className="text-xs text-muted-foreground">Language</Label>
+          <Tabs
+            value={subject.language ?? 'auto'}
+            onValueChange={v =>
+              onChange({ ...subject, language: v === 'auto' ? undefined : (v as 'ta' | 'en') })
+            }
+          >
+            <TabsList className="w-full grid grid-cols-3 h-8">
+              <TabsTrigger value="auto" className="text-xs">Auto</TabsTrigger>
+              <TabsTrigger value="en" className="text-xs">English</TabsTrigger>
+              <TabsTrigger value="ta" className="text-xs">தமிழ்</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Auto follows the subject name (“General Tamil” → Tamil), then the paper default.
+          </p>
+        </div>
+
+        {/* Translation override — only on a bilingual paper */}
+        {bilingualLanguage && (
+        <div>
+          <Label className="text-xs text-muted-foreground">Translation</Label>
+          <Tabs
+            value={subject.secondaryLanguage ?? 'auto'}
+            onValueChange={v =>
+              onChange({ ...subject, secondaryLanguage: v === 'auto' ? undefined : (v as 'ta' | 'en') })
+            }
+          >
+            <TabsList className="w-full grid grid-cols-3 h-8">
+              <TabsTrigger value="auto" className="text-xs">Auto</TabsTrigger>
+              <TabsTrigger value="en" className="text-xs">+ English</TabsTrigger>
+              <TabsTrigger value="ta" className="text-xs">+ தமிழ்</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Auto uses the paper's bilingual setting. A language section (General Tamil) is usually left
+            untranslated.
+          </p>
+        </div>
+        )}
 
         {/* Source Type */}
         <div>
@@ -236,7 +312,46 @@ export function EvalSubjectCard({
 
         {/* Chapters */}
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Chapters / Topics</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-xs text-muted-foreground">Chapters / Topics</Label>
+            {chapterSuggestions.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+                    <ListChecks className="h-3.5 w-3.5" /> Select topics
+                    {selectedSuggestionCount > 0 && (
+                      <Badge variant="secondary" className="ml-0.5 h-4 px-1 text-[10px]">
+                        {selectedSuggestionCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-64 p-0">
+                  <label className="flex items-center gap-2 border-b border-border px-3 py-2 cursor-pointer select-none">
+                    <Checkbox
+                      checked={allSuggestionsSelected ? true : someSuggestionsSelected ? 'indeterminate' : false}
+                      onCheckedChange={toggleAllSuggestions}
+                    />
+                    <span className="text-sm font-medium">Select all</span>
+                    <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
+                      {selectedSuggestionCount}/{chapterSuggestions.length}
+                    </span>
+                  </label>
+                  <div className="max-h-56 overflow-y-auto py-1">
+                    {chapterSuggestions.map(c => (
+                      <label
+                        key={c}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent cursor-pointer select-none"
+                      >
+                        <Checkbox checked={isChapterSelected(c)} onCheckedChange={() => toggleChapterName(c)} />
+                        <span>{c}</span>
+                      </label>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
 
           {subject.chapters.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -255,44 +370,24 @@ export function EvalSubjectCard({
             </div>
           )}
 
-          <div className="relative">
-            <div className="flex gap-2">
-              <Input
-                value={newChapter}
-                onChange={e => {
-                  setNewChapter(e.target.value);
-                  setShowChapterSuggestions(true);
-                }}
-                onKeyDown={handleChapterKeyDown}
-                onFocus={() => setShowChapterSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowChapterSuggestions(false), 200)}
-                placeholder="Type chapter name and press Enter"
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="shrink-0"
-                onClick={() => addChapter()}
-                disabled={!newChapter.trim()}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            {showChapterSuggestions && filteredChapterSuggestions.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-popover border border-border rounded-md shadow-md max-h-32 overflow-y-auto">
-                {filteredChapterSuggestions.slice(0, 5).map(c => (
-                  <button
-                    key={c}
-                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors"
-                    onMouseDown={() => addChapter(c)}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            )}
+          <div className="flex gap-2">
+            <Input
+              value={newChapter}
+              onChange={e => setNewChapter(e.target.value)}
+              onKeyDown={handleChapterKeyDown}
+              placeholder="Add a custom topic and press Enter"
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              onClick={() => addChapter()}
+              disabled={!newChapter.trim()}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
 
           {/* Chapter Weightage */}

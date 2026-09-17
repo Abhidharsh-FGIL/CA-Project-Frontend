@@ -2,7 +2,10 @@
  * User Portal authentication & profile API.
  *
  * Unauthenticated endpoints (no token sent):
- *   POST  /api/v1/user/auth/register/           → { full_name, email_address, mobile_number, password }
+ *   POST  /api/v1/user/auth/register/           → { full_name, email_address, mobile_number, password,
+ *                                                    date_of_birth, gender, student_class, section, roll_no,
+ *                                                    school_name, medium, class_teacher, academic_year,
+ *                                                    preferred_exam }  (all required)
  *   POST  /api/v1/user/auth/verify-otp/         → { email_address, otp }
  *   POST  /api/v1/user/auth/resend-otp/         → { email_address }
  *   POST  /api/v1/user/auth/login/              → { email, password }
@@ -11,8 +14,8 @@
  *
  * Authenticated endpoints (sends user_access_token):
  *   POST  /api/v1/user/auth/logout/             → no body
- *   GET   /api/v1/user/profile/                 → UserProfile
- *   PUT   /api/v1/user/profile/                 → { name, phone }
+ *   GET   /api/v1/user/profile/                 → UserProfile (now includes the 10 student-detail fields)
+ *   POST  /api/v1/user/profile/                 → { name?, phone?, + 10 student-detail fields, all optional }
  *   PUT   /api/v1/user/profile/change-password/ → { old_password, new_password }
  *
  * Trailing slashes are required — FastAPI issues a 307 redirect for paths
@@ -33,11 +36,43 @@ export interface MessageSuccess {
   success: boolean;
 }
 
-export interface UserProfile {
+/**
+ * Student-detail fields added to the school portal. Present on the profile
+ * response and accepted (optionally) on profile update; required on register.
+ */
+export interface StudentDetailFields {
+  /** ISO date, e.g. "2012-03-12" */
+  date_of_birth: string;
+  gender: string;
+  /** Class/grade as a string, e.g. "8" */
+  student_class: string;
+  section: string;
+  roll_no: string;
+  school_name: string;
+  medium: string;
+  class_teacher: string;
+  /** e.g. "2025-26" */
+  academic_year: string;
+  /**
+   * Which exam the aspirant is preparing for — a `TNPSC_GROUPS` id
+   * (`group-1` | `group-4` | `gat-b`), not the display label, so the value stays
+   * stable if a group is ever renamed. Chosen at registration and mandatory.
+   */
+  preferred_exam: string;
+}
+
+export interface UserProfile extends Partial<StudentDetailFields> {
+  /**
+   * Multi-select variant of `preferred_exam` (see §7.9 of TNPSC_API_SPEC.md). The
+   * live API returns both; the portal reads whichever is populated.
+   */
+  target_groups?: string[];
   user_id: string;
   name: string;
   email: string;
   phone: string;
+  /** Curriculum board (e.g. CBSE) — drives the dashboard assessments filter. */
+  board?: string;
   otp_verified: boolean;
   phone_verified: boolean;
   subscription_tier: 'free' | 'standard' | 'ultimate' | 'premium';
@@ -48,7 +83,7 @@ export interface UserProfile {
 
 // ─── Request payload shapes ───────────────────────────────────────────────────
 
-export interface RegisterPayload {
+export interface RegisterPayload extends StudentDetailFields {
   full_name: string;
   email_address: string;
   mobile_number: string;
@@ -75,7 +110,7 @@ export interface ChangePasswordPayload {
   new_password: string;
 }
 
-export interface UpdateProfilePayload {
+export interface UpdateProfilePayload extends Partial<StudentDetailFields> {
   name?: string;
   phone?: string;
 }
@@ -126,7 +161,7 @@ export function getUserProfile() {
 }
 
 export function updateUserProfile(payload: UpdateProfilePayload) {
-  return userApi.put<UserProfile>('/api/v1/user/profile/', payload);
+  return userApi.post<UserProfile>('/api/v1/user/profile/', payload);
 }
 
 export function changeUserPassword(payload: ChangePasswordPayload) {

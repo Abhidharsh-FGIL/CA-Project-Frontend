@@ -103,7 +103,7 @@ export function GlobalContextBar() {
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Board <span className="text-destructive">*</span></Label>
+                    <Label className="text-xs text-muted-foreground">Exam <span className="text-destructive">*</span></Label>
                     <Select value={board || BOARDS[0]} onValueChange={(v) => setBoard(v)} disabled={boardDisabled}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>

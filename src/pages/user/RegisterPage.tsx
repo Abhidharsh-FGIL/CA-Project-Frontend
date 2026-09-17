@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { GraduationCap, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { useUserPortal } from '@/contexts/UserPortalContext';
+import { TNPSC_GROUPS } from '@/config/tnpsc';
 import { toast } from 'sonner';
 
 interface FormErrors {
@@ -10,7 +11,26 @@ interface FormErrors {
   phone?: string;
   password?: string;
   confirmPassword?: string;
+  date_of_birth?: string;
+  gender?: string;
+  student_class?: string;
+  section?: string;
+  roll_no?: string;
+  school_name?: string;
+  medium?: string;
+  class_teacher?: string;
+  academic_year?: string;
+  preferred_exam?: string;
 }
+
+const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
+/**
+ * Exams an aspirant can register against — read from the shared catalog rather
+ * than hardcoded, so adding a group to TNPSC_GROUPS also offers it here. The
+ * stored value is the group id; the label is what the aspirant reads.
+ */
+const EXAM_OPTIONS = TNPSC_GROUPS.map(g => ({ value: g.id, label: `${g.name} — ${g.tagline}` }));
+const MEDIUM_OPTIONS = ['English', 'Tamil', 'Hindi', 'Telugu', 'Kannada', 'Malayalam', 'Marathi', 'Bengali', 'Gujarati', 'Other'];
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -20,7 +40,23 @@ export default function RegisterPage() {
     if (isAuthenticated) navigate('/user/dashboard', { replace: true });
   }, [isAuthenticated, navigate]);
 
-  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+    date_of_birth: '',
+    gender: '',
+    student_class: '',
+    section: '',
+    roll_no: '',
+    school_name: '',
+    medium: '',
+    class_teacher: '',
+    academic_year: '',
+    preferred_exam: '',
+  });
   const [errors, setErrors] = useState<FormErrors>({});
   const [showPwd, setShowPwd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -51,6 +87,15 @@ export default function RegisterPage() {
     else if (!/[A-Z]/.test(form.password) || !/\d/.test(form.password) || !/[^A-Za-z0-9]/.test(form.password))
       e.password = 'Must include 1 uppercase, 1 number, 1 special character';
     if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match';
+
+    // Aspirant details relevant to competitive exams.
+    if (!form.date_of_birth) e.date_of_birth = 'Date of birth is required';
+    else if (new Date(form.date_of_birth) > new Date()) e.date_of_birth = 'Date of birth cannot be in the future';
+    if (!form.gender) e.gender = 'Select a gender';
+    if (!form.medium) e.medium = 'Select a medium';
+    if (!form.preferred_exam) e.preferred_exam = 'Select the exam you are preparing for';
+    // Class / Section / Roll No. / School / Teacher / Academic Year are not collected for competitive exams.
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -107,21 +152,21 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="h-[100dvh] overflow-y-auto bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-100 dark:from-slate-950 dark:via-indigo-950/60 dark:to-purple-950/60 flex items-center justify-center p-4 py-8 relative">
-      <div className="absolute top-1/4 -left-20 w-80 h-80 bg-purple-300/30 dark:bg-purple-700/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-indigo-300/30 dark:bg-indigo-700/20 rounded-full blur-3xl pointer-events-none" />
+    <div className="h-[100dvh] overflow-y-auto bg-gradient-to-br from-orange-50 via-amber-50 to-rose-100 dark:from-stone-950 dark:via-orange-950/50 dark:to-rose-950/40 flex justify-center p-4 py-8 relative">
+      <div className="absolute top-1/4 -left-20 w-80 h-80 bg-amber-300/30 dark:bg-amber-700/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-orange-300/30 dark:bg-orange-700/20 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="max-w-md w-full relative z-10 animate-fadeIn">
+      <div className="max-w-md w-full relative z-10 animate-fadeIn my-auto">
         <Link to="/" className="flex items-center justify-center gap-2 mb-8 group">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-indigo-900/50 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center shadow-lg shadow-orange-200 dark:shadow-orange-900/50 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             <GraduationCap className="w-6 h-6 text-white" />
           </div>
-          <span className="text-lg font-bold gradient-text">FGIL CA Academy</span>
+          <span className="text-lg font-bold gradient-text">BrightLearn Academy</span>
         </Link>
 
         <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur rounded-2xl shadow-xl shadow-indigo-100/50 dark:shadow-black/40 border border-white dark:border-gray-800 p-5 sm:p-7 animate-scaleIn">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Create your account</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Start practising CA Foundation, Inter, Final & more.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Start practising for your target exam — UPSC, SSC, Banking, Railways & more.</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <Field
@@ -184,6 +229,46 @@ export default function RegisterPage() {
               error={errors.confirmPassword}
               placeholder="••••••••"
             />
+
+            <div className="pt-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-gray-800 pt-4">
+                Aspirant details
+              </p>
+            </div>
+            <SelectField
+              label="Preparing for"
+              value={form.preferred_exam}
+              onChange={v => setForm(f => ({ ...f, preferred_exam: v }))}
+              error={errors.preferred_exam}
+              options={EXAM_OPTIONS}
+              placeholder="Select the exam…"
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field
+                label="Date of Birth"
+                type="date"
+                value={form.date_of_birth}
+                onChange={v => setForm(f => ({ ...f, date_of_birth: v }))}
+                error={errors.date_of_birth}
+              />
+              <SelectField
+                label="Gender"
+                value={form.gender}
+                onChange={v => setForm(f => ({ ...f, gender: v }))}
+                error={errors.gender}
+                options={GENDER_OPTIONS}
+                placeholder="Select…"
+              />
+              <SelectField
+                label="Medium"
+                value={form.medium}
+                onChange={v => setForm(f => ({ ...f, medium: v }))}
+                error={errors.medium}
+                options={MEDIUM_OPTIONS}
+                placeholder="Select…"
+              />
+            </div>
 
             <button
               type="submit"
@@ -307,6 +392,49 @@ function Field({
             : 'border-gray-200 dark:border-gray-700 focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/40'
         }`}
       />
+      {error && <p className="text-xs text-red-600 dark:text-red-400 mt-1">{error}</p>}
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  error,
+  options,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  error?: string;
+  /** Plain strings when the value is the label; pairs when they differ. */
+  options: (string | { value: string; label: string })[];
+  placeholder?: string;
+}) {
+  const items = options.map(o => (typeof o === 'string' ? { value: o, label: o } : o));
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{label}</label>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className={`w-full px-4 py-2.5 border-2 rounded-xl outline-none transition-all text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
+          error
+            ? 'border-red-300 dark:border-red-800 focus:border-red-500 focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900/40'
+            : 'border-gray-200 dark:border-gray-700 focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/40'
+        } ${value ? '' : 'text-gray-400 dark:text-gray-500'}`}
+      >
+        <option value="" disabled>
+          {placeholder || 'Select…'}
+        </option>
+        {items.map(opt => (
+          <option key={opt.value} value={opt.value} className="text-gray-900 dark:text-gray-100">
+            {opt.label}
+          </option>
+        ))}
+      </select>
       {error && <p className="text-xs text-red-600 dark:text-red-400 mt-1">{error}</p>}
     </div>
   );

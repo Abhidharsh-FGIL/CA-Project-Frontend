@@ -23,22 +23,22 @@ body, input, textarea, select, button {
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
+    --muted: 30 35% 96%;
+    --muted-foreground: 25 12% 46%;
+    --accent: 45 90% 93%;
+    --accent-foreground: 28 60% 26%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 222 47% 11%;
-    --radius: 0.625rem;
+    --border: 24 30% 90%;
+    --input: 24 30% 90%;
+    --ring: 12 80% 60%;
+    --radius: 0.875rem;
 
-    /* Primary - Classic Slate (default) */
-    --primary: 222 47% 11%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
+    /* Primary - Warm Coral (K-12 default) */
+    --primary: 12 80% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 173 55% 93%;
+    --secondary-foreground: 173 75% 22%;
 
     /* Gamification colors */
     --xp: 45 93% 47%;
@@ -66,17 +66,17 @@ body, input, textarea, select, button {
     /* Sidebar */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 222 47% 11%;
+    --sidebar-primary: 12 80% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 40% 96%;
-    --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 214 32% 91%;
-    --sidebar-ring: 222 47% 11%;
+    --sidebar-accent: 45 90% 93%;
+    --sidebar-accent-foreground: 28 60% 26%;
+    --sidebar-border: 24 30% 90%;
+    --sidebar-ring: 12 80% 60%;
 
     /* Gradient tokens */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.8) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(222 47% 11%) 0%, hsl(222 47% 20%) 50%, hsl(222 47% 11%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 40% 98%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(12 80% 60%) 0%, hsl(25 90% 58%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(12 80% 56%) 0%, hsl(25 90% 56%) 50%, hsl(38 92% 56%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(30 50% 98%) 100%);
     --gradient-xp: linear-gradient(90deg, hsl(45 93% 47%) 0%, hsl(38 92% 50%) 100%);
     --gradient-mastery: linear-gradient(90deg, hsl(142 76% 36%) 0%, hsl(142 76% 46%) 100%);
     --gradient-achievement: linear-gradient(135deg, hsl(280 87% 55%) 0%, hsl(320 87% 55%) 100%);
@@ -132,27 +132,29 @@ body, input, textarea, select, button {
 
   /* Dark mode */
   .dark {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 8%;
-    --popover-foreground: 210 40% 98%;
-    --muted: 217 33% 15%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 15%;
-    --accent-foreground: 210 40% 98%;
+    --background: 24 18% 7%;
+    --foreground: 30 30% 96%;
+    --card: 24 16% 9%;
+    --card-foreground: 30 30% 96%;
+    --popover: 24 16% 9%;
+    --popover-foreground: 30 30% 96%;
+    --muted: 24 14% 16%;
+    --muted-foreground: 30 14% 66%;
+    --accent: 28 24% 18%;
+    --accent-foreground: 45 90% 88%;
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 18%;
-    --input: 217 33% 18%;
-    --ring: 212 27% 84%;
-    --sidebar-background: 222 47% 8%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-accent: 217 33% 15%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 18%;
-    --gradient-card: linear-gradient(180deg, hsl(222 47% 10%) 0%, hsl(222 47% 8%) 100%);
+    --border: 24 14% 18%;
+    --input: 24 14% 18%;
+    --ring: 12 80% 60%;
+    --secondary: 173 28% 18%;
+    --secondary-foreground: 173 55% 85%;
+    --sidebar-background: 24 16% 9%;
+    --sidebar-foreground: 30 30% 96%;
+    --sidebar-accent: 28 24% 18%;
+    --sidebar-accent-foreground: 45 90% 88%;
+    --sidebar-border: 24 14% 18%;
+    --gradient-card: linear-gradient(180deg, hsl(24 16% 11%) 0%, hsl(24 16% 9%) 100%);
   }
 
   .dark.theme-indigo {
@@ -536,9 +538,9 @@ body, input, textarea, select, button {
     border: 1px solid rgba(255, 255, 255, 0.6);
   }
 
-  /* Gradient text — vibrant indigo→purple→pink sweep */
+  /* Gradient text — warm playful coral→amber→teal sweep */
   .gradient-text {
-    background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+    background: linear-gradient(135deg, #ef5e3a 0%, #f9a826 50%, #14b8a6 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -546,7 +548,7 @@ body, input, textarea, select, button {
 
   /* Animated gradient text */
   .gradient-text-animated {
-    background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+    background: linear-gradient(90deg, #ef5e3a, #f9a826, #14b8a6, #f9a826, #ef5e3a);
     background-size: 300% 100%;
     -webkit-background-clip: text;
     background-clip: text;

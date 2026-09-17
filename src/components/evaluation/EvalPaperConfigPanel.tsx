@@ -25,6 +25,9 @@ import { WeightageEditor } from '@/components/personal-assessments/WeightageEdit
 import { EvalSubjectCard } from '@/components/evaluation/EvalSubjectCard';
 import { useEvalSubjectSuggestions, useEvalChapterSuggestions } from '@/hooks/use-evaluation';
 import type { EvalPaperConfig, EvalSubjectConfig } from '@/hooks/use-evaluation';
+import { EXAMS } from '@/constants';
+import { getSyllabusSubjects, getSyllabusChapters, getSyllabusSections } from '@/data/examSyllabus';
+import { bilingualLanguageForExamType } from '@/config/tnpsc';
 
 const MCQ_SUBTYPES = [
   { value: 'standard', label: 'Standard MCQ', description: 'Single-correct multiple choice.' },
@@ -34,7 +37,9 @@ const MCQ_SUBTYPES = [
 ];
 const SUBTYPE_LABELS: Record<string, string> = Object.fromEntries(MCQ_SUBTYPES.map(s => [s.value, s.label]));
 
-const MAX_QUESTIONS = 75;
+// Backend accepts 1–200 per generation run, so a full-length TNPSC paper
+// (200 questions) can be generated in a single pass.
+const MAX_QUESTIONS = 200;
 const MAX_SUBJECTS = 10;
 
 const STEPS = [
@@ -54,11 +59,23 @@ interface EvalPaperConfigPanelProps {
 }
 
 export function EvalPaperConfigPanel({ config, onChange, onGenerate, isGenerating, generatingMessage }: EvalPaperConfigPanelProps) {
+  // Subject suggestions are generic for competitive exams — no grade/board filtering.
   const { data: subjectSuggestions = [] } = useEvalSubjectSuggestions();
   const [activeSubjectForChapters, setActiveSubjectForChapters] = useState<string | undefined>(
     config.subjects[0]?.subject || undefined,
   );
   const { data: chapterSuggestions = [] } = useEvalChapterSuggestions(activeSubjectForChapters);
+
+  // Bilingual output is a Group 4 feature; null for Group 1 and non-TNPSC sets.
+  const bilingualLanguage = bilingualLanguageForExamType(config.testType);
+
+  // Merge the curated syllabus for the selected Test Type with any API suggestions.
+  const mergedSubjectSuggestions = Array.from(
+    new Set([...getSyllabusSubjects(config.testType), ...subjectSuggestions]),
+  );
+  const mergedChapterSuggestions = Array.from(
+    new Set([...getSyllabusChapters(config.testType, activeSubjectForChapters), ...chapterSuggestions]),
+  );
 
   const [step, setStep] = useState<StepKey>('basics');
   const stepIndex = STEPS.findIndex(s => s.key === step);
@@ -78,6 +95,25 @@ export function EvalPaperConfigPanel({ config, onChange, onGenerate, isGeneratin
     const weights = distributeEvenly(keys);
     const withWeights = updated.map(s => ({ ...s, weightage: weights[s.id] || 0 }));
     onChange({ ...config, subjects: withWeights });
+  };
+
+  // One-click populate the official sections for the selected Test Type,
+  // weighted to match the real exam's section split (e.g. IBPS Clerk 30/35/35).
+  const syllabusSections = getSyllabusSections(config.testType);
+  const autoFillSections = () => {
+    if (!syllabusSections.length) return;
+    const total = syllabusSections.reduce((sum, s) => sum + (s.questions || 0), 0);
+    const subjects: EvalSubjectConfig[] = syllabusSections.slice(0, MAX_SUBJECTS).map(sec => ({
+      id: crypto.randomUUID(),
+      subject: sec.subject,
+      weightage: total ? Math.round(((sec.questions || 0) / total) * 100) : Math.round(100 / syllabusSections.length),
+      sourceType: 'online',
+      chapters: [],
+    }));
+    // Correct any rounding drift so weightage totals exactly 100.
+    const sumW = subjects.reduce((sum, s) => sum + s.weightage, 0);
+    if (subjects.length && sumW !== 100) subjects[0].weightage += 100 - sumW;
+    onChange({ ...config, subjects, questionCount: total || config.questionCount });
   };
 
   const removeSubject = (id: string) => {
@@ -158,21 +194,85 @@ export function EvalPaperConfigPanel({ config, onChange, onGenerate, isGeneratin
                 <Input
                   value={config.title}
                   onChange={e => onChange({ ...config, title: e.target.value })}
-                  placeholder="e.g. CA Foundation — Accounting Practice Set 1"
+                  placeholder="e.g. SSC CGL — Quantitative Aptitude Practice Set 1"
                   className="h-10"
                 />
               </Field>
 
-              <Field label="Difficulty">
-                <Select value={config.difficulty} onValueChange={v => onChange({ ...config, difficulty: v })}>
-                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="easy">Easy</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="hard">Hard</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
+              <div className="grid grid-cols-2 gap-4 items-end">
+                <Field label="Test Type" hint="Which competitive exam this set targets.">
+                  <Select
+                    value={config.testType || undefined}
+                    onValueChange={v =>
+                      onChange({
+                        // Switching to an exam that isn't bilingual drops any translation
+                        // setting rather than silently keeping one.
+                        ...config,
+                        testType: v,
+                        secondaryLanguage: bilingualLanguageForExamType(v) ? config.secondaryLanguage : null,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Select test type…" /></SelectTrigger>
+                    <SelectContent>
+                      {EXAMS.map(e => (
+                        <SelectItem key={e} value={e}>{e}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Difficulty" hint="Overall difficulty of the generated questions.">
+                  <Select value={config.difficulty} onValueChange={v => onChange({ ...config, difficulty: v })}>
+                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="easy">Easy</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="hard">Hard</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 items-end">
+                <Field
+                  label="Paper Language"
+                  hint="Default for every section. A section named “General Tamil” generates in Tamil regardless."
+                >
+                  <Select
+                    value={config.language ?? 'en'}
+                    onValueChange={v => onChange({ ...config, language: v as 'ta' | 'en' })}
+                  >
+                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="ta">Tamil / தமிழ்</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field
+                  label="Bilingual — repeat each question in"
+                  hint={
+                    bilingualLanguage
+                      ? 'TNPSC objective papers are printed in both languages. Sections can override this.'
+                      : 'This exam has no bilingual paper — the set stays single-language.'
+                  }
+                >
+                  <Select
+                    value={config.secondaryLanguage ?? 'none'}
+                    disabled={!bilingualLanguage}
+                    onValueChange={v =>
+                      onChange({ ...config, secondaryLanguage: v === 'none' ? null : (v as 'ta' | 'en') })
+                    }
+                  >
+                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Single language</SelectItem>
+                      {bilingualLanguage === 'ta' && <SelectItem value="ta">Tamil / தமிழ்</SelectItem>}
+                      {bilingualLanguage === 'en' && <SelectItem value="en">English</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
             </StepShell>
           )}
 
@@ -182,6 +282,18 @@ export function EvalPaperConfigPanel({ config, onChange, onGenerate, isGeneratin
               title="Subjects"
               description={`Add up to ${MAX_SUBJECTS} subjects. For each, pick a source (Topics / Paste / File) and list the chapters to cover.`}
             >
+              {syllabusSections.length > 0 && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5">
+                  <p className="text-xs text-muted-foreground">
+                    Set up the official <span className="font-medium text-foreground">{config.testType}</span> sections
+                    ({syllabusSections.map(s => `${s.subject} ${s.questions ?? ''}`.trim()).join(' · ')}) in one click.
+                  </p>
+                  <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={autoFillSections}>
+                    <Sparkles className="h-3.5 w-3.5" /> Auto-fill sections
+                  </Button>
+                </div>
+              )}
+
               {config.subjects.length === 0 && (
                 <Alert className="bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700">
                   <Info className="h-4 w-4" />
@@ -198,10 +310,11 @@ export function EvalPaperConfigPanel({ config, onChange, onGenerate, isGeneratin
                     subject={sub}
                     index={i}
                     canRemove={config.subjects.length > 1}
-                    subjectSuggestions={subjectSuggestions}
-                    chapterSuggestions={chapterSuggestions}
+                    subjectSuggestions={mergedSubjectSuggestions}
+                    chapterSuggestions={mergedChapterSuggestions}
                     onChange={updated => updateSubject(sub.id, updated)}
                     onRemove={() => removeSubject(sub.id)}
+                    bilingualLanguage={config.secondaryLanguage ? bilingualLanguage : null}
                   />
                 ))}
               </div>
@@ -235,7 +348,13 @@ export function EvalPaperConfigPanel({ config, onChange, onGenerate, isGeneratin
             <StepShell number={3} title="Question configuration" description="Choose how many questions to generate and which MCQ styles to include.">
               <Field
                 label={`Question Count — ${config.questionCount} of ${MAX_QUESTIONS} max`}
-                hint={config.questionCount >= MAX_QUESTIONS ? 'Reached per-generation cap. You can run another generation to add more.' : undefined}
+                hint={
+                  config.questionCount >= MAX_QUESTIONS
+                    ? 'Reached the per-generation cap.'
+                    : config.questionCount === 200
+                    ? 'Full-length TNPSC paper.'
+                    : undefined
+                }
               >
                 <Slider
                   value={[config.questionCount]}
@@ -461,6 +580,7 @@ function ReviewSummary({
   return (
     <div className="rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">
       <SummaryRow label="Title" value={config.title || <em className="text-slate-400">Untitled</em>} />
+      <SummaryRow label="Test Type" value={config.testType || <em className="text-slate-400">Not set</em>} />
       <SummaryRow label="Difficulty" value={<span className="capitalize">{config.difficulty}</span>} />
       <SummaryRow
         label="Subjects"
@@ -534,6 +654,7 @@ function LiveSummary({
 }) {
   const rows: { label: string; value: React.ReactNode; placeholder?: string }[] = [
     { label: 'Title', value: config.title || null, placeholder: 'Untitled' },
+    { label: 'Test Type', value: config.testType || null, placeholder: 'Not set' },
     { label: 'Difficulty', value: <span className="capitalize">{config.difficulty}</span> },
     {
       label: 'Subjects',

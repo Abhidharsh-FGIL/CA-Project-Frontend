@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, Fragment } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,10 +26,12 @@ const resolveUrl = (url: string | undefined) => {
 };
 import { toast } from 'sonner';
 import { MathText } from '@/components/ui/MathText';
+import { MarkdownText } from '@/components/ui/MarkdownText';
 import { MathInput } from '@/components/ui/math-input';
 import { MathTextarea } from '@/components/ui/math-textarea';
 import { downloadAssessmentPDF } from '@/lib/assessment-pdf-export';
 import { downloadPaperAsDocx } from '@/lib/eval-docx-export';
+import { stripInlineOptions } from '@/lib/question-text';
 
 export interface ReviewQuestion {
   id: string;
@@ -44,6 +46,35 @@ export interface ReviewQuestion {
   attachmentName?: string;
   pairs?: { left: string; right: string }[];
   explanation?: string;
+  subject?: string;
+  chapter?: string;
+  /**
+   * The level under `chapter`, from the sheet's Subtopic column.
+   *
+   * Carried through the review screen untouched so `POST /papers/save` stores it
+   * on the question — the report groups subject -> topic -> sub-topic off these
+   * three fields, and a mapper that drops this one silently flattens the bottom
+   * level of every report.
+   */
+  subtopic?: string;
+  /** Reading-comprehension / shared-context passage. Questions sharing a group_id show it once. */
+  passage?: string;
+  /** Groups questions that share the same passage/context. */
+  group_id?: string;
+  /**
+   * Bilingual papers: the same question rendered in another language, keyed by
+   * language code. Absent on single-language questions. Persisted verbatim by
+   * POST /papers/save — never drop it when mapping.
+   */
+  translations?: Record<string, { text?: string; options?: string[]; passage?: string | null }>;
+  /**
+   * Imported papers only: how sure the model is of the answer it supplied, and the
+   * number printed in the booklet so a reviewer can check against the paper.
+   */
+  confidence?: 'high' | 'medium' | 'low';
+  sourceNumber?: number;
+  /** Imported rows the importer wants a human to look at — the reason is shown. */
+  needsReview?: string;
 }
 
 const mathSymbols = [
@@ -346,8 +377,24 @@ export function QuestionReviewPanel({
       </div>
 
       {/* Question Cards */}
-      {questions.map((q, idx) => (
-        <Card key={q.id}>
+      {questions.map((q, idx) => {
+        // Render a shared passage once, above the first question of each group.
+        const isFirstOfGroup =
+          !!q.group_id && (idx === 0 || questions[idx - 1].group_id !== q.group_id);
+        return (
+        <Fragment key={q.id}>
+          {isFirstOfGroup && q.passage && (
+            <Card className="border-primary/30 bg-muted/40 mb-2">
+              <CardContent className="p-4 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px] uppercase tracking-wide">Passage</Badge>
+                  <span className="text-xs text-muted-foreground">Shared context for the questions below</span>
+                </div>
+                <MarkdownText text={q.passage} />
+              </CardContent>
+            </Card>
+          )}
+        <Card>
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
               <GripVertical className="h-5 w-5 text-muted-foreground mt-2 shrink-0" />
@@ -356,6 +403,37 @@ export function QuestionReviewPanel({
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-muted-foreground">Q{idx + 1}</span>
+                    {q.sourceNumber != null && (
+                      <span
+                        className="text-[11px] text-muted-foreground"
+                        title="Number printed in the source paper"
+                      >
+                        (paper #{q.sourceNumber})
+                      </span>
+                    )}
+                    {q.needsReview && (
+                      <span
+                        className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                        title={q.needsReview}
+                      >
+                        needs review
+                      </span>
+                    )}
+                    {q.confidence && (
+                      <span
+                        className={cn(
+                          'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                          q.confidence === 'low'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                            : q.confidence === 'medium'
+                            ? 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
+                        )}
+                        title="Confidence in the model-supplied answer — verify low ones against the official key"
+                      >
+                        {q.confidence} confidence
+                      </span>
+                    )}
                     <span
                       className={cn(
                         'inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
@@ -408,6 +486,7 @@ export function QuestionReviewPanel({
                     value={q.text}
                     onChange={v => updateQuestion(q.id, { text: v })}
                   />
+                  <TranslationPreview question={q} />
                 </div>
 
                 {/* MCQ / True-False Options */}
@@ -567,7 +646,9 @@ export function QuestionReviewPanel({
             </div>
           </CardContent>
         </Card>
-      ))}
+        </Fragment>
+        );
+      })}
 
       {/* Add Question Buttons */}
       <div className="flex flex-wrap gap-2">
@@ -633,6 +714,48 @@ export function QuestionReviewPanel({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Bilingual preview ────────────────────────────────────────────────────────
+
+const TRANSLATION_LABELS: Record<string, string> = { ta: 'தமிழ்', en: 'English', hi: 'हिन्दी' };
+
+/**
+ * Read-only view of the generated translation. Editing stays on the primary
+ * language — the translation is regenerated with the paper, not hand-edited, so
+ * showing it here is about verifying the bilingual output before saving.
+ */
+export function TranslationPreview({ question }: { question: ReviewQuestion }) {
+  const entries = Object.entries(question.translations ?? {});
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="mt-2 space-y-2">
+      {entries.map(([lang, tr]) => (
+        <div
+          key={lang}
+          className="rounded-lg border border-dashed border-indigo-200 dark:border-indigo-900 bg-indigo-50/40 dark:bg-indigo-950/20 p-3"
+        >
+          <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-1.5">
+            {TRANSLATION_LABELS[lang] ?? lang}
+          </p>
+          {tr.passage && (
+            <p className="text-xs text-muted-foreground mb-1.5 whitespace-pre-wrap">{tr.passage}</p>
+          )}
+          {tr.text && <p className="text-sm leading-relaxed">{stripInlineOptions(tr.text, tr.options)}</p>}
+          {Array.isArray(tr.options) && tr.options.length > 0 && (
+            <ol className="mt-2 space-y-0.5">
+              {tr.options.map((opt, i) => (
+                <li key={i} className="text-xs text-muted-foreground">
+                  <span className="font-semibold">{String.fromCharCode(65 + i)}.</span> {opt}
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

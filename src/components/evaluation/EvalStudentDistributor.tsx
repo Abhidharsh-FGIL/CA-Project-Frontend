@@ -4,19 +4,18 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Mail, Upload, X, Send, Plus, ArrowLeft, Download } from 'lucide-react';
-import { useSendEvalInvitations } from '@/hooks/use-eval-assessments';
+import { useSendEvalInvitations, useEvalAssessmentDetail, type AssessmentInviteDetails } from '@/hooks/use-eval-assessments';
 import { toast } from 'sonner';
 
 interface Props {
   assessmentId: string;
-  grade?: number;
-  board?: string;
   onDone: () => void;
   onBack?: () => void;
 }
 
 export function EvalStudentDistributor({ assessmentId, onDone, onBack }: Props) {
   const sendInvitations = useSendEvalInvitations();
+  const { data: assessment } = useEvalAssessmentDetail(assessmentId);
   const [emailInput, setEmailInput] = useState('');
   const [emailList, setEmailList] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -56,7 +55,26 @@ export function EvalStudentDistributor({ assessmentId, onDone, onBack }: Props) 
       toast.error('Add at least one email to distribute');
       return;
     }
-    await sendInvitations.mutateAsync({ assessmentId, emails: emailList });
+    // Send the assessment's details along with the invitations so the backend
+    // can build a rich invite email (title, mode, duration, marks, deadline…).
+    const assessmentDetails: AssessmentInviteDetails | undefined = assessment
+      ? {
+          title: assessment.title ?? null,
+          mode: assessment.mode ?? null,
+          difficulty: assessment.difficulty ?? null,
+          subject: assessment.subject ?? null,
+          question_count: assessment.question_count ?? null,
+          max_score: assessment.max_score ?? null,
+          time_limit_seconds: assessment.time_limit_seconds ?? null,
+          due_date: assessment.due_date ?? null,
+          negative_marking: assessment.negative_marking ?? null,
+          negative_mark_value: assessment.negative_mark_value ?? null,
+          max_attempts: assessment.max_attempts ?? null,
+          course_name: assessment.course_name ?? null,
+        }
+      : undefined;
+
+    await sendInvitations.mutateAsync({ assessmentId, emails: emailList, assessmentDetails });
     onDone();
   };
 

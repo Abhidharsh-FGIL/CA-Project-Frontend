@@ -3,7 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { GenVerseShell } from '@/components/layout/GenVerseShell';
 import { PageHeader } from '@/components/layout/AppShell';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ClipboardCheck, Database, List, FileText, BarChart3 } from 'lucide-react';
+import { ClipboardCheck, Database, List, FileText, BarChart3, FileUp } from 'lucide-react';
+import { EvalPaperImportPanel } from '@/components/evaluation/EvalPaperImportPanel';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { EvalPaperConfigPanel } from '@/components/evaluation/EvalPaperConfigPanel';
@@ -48,7 +49,6 @@ export function EvaluationHubPage() {
   // Assessment tab state
   const [assessmentView, setAssessmentView] = useState<AssessmentView>('list');
   const [activeAssessmentId, setActiveAssessmentId] = useState<string | null>(null);
-  const [activeAssessmentMeta, setActiveAssessmentMeta] = useState<{ grade?: number; board?: string }>({});
 
   // Reports tab state
   const [reportAssessmentId, setReportAssessmentId] = useState<string | null>(null);
@@ -83,21 +83,18 @@ export function EvaluationHubPage() {
   };
 
   // Assessment tab handlers
-  const handleAssessmentCreated = (assessmentId: string, meta: { grade?: number; board?: string }) => {
+  const handleAssessmentCreated = (assessmentId: string) => {
     setActiveAssessmentId(assessmentId);
-    setActiveAssessmentMeta(meta);
     setAssessmentView('distribute');
   };
 
   const handleDistributeDone = () => {
     setAssessmentView('list');
     setActiveAssessmentId(null);
-    setActiveAssessmentMeta({});
   };
 
-  const handleDistribute = (assessmentId: string, meta: { grade?: number; board?: string }) => {
+  const handleDistribute = (assessmentId: string) => {
     setActiveAssessmentId(assessmentId);
-    setActiveAssessmentMeta(meta);
     setAssessmentView('distribute');
   };
 
@@ -120,6 +117,10 @@ export function EvaluationHubPage() {
               <TabsTrigger value="create" className="gap-1.5 flex-shrink-0 whitespace-nowrap">
                 <ClipboardCheck className="h-4 w-4" />
                 Generate Question Set
+              </TabsTrigger>
+              <TabsTrigger value="import" className="gap-1.5 flex-shrink-0 whitespace-nowrap">
+                <FileUp className="h-4 w-4" />
+                Import Paper
               </TabsTrigger>
               <TabsTrigger value="bank" className="gap-1.5 flex-shrink-0 whitespace-nowrap">
                 <Database className="h-4 w-4" />
@@ -152,6 +153,14 @@ export function EvaluationHubPage() {
             </TabsContent>
           )}
 
+          {canAccessFeature('evaluation_hub', 'paper_creation') && (
+            <TabsContent value="import">
+              <EvalPaperImportPanel
+                onImported={() => setActiveTab('papers')}
+              />
+            </TabsContent>
+          )}
+
           {canAccessFeature('evaluation_hub', 'question_bank') && (
             <TabsContent value="bank">
               <EvalQuestionBank />
@@ -168,8 +177,6 @@ export function EvaluationHubPage() {
             ) : assessmentView === 'distribute' && activeAssessmentId ? (
               <EvalStudentDistributor
                 assessmentId={activeAssessmentId}
-                grade={activeAssessmentMeta.grade}
-                board={activeAssessmentMeta.board}
                 onDone={handleDistributeDone}
                 onBack={() => setAssessmentView('list')}
               />

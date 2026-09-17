@@ -1,7 +1,46 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { normalizeLatex } from '@/lib/latex-utils';
+
+/**
+ * Superscript / subscript notation that never went through LaTeX.
+ *
+ * Question papers routinely carry "3 × 10^8 m/s" or "CO_2" as plain text with no $…$
+ * around them, so KaTeX never sees them and they render literally as "10^8". This
+ * converts the unambiguous cases inside plain-text runs.
+ *
+ * Deliberately narrow, because this runs over every question, option and explanation
+ * in the app: a caret or underscore followed by a number, a parenthesised group, or a
+ * single letter *not* followed by another letter. That last guard is what keeps
+ * ordinary prose like "21^st" from turning into "21ˢt".
+ */
+const SCRIPT_RE =
+  /([\^_])(?:\(([^()]{1,16})\)|([+\-−]?\d+(?:\.\d+)?)|([A-Za-z](?![A-Za-z])))/g;
+
+function renderScripts(text: string): ReactNode {
+  SCRIPT_RE.lastIndex = 0;
+  if (!SCRIPT_RE.test(text)) return text;
+
+  const out: ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  SCRIPT_RE.lastIndex = 0;
+
+  while ((m = SCRIPT_RE.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    // A hyphen in an exponent is a minus sign; render it as one.
+    const body = (m[2] ?? m[3] ?? m[4] ?? '').replace(/^-/, '−');
+    out.push(
+      m[1] === '^'
+        ? <sup key={m.index}>{body}</sup>
+        : <sub key={m.index}>{body}</sub>,
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
 
 interface MathTextProps {
   text: string;
@@ -55,16 +94,16 @@ export function MathText({ text, className, as: Tag = 'span' }: MathTextProps) {
   }, [text]);
 
   // If no math found, render as plain text (zero overhead)
-  if (fragments.length === 0) return <Tag className={className}>{text}</Tag>;
+  if (fragments.length === 0) return <Tag className={className}>{renderScripts(text)}</Tag>;
   if (fragments.length === 1 && fragments[0].type === 'text') {
-    return <Tag className={className}>{fragments[0].content}</Tag>;
+    return <Tag className={className}>{renderScripts(fragments[0].content)}</Tag>;
   }
 
   return (
     <Tag className={className}>
       {fragments.map((frag, i) => {
         if (frag.type === 'text') {
-          return <span key={i}>{frag.content}</span>;
+          return <span key={i}>{renderScripts(frag.content)}</span>;
         }
         try {
           const html = katex.renderToString(frag.content, {

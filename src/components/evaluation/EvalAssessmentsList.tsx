@@ -6,13 +6,16 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Search, Trash2, FileText, Users, Send, CheckCircle, AlertCircle, TrendingUp, BookOpen, Shuffle, Pin, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Trash2, FileText, Users, Send, CheckCircle, AlertCircle, TrendingUp, BookOpen, Shuffle, Pin, ChevronDown, ChevronUp, Tag, EyeOff } from 'lucide-react';
 import { useEvalAssessments, useDeleteEvalAssessment, useEvalInvitationStats } from '@/hooks/use-eval-assessments';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { format } from 'date-fns';
+import { TnpscTagDialog } from './TnpscTagDialog';
+import { describeTag, isTagged, readTnpscTag } from '@/lib/tnpscAdminApi';
+import { TNPSC_GROUPS } from '@/config/tnpsc';
 
 interface Props {
-  onDistribute: (assessmentId: string, meta: { grade?: number; board?: string }) => void;
+  onDistribute: (assessmentId: string) => void;
   onViewReport?: (assessmentId: string) => void;
 }
 
@@ -37,7 +40,7 @@ interface AssessmentCardProps {
   isConstant: boolean;
   hasQuestions: boolean;
   stat: any;
-  onDistribute: (assessmentId: string, meta: { grade?: number; board?: string }) => void;
+  onDistribute: (assessmentId: string) => void;
   onDelete: () => void;
 }
 
@@ -46,6 +49,9 @@ function AssessmentCard({
   isConstant, hasQuestions, stat, onDistribute, onDelete,
 }: AssessmentCardProps) {
   const [showQuestions, setShowQuestions] = useState(false);
+  const [tagOpen, setTagOpen] = useState(false);
+  const tnpsc = readTnpscTag(a);
+  const placed = isTagged(tnpsc);
 
   return (
     <Card className={`group hover:shadow-md transition-shadow ${isExpired ? 'opacity-75' : ''}`}>
@@ -61,13 +67,22 @@ function AssessmentCard({
               </span>
             )}
             <p className="text-xs text-muted-foreground mt-0.5">
-              {a.grade && `Grade ${a.grade} • `}
               {a.difficulty} • {a.question_count} Q
               {a.max_score ? ` • ${a.max_score} marks` : ''}
               {a.negative_marking && ` • -${a.negative_mark_value || 0.25} negative`}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 shrink-0 justify-end">
+            <Badge
+              variant="outline"
+              className={`text-[10px] gap-1 ${placed
+                ? 'border-indigo-300 text-indigo-600 dark:border-indigo-700 dark:text-indigo-400'
+                : 'border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400'}`}
+              title={placed ? 'Visible in the aspirant portal' : 'Not tagged — invisible to aspirants'}
+            >
+              {placed ? <Tag className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+              {placed ? describeTag(tnpsc) : 'Not placed'}
+            </Badge>
             {a.mode && (
               <Badge variant="outline" className={`text-[10px] ${a.mode === 'exam' ? 'border-red-300 text-red-600 dark:border-red-700 dark:text-red-400' : 'border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400'}`}>
                 {a.mode === 'exam' ? 'Mock test' : 'Practice'}
@@ -179,9 +194,17 @@ function AssessmentCard({
             Created {format(new Date(a.created_at), 'dd MMM yyyy')}
           </span>
           <div className="flex items-center gap-1.5">
+            <Button
+              variant={placed ? 'ghost' : 'outline'}
+              size="sm"
+              className={`h-7 text-xs gap-1 ${!placed ? 'border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400' : ''}`}
+              onClick={() => setTagOpen(true)}
+            >
+              <Tag className="h-3 w-3" /> {placed ? 'Placement' : 'Place'}
+            </Button>
             {!isExpired && (
               <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
-                onClick={() => onDistribute(a.id, { grade: a.grade, board: a.board })}>
+                onClick={() => onDistribute(a.id)}>
                 <Send className="h-3 w-3" /> Invite
               </Button>
             )}
@@ -212,6 +235,8 @@ function AssessmentCard({
           </div>
         </div>
       </CardContent>
+
+      <TnpscTagDialog open={tagOpen} onOpenChange={setTagOpen} assessment={a} />
     </Card>
   );
 }
@@ -219,6 +244,7 @@ function AssessmentCard({
 export function EvalAssessmentsList({ onDistribute, onViewReport }: Props) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [placementFilter, setPlacementFilter] = useState('all');
 
   const { data: assessments, isLoading } = useEvalAssessments({ search });
   const deleteAssessment = useDeleteEvalAssessment();
@@ -228,9 +254,23 @@ export function EvalAssessmentsList({ onDistribute, onViewReport }: Props) {
 
   const filtered = useMemo(() => {
     if (!assessments) return [];
-    if (statusFilter === 'all') return assessments;
-    return (assessments as any[]).filter((a: any) => getDisplayStatus(a) === statusFilter);
-  }, [assessments, statusFilter]);
+    let rows = assessments as any[];
+    if (statusFilter !== 'all') rows = rows.filter((a: any) => getDisplayStatus(a) === statusFilter);
+    if (placementFilter !== 'all') {
+      rows = rows.filter((a: any) => {
+        const t = readTnpscTag(a);
+        if (placementFilter === 'untagged') return !isTagged(t);
+        if (placementFilter === 'mock' || placementFilter === 'practice') return t.track === placementFilter;
+        return t.stage_id === placementFilter;
+      });
+    }
+    return rows;
+  }, [assessments, statusFilter, placementFilter]);
+
+  const untaggedCount = useMemo(
+    () => ((assessments as any[]) || []).filter((a: any) => !isTagged(readTnpscTag(a))).length,
+    [assessments],
+  );
 
   const { visible: visibleAssessments, sentinelRef, hasMore, shown, total } = useInfiniteList<any>(filtered as any[], 24);
 
@@ -259,7 +299,38 @@ export function EvalAssessmentsList({ onDistribute, onViewReport }: Props) {
             <SelectItem value="expired">Expired</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={placementFilter} onValueChange={setPlacementFilter}>
+          <SelectTrigger className="w-[210px]">
+            <SelectValue placeholder="TNPSC placement" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All placements</SelectItem>
+            <SelectItem value="untagged">Not placed{untaggedCount > 0 ? ` (${untaggedCount})` : ''}</SelectItem>
+            <SelectItem value="mock">Mock tests</SelectItem>
+            <SelectItem value="practice">Practice tests</SelectItem>
+            {TNPSC_GROUPS.flatMap(g =>
+              g.stages
+                .filter(s => s.status === 'active')
+                .map(s => (
+                  <SelectItem key={s.id} value={s.id}>{g.short_name} — {s.short_name}</SelectItem>
+                )),
+            )}
+          </SelectContent>
+        </Select>
       </div>
+
+      {untaggedCount > 0 && placementFilter === 'all' && (
+        <button
+          onClick={() => setPlacementFilter('untagged')}
+          className="w-full flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 p-3 text-left hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
+        >
+          <EyeOff className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <span className="text-xs text-amber-800 dark:text-amber-200">
+            <b>{untaggedCount}</b> assessment{untaggedCount !== 1 ? 's have' : ' has'} no TNPSC placement and
+            {untaggedCount !== 1 ? ' are' : ' is'} invisible to aspirants. Click to review.
+          </span>
+        </button>
+      )}
 
       {filtered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">

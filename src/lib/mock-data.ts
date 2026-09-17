@@ -99,7 +99,7 @@ export const mockClasses: Class[] = [
   {
     id: 'class-1',
     name: 'Mathematics - Algebra',
-    board: 'CBSE',
+    board: 'UPSC',
     grade: 10,
     subject: 'Mathematics',
     section: 'A',
@@ -113,7 +113,7 @@ export const mockClasses: Class[] = [
   {
     id: 'class-2',
     name: 'Physics - Mechanics',
-    board: 'CBSE',
+    board: 'UPSC',
     grade: 11,
     subject: 'Physics',
     section: 'B',
@@ -127,7 +127,7 @@ export const mockClasses: Class[] = [
   {
     id: 'class-3',
     name: 'English Literature',
-    board: 'ICSE',
+    board: 'SSC',
     grade: 9,
     subject: 'English',
     section: 'A',
@@ -159,7 +159,7 @@ export const mockTopics: Topic[] = [
 export const mockRubric: Rubric = {
   id: 'rubric-1',
   title: 'Algebra Problem Solving Rubric',
-  board: 'CBSE',
+  board: 'UPSC',
   grade: 10,
   subject: 'Mathematics',
   criteria: [
@@ -221,7 +221,7 @@ export const mockRubrics: Rubric[] = [
   {
     id: 'rubric-2',
     title: 'Essay Writing Rubric',
-    board: 'ICSE',
+    board: 'SSC',
     grade: 9,
     subject: 'English',
     criteria: [

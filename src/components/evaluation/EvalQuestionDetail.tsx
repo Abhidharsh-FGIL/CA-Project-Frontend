@@ -85,7 +85,7 @@ export function EvalQuestionDetail({ question: q, index, showAnswer = true }: Ev
 
   // Options may be: array, dict {A:"...",B:"..."}, or { options: [...], pairs: [...] }
   const rawOptions = q.options;
-  let options: string[] | null = null;
+  let options: any[] | null = null;
   if (Array.isArray(rawOptions)) {
     options = rawOptions;
   } else if (rawOptions && typeof rawOptions === 'object') {
@@ -110,6 +110,12 @@ export function EvalQuestionDetail({ question: q, index, showAnswer = true }: Ev
   if (typeof correctAnswer === 'string') {
     try { correctAnswer = JSON.parse(correctAnswer); } catch { /* keep as string */ }
   }
+  // Resolve the correct option INDEX (supports correct_index, a numeric index, or a letter like "D").
+  const correctIdx =
+    typeof q.correct_index === 'number' ? q.correct_index
+    : typeof correctAnswer === 'number' ? correctAnswer
+    : (typeof correctAnswer === 'string' && /^[a-z]$/i.test(correctAnswer)) ? correctAnswer.toUpperCase().charCodeAt(0) - 65
+    : null;
 
   /** MCQ subtype labels — kept in sync with QuestionReviewPanel */
   const SUBTYPE_LABEL: Record<string, string> = {
@@ -125,13 +131,16 @@ export function EvalQuestionDetail({ question: q, index, showAnswer = true }: Ev
     higher_order:     'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
   };
 
+  const hasText = !!(q.text && String(q.text).trim());
+  const questionImage = q.attachment_url || q.question_image_url;
+
   return (
     <div className="border rounded-lg p-4 space-y-3">
       {/* Header row */}
       <div className="flex items-start gap-2">
         <p className="text-sm font-medium flex-1 min-w-0">
           <span className="text-muted-foreground mr-2">Q{index + 1}.</span>
-          <MathText text={q.text} />
+          {hasText ? <MathText text={q.text} /> : !questionImage && <span className="text-muted-foreground italic">Untitled question</span>}
         </p>
         {q.subtype && SUBTYPE_LABEL[q.subtype] && (
           <span
@@ -141,6 +150,17 @@ export function EvalQuestionDetail({ question: q, index, showAnswer = true }: Ev
           </span>
         )}
       </div>
+
+      {/* Image question: when there's no text, the attachment IS the question — show it inline */}
+      {!hasText && questionImage && (
+        <div className="ml-6">
+          <img
+            src={buildUrl(questionImage)}
+            alt={q.attachment_name || `Question ${index + 1}`}
+            className="max-h-72 rounded-lg border border-border object-contain"
+          />
+        </div>
+      )}
 
       {/* Subject / Chapter badges */}
       {(q.subject || q.chapter) && (
@@ -153,10 +173,11 @@ export function EvalQuestionDetail({ question: q, index, showAnswer = true }: Ev
       {/* MCQ Options */}
       {q.type === 'mcq' && options && options.length > 0 && (
         <div className="grid gap-1.5 ml-6">
-          {options.map((opt: string, i: number) => {
+          {options.map((optRaw: any, i: number) => {
+            const opt = optRaw && typeof optRaw === 'object' ? optRaw : { text: optRaw, image_url: null };
             const isCorrect = showAnswer && (
-              correctAnswer === i ||
-              correctAnswer === opt ||
+              correctIdx === i ||
+              (opt.text != null && correctAnswer === opt.text) ||
               correctAnswer === String.fromCharCode(65 + i)
             );
             return (
@@ -169,7 +190,13 @@ export function EvalQuestionDetail({ question: q, index, showAnswer = true }: Ev
                 }`}
               >
                 <span className="font-medium text-muted-foreground w-5">{String.fromCharCode(65 + i)}.</span>
-                <span className="flex-1"><MathText text={opt} /></span>
+                <span className="flex-1">
+                  {opt.image_url ? (
+                    <img src={buildUrl(opt.image_url)} alt={`Option ${String.fromCharCode(65 + i)}`} className="max-h-24 rounded border border-border object-contain" />
+                  ) : (
+                    <MathText text={opt.text || ''} />
+                  )}
+                </span>
                 {isCorrect && <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />}
               </div>
             );
@@ -278,8 +305,9 @@ export function EvalQuestionDetail({ question: q, index, showAnswer = true }: Ev
         </div>
       )}
 
-      {/* Attachment */}
-      {q.attachment_url && (
+      {/* Attachment — only as a supplementary reference when the question already has text
+          (image-only questions are shown inline above). */}
+      {q.attachment_url && hasText && (
         <AttachmentViewer url={q.attachment_url} name={q.attachment_name} />
       )}
 

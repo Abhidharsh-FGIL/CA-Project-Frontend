@@ -7,8 +7,7 @@ export interface EvalAssessmentConfig {
   title: string;
   courseId?: string;
   paperId?: string;
-  grade?: number;
-  board?: string;
+  testType?: string;
   difficulty: string;
   questionIds: string[];
   questionCount: number;
@@ -20,6 +19,21 @@ export interface EvalAssessmentConfig {
   negativeMarkValue?: number;
   negativeMarkMode?: 'per_question' | 'per_group';
   negativeMarkGroupSize?: number;
+  /**
+   * Per-section deductions, for a paper whose sections are not marked alike
+   * (GAT-B: 0.5 in Section A, 1 in Section B). `negativeMarkValue` is still sent
+   * alongside — set to the least punitive section — so a backend that does not
+   * understand this field scores leniently instead of over-penalising.
+   * See GAT_B_BACKEND_CHANGES.md §6.
+   */
+  negativeMarkSections?: Array<{
+    name: string;
+    subjectIds?: string[];
+    negativeMarkValue: number;
+    marksPerQuestion?: number;
+    questions: number;
+    attempt?: number;
+  }>;
   maxAttempts?: number;
   shuffleQuestions?: boolean;
   subjectWeights?: Record<string, number>;
@@ -29,6 +43,12 @@ export interface EvalAssessmentConfig {
   price?: number;
   promoCode?: string;
   promoDiscountPct?: number;
+  /** TNPSC placement — see TNPSC_API_SPEC.md §7.8. */
+  tnpscStageId?: string;
+  track?: 'mock' | 'practice';
+  tnpscLevel?: 'simple' | 'medium' | 'complex';
+  tnpscSubjectId?: string;
+  tnpscTopicId?: string;
 }
 
 export function useEvalAssessments(filters?: { status?: string; search?: string }) {
@@ -63,8 +83,7 @@ export function useCreateEvalAssessment() {
         title: config.title,
         course_id: config.courseId || null,
         paper_id: config.paperId || null,
-        grade: config.grade,
-        board: config.board,
+        test_type: config.testType,
         difficulty: config.difficulty,
         question_ids: config.questionIds,
         question_count: config.questionCount,
@@ -76,6 +95,14 @@ export function useCreateEvalAssessment() {
         negative_mark_value: config.negativeMarkValue,
         negative_mark_mode: config.negativeMarkMode,
         negative_mark_group_size: config.negativeMarkGroupSize,
+        negative_mark_sections: config.negativeMarkSections?.map(sec => ({
+          name: sec.name,
+          subject_ids: sec.subjectIds,
+          negative_mark_value: sec.negativeMarkValue,
+          marks_per_question: sec.marksPerQuestion,
+          questions: sec.questions,
+          attempt: sec.attempt,
+        })),
         max_attempts: config.maxAttempts || null,
         shuffle_questions: config.shuffleQuestions ?? true,
         subject_weights: config.subjectWeights,
@@ -85,6 +112,12 @@ export function useCreateEvalAssessment() {
         price: config.price,
         promo_code: config.promoCode || null,
         promo_discount_pct: config.promoDiscountPct,
+        // TNPSC placement
+        tnpsc_stage_id: config.tnpscStageId ?? null,
+        track: config.track ?? null,
+        tnpsc_level: config.tnpscLevel ?? null,
+        tnpsc_subject_id: config.tnpscSubjectId ?? null,
+        tnpsc_topic_id: config.tnpscTopicId ?? null,
       };
       return api.post<any>(`/api/v1/evaluation/assessments?org_id=${orgId}`, payload);
     },
@@ -108,18 +141,41 @@ export function useUpdateEvalAssessmentStatus() {
   });
 }
 
+/** Assessment details sent alongside invitations so the backend can render a
+ *  rich invite email (title, mode, duration, marks, deadline, etc.). */
+export interface AssessmentInviteDetails {
+  title?: string | null;
+  mode?: string | null;
+  difficulty?: string | null;
+  subject?: string | null;
+  question_count?: number | null;
+  max_score?: number | null;
+  time_limit_seconds?: number | null;
+  due_date?: string | null;
+  negative_marking?: boolean | null;
+  negative_mark_value?: number | null;
+  max_attempts?: number | null;
+  course_name?: string | null;
+}
+
 export function useSendEvalInvitations() {
   const { orgId } = useWorkspaceContext();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ assessmentId, emails, classId }: {
+    mutationFn: ({ assessmentId, emails, classId, assessmentDetails }: {
       assessmentId: string;
       emails: string[];
       classId?: string;
+      assessmentDetails?: AssessmentInviteDetails;
     }) =>
       api.post<{ created: number; skipped: number; total: number }>(
         `/api/v1/evaluation/assessments/${assessmentId}/distribute`,
-        { emails, class_id: classId || null, org_id: orgId },
+        {
+          emails,
+          class_id: classId || null,
+          org_id: orgId,
+          assessment_details: assessmentDetails ?? null,
+        },
       ),
     onSuccess: (data, vars) => {
       qc.invalidateQueries({ queryKey: ['eval-assessment-detail', vars.assessmentId] });

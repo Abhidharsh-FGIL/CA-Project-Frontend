@@ -5,7 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation, Link, Outlet } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate, useLocation, Link, Outlet } from "react-router-dom";
 import { getToken } from "@/lib/api";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -42,6 +42,14 @@ import PaymentHistoryPage from "@/pages/user/PaymentHistoryPage";
 import { UserEvalAssessmentPage } from "@/pages/user/UserEvalAssessmentPage";
 import TestTakingPage from "@/pages/user/TestTakingPage";
 import TestReadyPage from "@/pages/user/TestReadyPage";
+import TnpscGroupsPage from "@/pages/user/TnpscGroupsPage";
+import TnpscGroupPage from "@/pages/user/TnpscGroupPage";
+import TnpscStagePage from "@/pages/user/TnpscStagePage";
+import UserTrackPage from "@/pages/user/UserTrackPage";
+import UserPerformancePage from "@/pages/user/UserPerformancePage";
+import UserProgressPage from "@/pages/user/UserProgressPage";
+import UserStudyPlanPage from "@/pages/user/UserStudyPlanPage";
+import UserSavedPage from "@/pages/user/UserSavedPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,42 +101,42 @@ function ScrollToTop() {
 
 function HomePage() {
   return (
-    <div className="h-[100dvh] overflow-y-auto flex items-start sm:items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-100 dark:from-slate-950 dark:via-indigo-950/60 dark:to-purple-950/60 p-4 sm:p-6 lg:p-8 py-6 sm:py-8 relative">
-      <div className="absolute top-1/4 -left-20 w-80 h-80 bg-purple-300/30 dark:bg-purple-700/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-indigo-300/30 dark:bg-indigo-700/20 rounded-full blur-3xl pointer-events-none" />
+    <div className="h-[100dvh] overflow-y-auto flex items-start sm:items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-rose-100 dark:from-stone-950 dark:via-orange-950/50 dark:to-rose-950/40 p-4 sm:p-6 lg:p-8 py-6 sm:py-8 relative">
+      <div className="absolute top-1/4 -left-20 w-80 h-80 bg-amber-300/30 dark:bg-amber-700/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-orange-300/30 dark:bg-orange-700/20 rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-3xl w-full space-y-5 sm:space-y-6 relative z-10 animate-fadeIn">
         <div className="text-center md:text-left">
-          <span className="inline-block bg-white/70 dark:bg-gray-900/70 backdrop-blur border border-indigo-100 dark:border-indigo-900 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full shadow-sm animate-slideUp">
-            ✨ AI-Powered · For CA Students
+          <span className="inline-block bg-white/70 dark:bg-gray-900/70 backdrop-blur border border-orange-100 dark:border-orange-900 text-orange-700 dark:text-orange-300 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full shadow-sm animate-slideUp">
+            ✨ AI-Powered · Govt Exam Prep
           </span>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mt-3 text-gray-900 dark:text-gray-100 animate-slideUp stagger-1">
-            CA & <span className="gradient-text-animated">Accounting</span> Test Platform
+            BrightLearn <span className="gradient-text-animated">Academy</span>
           </h1>
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-3 animate-slideUp stagger-2">
-            CA Foundation · Intermediate · Final · CMA · GST · Income Tax — practice & mock series.
+            UPSC · SSC · Banking · Railways · State PSC — mock tests, practice papers & smart performance reports.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
           <Link
             to="/user/login"
-            className="group block p-5 sm:p-6 rounded-2xl border-2 border-indigo-500 dark:border-indigo-400 bg-white/80 dark:bg-gray-900/80 backdrop-blur hover:bg-white dark:hover:bg-gray-900 hover:shadow-xl hover:shadow-indigo-200 dark:hover:shadow-indigo-900/40 transition-all duration-300 animate-slideUp stagger-3 hover-lift card-shine relative overflow-hidden"
+            className="group block p-5 sm:p-6 rounded-2xl border-2 border-orange-500 dark:border-orange-400 bg-white/80 dark:bg-gray-900/80 backdrop-blur hover:bg-white dark:hover:bg-gray-900 hover:shadow-xl hover:shadow-orange-200 dark:hover:shadow-orange-900/40 transition-all duration-300 animate-slideUp stagger-3 hover-lift card-shine relative overflow-hidden"
           >
-            <div className="absolute -top-12 -right-12 w-32 h-32 bg-indigo-300/30 dark:bg-indigo-700/30 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
+            <div className="absolute -top-12 -right-12 w-32 h-32 bg-orange-300/30 dark:bg-orange-700/30 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
             <h2 className="text-lg sm:text-xl font-bold relative">
-              <span className="gradient-text">User Portal</span>
+              <span className="gradient-text">Aspirant Portal</span>
             </h2>
             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 relative">
-              CA student portal: enrol in Foundation / Inter / Final / CMA / GST / Income Tax, take practice & mock tests, view AI reports.
+              Aspirant portal: join your batches, attempt mock tests & practice papers across all subjects, and view AI-powered performance reports.
             </p>
-            <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-2 font-semibold relative inline-flex items-center gap-1">
+            <p className="text-xs text-orange-600 dark:text-orange-400 mt-2 font-semibold relative inline-flex items-center gap-1">
               Login or register
               <span className="group-hover:translate-x-1 transition-transform">→</span>
             </p>
           </Link>
           <Link
             to="/adminlogin"
-            className="group block p-5 sm:p-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-lg hover:shadow-indigo-100/50 dark:hover:shadow-indigo-900/30 transition-all duration-300 animate-slideUp stagger-4 hover-lift"
+            className="group block p-5 sm:p-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur hover:border-orange-300 dark:hover:border-orange-700 hover:shadow-lg hover:shadow-orange-100/50 dark:hover:shadow-orange-900/30 transition-all duration-300 animate-slideUp stagger-4 hover-lift"
           >
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Admin Dashboard</h2>
             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -158,6 +166,17 @@ function UserPortalRoutes() {
         {/* Protected user routes — UserGuard redirects to /user/login if not authenticated */}
         <Route element={<UserGuard />}>
           <Route path="dashboard" element={<UserDashboardPage />} />
+          {/* TNPSC hierarchy: groups → stages → mock/practice tracks */}
+          <Route path="exams" element={<TnpscGroupsPage />} />
+          <Route path="exams/:groupId" element={<TnpscGroupPage />} />
+          <Route path="exams/:groupId/:stageId" element={<TnpscStagePage />} />
+          <Route path="mock-tests" element={<UserTrackPage track="mock" />} />
+          <Route path="practice" element={<UserTrackPage track="practice" />} />
+          <Route path="performance" element={<UserPerformancePage />} />
+          <Route path="progress" element={<UserProgressPage />} />
+          <Route path="study-plan/:attemptId" element={<UserStudyPlanPage />} />
+          <Route path="bookmarks" element={<UserSavedPage kind="bookmarks" />} />
+          <Route path="notes" element={<UserSavedPage kind="notes" />} />
           <Route path="courses" element={<CourseListPage />} />
           <Route path="courses/:courseId" element={<CourseDetailPage />} />
           <Route path="test/:testId/start" element={<TestStartPage />} />
@@ -217,12 +236,12 @@ const App = () => (
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
-                <BrowserRouter>
+                <HashRouter>
                   <ScrollToTop />
                   <ErrorBoundary>
                     <AppRoutes />
                   </ErrorBoundary>
-                </BrowserRouter>
+                </HashRouter>
               </TooltipProvider>
             </AIContextProvider>
           </SubscriptionProvider>

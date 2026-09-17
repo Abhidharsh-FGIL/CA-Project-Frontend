@@ -264,11 +264,14 @@ export default function TestTakingPage() {
     goToQuestion(currentIdx + 1);
   };
 
-  const handleAutoSubmit = async (_reason: string) => {
+  const handleAutoSubmit = async (reason: 'malpractice' | 'time_expired') => {
     if (submitting || submitted) return;
     setSubmitting(true);
     try {
-      await submitTestAttempt(attempt_id);
+      await submitTestAttempt(attempt_id, {
+        tab_violations: malpracticeCount.current,
+        submit_reason: reason === 'malpractice' ? 'tab_violations' : 'time_expired',
+      });
       setSubmitted(true);
       toast.success('Test submitted.');
       navigate(`/user/courses/${state.course_id}`, { replace: true });
@@ -284,7 +287,10 @@ export default function TestTakingPage() {
     setSubmitting(true);
     setShowConfirm(false);
     try {
-      await submitTestAttempt(attempt_id);
+      await submitTestAttempt(attempt_id, {
+        tab_violations: malpracticeCount.current,
+        submit_reason: 'manual',
+      });
       setSubmitted(true);
       toast.success('Test submitted successfully!');
       navigate(`/user/courses/${state.course_id}`, { replace: true });
@@ -366,7 +372,7 @@ export default function TestTakingPage() {
           { cls: 'bg-pink-200 border border-pink-300', label: 'Not Answered' },
           { cls: 'bg-emerald-500', label: 'Answered' },
           { cls: 'bg-amber-400', label: 'Marked for Review' },
-          { cls: 'bg-blue-500', label: 'Answered & Mar...' },
+          { cls: 'bg-blue-500', label: 'Answered & Marked' },
         ].map(({ cls, label }) => (
           <div key={label} className="flex items-center gap-2">
             <div className={`w-3.5 h-3.5 rounded flex-shrink-0 ${cls}`} />

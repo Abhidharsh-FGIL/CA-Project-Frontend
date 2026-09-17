@@ -124,10 +124,10 @@ export function GenVerseShell({ children, noScroll = false }: GenVerseShellProps
 
           {/* Logo */}
           <Link to={logoTarget} className="flex items-center gap-2 font-semibold min-w-0 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-indigo-600 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform flex-shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 via-rose-400 to-amber-500 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform flex-shrink-0">
               <ClipboardCheck className="h-4 w-4 text-white" />
             </div>
-            <span className="hidden sm:inline truncate">Evaluation Portal</span>
+            <span className="hidden sm:inline truncate">BrightLearn Admin</span>
           </Link>
 
           {/* Section switcher — desktop */}
