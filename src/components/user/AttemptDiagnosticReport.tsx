@@ -89,7 +89,7 @@ const fmtSec = (v: number | null) => (v == null ? '—' : `${Math.round(v)}s`);
 const mins = (s: number | null) => (s == null ? '—' : `${Math.round(s / 60)} min`);
 
 /** Diagnostic status → the design system's tone vocabulary. */
-const STATUS_TONE: Record<NodeStatus, StatusTone> = {
+export const STATUS_TONE: Record<NodeStatus, StatusTone> = {
   STRONG: 'strong',
   DEVELOPING: 'developing',
   FOCUS: 'focus',
@@ -103,7 +103,7 @@ const STATUS_TONE: Record<NodeStatus, StatusTone> = {
  * A well-evidenced line needs no warning colour — it recedes. Only a thin sample
  * is worth tinting, because that is the one the reader should discount.
  */
-const CONFIDENCE_TONE: Record<Confidence, string> = {
+export const CONFIDENCE_TONE: Record<Confidence, string> = {
   HIGH: 'text-gray-400 dark:text-gray-500',
   MEDIUM: 'text-amber-600 dark:text-amber-400',
   LOW: 'text-amber-600 dark:text-amber-400',
@@ -570,16 +570,14 @@ export function PerformanceSnapshot({
 }) {
   const plotted = model.radar.filter(r => r.value != null);
   const target = model.config.targetAccuracy;
-  const takeaways = useMemo(() => buildTakeaways(model), [model]);
 
   return (
-    <div className="grid lg:grid-cols-[1.35fr_1fr] gap-3 sm:gap-4 items-start">
-      <ReportCard>
-        <SectionHeader
-          icon={<Target className="w-4 h-4" />}
-          title="Subject Proficiency Radar"
-          subtitle="Accuracy on the questions you answered, against target"
-        />
+    <ReportCard>
+      <SectionHeader
+        icon={<Target className="w-4 h-4" />}
+        title="Subject Proficiency Radar"
+        subtitle="Accuracy on the questions you answered, against target"
+      />
         {plotted.length < 3 ? (
           <NotAvailable
             reason={`Only ${plotted.length} subject${plotted.length === 1 ? '' : 's'} were attempted, which is too few to plot a proficiency shape. The table below carries the same figures.`}
@@ -640,90 +638,11 @@ export function PerformanceSnapshot({
                 <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600" /> Target (Recommended)
               </span>
             </div>
-            <WhatThisMeans>{radarExplanation(model, target)}</WhatThisMeans>
+            <WhatThisMeans>{model.radarInterpretation.join(' ')}</WhatThisMeans>
           </>
         )}
-      </ReportCard>
-
-      <ReportCard>
-        <SectionHeader icon={<CheckCircle2 className="w-4 h-4" />} title="Key takeaways" accent="emerald" />
-        <ul className="space-y-2.5">
-          {takeaways.map((t, i) => (
-            <InsightLine key={i} icon={t.icon} accent={t.accent}>
-              {t.text}
-            </InsightLine>
-          ))}
-        </ul>
-      </ReportCard>
-    </div>
+    </ReportCard>
   );
-}
-
-/** Phrases what the radar and the matrix both already say — no new facts. */
-function buildTakeaways(model: AttemptReportModel): Array<{ text: string; accent: Accent; icon: React.ReactNode }> {
-  const out: Array<{ text: string; accent: Accent; icon: React.ReactNode }> = [];
-  const cfg = model.config;
-
-  for (const s of model.subjects) {
-    if (out.length >= 3) break;
-    const acc = s.metrics.accuracy;
-    if (acc == null || s.state === 'NOT_ASSESSED') continue;
-
-    if (s.status === 'STRONG') {
-      out.push({
-        text: `${s.name} is a strength (${acc}% accuracy).`,
-        accent: 'emerald',
-        icon: <CheckCircle2 className="w-3 h-3" />,
-      });
-    } else if (acc >= cfg.developingAccuracy) {
-      out.push({
-        text: `${s.name} shows moderate performance (${acc}%).`,
-        accent: 'amber',
-        icon: <TrendingUp className="w-3 h-3" />,
-      });
-    } else if (acc > 0) {
-      out.push({
-        text: `${s.name} shows potential but needs work (${acc}% accuracy).`,
-        accent: 'rose',
-        icon: <TrendingDown className="w-3 h-3" />,
-      });
-    }
-  }
-
-  const thin = model.subjects.filter(s => s.state === 'INSUFFICIENT_EVIDENCE').length;
-  if (model.coverageGaps.length > 0 || thin > 0) {
-    const n = model.coverageGaps.length + thin;
-    out.push({
-      text: `${n} subject${n === 1 ? ' was' : 's were'} not attempted enough — insufficient evidence.`,
-      accent: 'sky',
-      icon: <Info className="w-3 h-3" />,
-    });
-  }
-
-  // Close on the single action the evidence points to.
-  const s = model.summary;
-  if (s.attemptRate != null && s.attemptRate < cfg.targetCoverage) {
-    out.push({
-      text: 'Focus on increasing attempt rate and syllabus coverage.',
-      accent: 'emerald',
-      icon: <Zap className="w-3 h-3" />,
-    });
-  } else if (model.gaps.length > 0) {
-    out.push({
-      text: `Focus on accuracy in ${model.gaps[0].title} — coverage is already there.`,
-      accent: 'emerald',
-      icon: <Zap className="w-3 h-3" />,
-    });
-  }
-
-  if (out.length === 0) {
-    out.push({
-      text: 'Not enough attempted questions yet to draw a firm conclusion in any subject.',
-      accent: 'slate',
-      icon: <Info className="w-3 h-3" />,
-    });
-  }
-  return out.slice(0, 5);
 }
 
 /**
@@ -781,97 +700,6 @@ function RadarAxisTick({ x, y, payload, textAnchor, rows }: any) {
       </text>
     </g>
   );
-}
-
-/**
- * Two sentences reading the shape back: where it bulges, where it caves, and how
- * much of the polygon is missing because nothing was attempted there.
- */
-/**
- * The paragraph read alongside the radar.
- *
- * The shape alone says which subject is furthest out; it does not say whether the
- * spread is worth acting on, what an empty axis means, or what closing the
- * nearest gap would actually be worth. Each sentence below is dropped when the
- * attempt gives no grounds for it, so a thin paper gets a short note rather than
- * padded prose.
- */
-function radarExplanation(model: AttemptReportModel, target: number): string {
-  const cfg = model.config;
-  const measured = model.subjects.filter(s => s.state === 'MEASURED' && s.metrics.accuracy != null);
-  const thin = model.subjects.filter(s => s.state === 'INSUFFICIENT_EVIDENCE');
-  const blank = model.subjects.filter(s => s.state === 'NOT_ASSESSED');
-
-  if (measured.length === 0) {
-    const available = blank.reduce((n, s) => n + s.metrics.questions, 0);
-    return thin.length > 0
-      ? `No subject has enough answered questions to plot a reliable point yet — ${thin.map(s => s.name).join(', ')} ${thin.length === 1 ? 'sits' : 'sit'} below ${cfg.minEvidence} answers, and the remaining axes are empty. The shape fills in as you attempt more of the paper.`
-      : `Nothing was attempted, so there is no shape to read. ${available} questions across ${blank.length} subject${blank.length === 1 ? '' : 's'} are waiting on a first attempt.`;
-  }
-
-  const sorted = [...measured].sort((a, b) => (b.metrics.accuracy ?? 0) - (a.metrics.accuracy ?? 0));
-  const best = sorted[0];
-  const worst = sorted[sorted.length - 1];
-  const spread = Math.round((best.metrics.accuracy ?? 0) - (worst.metrics.accuracy ?? 0));
-  const atTarget = measured.filter(s => (s.metrics.accuracy ?? 0) >= target);
-  const sentences: string[] = [];
-
-  // 1. The shape itself — and whether its lopsidedness is the story or not.
-  if (measured.length === 1) {
-    sentences.push(`Only ${best.name} has enough answers to plot, at ${best.metrics.accuracy}% — one point is a line, not yet a shape.`);
-  } else if (spread >= 20) {
-    sentences.push(
-      `The shape stretches furthest on ${best.name} (${best.metrics.accuracy}%) and pulls in tightest on ${worst.name} (${worst.metrics.accuracy}%) — a ${spread}-point spread, so your preparation is uneven rather than uniformly short.`,
-    );
-  } else {
-    sentences.push(
-      `The shape is fairly even: ${best.name} leads at ${best.metrics.accuracy}% and ${worst.name} trails at ${worst.metrics.accuracy}%, only ${spread} points apart, so no single subject is dragging it down — the level is what it is across the board.`,
-    );
-  }
-
-  // 2. Where it sits against the ring.
-  sentences.push(
-    atTarget.length === 0
-      ? `No subject clears the ${target}% ring yet, so the whole shape sits inside it.`
-      : `${atTarget.length} of ${measured.length} measured subjects clear the ${target}% ring (${atTarget.slice(0, 3).map(s => s.name).join(', ')}${atTarget.length > 3 ? ' and others' : ''}); the rest of the gap between your outline and the ring is where the marks are.`,
-  );
-
-  // 3. What closing the nearest gap is worth — the sentence that makes the chart
-  //    actionable. Priced in marks where subject marks are known, in questions
-  //    otherwise, and skipped when everything already clears the ring.
-  const gapTargets = measured.filter(s => (s.metrics.accuracy ?? 0) < target);
-  if (gapTargets.length > 0) {
-    // Nearest to the ring, not weakest — the cheapest one to convert.
-    const nearest = gapTargets.reduce((hi, s) => ((s.metrics.accuracy ?? 0) > (hi.metrics.accuracy ?? 0) ? s : hi));
-    const m = nearest.metrics;
-    const extraCorrect = Math.round(((target - (m.accuracy ?? 0)) / 100) * m.attempted);
-    if (extraCorrect >= 1) {
-      const perQuestion = m.marksAvailable != null && m.questions > 0 ? m.marksAvailable / m.questions : null;
-      const worth = perQuestion != null ? Math.round(extraCorrect * perQuestion * 10) / 10 : null;
-      sentences.push(
-        worth != null
-          ? `${nearest.name} is the closest to the ring at ${m.accuracy}% — converting ${extraCorrect} more of the ${m.attempted} you answered there would push it to target and is worth about ${worth} marks, which makes it the cheapest gap on this chart to close.`
-          : `${nearest.name} is the closest to the ring at ${m.accuracy}% — ${extraCorrect} more correct out of the ${m.attempted} you answered there would reach target, which makes it the cheapest gap on this chart to close.`,
-      );
-    }
-  }
-
-  // 4. Empty axes are missing evidence, not zeros — the most misread part of a radar.
-  if (blank.length > 0) {
-    const q = blank.reduce((n, s) => n + s.metrics.questions, 0);
-    sentences.push(
-      `${blank.length} ax${blank.length === 1 ? 'is carries' : 'es carry'} no point because nothing was attempted there — ${q} question${q === 1 ? '' : 's'} in ${blank.slice(0, 2).map(s => s.name).join(', ')}${blank.length > 2 ? ' and others' : ''}. Read those as unknown, not as zero; they need a diagnostic before they can be planned around.`,
-    );
-  }
-
-  // 5. Points that can swing on a single question.
-  if (thin.length > 0) {
-    sentences.push(
-      `${thin.slice(0, 2).map(s => `${s.name} (${s.metrics.attempted})`).join(' and ')}${thin.length > 2 ? ' and others' : ''} rest on fewer than ${cfg.minEvidence} answers, so ${thin.length === 1 ? 'that point' : 'those points'} can move a long way on one more question.`,
-    );
-  }
-
-  return sentences.join(' ');
 }
 
 function RadarTooltip({ active, payload, rows, target }: any) {
@@ -1150,7 +978,7 @@ function TaxonomyRow({
  * story, not a strength — and a handful of answers is held back as insufficient
  * evidence rather than promoted to "Strong" on two lucky questions.
  */
-function taxonomyStatus(node: TopicNode): NodeStatus {
+export function taxonomyStatus(node: TopicNode): NodeStatus {
   const m = node.metrics;
   const cfg = DEFAULT_REPORT_CONFIG;
   if (m.attempted === 0) return 'NOT_ASSESSED';
@@ -1161,8 +989,33 @@ function taxonomyStatus(node: TopicNode): NodeStatus {
   return 'FOCUS';
 }
 
+// A few equivalent short phrasings per status band, so a table full of topics that
+// share the same real state (e.g. several 0%-accuracy rows) doesn't repeat one
+// identical label down the column — rotated deterministically by row index, never
+// randomly, so the same attempt always renders the same table.
+const AI_ANALYSIS_PHRASES: Record<NodeStatus, string[]> = {
+  STRONG: ['Strong', 'Solid grasp', 'On target'],
+  DEVELOPING: ['Needs revision', 'Strengthen understanding', 'Revision required', 'Practise this again'],
+  FOCUS: ['Needs concept clarity', 'Revise timeline', 'Concept gap', 'Focus on key events', 'Concept clarity needed', 'Learn key personalities'],
+  INSUFFICIENT_EVIDENCE: ['Too few answers yet'],
+  NOT_ASSESSED: ['Not attempted yet'],
+};
+
+/**
+ * A short per-row label for a "Topic Analysis" table's AI Analysis column — the
+ * same `taxonomyStatus` the table's own Status pill already uses elsewhere,
+ * rendered as a couple of words instead of a badge. Real per-row state, cosmetic
+ * phrasing variety only.
+ */
+export function topicAiAnalysis(node: TopicNode, index: number): string {
+  const status = taxonomyStatus(node);
+  const phrases = AI_ANALYSIS_PHRASES[status];
+  const phrase = phrases[index % phrases.length];
+  return status === 'STRONG' && node.metrics.attempted === 1 ? `${phrase} (single question)` : phrase;
+}
+
 /** A tagged-as-nothing bucket, by the name the importer gives it. */
-function isOtherNode(node: TopicNode): boolean {
+export function isOtherNode(node: TopicNode): boolean {
   return /^(others?|untagged|unspecified)$/i.test(node.name.trim());
 }
 
@@ -1404,7 +1257,7 @@ function SubjectDeepDive({
 }
 
 /** Reads the topic table: where the marks sit, and which row to work first. */
-function topicNarrative(subject: SubjectNode): string {
+export function topicNarrative(subject: SubjectNode): string {
   const real = subject.topics.filter(t => !isOtherNode(t));
   if (real.length === 0) return 'Every question in this subject is untagged, so there is no topic split to read.';
 
@@ -1434,7 +1287,7 @@ function topicNarrative(subject: SubjectNode): string {
 }
 
 /** Reads the comparison bars: is this subject ahead of or behind the paper? */
-function comparisonNarrative(subject: SubjectNode, model: AttemptReportModel): string {
+export function comparisonNarrative(subject: SubjectNode, model: AttemptReportModel): string {
   const m = subject.metrics;
   const paperAcc = model.summary.accuracy;
   const paperCov = model.summary.attemptRate;
@@ -2057,58 +1910,48 @@ export function KeyTakeawaysAndNextSteps({
 }) {
   const nameOf = (id: string) => model.subjects.find(s => s.subjectId === id)?.name ?? id;
 
+  // This card used to open with a "What this attempt tells you" column reading
+  // model.diagnostics — the exact same sentences the "Quick insights" section
+  // above the verdict card already shows, word for word. Dropped rather than
+  // reworded: the priority list below is this card's only content that isn't
+  // shown anywhere else on the page.
   return (
     <ReportCard>
-      <SectionHeader icon={<Flag className="w-4 h-4" />} title="Key takeaways and next steps" />
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-            What this attempt tells you
-          </p>
-          <ul className="space-y-2">
-            {model.diagnostics.map(f => (
-              <InsightLine key={f.rank} icon={<CheckCircle2 className="w-3 h-3" />} accent="emerald">
-                {f.text}
-              </InsightLine>
+      <SectionHeader icon={<Flag className="w-4 h-4" />} title="Recommended next steps" />
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+          Recommended next actions
+        </p>
+        {model.priorities.length === 0 ? (
+          <p className="text-[11px] text-gray-400">Nothing to prioritise from this attempt yet.</p>
+        ) : (
+          <ol className="space-y-2">
+            {model.priorities.map(p => (
+              <li key={p.nodeId} className="flex items-start gap-2.5">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold flex items-center justify-center mt-px">
+                  {p.rank}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[11px] font-semibold text-gray-900 dark:text-gray-100">
+                    {nameOf(p.nodeId)}
+                    <span className="ml-1.5 font-normal text-[10px] text-indigo-600 dark:text-indigo-400">
+                      {ARCHETYPE_LABEL[p.archetype]}
+                    </span>
+                  </span>
+                  <span className="block text-[11px] text-gray-700 dark:text-gray-200 leading-relaxed mt-0.5">
+                    {p.reason}
+                  </span>
+                  <span className="block text-[10px] text-gray-400 mt-0.5">{p.evidence.join(' · ')}</span>
+                </span>
+              </li>
             ))}
-          </ul>
-        </div>
-
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-            Recommended next actions
+          </ol>
+        )}
+        {model.queuedPriorities.length > 0 && (
+          <p className="mt-2 text-[10px] text-gray-400">
+            Queued: {model.queuedPriorities.map(p => nameOf(p.nodeId)).join(', ')}.
           </p>
-          {model.priorities.length === 0 ? (
-            <p className="text-[11px] text-gray-400">Nothing to prioritise from this attempt yet.</p>
-          ) : (
-            <ol className="space-y-2">
-              {model.priorities.map(p => (
-                <li key={p.nodeId} className="flex items-start gap-2.5">
-                  <span className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold flex items-center justify-center mt-px">
-                    {p.rank}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[11px] font-semibold text-gray-900 dark:text-gray-100">
-                      {nameOf(p.nodeId)}
-                      <span className="ml-1.5 font-normal text-[10px] text-indigo-600 dark:text-indigo-400">
-                        {ARCHETYPE_LABEL[p.archetype]}
-                      </span>
-                    </span>
-                    <span className="block text-[11px] text-gray-700 dark:text-gray-200 leading-relaxed mt-0.5">
-                      {p.reason}
-                    </span>
-                    <span className="block text-[10px] text-gray-400 mt-0.5">{p.evidence.join(' · ')}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          )}
-          {model.queuedPriorities.length > 0 && (
-            <p className="mt-2 text-[10px] text-gray-400">
-              Queued: {model.queuedPriorities.map(p => nameOf(p.nodeId)).join(', ')}.
-            </p>
-          )}
-        </div>
+        )}
       </div>
 
       {onOpenPlan && (

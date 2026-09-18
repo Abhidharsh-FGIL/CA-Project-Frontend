@@ -666,6 +666,17 @@ function confidenceFor(m: NodeMetrics, cfg: ReportConfig): Confidence {
   return 'LOW';
 }
 
+/**
+ * How much evidence backs one strengths/gaps/coverage-gap/quick-win `Insight`. An
+ * attempt-wide insight (no `subjectId` — e.g. "raise overall attempt rate") is
+ * evidenced by the whole paper's totals, so it defaults to HIGH rather than falling
+ * back to a per-subject figure it was never about.
+ */
+export function insightConfidence(insight: Insight, model: Pick<AttemptReportModel, 'subjects'>): Confidence {
+  if (!insight.subjectId) return 'HIGH';
+  return model.subjects.find(s => s.subjectId === insight.subjectId)?.confidence ?? 'HIGH';
+}
+
 function statusFor(m: NodeMetrics, state: EvidenceState, cfg: ReportConfig): NodeStatus {
   if (state === 'NOT_ASSESSED') return 'NOT_ASSESSED';
   if (state === 'INSUFFICIENT_EVIDENCE') return 'INSUFFICIENT_EVIDENCE';
@@ -1129,23 +1140,11 @@ export function buildAttemptReport(
       : buildDiagnostics(summary, subjects, medianSec, cfg, avgSec, idealSec, difficulty, negativeLoss);
   const reportSource: 'llm' | 'deterministic' = cachedInsights?.verdict ? 'llm' : 'deterministic';
 
+  // strengths/gaps/coverageGaps/quickWins keep their deterministic implication/action —
+  // that text has no rendering destination anywhere in the UI (see StrengthsAndGaps,
+  // which only ever reads .title/.evidence), so there is nothing to override here and
+  // generating LLM text for it would only spend prompt size on content nobody sees.
   const insightsResult = buildInsights(subjects, summary, cfg);
-  if (cachedInsights?.insights) {
-    for (const bucket of [
-      insightsResult.strengths,
-      insightsResult.gaps,
-      insightsResult.coverageGaps,
-      insightsResult.quickWins,
-    ]) {
-      for (const item of bucket) {
-        if (!item.subjectId) continue;
-        const cached = cachedInsights.insights[item.subjectId];
-        if (!cached) continue;
-        item.implication = withCached(cached.implication, item.implication);
-        item.action = withCached(cached.action, item.action);
-      }
-    }
-  }
 
   const allPriorities = buildPriorities(subjects, summary, cfg);
   if (cachedInsights?.priorities) {
@@ -1285,17 +1284,6 @@ export function buildAttemptReport(
 export function factsFromModel(model: AttemptReportModel): Record<string, unknown> {
   const subjectName = (id: string | null) => model.subjects.find(s => s.subjectId === id)?.name ?? id;
 
-  const insightSubjects = (
-    [
-      ...model.strengths.map(i => ({ ...i, bucket: 'strength' as const })),
-      ...model.gaps.map(i => ({ ...i, bucket: 'gap' as const })),
-      ...model.coverageGaps.map(i => ({ ...i, bucket: 'coverage_gap' as const })),
-      ...model.quickWins.map(i => ({ ...i, bucket: 'quick_win' as const })),
-    ]
-  )
-    .filter(i => i.subjectId)
-    .map(i => ({ id: i.subjectId, name: i.title, bucket: i.bucket, evidence: i.evidence }));
-
   return {
     summary: model.summary,
     subjects: model.subjects.map(s => {
@@ -1356,7 +1344,6 @@ export function factsFromModel(model: AttemptReportModel): Record<string, unknow
       model.analyses.negativeMarks.state === 'AVAILABLE'
         ? { marksLost: model.analyses.negativeMarks.marksLost, perWrong: model.analyses.negativeMarks.perWrong }
         : null,
-    insightSubjects,
     priorities: [...model.priorities, ...model.queuedPriorities].map(p => ({
       id: p.nodeId,
       name: subjectName(p.nodeId),
@@ -1488,6 +1475,20 @@ function buildVerdict(
         : 'The work now is holding this while widening into the subjects that carried fewer questions.'
     }`,
   };
+}
+
+/** One short encouragement line, keyed off the same severity the verdict card uses — so a report never shows a downbeat trophy card next to an "On track" verdict. */
+export function motivationalNote(model: Pick<AttemptReportModel, 'verdict'>): string {
+  switch (model.verdict.severity) {
+    case 'not_assessed':
+      return 'Every attempt is a step closer to your goal.';
+    case 'needs_coverage':
+      return 'Reaching more of the paper is the fastest way to move this score.';
+    case 'needs_focus':
+      return 'The accuracy gap is closing work, not starting-over work.';
+    case 'on_track':
+      return 'Keep this pace going — the target is in reach.';
+  }
 }
 
 function buildDiagnostics(
@@ -1658,6 +1659,18 @@ function buildDiagnostics(
   return out.slice(0, 8).map((f, i) => ({ ...f, rank: i + 1 }));
 }
 
+/**
+ * A short card title for one diagnostic finding, for a UI that shows insights as
+ * titled cards rather than a flat bulleted list. Deliberately just the finding's own
+ * opening clause — not a fixed category vocabulary — so it never needs a
+ * classification step and stays true to the sentence underneath it.
+ */
+export function insightHeadline(f: DiagnosticFinding): string {
+  const words = f.text.replace(/[.,;:!?].*$/, '').split(/\s+/).filter(Boolean);
+  const headline = words.slice(0, 5).join(' ');
+  return headline.length > 0 ? headline : `Insight ${f.rank}`;
+}
+
 function buildRadarInterpretation(subjects: SubjectNode[], cfg: ReportConfig): string[] {
   const lines: string[] = [];
   const measured = subjects.filter(s => s.state === 'MEASURED');
@@ -1696,6 +1709,21 @@ function buildRadarInterpretation(subjects: SubjectNode[], cfg: ReportConfig): s
     lines.push(
       `Inside the ring: ${worstThree.map(s => `${s.name} (${s.metrics.accuracy}%)`).join(', ')} — the distance from the ring is the marks available.`,
     );
+
+    // The cheapest gap on the chart to close — nearest to the ring, not
+    // weakest, since that is the one likeliest to convert with the least work.
+    const nearest = below.reduce((hi, s) => ((s.metrics.accuracy ?? 0) > (hi.metrics.accuracy ?? 0) ? s : hi));
+    const m = nearest.metrics;
+    const extraCorrect = Math.round(((cfg.targetAccuracy - (m.accuracy ?? 0)) / 100) * m.attempted);
+    if (extraCorrect >= 1) {
+      const perQuestion = m.marksAvailable != null && m.questions > 0 ? m.marksAvailable / m.questions : null;
+      const worth = perQuestion != null ? Math.round(extraCorrect * perQuestion * 10) / 10 : null;
+      lines.push(
+        worth != null
+          ? `${nearest.name} is closest to the ring at ${m.accuracy}% — converting ${extraCorrect} more of the ${m.attempted} you answered there would reach target, worth about ${worth} marks, the cheapest gap on this chart to close.`
+          : `${nearest.name} is closest to the ring at ${m.accuracy}% — ${extraCorrect} more correct out of the ${m.attempted} you answered there would reach target, the cheapest gap on this chart to close.`,
+      );
+    }
   }
 
   if (notAssessed.length > 0) {

@@ -50,6 +50,45 @@ export interface FocusArea {
   escalation: string;
 }
 
+/**
+ * A priority label for a ranked focus area or priority — rank 1 is the single
+ * biggest lever, rank 2 still clearly urgent, everything after that important but
+ * not the top of the list. Shared between the report Overview's "Priority Learning
+ * Areas" card and this file's "Learning Queue" tab, so the same rank always reads
+ * as the same word in both places.
+ */
+export function priorityBadge(rank: number): 'Highest' | 'High' | 'Medium' {
+  if (rank <= 1) return 'Highest';
+  if (rank === 2) return 'High';
+  return 'Medium';
+}
+
+/**
+ * The 7 calendar dates (Monday-Sunday) for week N of the plan, counting from
+ * `startDate` (today, by default). Presentation-time only — never stored on the
+ * plan model, since "today" shifts on every view and the model itself must stay
+ * deterministic and testable regardless of when it's built.
+ */
+export function weekDates(weekNumber: number, startDate: Date = new Date()): Date[] {
+  const dow = startDate.getDay(); // 0 = Sunday .. 6 = Saturday
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(startDate);
+  monday.setDate(monday.getDate() + mondayOffset + (weekNumber - 1) * 7);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+}
+
+const fmtDay = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+
+/** "16 Sep – 22 Sep 2026" for the header above a week's day-by-day table. */
+export function weekDateRange(weekNumber: number, startDate: Date = new Date()): string {
+  const [first, last] = [weekDates(weekNumber, startDate)[0], weekDates(weekNumber, startDate)[6]];
+  return `${fmtDay(first)} – ${fmtDay(last)} ${last.getFullYear()}`;
+}
+
 export interface WeekOutline {
   week: number;
   purpose: string;

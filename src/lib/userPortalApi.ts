@@ -647,8 +647,6 @@ export interface ReportInsightsContent {
     /** Keyed by subject id — one entry per row with a coverage gap. */
     rows?: Record<string, { action: string; rationale: string }>;
   } | null;
-  /** Keyed by subject id — one entry per subject with a strengths/gaps/quick-wins card. */
-  insights?: Record<string, { implication: string; action: string }> | null;
   /** Keyed by subject id — one sentence per ranked (or queued) priority. */
   priorities?: Record<string, string> | null;
   model: string;

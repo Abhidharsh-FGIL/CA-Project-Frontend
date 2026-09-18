@@ -35,6 +35,12 @@ import CourseDetailPage from "@/pages/user/CourseDetailPage";
 import TestStartPage from "@/pages/user/TestStartPage";
 import UserHistoryPage from "@/pages/user/UserHistoryPage";
 import UserReportPage from "@/pages/user/UserReportPage";
+import UserReportInsightsPage from "@/pages/user/UserReportInsightsPage";
+import UserAllSubjectsPage from "@/pages/user/UserAllSubjectsPage";
+import UserSubjectReportPage from "@/pages/user/UserSubjectReportPage";
+import UserSubjectQuestionsPage from "@/pages/user/UserSubjectQuestionsPage";
+import UserQuestionReviewPage from "@/pages/user/UserQuestionReviewPage";
+import UserMistakeIntelligencePage from "@/pages/user/UserMistakeIntelligencePage";
 import UserProfilePage from "@/pages/user/UserProfilePage";
 import SubscriptionPage from "@/pages/user/SubscriptionPage";
 import NotificationsPage from "@/pages/user/NotificationsPage";
@@ -184,6 +190,15 @@ function UserPortalRoutes() {
           <Route path="test/:testId/take" element={<TestTakingPage />} />
           <Route path="history" element={<UserHistoryPage />} />
           <Route path="report/:attemptId" element={<UserReportPage />} />
+          <Route path="report/:attemptId/insights" element={<UserReportInsightsPage />} />
+          <Route path="report/:attemptId/subjects" element={<UserAllSubjectsPage />} />
+          <Route path="report/:attemptId/subjects/:subjectId" element={<UserSubjectReportPage />} />
+          <Route path="report/:attemptId/subjects/:subjectId/questions" element={<UserSubjectQuestionsPage />} />
+          <Route
+            path="report/:attemptId/subjects/:subjectId/questions/:questionId"
+            element={<UserQuestionReviewPage />}
+          />
+          <Route path="report/:attemptId/mistakes" element={<UserMistakeIntelligencePage />} />
           <Route path="profile" element={<UserProfilePage />} />
           <Route path="subscription" element={<SubscriptionPage />} />
           <Route path="notifications" element={<NotificationsPage />} />

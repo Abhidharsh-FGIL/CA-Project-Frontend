@@ -1,14 +1,16 @@
+/**
+ * /user/report/:attemptId/insights — "AI Detailed Insights" (mockup screen 2).
+ */
 import { useParams, Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { UserShell } from '@/components/user/UserShell';
 import { ReportSubNav } from '@/components/user/ReportSubNav';
-import { ReportOverview } from '@/components/user/report/ReportOverview';
+import { ReportInsights } from '@/components/user/report/ReportInsights';
 import { useAttemptReportModel } from '@/hooks/use-attempt-report';
 
-export default function UserReportPage() {
+export default function UserReportInsightsPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
-  const { model, examContext, loading, failed } = useAttemptReportModel(attemptId);
-
+  const { model, loading, failed } = useAttemptReportModel(attemptId);
   if (!attemptId) return <Navigate to="/user/history" replace />;
 
   return (
@@ -20,14 +22,10 @@ export default function UserReportPage() {
         </div>
       ) : failed || !model ? (
         <div className="p-6 max-w-2xl mx-auto">
-          <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              This attempt's detail could not be loaded.
-            </p>
-          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">This attempt's detail could not be loaded.</p>
         </div>
       ) : (
-        <ReportOverview model={model} exam={examContext} />
+        <ReportInsights model={model} />
       )}
     </UserShell>
   );

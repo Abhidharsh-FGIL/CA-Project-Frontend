@@ -7,6 +7,7 @@
  * reads only the attempt's own priorities.
  */
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   BookOpen,
   CalendarDays,
@@ -16,6 +17,8 @@ import {
   Circle,
   FileText,
   Flag,
+  Lightbulb,
+  Sprout,
   Target,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -29,15 +32,18 @@ import {
   type Accent,
 } from '@/components/user/report-ui';
 import type { DailyBlock, FocusArea, StudyPlan } from '@/lib/study-plan';
+import { priorityBadge, weekDateRange, weekDates } from '@/lib/study-plan';
 
-type PlanTab = 'overview' | 'weekly' | 'daily';
+const fmtDayDate = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+
+type PlanTab = 'queue' | 'weekly' | 'daily';
 
 const RANK_ACCENT: Accent[] = ['rose', 'amber', 'indigo', 'sky', 'violet'];
 
 const fmtPct = (v: number | null) => (v == null ? '—' : `${v}%`);
 
 export function StudyPlanView({ plan, onBack }: { plan: StudyPlan; onBack?: () => void }) {
-  const [tab, setTab] = useState<PlanTab>('overview');
+  const [tab, setTab] = useState<PlanTab>('queue');
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -84,24 +90,32 @@ export function StudyPlanView({ plan, onBack }: { plan: StudyPlan; onBack?: () =
             value={tab}
             onChange={setTab}
             options={[
-              { value: 'overview', label: 'Overview' },
-              { value: 'weekly', label: 'Weekly plan' },
-              { value: 'daily', label: 'Daily plan' },
+              { value: 'queue', label: 'Learning Queue' },
+              { value: 'weekly', label: 'Weekly Plan' },
+              { value: 'daily', label: 'Daily Plan' },
             ]}
           />
         </div>
       </ReportCard>
 
-      {tab === 'overview' && <PlanOverview plan={plan} />}
+      {tab === 'queue' && <LearningQueue plan={plan} />}
       {tab === 'weekly' && <WeeklyPlan plan={plan} />}
       {tab === 'daily' && <DailyPlan plan={plan} />}
     </div>
   );
 }
 
-// ─── Screen 10: overview ───────────────────────────────────────────────────────
+const BADGE_ACCENT: Record<'Highest' | 'High' | 'Medium', Accent> = {
+  Highest: 'rose',
+  High: 'amber',
+  Medium: 'sky',
+};
 
-function PlanOverview({ plan }: { plan: StudyPlan }) {
+// ─── Learning Queue (mockup screen 7) ──────────────────────────────────────────
+
+function LearningQueue({ plan }: { plan: StudyPlan }) {
+  const navigate = useNavigate();
+
   if (plan.focusAreas.length === 0) {
     return (
       <ReportCard>
@@ -111,75 +125,65 @@ function PlanOverview({ plan }: { plan: StudyPlan }) {
   }
 
   return (
-    <div className="grid lg:grid-cols-3 gap-3 sm:gap-4 items-start">
-      <ReportCard className="lg:col-span-1">
-        <SectionHeader icon={<Flag className="w-4 h-4" />} title="Priority focus areas" accent="rose" />
-        <ol className="space-y-2">
-          {plan.focusAreas.map((f, i) => (
-            <li key={f.subjectId} className="rounded-xl border border-gray-100 dark:border-gray-800 p-2.5">
-              <div className="flex items-start gap-2.5">
-                <span
-                  className={cn(
-                    'flex-shrink-0 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center mt-px',
-                    ACCENT[RANK_ACCENT[i] ?? 'slate'].chip,
-                  )}
-                >
-                  {f.rank}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-bold text-gray-900 dark:text-gray-100">{f.name}</p>
-                  <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">{f.archetypeLabel}</p>
-                  <p className="text-[11px] text-gray-700 dark:text-gray-200 mt-1 leading-relaxed">{f.headline}</p>
-                  <p className="text-[10px] text-gray-400 mt-1 tabular-nums">
-                    {f.minutesPerSession} min × {f.sessionsPerWeek}/week · {f.questionTarget} questions
-                  </p>
-                </div>
+    <div className="space-y-4">
+      <ReportCard>
+        <p className="text-lg font-extrabold text-[#1e2a5a] dark:text-gray-100">Your Personalised Study Plan</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">A focused plan to help you improve.</p>
+      </ReportCard>
+
+      <ReportCard flush>
+        {plan.focusAreas.map((f, i) => {
+          const badge = priorityBadge(f.rank);
+          return (
+            <div
+              key={f.subjectId}
+              className={cn(
+                'flex items-center gap-3 px-4 sm:px-5 py-3.5',
+                i > 0 && 'border-t border-gray-100 dark:border-gray-800',
+              )}
+            >
+              <span
+                className={cn(
+                  'flex-shrink-0 w-7 h-7 rounded-full text-white text-[12px] font-bold flex items-center justify-center',
+                )}
+                style={{ background: ACCENT[RANK_ACCENT[i] ?? 'slate'].hex }}
+              >
+                {f.rank}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-bold text-[#1e2a5a] dark:text-gray-100 truncate">{f.name}</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-snug truncate">{f.headline}</p>
               </div>
-            </li>
-          ))}
-        </ol>
-        {plan.queued.length > 0 && (
-          <p className="mt-2 text-[10px] text-gray-400">Queued for a later cycle: {plan.queued.join(', ')}.</p>
-        )}
-      </ReportCard>
-
-      <ReportCard className="lg:col-span-1">
-        <SectionHeader icon={<CalendarDays className="w-4 h-4" />} title={`${plan.weeks.length}-week overview`} />
-        <ol className="space-y-2">
-          {plan.weeks.map(w => (
-            <li key={w.week} className="rounded-xl border border-gray-100 dark:border-gray-800 p-2.5">
-              <p className="text-[11px] font-bold text-gray-900 dark:text-gray-100">
-                Week {w.week} · {w.purpose}
-              </p>
-              <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-0.5 leading-relaxed">{w.detail}</p>
-            </li>
-          ))}
-        </ol>
-      </ReportCard>
-
-      <ReportCard className="lg:col-span-1">
-        <SectionHeader icon={<Target className="w-4 h-4" />} title="Goal" accent="emerald" />
-        <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-snug">{plan.goal.headline}</p>
-        <ul className="mt-2.5 space-y-1.5">
-          {plan.goal.targets.map((t, i) => (
-            <li key={i} className="flex items-start gap-2 text-[11px] text-gray-700 dark:text-gray-200">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-px" />
-              {t}
-            </li>
-          ))}
-        </ul>
-        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 space-y-1.5">
-          {plan.focusAreas.slice(0, 2).map(f => (
-            <div key={f.subjectId}>
-              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{f.name} — success</p>
-              <p className="text-[11px] text-gray-700 dark:text-gray-200 leading-relaxed">{f.successCriterion}</p>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-relaxed mt-0.5">
-                If missed: {f.escalation}
-              </p>
+              <span
+                className={cn(
+                  'flex-shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap',
+                  ACCENT[BADGE_ACCENT[badge]].chip,
+                )}
+              >
+                {badge} Priority
+              </span>
+              <button
+                type="button"
+                onClick={() => navigate(`/user/report/${plan.sourceAttemptId}/subjects/${f.subjectId}`)}
+                className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg px-3 py-1.5 hover:from-indigo-700 hover:to-purple-700 whitespace-nowrap"
+              >
+                Open <ChevronRight className="w-3 h-3" />
+              </button>
             </div>
-          ))}
-        </div>
+          );
+        })}
       </ReportCard>
+
+      {plan.queued.length > 0 && (
+        <p className="text-[11px] text-gray-400 dark:text-gray-500">Queued for a later cycle: {plan.queued.join(', ')}.</p>
+      )}
+
+      <div className="rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 p-3.5 flex items-center gap-2.5">
+        <Sprout className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+        <p className="text-[12px] text-emerald-800 dark:text-emerald-200">
+          This plan adapts automatically as you complete practice and assessments. Keep learning, keep improving!
+        </p>
+      </div>
     </div>
   );
 }
@@ -188,84 +192,76 @@ function PlanOverview({ plan }: { plan: StudyPlan }) {
 
 function WeeklyPlan({ plan }: { plan: StudyPlan }) {
   const [week, setWeek] = useState(1);
+  const dates = weekDates(week);
 
   return (
-    <ReportCard flush>
-      <div className="p-4 sm:p-5 pb-0">
-        <SectionHeader
-          icon={<CalendarDays className="w-4 h-4" />}
-          title={`Week ${week} plan`}
-          subtitle={`${plan.weeklyMinutes} minutes across ${plan.weekly.filter(r => r.minutes > 0).length} days`}
-          action={
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setWeek(w => Math.max(1, w - 1))}
-                disabled={week === 1}
-                className="p-1 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40"
-                aria-label="Previous week"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setWeek(w => Math.min(plan.weeks.length, w + 1))}
-                disabled={week >= plan.weeks.length}
-                className="p-1 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40"
-                aria-label="Next week"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+    <div className="space-y-4">
+      <ReportCard>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <span className="flex-shrink-0 w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+              <CalendarDays className="w-4 h-4" />
+            </span>
+            <div>
+              <p className="text-base font-extrabold text-[#1e2a5a] dark:text-gray-100">
+                Week {week} Plan ({weekDateRange(week)})
+              </p>
+              <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5">
+                A realistic plan based on your learning queue.
+              </p>
             </div>
-          }
-        />
-        <p className="text-[11px] text-gray-600 dark:text-gray-300 mb-3">
-          {plan.weeks.find(w => w.week === week)?.detail}
-        </p>
-      </div>
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setWeek(w => Math.max(1, w - 1))}
+              disabled={week === 1}
+              className="p-1 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40"
+              aria-label="Previous week"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setWeek(w => Math.min(plan.weeks.length, w + 1))}
+              disabled={week >= plan.weeks.length}
+              className="p-1 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40"
+              aria-label="Next week"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </ReportCard>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-[11px] min-w-[640px]">
-          <thead>
-            <tr className="bg-gray-50 dark:bg-gray-800/60 text-left">
-              {['Day', 'Focus', 'Task', 'Resources', 'Practice', 'Time'].map((h, i) => (
-                <th
-                  key={h}
-                  className={cn(
-                    'px-3 py-2 font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap',
-                    i >= 4 && 'text-right',
-                  )}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {plan.weekly.map(r => (
-              <tr key={r.day} className="border-b border-gray-50 dark:border-gray-800/60">
-                <td className="px-3 py-2.5 font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                  {r.day}
-                </td>
-                <td className="px-3 py-2.5 text-gray-700 dark:text-gray-200">{r.focus}</td>
-                <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300">{r.task}</td>
-                <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400">{r.resources}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-300">
-                  {r.questions > 0 ? `${r.questions} Qs` : '—'}
-                </td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-300">
-                  {r.minutes > 0 ? `${r.minutes} min` : '—'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ReportCard flush>
+        {plan.weekly.map((r, i) => (
+          <div
+            key={r.day}
+            className={cn(
+              'flex items-center gap-3 px-4 sm:px-5 py-3',
+              i > 0 && 'border-t border-gray-100 dark:border-gray-800',
+            )}
+          >
+            <div className="flex-shrink-0 w-14 text-center">
+              <p className="text-[11px] font-bold text-[#1e2a5a] dark:text-gray-100">{r.day.slice(0, 3)}</p>
+              <p className="text-[10px] text-gray-400">{fmtDayDate(dates[i])}</p>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[12px] font-bold text-gray-900 dark:text-gray-100 truncate">{r.focus}</p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-snug">{r.task}</p>
+            </div>
+            <span className="flex-shrink-0 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 rounded-lg px-2.5 py-1 whitespace-nowrap">
+              ~{r.minutes} min
+            </span>
+          </div>
+        ))}
+      </ReportCard>
 
-      <div className="px-4 sm:px-5 py-3 border-t border-gray-100 dark:border-gray-800">
-        <p className="text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
-          Built from your ranked priorities, not a template — the top gap appears twice with a spaced revisit,
-          and time scales with priority rather than being split evenly.
+      <div className="rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900 p-3.5 flex items-start gap-2.5">
+        <Lightbulb className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" />
+        <p className="text-[11px] text-indigo-700 dark:text-indigo-300">
+          Adjust the plan based on your progress and time availability.
           {plan.overBudget && (
             <span className="text-amber-700 dark:text-amber-400">
               {' '}
@@ -275,22 +271,36 @@ function WeeklyPlan({ plan }: { plan: StudyPlan }) {
           )}
         </p>
       </div>
-    </ReportCard>
+    </div>
   );
 }
 
-// ─── Screen 12: daily ──────────────────────────────────────────────────────────
+// ─── Daily Plan (mockup screen 9) ──────────────────────────────────────────────
 
-const KIND_ICON: Record<DailyBlock['kind'], React.ReactNode> = {
-  concept: <BookOpen className="w-3.5 h-3.5" />,
-  notes: <FileText className="w-3.5 h-3.5" />,
-  practice: <Target className="w-3.5 h-3.5" />,
-  review: <CheckCircle2 className="w-3.5 h-3.5" />,
-  quiz: <Flag className="w-3.5 h-3.5" />,
+/** A short, mockup-matching label for each block kind — the real content is
+ * `DailyBlock.label` underneath; this is just the section it falls into. */
+const KIND_TITLE: Record<DailyBlock['kind'], string> = {
+  concept: 'Learn',
+  notes: 'Understand',
+  practice: 'Practice',
+  review: 'Review',
+  quiz: 'Quick Quiz',
 };
 
+const KIND_ACCENT: Record<DailyBlock['kind'], Accent> = {
+  concept: 'emerald',
+  notes: 'sky',
+  practice: 'indigo',
+  review: 'emerald',
+  quiz: 'violet',
+};
+
+function todayLabel(date: Date = new Date()): string {
+  return date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 function DailyPlan({ plan }: { plan: StudyPlan }) {
-  const [done, setDone] = useState<Set<number>>(new Set());
+  const navigate = useNavigate();
   const top: FocusArea | undefined = plan.focusAreas[0];
 
   if (plan.daily.length === 0 || !top) {
@@ -302,100 +312,61 @@ function DailyPlan({ plan }: { plan: StudyPlan }) {
   }
 
   const total = plan.daily.reduce((n, b) => n + b.minutes, 0);
-  const completed = plan.daily.filter((_, i) => done.has(i)).reduce((n, b) => n + b.minutes, 0);
 
   return (
-    <div className="grid lg:grid-cols-[1.4fr_1fr] gap-3 sm:gap-4 items-start">
+    <div className="space-y-4">
       <ReportCard>
-        <SectionHeader
-          icon={<CalendarDays className="w-4 h-4" />}
-          title="A day on this plan"
-          subtitle={`${total} minutes · ${top.name} is today's focus`}
-          action={
-            <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 tabular-nums">
-              {completed}/{total} min
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <span className="flex-shrink-0 w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+              <CalendarDays className="w-4 h-4" />
             </span>
-          }
-        />
-        <ul className="space-y-2">
-          {plan.daily.map((b, i) => {
-            const isDone = done.has(i);
-            return (
-              <li key={i}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setDone(prev => {
-                      const next = new Set(prev);
-                      next.has(i) ? next.delete(i) : next.add(i);
-                      return next;
-                    })
-                  }
-                  className={cn(
-                    'w-full flex items-center gap-2.5 rounded-xl border p-2.5 text-left transition-colors',
-                    isDone
-                      ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/30'
-                      : 'border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/60',
-                  )}
-                >
-                  {isDone ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-                  ) : (
-                    <Circle className="w-4 h-4 text-gray-300 dark:text-gray-600 flex-shrink-0" />
-                  )}
-                  <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 tabular-nums w-14 flex-shrink-0">
-                    {b.minutes} min
-                  </span>
-                  <span
-                    className={cn(
-                      'text-[11px] flex-1 min-w-0',
-                      isDone ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200',
-                    )}
-                  >
-                    {b.label}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-        {/* Ticking a block is local to this browser: there is no endpoint to store
-            plan progress yet, so nothing here survives a refresh. */}
-        <p className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 text-[10px] text-gray-400 dark:text-gray-500">
-          Ticking a task is not saved yet — plan progress has nowhere to be stored.
-        </p>
+            <div>
+              <p className="text-base font-extrabold text-[#1e2a5a] dark:text-gray-100">Today's Plan</p>
+              <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5">{todayLabel()}</p>
+            </div>
+          </div>
+          <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 rounded-lg px-2.5 py-1.5 whitespace-nowrap">
+            Estimated time ~{total} min
+          </span>
+        </div>
       </ReportCard>
 
       <ReportCard>
-        <SectionHeader icon={<BookOpen className="w-4 h-4" />} title="Today's focus" accent="indigo" />
-        <p className="text-xs font-bold text-gray-900 dark:text-gray-100">{top.name}</p>
-        <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">{top.archetypeLabel}</p>
-        <p className="text-[11px] text-gray-700 dark:text-gray-200 mt-1.5 leading-relaxed">{top.headline}</p>
-        <p className="text-[10px] text-gray-400 mt-1 tabular-nums">{top.evidence}</p>
+        <ol className="space-y-3.5">
+          {plan.daily.map((b, i) => (
+            <li key={i} className="flex items-start gap-3">
+              <span
+                className="flex-shrink-0 w-7 h-7 rounded-full text-white text-[12px] font-bold flex items-center justify-center"
+                style={{ background: ACCENT[KIND_ACCENT[b.kind]].hex }}
+              >
+                {i + 1}
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold text-gray-900 dark:text-gray-100">
+                  {KIND_TITLE[b.kind]} ({b.minutes} min)
+                </p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-snug">{b.label}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
 
-        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 mb-1.5">Success criterion</p>
-          <p className="text-[11px] text-gray-700 dark:text-gray-200 leading-relaxed">{top.successCriterion}</p>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-relaxed mt-1.5">
-            <span className="font-semibold">If missed: </span>
-            {top.escalation}
-          </p>
-        </div>
-
-        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 mb-1.5">Blocks</p>
-          <ul className="space-y-1">
-            {plan.daily.map((b, i) => (
-              <li key={i} className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-300">
-                <span className="w-5 h-5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0">
-                  {KIND_ICON[b.kind]}
-                </span>
-                {b.label}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <button
+          type="button"
+          onClick={() => navigate('/user/practice')}
+          className="mt-4 w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[13px] font-semibold px-3.5 py-2.5 hover:from-indigo-700 hover:to-purple-700 transition-all"
+        >
+          Start Practice <ChevronRight className="w-3.5 h-3.5" />
+        </button>
       </ReportCard>
+
+      <div className="rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 p-3.5 flex items-center gap-2.5">
+        <Sprout className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+        <p className="text-[12px] text-emerald-800 dark:text-emerald-200">
+          Complete today's tasks to strengthen your concepts.
+        </p>
+      </div>
     </div>
   );
 }

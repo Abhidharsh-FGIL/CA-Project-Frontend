@@ -1,5 +1,5 @@
 /**
- * /user/progress — the multi-attempt Progress Report.
+ * /user/progress — "Progress Journey" (mockup screen 10).
  *
  * Distinct from This Attempt by design (§2): that answers "what happened in this
  * test", this answers "how has my performance evolved and what should I do next".
@@ -10,7 +10,7 @@ import { Loader2 } from 'lucide-react';
 import { UserShell } from '@/components/user/UserShell';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useProgressReport, PROGRESS_WINDOW } from '@/hooks/use-progress-report';
-import { ProgressReportView } from '@/components/user/ProgressReportView';
+import { ProgressJourney } from '@/components/user/report/ProgressJourney';
 import { resolveExamContext } from '@/lib/exam-report-config';
 import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { resolveGroupKey } from '@/hooks/use-progress-trend';
@@ -39,8 +39,6 @@ export default function UserProgressPage() {
     enabled: submitted.length > 0,
   });
 
-  // Names the exam on the cover, and would carry its marking scheme too once
-  // attempts record which exam they belonged to.
   const exam = useMemo(
     () => resolveExamContext({ groupId: user?.preferred_exam ?? null }, groups),
     [user?.preferred_exam, groups],
@@ -94,7 +92,7 @@ export default function UserProgressPage() {
         </div>
       )}
       {model ? (
-        <ProgressReportView model={model} studentName={user.name} examName={exam?.examName ?? null} />
+        <ProgressJourney model={model} />
       ) : (
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
