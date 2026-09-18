@@ -610,24 +610,72 @@ export interface AttemptDetailResponse {
     recommendations: string[];
   } | null;
   /**
-   * The LLM-generated verdict + quick insights, cached server-side at
-   * submission time. Null while generation is still running, if it failed, or
-   * for an attempt that predates this feature — `buildAttemptReport` falls
-   * back to computing the same sections deterministically in that case.
+   * The LLM-generated report narrative, cached server-side the first time
+   * someone views this attempt's report (see `requestReportInsights` below).
+   * Null while nothing has been generated yet — `buildAttemptReport` falls
+   * back to computing every one of these sections deterministically in that
+   * case, so a missing value here is never a broken report, just an
+   * un-primed cache.
    */
-  report_insights?: {
-    verdict: { label: string; note: string; detail: string };
-    quick_insights: Array<{ text: string; evidence?: string[]; basis: string }>;
-    model: string;
-    generated_at: string | null;
-    source: 'llm';
-  } | null;
+  report_insights?: ReportInsightsContent | null;
   questions: QuestionReviewItem[];
+}
+
+/**
+ * One report's worth of LLM-generated narrative text. Every section here has
+ * a deterministic counterpart computed in attempt-report.ts and is used only
+ * when present — a response missing a section, or missing one subject's
+ * entry in a keyed section, degrades to that section's (or that subject's)
+ * deterministic text rather than the whole report falling back.
+ */
+export interface ReportInsightsContent {
+  verdict: { label: string; note: string; detail: string };
+  quick_insights: Array<{ text: string; evidence?: string[]; basis: string }>;
+  /** Up to 7 sentences reading the proficiency radar aloud. */
+  radar_interpretation?: string[] | null;
+  /** One sentence per subject id. */
+  subject_diagnosis?: Record<string, string> | null;
+  analyses?: {
+    by_subject?: string;
+    error_focus?: string;
+    difficulty?: string;
+    time?: string;
+    question_type?: string;
+  } | null;
+  coverage?: {
+    overall?: string;
+    /** Keyed by subject id — one entry per row with a coverage gap. */
+    rows?: Record<string, { action: string; rationale: string }>;
+  } | null;
+  /** Keyed by subject id — one entry per subject with a strengths/gaps/quick-wins card. */
+  insights?: Record<string, { implication: string; action: string }> | null;
+  /** Keyed by subject id — one sentence per ranked (or queued) priority. */
+  priorities?: Record<string, string> | null;
+  model: string;
+  generated_at: string | null;
+  source: 'llm';
 }
 
 /** GET /api/v1/user/history/{attemptId} — full attempt detail with question data */
 export function getAttemptDetail(attemptId: string): Promise<AttemptDetailResponse> {
   return userApi.get<AttemptDetailResponse>(`/api/v1/user/history/${attemptId}`);
+}
+
+/**
+ * POST /api/v1/user/history/{attemptId}/report-insights — generate (once) the
+ * LLM narrative text for this attempt's report, from facts already computed
+ * by `buildAttemptReport` (see `factsFromModel`). Idempotent: safe to call
+ * whenever the cache looks empty, since the backend returns the existing row
+ * untouched if one was written between this attempt's last read and now.
+ */
+export function requestReportInsights(
+  attemptId: string,
+  facts: unknown,
+): Promise<ReportInsightsContent> {
+  return userApi.post<ReportInsightsContent>(
+    `/api/v1/user/history/${attemptId}/report-insights`,
+    facts,
+  );
 }
 
 /** GET /api/v1/user/history/?page=&limit= — paginated attempt history */

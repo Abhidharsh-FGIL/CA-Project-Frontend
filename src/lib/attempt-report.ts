@@ -436,6 +436,16 @@ const pct = (part: number, whole: number): number | null =>
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
+/**
+ * Prefer the backend's cached LLM sentence for a report slot; fall back to
+ * the deterministic computation otherwise. A blank or missing cached string
+ * is treated as absent rather than blanking a section that always has
+ * something to say.
+ */
+function withCached(cached: string | null | undefined, computed: string): string {
+  return typeof cached === 'string' && cached.trim().length > 0 ? cached : computed;
+}
+
 /** A question counts as attempted when the student recorded an answer. */
 export function isAttempted(q: QuestionReviewItem): boolean {
   const a = q.user_answer;
@@ -981,6 +991,23 @@ export function buildAttemptReport(
 
   subjects.sort((a, b) => b.metrics.questions - a.metrics.questions || a.name.localeCompare(b.name));
 
+  /**
+   * The backend generates this once, lazily — see `factsFromModel` below and
+   * POST /user/history/{attempt_id}/report-insights. Every narrative field
+   * this model returns prefers the cached text where present, keyed by
+   * subject id so it survives the same subject appearing in a different
+   * position across two builds, and falls back to the exact same
+   * deterministic computation as before wherever a slot is missing. Numbers,
+   * tables and states never come from here — only sentences describing them.
+   */
+  const cachedInsights = detail.report_insights ?? null;
+  if (cachedInsights?.subject_diagnosis) {
+    for (const s of subjects) {
+      const cached = cachedInsights.subject_diagnosis[s.subjectId];
+      if (cached) s.diagnosis = withCached(cached, s.diagnosis);
+    }
+  }
+
   // ── Reconciliation check across the matrix (§18) ──
   /**
    * Subject question counts must add up to the paper.
@@ -1064,17 +1091,23 @@ export function buildAttemptReport(
   const errorFocus = subjectShares.filter(r => r.incorrect > 0).sort((a, b) => b.incorrect - a.incorrect);
   const timeRows = timeBandRows(questions, medianSec, cfg);
   const coverage = buildCoverage(subjects, exam, cfg);
+  if (cachedInsights?.coverage) {
+    const covCache = cachedInsights.coverage;
+    coverage.whatThisMeans = withCached(covCache.overall, coverage.whatThisMeans);
+    for (const row of coverage.rows) {
+      const rc = covCache.rows?.[row.subjectId];
+      row.action = withCached(rc?.action, row.action);
+      row.rationale = withCached(rc?.rationale, row.rationale);
+    }
+  }
 
   /**
-   * The backend generates this once at submission time, grounded in the same
-   * server-computed numbers, and caches it — see
-   * app/tasks/ai_tasks.py:generate_report_insights_task. `severity` (and thus
-   * the verdict's color) always comes from `buildVerdict`'s own thresholds
-   * regardless of source, so generated text can never change what color the
-   * card renders as; only the wording of `label`/`note`/`detail` and the
-   * `diagnostics` sentences comes from the backend when present.
+   * `severity` (and thus the verdict's color) always comes from
+   * `buildVerdict`'s own thresholds regardless of source, so generated text
+   * can never change what color the card renders as; only the wording of
+   * `label`/`note`/`detail` and the `diagnostics` sentences comes from the
+   * cache when present.
    */
-  const cachedInsights = detail.report_insights ?? null;
   const deterministicVerdict = buildVerdict(summary, subjects, coverage.rows, errorFocus, cfg);
   const verdict: VerdictResult = cachedInsights?.verdict
     ? {
@@ -1095,6 +1128,31 @@ export function buildAttemptReport(
         }))
       : buildDiagnostics(summary, subjects, medianSec, cfg, avgSec, idealSec, difficulty, negativeLoss);
   const reportSource: 'llm' | 'deterministic' = cachedInsights?.verdict ? 'llm' : 'deterministic';
+
+  const insightsResult = buildInsights(subjects, summary, cfg);
+  if (cachedInsights?.insights) {
+    for (const bucket of [
+      insightsResult.strengths,
+      insightsResult.gaps,
+      insightsResult.coverageGaps,
+      insightsResult.quickWins,
+    ]) {
+      for (const item of bucket) {
+        if (!item.subjectId) continue;
+        const cached = cachedInsights.insights[item.subjectId];
+        if (!cached) continue;
+        item.implication = withCached(cached.implication, item.implication);
+        item.action = withCached(cached.action, item.action);
+      }
+    }
+  }
+
+  const allPriorities = buildPriorities(subjects, summary, cfg);
+  if (cachedInsights?.priorities) {
+    for (const p of allPriorities) {
+      p.reason = withCached(cachedInsights.priorities[p.nodeId], p.reason);
+    }
+  }
 
   return {
     meta: {
@@ -1122,18 +1180,21 @@ export function buildAttemptReport(
       marksAvailable: s.metrics.marksAvailable,
       state: s.state,
     })),
-    radarInterpretation: buildRadarInterpretation(subjects, cfg),
+    radarInterpretation:
+      cachedInsights?.radar_interpretation && cachedInsights.radar_interpretation.length > 0
+        ? cachedInsights.radar_interpretation
+        : buildRadarInterpretation(subjects, cfg),
     subjects,
     analyses: {
       bySubject: {
         state: subjectShares.length > 0 ? 'AVAILABLE' : 'DATA_UNAVAILABLE',
         rows: subjectShares,
-        whatThisMeans: subjectNarrative(subjectShares, cfg),
+        whatThisMeans: withCached(cachedInsights?.analyses?.by_subject, subjectNarrative(subjectShares, cfg)),
       },
       errorFocus: {
         state: errorFocus.length > 0 ? 'AVAILABLE' : 'DATA_UNAVAILABLE',
         rows: errorFocus,
-        whatThisMeans: errorNarrative(errorFocus, summary.incorrect),
+        whatThisMeans: withCached(cachedInsights?.analyses?.error_focus, errorNarrative(errorFocus, summary.incorrect)),
         reason:
           summary.incorrect === 0
             ? 'No wrong answers in this attempt, so there is nothing to break down.'
@@ -1145,7 +1206,7 @@ export function buildAttemptReport(
         // lone bar invites the reader to mistake the tag for the paper's level.
         state: difficulty.length >= 2 ? 'AVAILABLE' : 'DATA_UNAVAILABLE',
         rows: difficulty,
-        whatThisMeans: difficultyNarrative(difficulty),
+        whatThisMeans: withCached(cachedInsights?.analyses?.difficulty, difficultyNarrative(difficulty)),
         reason:
           difficulty.length === 1
             ? `Every question in this paper is tagged "${difficulty[0].label}", so performance cannot be compared across difficulty bands. That tag describes the questions, not the level of the paper itself.`
@@ -1169,13 +1230,16 @@ export function buildAttemptReport(
               : avgSec > idealSec * 1.15
                 ? 'SLOW'
                 : 'ON_PACE',
-        whatThisMeans: timeNarrative(timeRows, medianSec, avgSec, idealSec, overall.attempted),
+        whatThisMeans: withCached(
+          cachedInsights?.analyses?.time,
+          timeNarrative(timeRows, medianSec, avgSec, idealSec, overall.attempted),
+        ),
       },
       questionType: {
         state: typeRows.length > 0 ? 'AVAILABLE' : 'DATA_UNAVAILABLE',
         rows: typeRows,
         reason: 'Questions in this test carry no question-type tag, so format-wise performance cannot be shown.',
-        whatThisMeans: typeNarrative(typeRows),
+        whatThisMeans: withCached(cachedInsights?.analyses?.question_type, typeNarrative(typeRows)),
       },
       negativeMarks: negativeLoss
         ? {
@@ -1201,11 +1265,106 @@ export function buildAttemptReport(
       },
     },
     coverage,
-    ...buildInsights(subjects, summary, cfg),
-    ...splitPriorities(buildPriorities(subjects, summary, cfg), cfg),
+    ...insightsResult,
+    ...splitPriorities(allPriorities, cfg),
     questions,
     dataQuality,
     config: cfg,
+  };
+}
+
+/**
+ * The compact set of numbers `POST /user/history/{attempt_id}/report-insights`
+ * grounds its LLM generation in — extracted from an already-built
+ * `AttemptReportModel`, never recomputed, so the facts sent to the backend
+ * are exactly the same numbers the deterministic text next to them was
+ * templated from. Called only when `model.reportSource === 'deterministic'`
+ * (see `ReportBody.tsx`): there is nothing to (re)generate once a cached
+ * insight already came back with the report.
+ */
+export function factsFromModel(model: AttemptReportModel): Record<string, unknown> {
+  const subjectName = (id: string | null) => model.subjects.find(s => s.subjectId === id)?.name ?? id;
+
+  const insightSubjects = (
+    [
+      ...model.strengths.map(i => ({ ...i, bucket: 'strength' as const })),
+      ...model.gaps.map(i => ({ ...i, bucket: 'gap' as const })),
+      ...model.coverageGaps.map(i => ({ ...i, bucket: 'coverage_gap' as const })),
+      ...model.quickWins.map(i => ({ ...i, bucket: 'quick_win' as const })),
+    ]
+  )
+    .filter(i => i.subjectId)
+    .map(i => ({ id: i.subjectId, name: i.title, bucket: i.bucket, evidence: i.evidence }));
+
+  return {
+    summary: model.summary,
+    subjects: model.subjects.map(s => {
+      // The narrowest place to start revising within this subject, where the
+      // paper's tags go that deep — the same drill-down the deterministic
+      // engine uses (see the weakest-subject branch in `buildDiagnostics`).
+      const measuredTopics = s.topics.filter(t => t.state === 'MEASURED');
+      const weakestTopic = measuredTopics.reduce<TopicNode | null>(
+        (lo, t) => (lo == null || (t.metrics.accuracy ?? 0) < (lo.metrics.accuracy ?? 0) ? t : lo),
+        null,
+      );
+      return {
+        id: s.subjectId,
+        name: s.name,
+        state: s.state,
+        status: s.status,
+        accuracy: s.metrics.accuracy,
+        coverage: s.metrics.coverage,
+        correct: s.metrics.correct,
+        attempted: s.metrics.attempted,
+        incorrect: s.metrics.incorrect,
+        skipped: s.metrics.skipped,
+        questions: s.metrics.questions,
+        marksEarned: s.metrics.marksEarned,
+        marksAvailable: s.metrics.marksAvailable,
+        avgTimeSec: s.metrics.avgTimeSec,
+        issueBadges: s.issueBadges,
+        weakestTopic: weakestTopic
+          ? {
+              name: weakestTopic.name,
+              accuracy: weakestTopic.metrics.accuracy,
+              correct: weakestTopic.metrics.correct,
+              attempted: weakestTopic.metrics.attempted,
+            }
+          : null,
+      };
+    }),
+    coverage: { totalSkipped: model.coverage.totalSkipped, marksAtStake: model.coverage.marksAtStake },
+    coverageRows: model.coverage.rows.map(r => ({
+      id: r.subjectId,
+      name: r.name,
+      questions: r.questions,
+      skipped: r.skipped,
+      marksAtStake: r.marksAtStake,
+      accuracy: r.accuracy,
+      state: r.state,
+      topics: r.topics,
+    })),
+    difficulty: model.analyses.difficulty.rows,
+    time: {
+      medianSec: model.analyses.time.medianSec,
+      avgSec: model.analyses.time.avgSec,
+      idealSec: model.analyses.time.idealSec,
+      bands: model.analyses.time.rows,
+    },
+    questionType: model.analyses.questionType.rows,
+    negativeMarks:
+      model.analyses.negativeMarks.state === 'AVAILABLE'
+        ? { marksLost: model.analyses.negativeMarks.marksLost, perWrong: model.analyses.negativeMarks.perWrong }
+        : null,
+    insightSubjects,
+    priorities: [...model.priorities, ...model.queuedPriorities].map(p => ({
+      id: p.nodeId,
+      name: subjectName(p.nodeId),
+      rank: p.rank,
+      reasonCodes: p.reasonCodes,
+      evidence: p.evidence,
+    })),
+    radar: model.radar,
   };
 }
 

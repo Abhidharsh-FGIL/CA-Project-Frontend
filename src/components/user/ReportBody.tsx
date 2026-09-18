@@ -5,6 +5,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import {
   getAttemptDetail,
+  requestReportInsights,
   type AttemptDetailResponse,
   type StrengthItem,
   type ImprovementAreaItem,
@@ -32,7 +33,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { translationOf, type LangMode } from '@/lib/question-language';
 import { ReportLanguageProvider, type ReportLanguage } from '@/components/user/report-ui';
 import { cn } from '@/lib/utils';
-import { buildAttemptReport } from '@/lib/attempt-report';
+import { buildAttemptReport, factsFromModel } from '@/lib/attempt-report';
 
 /** Rows per page in the question table — a full 200-question paper needs paging. */
 const QUESTIONS_PER_PAGE = 25;
@@ -519,6 +520,22 @@ export function AttemptReport({
     () => (detail ? buildAttemptReport(detail, {}, examContext) : null),
     [detail, examContext],
   );
+
+  /**
+   * The report the user sees right now is already complete — every section
+   * above rendered from `model`'s deterministic text the instant it was
+   * built, no loading state anywhere. This just primes the cache in the
+   * background so the *next* time this attempt's report is opened (by this
+   * reader or anyone else who can see it), the LLM wording is already there.
+   * Fire-and-forget: the endpoint is idempotent, so a duplicate call from a
+   * remount or a second tab just returns the existing row.
+   */
+  useEffect(() => {
+    if (!model || model.reportSource !== 'deterministic') return;
+    requestReportInsights(model.meta.attemptId, factsFromModel(model)).catch(() => {
+      // Best-effort — the deterministic report already rendered in full.
+    });
+  }, [model]);
 
   const questionCounts = useMemo(() => {
     const list = model?.questions ?? [];
