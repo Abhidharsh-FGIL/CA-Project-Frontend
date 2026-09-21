@@ -1,5 +1,5 @@
 /**
- * "AI Detailed Insights" (mockup screen 2), reached from the Overview's "View
+ * "Detailed Insights" (mockup screen 2), reached from the Overview's "View
  * Detailed Insights" button.
  *
  * Real content as of the AI Detailed Insights prompt redesign: each card is one
@@ -8,6 +8,13 @@
  * llm_topic_diagnosis.py). "AI Analysis" is relabelled "What this suggests" per
  * that redesign. Falls back to the older deterministic Insight cards
  * (evidence/implication/action) while topic_diagnoses isn't ready yet.
+ *
+ * The confidence badge ("High/Medium/Low Confidence") that used to sit on each
+ * card is deliberately gone: it's an internal generation/validation signal
+ * (still computed, still checked server-side — see llm_topic_diagnosis.py's
+ * confidence-vs-evidence-band rule), not something a student reading their own
+ * report has a use for. `card.confidence` is kept on the data model since
+ * nothing downstream needs it removed, just not rendered.
  */
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Lightbulb } from 'lucide-react';
@@ -15,15 +22,8 @@ import type { AttemptReportModel, Confidence, Insight } from '@/lib/attempt-repo
 import { insightConfidence } from '@/lib/attempt-report';
 import { ReportCard, ACCENT, type Accent } from '@/components/user/report-ui';
 import type { AttemptAnalysisResponse, AttemptAnalysisTopicDiagnosis } from '@/lib/userPortalApi';
-import { cn } from '@/lib/utils';
 
 const RANK_ACCENT: Accent[] = ['rose', 'amber', 'emerald', 'indigo'];
-
-const CONFIDENCE_ACCENT: Record<Confidence, Accent> = {
-  HIGH: 'indigo',
-  MEDIUM: 'amber',
-  LOW: 'slate',
-};
 
 /** One card's headline, phrased for its bucket — the underlying data (evidence/
  * implication/action) is real either way; only this short title is new copy. */
@@ -140,7 +140,7 @@ export function ReportInsights({
           <Lightbulb className="w-4.5 h-4.5" />
         </span>
         <div>
-          <p className="text-xl font-extrabold text-gray-900 dark:text-gray-100">AI Detailed Insights</p>
+          <p className="text-xl font-extrabold text-gray-900 dark:text-gray-100">Detailed Insights</p>
           <p className="text-sm text-gray-500 dark:text-gray-400">Here's a deeper look at what your answers reveal.</p>
         </div>
       </div>
@@ -154,24 +154,14 @@ export function ReportInsights({
       ) : (
         insights.map((card, i) => (
           <ReportCard key={card.key}>
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span
-                  className="flex-shrink-0 w-7 h-7 rounded-full text-white text-[12px] font-bold flex items-center justify-center"
-                  style={{ background: ACCENT[RANK_ACCENT[i % RANK_ACCENT.length]].hex }}
-                >
-                  {i + 1}
-                </span>
-                <p className="text-[14px] font-bold text-[#1e2a5a] dark:text-gray-100 truncate">{card.title}</p>
-              </div>
+            <div className="flex items-center gap-2.5 min-w-0 mb-4">
               <span
-                className={cn(
-                  'flex-shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full',
-                  ACCENT[CONFIDENCE_ACCENT[card.confidence]].chip,
-                )}
+                className="flex-shrink-0 w-7 h-7 rounded-full text-white text-[12px] font-bold flex items-center justify-center"
+                style={{ background: ACCENT[RANK_ACCENT[i % RANK_ACCENT.length]].hex }}
               >
-                {card.confidence === 'HIGH' ? 'High' : card.confidence === 'MEDIUM' ? 'Medium' : 'Low'} Confidence
+                {i + 1}
               </span>
+              <p className="text-[14px] font-bold text-[#1e2a5a] dark:text-gray-100 truncate">{card.title}</p>
             </div>
             <div className="space-y-2.5">
               {card.fields.map(f => (

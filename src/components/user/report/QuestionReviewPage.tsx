@@ -1,41 +1,23 @@
 /**
- * "AI Question Review" (mockup screen 5) — one question, with prev/next through
+ * "Question Review" (mockup screen 5) — one question, with prev/next through
  * the rest of its subject's question list.
  *
- * "Why your answer is incorrect"/"Why the correct answer is right" both draw on
- * the same real `explanation` field (there is only one explanation per question in
- * the data, not a separate one per side) — the "incorrect" side states the mismatch
- * itself rather than duplicating that same paragraph under a different heading.
- *
- * "Concept to remember"/"Common trap" are PLACEHOLDER — no backend field exists for
- * either yet. Small fixed pools keyed by difficulty give some visual variety across
- * questions; this is illustrative stand-in copy, not derived from this question's
- * real content, pending a real backend field for both.
+ * Simplified per the report redesign: "Why your answer is incorrect" (a
+ * templated restatement, not real content), "Concept to remember" and
+ * "Common trap" (both placeholder — no backend field ever existed for
+ * either, just a fixed 3-item pool picked by hashing the question id) are
+ * all removed. The one real, question-grounded thing this screen had —
+ * "Why the correct answer is right", from `explanation`/`tip` — is now the
+ * only card, shown for every question regardless of whether the answer was
+ * right, wrong, or skipped, instead of being duplicated/varied by outcome.
  */
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, XCircle, Target, Lightbulb, Sparkles } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, XCircle, Sparkles } from 'lucide-react';
 import type { AttemptReportModel, SubjectNode } from '@/lib/attempt-report';
 import { answerLetter, isAttempted } from '@/components/user/report/SubjectQuestionsPage';
 import { ReportCard } from '@/components/user/report-ui';
 import { cn } from '@/lib/utils';
-
-const CONCEPT_POOL = [
-  'Revisit the core definitions in this topic before moving on to applied questions.',
-  'Anchor this to the timeline of related events so the sequence stays clear.',
-  'Compare this with the closely related rule or act to avoid mixing the two up.',
-];
-const TRAP_POOL = [
-  'Two similarly-worded options are easy to swap under time pressure — read every option fully.',
-  'Adjacent years or acts are commonly confused here.',
-  'The nearly-correct option is designed to catch a fast, partial read of the stem.',
-];
-
-function poolPick(pool: string[], seed: string): string {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % pool.length;
-  return pool[h];
-}
 
 function stripHtml(s: string | null | undefined): string {
   return (s ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -187,48 +169,12 @@ export function QuestionReviewPage({
         </ReportCard>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-4">
-        {attempted && !q.is_correct ? (
-          <>
-            <ReportCard>
-              <p className="inline-flex items-center gap-1.5 text-[12px] font-bold text-rose-600 dark:text-rose-400 mb-1.5">
-                <Target className="w-3.5 h-3.5" /> Why your answer is incorrect
-              </p>
-              <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">
-                {userLetter} is not the correct choice here — see the explanation alongside for why {correctLetter} is.
-              </p>
-            </ReportCard>
-            <ReportCard>
-              <p className="inline-flex items-center gap-1.5 text-[12px] font-bold text-emerald-600 dark:text-emerald-400 mb-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Why the correct answer is right
-              </p>
-              <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">{explanation}</p>
-            </ReportCard>
-          </>
-        ) : (
-          <ReportCard className="sm:col-span-2">
-            <p className="inline-flex items-center gap-1.5 text-[12px] font-bold text-emerald-600 dark:text-emerald-400 mb-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5" /> {attempted ? 'Why the correct answer is right' : 'This question was not attempted'}
-            </p>
-            <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">{explanation}</p>
-          </ReportCard>
-        )}
-
-        <ReportCard>
-          <p className="inline-flex items-center gap-1.5 text-[12px] font-bold text-indigo-600 dark:text-indigo-400 mb-1.5">
-            <Lightbulb className="w-3.5 h-3.5" /> Concept to remember
-          </p>
-          <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">
-            {poolPick(CONCEPT_POOL, q.question_id)}
-          </p>
-        </ReportCard>
-        <ReportCard>
-          <p className="inline-flex items-center gap-1.5 text-[12px] font-bold text-amber-600 dark:text-amber-400 mb-1.5">
-            <Lightbulb className="w-3.5 h-3.5" /> Common trap
-          </p>
-          <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">{poolPick(TRAP_POOL, q.question_id)}</p>
-        </ReportCard>
-      </div>
+      <ReportCard>
+        <p className="inline-flex items-center gap-1.5 text-[12px] font-bold text-emerald-600 dark:text-emerald-400 mb-1.5">
+          <CheckCircle2 className="w-3.5 h-3.5" /> {attempted ? 'Why the correct answer is right' : 'This question was not attempted — why the correct answer is right'}
+        </p>
+        <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">{explanation}</p>
+      </ReportCard>
 
       <ReportCard className="flex flex-wrap items-center justify-between gap-3 bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-100 dark:border-indigo-900">
         <div>

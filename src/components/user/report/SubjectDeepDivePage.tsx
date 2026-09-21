@@ -3,7 +3,8 @@
  * Overview/All Subjects screens.
  *
  * The Topic Analysis tab is built fresh to match the mockup's compact 6-column
- * table exactly (# / Topic-Subtopic / Qns / Correct / Accuracy / AI Analysis) —
+ * table exactly (# / Topic-Subtopic / Qns / Correct / Accuracy / Diagnostic
+ * Insight — renamed from "AI Analysis"; see llm_diagnostic_insight.py) —
  * visually different enough from the existing 9-column admin table
  * (`AttemptDiagnosticReport.tsx`'s inline `SubjectDeepDive`) that reusing it
  * wholesale wouldn't match. Question Insights reuses the same helpers the
@@ -22,7 +23,6 @@ import type { AttemptReportModel, SubjectNode, TopicNode } from '@/lib/attempt-r
 import { ISSUE_LABEL } from '@/lib/attempt-report';
 import {
   isOtherNode,
-  topicAiAnalysis,
   topicNarrative,
   CONFIDENCE_TONE,
 } from '@/components/user/AttemptDiagnosticReport';
@@ -73,6 +73,24 @@ function diagnosisTextFor(subject: SubjectNode, analysis?: AttemptAnalysisRespon
     return [live.summary, live.topic_note, live.next_action].filter(Boolean).join(' ');
   }
   return subject.diagnosis;
+}
+
+/**
+ * The Topic Analysis table's "Diagnostic Insight" column — real, question-
+ * grounded, subject-aware content (llm_diagnostic_insight.py) for the row's
+ * own scope_id, when the backend pipeline has it ready. This column used to
+ * be `topicAiAnalysis()`, a purely cosmetic rotation through a fixed pool of
+ * accuracy-band phrases ("Needs concept clarity", "Rough start so far", …) —
+ * now retired entirely, since a percentage alone was never a diagnosis. A
+ * row not yet covered (still generating, or a shape mismatch) shows a plain
+ * waiting state rather than any of those old labels.
+ */
+function diagnosticInsightFor(node: TopicNode, analysis?: AttemptAnalysisResponse | null): string {
+  const entry = analysis?.diagnostic_insights?.[node.topicId];
+  if (entry && typeof entry.diagnostic_insight === 'string' && entry.diagnostic_insight.trim()) {
+    return entry.diagnostic_insight;
+  }
+  return node.metrics.attempted > 0 ? 'Generating insight…' : 'Not attempted';
 }
 
 export function SubjectDeepDivePage({
@@ -150,7 +168,7 @@ export function SubjectDeepDivePage({
                         <th className="px-3 py-2 font-semibold text-[#1e2a5a] dark:text-gray-300 text-right">Qns</th>
                         <th className="px-3 py-2 font-semibold text-[#1e2a5a] dark:text-gray-300 text-right">Correct</th>
                         <th className="px-3 py-2 font-semibold text-[#1e2a5a] dark:text-gray-300 text-right">Accuracy</th>
-                        <th className="px-3 py-2 font-semibold text-[#1e2a5a] dark:text-gray-300">AI Analysis</th>
+                        <th className="px-3 py-2 font-semibold text-[#1e2a5a] dark:text-gray-300">Diagnostic Insight</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -188,7 +206,7 @@ export function SubjectDeepDivePage({
                           >
                             {node.metrics.accuracy == null ? '—' : `${node.metrics.accuracy}%`}
                           </td>
-                          <td className="px-3 py-2 text-indigo-700 dark:text-indigo-300">{topicAiAnalysis(node, i)}</td>
+                          <td className="px-3 py-2 text-indigo-700 dark:text-indigo-300">{diagnosticInsightFor(node, analysis)}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -766,6 +766,18 @@ export interface AttemptAnalysisTopicDiagnosis {
   confidence: 'low' | 'moderate' | 'high';
 }
 
+/** One entry per attempted topic/sub-topic row (keyed by that row's own
+ * scope_id, matching `TopicNode.topicId`) — the Topic Analysis table's
+ * "Diagnostic Insight" column. The widest of the three diagnosis tiers:
+ * every attempted row, not just ranked priorities (topic_diagnoses) or one
+ * per subject (subject_diagnoses). `confidence` is an internal generation/
+ * validation signal — never rendered to the student. See
+ * llm_diagnostic_insight.py. */
+export interface AttemptAnalysisDiagnosticInsight {
+  diagnostic_insight: string;
+  confidence: 'low' | 'moderate' | 'high';
+}
+
 /** One diagnosis per subject the attempt covered (matched by `subject_id`)
  * — the Subject Deep Dive screen's "AI Diagnosis for this Subject" card.
  * Distinct from AttemptAnalysisTopicDiagnosis: every subject gets one of
@@ -823,6 +835,7 @@ export interface AttemptAnalysisResponse {
   priorities?: AttemptAnalysisPriority[];
   topic_diagnoses?: AttemptAnalysisTopicDiagnosis[];
   subject_diagnoses?: AttemptAnalysisSubjectDiagnosis[];
+  diagnostic_insights?: Record<string, AttemptAnalysisDiagnosticInsight>;
   error_intelligence?: AttemptAnalysisErrorCluster[];
   weekly_plan?: AttemptAnalysisWeeklyPlan;
   daily_plan?: DailyPlanEntry[];

@@ -581,7 +581,17 @@ function topicNodes(items: QuestionReviewItem[], cfg: ReportConfig): TopicNode[]
       .map(([subId, sub]) => {
         const sm = metricsFor(sub.items);
         return {
-          topicId: `${topicId}/${subId}`,
+          // subId alone, not `${topicId}/${subId}` — a real subtopic_id is
+          // already globally namespaced by the backend (attempt_taxonomy.py's
+          // _child_id embeds the parent topic id via a hyphen, e.g.
+          // "tamil-nadu-development-fiscal-policy"), so prefixing it again
+          // here just made this id diverge from the backend's own node id
+          // for the same sub-topic. That divergence was invisible until a
+          // consumer needed to look a backend response up BY this id
+          // (analysis.diagnostic_insights[node.topicId] — see
+          // llm_diagnostic_insight.py) — every subtopic-level lookup would
+          // have silently missed forever.
+          topicId: subId,
           name: sub.name,
           nameLocal: null,
           metrics: sm,
@@ -1370,9 +1380,9 @@ export function factsFromModel(model: AttemptReportModel): Record<string, unknow
  * Hedged the same way the rest of this file treats thin evidence: a topic
  * that clears `MEASURED` gets named outright as weakest/strongest; below
  * that, only the topic with the most wrong answers so far is named, and the
- * sentence says explicitly that it isn't a settled pattern yet — matching
- * `topicAiAnalysis`'s INSUFFICIENT_EVIDENCE handling in
- * AttemptDiagnosticReport.tsx, which draws the same line.
+ * sentence says explicitly that it isn't a settled pattern yet — the same
+ * evidence-banding line the backend's llm_diagnostic_insight.py draws for
+ * the Topic Analysis table's own per-row Diagnostic Insight column.
  */
 function topicBreakdownNote(topics: TopicNode[]): string | null {
   const flat = topics.flatMap(t => (t.subtopics.length > 0 ? t.subtopics : [t]));
