@@ -23,10 +23,11 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import type { AttemptReportModel } from '@/lib/attempt-report';
-import { insightHeadline, motivationalNote } from '@/lib/attempt-report';
+import { diagnosisFindingsToDisplay, insightHeadline, momentumHeadline, motivationalNote } from '@/lib/attempt-report';
 import { priorityBadge } from '@/lib/study-plan';
 import { ReportCard, SectionHeader, StatTile, ACCENT, subjectHue, type Accent } from '@/components/user/report-ui';
 import type { ExamContext } from '@/lib/exam-report-config';
+import type { AttemptAnalysisPriority, AttemptAnalysisResponse } from '@/lib/userPortalApi';
 import { cn } from '@/lib/utils';
 
 const BADGE_ACCENT: Record<'Highest' | 'High' | 'Medium', Accent> = {
@@ -34,6 +35,72 @@ const BADGE_ACCENT: Record<'Highest' | 'High' | 'Medium', Accent> = {
   High: 'amber',
   Medium: 'sky',
 };
+
+const INTERVENTION_BADGE: Record<AttemptAnalysisPriority['intervention'], { label: string; accent: Accent }> = {
+  concept_rebuild: { label: 'Concept Rebuild', accent: 'rose' },
+  rule_application: { label: 'Rule Application', accent: 'amber' },
+  practice_reinforcement: { label: 'Practice', accent: 'sky' },
+  maintenance: { label: 'Maintain', accent: 'emerald' },
+  foundation_rebuild: { label: 'Foundation Rebuild', accent: 'rose' },
+};
+
+interface PriorityRow {
+  key: string;
+  rank: number;
+  name: string;
+  /** "Subject · correct/questions_seen" for a real backend candidate, or
+   * the attempt/correct counts the old deterministic list already had. */
+  subtitle: string;
+  badgeLabel: string;
+  badgeAccent: Accent;
+}
+
+/** The deepest name a priority candidate actually has — sub-topic, else
+ * topic, else subject (a `subject_foundation` candidate has only a subject,
+ * by definition: see priority_engine.py). */
+function priorityName(p: AttemptAnalysisPriority): string {
+  if (p.level === 'subject_foundation') return `${p.subject ?? p.scope_id} Foundations`;
+  return p.subtopic ?? p.topic ?? p.subject ?? p.scope_id;
+}
+
+function priorityRows(model: AttemptReportModel, analysis: AttemptAnalysisResponse | null | undefined): PriorityRow[] {
+  // Every entry must actually carry the new candidate shape (level/
+  // intervention as a known enum, not the old free-text sentence) before
+  // this is trusted — a backend still running the pre-redesign code (or a
+  // deploy that's lagged behind this frontend build) returns priorities in
+  // the old shape, and reading `.intervention`/`.level` off those would
+  // throw rather than degrade. One bad entry falls the whole list back to
+  // the deterministic list, same as "not ready yet".
+  if (analysis?.priorities?.length && analysis.priorities.every(p => p.intervention in INTERVENTION_BADGE)) {
+    return analysis.priorities.map(p => {
+      const badge = INTERVENTION_BADGE[p.intervention];
+      return {
+        key: p.scope_id,
+        rank: p.rank,
+        name: priorityName(p),
+        subtitle: p.level === 'subject_foundation'
+          ? `${p.correct}/${p.questions_seen} across multiple tested areas`
+          : `${p.subject ?? ''} · ${p.correct}/${p.questions_seen}`,
+        badgeLabel: badge.label,
+        badgeAccent: badge.accent,
+      };
+    });
+  }
+  return model.priorities.map(p => {
+    const subject = model.subjects.find(sub => sub.subjectId === p.nodeId);
+    const badge = priorityBadge(p.rank);
+    return {
+      key: p.nodeId,
+      rank: p.rank,
+      name: subject?.name ?? p.nodeId,
+      subtitle: subject
+        ? `${subject.metrics.correct}/${subject.metrics.attempted || subject.metrics.questions} correct`
+        : '',
+      badgeLabel: badge,
+      badgeAccent: BADGE_ACCENT[badge],
+    };
+  });
+}
 
 /** Subject name over its question count, as two lines — "label" is "name|count". */
 function SubjectAxisTick({ x, y, payload }: any) {
@@ -50,10 +117,27 @@ function SubjectAxisTick({ x, y, payload }: any) {
   );
 }
 
-export function ReportOverview({ model, exam }: { model: AttemptReportModel; exam: ExamContext | null }) {
+export function ReportOverview({
+  model,
+  exam,
+  analysis,
+}: {
+  model: AttemptReportModel;
+  exam: ExamContext | null;
+  /**
+   * The new backend pipeline's output, when ready (see the backend LLM
+   * architecture overhaul plan) — `undefined`/not-yet-ready falls back to
+   * `model.diagnostics` exactly as a missing old-system cache already does,
+   * so this screen never blocks on it and never shows a loading state for
+   * it.
+   */
+  analysis?: AttemptAnalysisResponse | null;
+}) {
   const navigate = useNavigate();
   const s = model.summary;
   const attemptId = model.meta.attemptId;
+  const diagnosisFindings = diagnosisFindingsToDisplay(analysis?.diagnosis) ?? model.diagnostics;
+  const priorities = priorityRows(model, analysis);
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-4">
@@ -125,7 +209,7 @@ export function ReportOverview({ model, exam }: { model: AttemptReportModel; exa
         />
         <StatTile
           icon={<Trophy className="w-4 h-4" />}
-          value="Keep going!"
+          value={momentumHeadline(model)}
           label="Momentum"
           hint={motivationalNote(model)}
           accent="amber"
@@ -149,11 +233,11 @@ export function ReportOverview({ model, exam }: { model: AttemptReportModel; exa
             </button>
           }
         />
-        {model.diagnostics.length === 0 ? (
+        {diagnosisFindings.length === 0 ? (
           <p className="text-[11px] text-gray-400">Not enough attempted questions yet for an insight.</p>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {model.diagnostics.slice(0, 4).map(f => (
+            {diagnosisFindings.slice(0, 4).map(f => (
               <div key={f.rank} className={cn('rounded-xl p-3', ACCENT[f.confidence === 'HIGH' ? 'indigo' : 'slate'].wash)}>
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <span className="flex-shrink-0 w-5 h-5 rounded-full bg-white/70 dark:bg-gray-900/50 text-[10px] font-bold flex items-center justify-center">
@@ -207,39 +291,33 @@ export function ReportOverview({ model, exam }: { model: AttemptReportModel; exa
 
         <ReportCard>
           <SectionHeader icon={<Lightbulb className="w-4 h-4" />} title="Priority Learning Areas" />
-          {model.priorities.length === 0 ? (
+          {priorities.length === 0 ? (
             <p className="text-[11px] text-gray-400">Nothing to prioritise from this attempt yet.</p>
           ) : (
-            <ol className="space-y-2">
-              {model.priorities.map(p => {
-                const subject = model.subjects.find(sub => sub.subjectId === p.nodeId);
-                const badge = priorityBadge(p.rank);
-                return (
-                  <li key={p.nodeId} className="flex items-center gap-2.5">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold flex items-center justify-center">
-                      {p.rank}
+            <ol className="space-y-2.5">
+              {priorities.map(p => (
+                <li key={p.key} className="flex items-start gap-2.5">
+                  <span className="flex-shrink-0 mt-0.5 w-6 h-6 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold flex items-center justify-center">
+                    {p.rank}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[12px] font-semibold text-gray-900 dark:text-gray-100 truncate">
+                      {p.name}
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[12px] font-semibold text-gray-900 dark:text-gray-100 truncate">
-                        {subject?.name ?? p.nodeId}
-                      </span>
-                      {subject && (
-                        <span className="block text-[10px] text-gray-400">
-                          {subject.metrics.correct}/{subject.metrics.attempted || subject.metrics.questions} correct
-                        </span>
-                      )}
-                    </span>
-                    <span
-                      className={cn(
-                        'flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-md',
-                        ACCENT[BADGE_ACCENT[badge]].chip,
-                      )}
-                    >
-                      {badge}
-                    </span>
-                  </li>
-                );
-              })}
+                    {p.subtitle && (
+                      <span className="block text-[10px] text-gray-400 leading-snug line-clamp-2">{p.subtitle}</span>
+                    )}
+                  </span>
+                  <span
+                    className={cn(
+                      'flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap',
+                      ACCENT[p.badgeAccent].chip,
+                    )}
+                  >
+                    {p.badgeLabel}
+                  </span>
+                </li>
+              ))}
             </ol>
           )}
         </ReportCard>

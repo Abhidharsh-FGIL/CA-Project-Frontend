@@ -11,7 +11,7 @@ import { useAttemptReportModel } from '@/hooks/use-attempt-report';
 export default function UserSubjectReportPage() {
   const { attemptId, subjectId } = useParams<{ attemptId: string; subjectId: string }>();
   const navigate = useNavigate();
-  const { model, loading, failed } = useAttemptReportModel(attemptId);
+  const { model, loading, failed, analysis } = useAttemptReportModel(attemptId);
   if (!attemptId) return <Navigate to="/user/history" replace />;
 
   const subject = model?.subjects.find(s => s.subjectId === subjectId);
@@ -38,7 +38,7 @@ export default function UserSubjectReportPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">This subject wasn't found on this attempt.</p>
         </div>
       ) : (
-        <SubjectDeepDivePage model={model} subject={subject} />
+        <SubjectDeepDivePage model={model} subject={subject} analysis={analysis} />
       )}
     </UserShell>
   );

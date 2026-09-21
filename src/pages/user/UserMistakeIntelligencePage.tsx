@@ -10,7 +10,7 @@ import { useAttemptReportModel } from '@/hooks/use-attempt-report';
 
 export default function UserMistakeIntelligencePage() {
   const { attemptId } = useParams<{ attemptId: string }>();
-  const { model, loading, failed } = useAttemptReportModel(attemptId);
+  const { model, loading, failed, analysis } = useAttemptReportModel(attemptId);
   if (!attemptId) return <Navigate to="/user/history" replace />;
 
   return (
@@ -25,7 +25,7 @@ export default function UserMistakeIntelligencePage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">This attempt's detail could not be loaded.</p>
         </div>
       ) : (
-        <MistakeIntelligence model={model} />
+        <MistakeIntelligence model={model} analysis={analysis} />
       )}
     </UserShell>
   );

@@ -3,7 +3,7 @@
  * Deep Dive screen ("Open the N questions" link, or its Question Insights tab).
  */
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Landmark, Lightbulb, Search } from 'lucide-react';
 import type { AttemptReportModel, SubjectNode } from '@/lib/attempt-report';
 import type { QuestionReviewItem } from '@/lib/userPortalApi';
@@ -38,6 +38,7 @@ function stripHtml(s: string): string {
 
 export function SubjectQuestionsPage({ model, subject }: { model: AttemptReportModel; subject: SubjectNode }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const attemptId = model.meta.attemptId;
   const index = model.subjects.findIndex(s => s.subjectId === subject.subjectId);
 
@@ -45,9 +46,21 @@ export function SubjectQuestionsPage({ model, subject }: { model: AttemptReportM
   const [result, setResult] = useState<ResultFilter>('all');
   const [search, setSearch] = useState('');
 
+  // A Mistake Intelligence row links here with ?ids=q1,q2,... — a mistake
+  // category's supporting questions aren't guaranteed to share one subject,
+  // so when this is present it replaces the subject scoping entirely rather
+  // than only narrowing within it.
+  const idFilter = useMemo(() => {
+    const raw = searchParams.get('ids');
+    return raw ? new Set(raw.split(',').filter(Boolean)) : null;
+  }, [searchParams]);
+
   const questions = useMemo(
-    () => model.questions.filter(q => subject.questionIds.includes(q.question_id)),
-    [model.questions, subject.questionIds],
+    () =>
+      idFilter
+        ? model.questions.filter(q => idFilter.has(q.question_id))
+        : model.questions.filter(q => subject.questionIds.includes(q.question_id)),
+    [model.questions, subject.questionIds, idFilter],
   );
 
   const topicOptions = useMemo(() => {
@@ -71,10 +84,12 @@ export function SubjectQuestionsPage({ model, subject }: { model: AttemptReportM
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4">
       <button
-        onClick={() => navigate(`/user/report/${attemptId}/subjects/${subject.subjectId}`)}
+        onClick={() =>
+          idFilter ? navigate(`/user/report/${attemptId}/mistakes`) : navigate(`/user/report/${attemptId}/subjects/${subject.subjectId}`)
+        }
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
       >
-        <ArrowLeft className="w-4 h-4" /> Back to Subject
+        <ArrowLeft className="w-4 h-4" /> {idFilter ? 'Back to Mistake Intelligence' : 'Back to Subject'}
       </button>
 
       <ReportCard className="flex items-center gap-3">
@@ -84,7 +99,9 @@ export function SubjectQuestionsPage({ model, subject }: { model: AttemptReportM
         >
           <Landmark className="w-5 h-5" />
         </span>
-        <p className="text-lg font-extrabold text-[#1e2a5a] dark:text-gray-100">{subject.name}</p>
+        <p className="text-lg font-extrabold text-[#1e2a5a] dark:text-gray-100">
+          {idFilter ? 'Questions from this mistake pattern' : subject.name}
+        </p>
       </ReportCard>
 
       <ReportCard>
@@ -140,6 +157,14 @@ export function SubjectQuestionsPage({ model, subject }: { model: AttemptReportM
               <tbody>
                 {filtered.map(q => {
                   const attempted = isAttempted(q);
+                  // In ?ids= mode a row's own question may belong to a
+                  // different subject than this page's URL — resolve its
+                  // real subject so the review link (and that page's own
+                  // prev/next list) doesn't 404 on a question the current
+                  // subject doesn't actually contain.
+                  const questionSubjectId = idFilter
+                    ? model.subjects.find(s => s.questionIds.includes(q.question_id))?.subjectId ?? subject.subjectId
+                    : subject.subjectId;
                   return (
                     <tr key={q.question_id} className="border-b border-gray-50 dark:border-gray-800/60">
                       <td className="px-3 py-2 text-gray-600 dark:text-gray-300">{q.number}</td>
@@ -168,7 +193,7 @@ export function SubjectQuestionsPage({ model, subject }: { model: AttemptReportM
                         <button
                           type="button"
                           onClick={() =>
-                            navigate(`/user/report/${attemptId}/subjects/${subject.subjectId}/questions/${q.question_id}`)
+                            navigate(`/user/report/${attemptId}/subjects/${questionSubjectId}/questions/${q.question_id}`)
                           }
                           className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-gray-900 rounded-lg px-2.5 py-1 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
                         >

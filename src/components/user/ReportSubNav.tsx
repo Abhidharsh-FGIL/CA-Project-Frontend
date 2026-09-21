@@ -22,7 +22,7 @@ export function ReportSubNav({ attemptId, active }: { attemptId: string; active:
     { key: 'subjects', label: 'Subjects', to: `/user/report/${attemptId}/subjects`, icon: BookOpen },
     { key: 'mistakes', label: 'Mistakes', to: `/user/report/${attemptId}/mistakes`, icon: AlertTriangle },
     { key: 'study-plan', label: 'Study Plan', to: `/user/study-plan/${attemptId}`, icon: CalendarCheck2 },
-    { key: 'progress', label: 'Progress', to: '/user/progress', icon: TrendingUp },
+    { key: 'progress', label: 'Progress', to: `/user/progress/${attemptId}`, icon: TrendingUp },
   ];
 
   return (

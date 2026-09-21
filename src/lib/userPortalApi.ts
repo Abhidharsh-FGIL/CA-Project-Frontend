@@ -676,6 +676,239 @@ export function requestReportInsights(
   );
 }
 
+/**
+ * The new, six-prompt backend pipeline's output for one attempt (see the
+ * backend LLM architecture overhaul plan) — a separate, richer cache from
+ * `ReportInsightsContent` above, populated section by section as each
+ * pipeline stage lands. `diagnosis`/`priorities` exist as of Stage 2;
+ * `error_intelligence`/`progress_insights` are typed here ahead of the
+ * stages that populate them so this type does not need to change shape
+ * again when they land — they simply start arriving.
+ */
+export interface AttemptAnalysisFinding {
+  type: 'bottleneck' | 'strategy' | 'foothold' | 'caveat';
+  scope_id: string | null;
+  statement: string;
+  evidence: string[];
+  confidence: 'low' | 'moderate' | 'high';
+}
+
+export interface AttemptAnalysisDiagnosis {
+  headline: string;
+  findings: AttemptAnalysisFinding[];
+}
+
+export type MistakeCategory =
+  | 'concept_confusion'
+  | 'institution_function_confusion'
+  | 'chronology_sequence_confusion'
+  | 'rule_definition_misapplied'
+  | 'formula_method_selection'
+  | 'calculation_process_error'
+  | 'language_reading_misinterpretation'
+  | 'similar_option_discrimination'
+  | 'cannot_determine';
+
+/**
+ * A displayed mistake category — the LLM classified each wrong answer
+ * individually; this is the backend's own count and display-threshold
+ * decision (count ≥ 3, ≥ 2 supporting questions, average confidence ≥
+ * threshold), never something the frontend recomputes.
+ */
+export interface AttemptAnalysisErrorCluster {
+  category: MistakeCategory;
+  count: number;
+  supporting_question_ids: string[];
+  average_confidence: number;
+  sample_reason: string;
+}
+
+export type PriorityLevel = 'subject' | 'topic' | 'subtopic' | 'subject_foundation';
+export type PriorityIntervention =
+  | 'concept_rebuild'
+  | 'rule_application'
+  | 'practice_reinforcement'
+  | 'maintenance'
+  | 'foundation_rebuild';
+
+/**
+ * One backend-ranked, backend-scored priority candidate — subject/topic/
+ * sub-topic name fields are given directly (no frontend lookup needed), and
+ * `intervention` is a deterministic classification, not LLM prose. See
+ * priority_engine.py.
+ */
+export interface AttemptAnalysisPriority {
+  rank: number;
+  level: PriorityLevel;
+  subject: string | null;
+  topic: string | null;
+  subtopic: string | null;
+  scope_id: string;
+  correct: number;
+  incorrect: number;
+  questions_seen: number;
+  accuracy: number | null;
+  evidence_band: 'low' | 'moderate' | 'high';
+  intervention: PriorityIntervention;
+  score: number;
+  question_ids: string[];
+}
+
+/** One rich diagnosis per priority candidate (matched by `scope_id`) — the
+ * AI Detailed Insights screen's content. See llm_topic_diagnosis.py. */
+export interface AttemptAnalysisTopicDiagnosis {
+  scope_id: string;
+  finding: string;
+  evidence: string;
+  interpretation: string;
+  next_action: string;
+  mastery_check: string;
+  confidence: 'low' | 'moderate' | 'high';
+}
+
+/** One diagnosis per subject the attempt covered (matched by `subject_id`)
+ * — the Subject Deep Dive screen's "AI Diagnosis for this Subject" card.
+ * Distinct from AttemptAnalysisTopicDiagnosis: every subject gets one of
+ * these, not just ranked priority candidates. See llm_subject_diagnosis.py. */
+export interface AttemptAnalysisSubjectDiagnosis {
+  subject_id: string;
+  summary: string;
+  topic_note: string;
+  next_action: string;
+  confidence: 'low' | 'moderate' | 'high';
+}
+
+export interface WeeklyPlanSession {
+  priority_id: string;
+  subject: string | null;
+  topic: string | null;
+  subtopic: string | null;
+  /** Only ever a number when the student's own availability was configured — never a fabricated default. */
+  minutes: number | null;
+  learning_objective: string;
+  learning_activity: string;
+  practice_activity: string;
+  checkpoint: string;
+}
+
+export interface WeeklyPlanDay {
+  day: string;
+  sessions: WeeklyPlanSession[];
+}
+
+export interface AttemptAnalysisWeeklyPlan {
+  week: WeeklyPlanDay[];
+}
+
+export interface DailyPlanTask {
+  type: 'learn' | 'compare' | 'practice' | 'checkpoint';
+  instruction: string;
+}
+
+export interface DailyPlanEntry {
+  priority_id: string;
+  focus: string;
+  minutes: number | null;
+  objective: string;
+  tasks: DailyPlanTask[];
+}
+
+export interface AttemptAnalysisResponse {
+  status: 'not_started' | 'generating' | 'ready' | 'failed';
+  section_status?: Record<string, 'ready' | 'failed'>;
+  timing_available?: boolean;
+  comparable_history_exists?: boolean;
+  generated_at?: string | null;
+  diagnosis?: AttemptAnalysisDiagnosis;
+  priorities?: AttemptAnalysisPriority[];
+  topic_diagnoses?: AttemptAnalysisTopicDiagnosis[];
+  subject_diagnoses?: AttemptAnalysisSubjectDiagnosis[];
+  error_intelligence?: AttemptAnalysisErrorCluster[];
+  weekly_plan?: AttemptAnalysisWeeklyPlan;
+  daily_plan?: DailyPlanEntry[];
+  progress_insights?: unknown;
+}
+
+/**
+ * GET /api/v1/user/history/{attemptId}/analysis — whatever the new pipeline
+ * currently has ready. `status: "not_started"` is not an error; call
+ * `requestAttemptAnalysis` to begin generation and re-fetch later.
+ */
+export function getAttemptAnalysis(attemptId: string): Promise<AttemptAnalysisResponse> {
+  return userApi.get<AttemptAnalysisResponse>(`/api/v1/user/history/${attemptId}/analysis`);
+}
+
+/**
+ * POST /api/v1/user/history/{attemptId}/analysis — dispatch generation.
+ * Idempotent: safe to call whenever the cache looks empty, exactly like
+ * `requestReportInsights` above — a section already "ready" is left alone
+ * rather than regenerated.
+ */
+export function requestAttemptAnalysis(attemptId: string): Promise<{ status: string }> {
+  return userApi.post<{ status: string }>(`/api/v1/user/history/${attemptId}/analysis`, {});
+}
+
+/**
+ * `GET /api/v1/user/progress/` — everything the Progress Journey screen
+ * renders, in one request, with every number already unambiguous (`score`,
+ * `max_score`, `accuracy_percentage`, `correct`, `attempted` — never left
+ * for the frontend to guess which field means what). Replaces the earlier
+ * per-attempt fan-out (`use-progress-report.ts`'s `getAttemptDetail` calls)
+ * that this screen used to build its own numbers from client-side.
+ */
+export interface ProgressAttemptComparability {
+  comparable: boolean;
+  reasons: string[];
+  notes: string[];
+}
+
+export interface ProgressAttemptSummary {
+  attempt_id: string;
+  attempt_type: 'test' | 'eval';
+  title: string;
+  date: string | null;
+  score: number | null;
+  max_score: number | null;
+  percentage: number | null;
+  accuracy_percentage: number | null;
+  attempted: number;
+  correct: number;
+  unattempted: number;
+  comparability: ProgressAttemptComparability;
+}
+
+export interface ProgressReportApiResponse {
+  window: {
+    attempts_total: number;
+    attempts_in_window: number;
+    attempts_truncated: number;
+    first_attempt_date: string | null;
+    last_attempt_date: string | null;
+  };
+  attempts: ProgressAttemptSummary[];
+  trend: {
+    attempts_in_trend: number;
+    attempts_excluded: number;
+    percentage_slope: number | null;
+    accuracy_slope: number | null;
+  };
+}
+
+export function getProgressReport(params?: {
+  exam?: string;
+  stage?: string;
+  mode?: string;
+  limit?: number;
+}): Promise<ProgressReportApiResponse> {
+  const query = new URLSearchParams();
+  if (params?.exam) query.set('exam', params.exam);
+  if (params?.stage) query.set('stage', params.stage);
+  if (params?.mode) query.set('mode', params.mode);
+  if (params?.limit) query.set('limit', String(params.limit));
+  const qs = query.toString();
+  return userApi.get<ProgressReportApiResponse>(`/api/v1/user/progress/${qs ? `?${qs}` : ''}`);
+}
+
 /** GET /api/v1/user/history/?page=&limit= — paginated attempt history */
 export function getAttemptHistory(
   page = 1,

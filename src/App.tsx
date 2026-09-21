@@ -180,6 +180,7 @@ function UserPortalRoutes() {
           <Route path="practice" element={<UserTrackPage track="practice" />} />
           <Route path="performance" element={<UserPerformancePage />} />
           <Route path="progress" element={<UserProgressPage />} />
+          <Route path="progress/:attemptId" element={<UserProgressPage />} />
           <Route path="study-plan/:attemptId" element={<UserStudyPlanPage />} />
           <Route path="bookmarks" element={<UserSavedPage kind="bookmarks" />} />
           <Route path="notes" element={<UserSavedPage kind="notes" />} />

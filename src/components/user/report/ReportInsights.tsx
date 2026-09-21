@@ -2,17 +2,19 @@
  * "AI Detailed Insights" (mockup screen 2), reached from the Overview's "View
  * Detailed Insights" button.
  *
- * The three sub-fields per card — Evidence / AI Analysis / What you can do — map
- * directly onto `Insight.evidence` / `.implication` / `.action`. Those last two were
- * already computed by `buildInsights` in attempt-report.ts but never rendered
- * anywhere in the app (confirmed by grep earlier this session) — this screen is
- * what finally shows them, no new generation involved.
+ * Real content as of the AI Detailed Insights prompt redesign: each card is one
+ * of `analysis.topic_diagnoses` — a specific, evidence-grounded diagnosis for one
+ * priority candidate (never a generic "revise concepts" summary — see
+ * llm_topic_diagnosis.py). "AI Analysis" is relabelled "What this suggests" per
+ * that redesign. Falls back to the older deterministic Insight cards
+ * (evidence/implication/action) while topic_diagnoses isn't ready yet.
  */
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Lightbulb } from 'lucide-react';
 import type { AttemptReportModel, Confidence, Insight } from '@/lib/attempt-report';
 import { insightConfidence } from '@/lib/attempt-report';
 import { ReportCard, ACCENT, type Accent } from '@/components/user/report-ui';
+import type { AttemptAnalysisResponse, AttemptAnalysisTopicDiagnosis } from '@/lib/userPortalApi';
 import { cn } from '@/lib/utils';
 
 const RANK_ACCENT: Accent[] = ['rose', 'amber', 'emerald', 'indigo'];
@@ -69,10 +71,60 @@ function InsightField({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ReportInsights({ model }: { model: AttemptReportModel }) {
+interface InsightCard {
+  key: string;
+  title: string;
+  confidence: Confidence;
+  fields: Array<{ label: string; value: string }>;
+}
+
+const TOPIC_CONFIDENCE: Record<AttemptAnalysisTopicDiagnosis['confidence'], Confidence> = {
+  low: 'LOW',
+  moderate: 'MEDIUM',
+  high: 'HIGH',
+};
+
+function topicDiagnosisCards(diagnoses: AttemptAnalysisTopicDiagnosis[]): InsightCard[] {
+  return diagnoses.map(d => ({
+    key: d.scope_id,
+    title: d.finding,
+    confidence: TOPIC_CONFIDENCE[d.confidence],
+    fields: [
+      { label: 'Evidence', value: d.evidence },
+      { label: 'What this suggests', value: d.interpretation },
+      { label: 'What you can do', value: d.next_action },
+      { label: 'Mastery Check', value: d.mastery_check },
+    ],
+  }));
+}
+
+function deterministicCards(model: AttemptReportModel): InsightCard[] {
+  return pickInsights(model).map(({ insight, bucket }, i) => ({
+    key: `${bucket}-${insight.subjectId ?? i}`,
+    title: cardTitle(insight, bucket),
+    confidence: insightConfidence(insight, model),
+    fields: [
+      { label: 'Evidence', value: insight.evidence },
+      { label: 'AI Analysis', value: insight.implication },
+      { label: 'What you can do', value: insight.action },
+    ],
+  }));
+}
+
+export function ReportInsights({
+  model,
+  analysis,
+}: {
+  model: AttemptReportModel;
+  /** The new backend pipeline's per-priority diagnoses, when ready — see the module doc comment above. */
+  analysis?: AttemptAnalysisResponse | null;
+}) {
   const navigate = useNavigate();
   const attemptId = model.meta.attemptId;
-  const insights = pickInsights(model);
+  const insights =
+    analysis?.topic_diagnoses && analysis.topic_diagnoses.length > 0
+      ? topicDiagnosisCards(analysis.topic_diagnoses)
+      : deterministicCards(model);
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4">
@@ -100,41 +152,34 @@ export function ReportInsights({ model }: { model: AttemptReportModel }) {
           </p>
         </ReportCard>
       ) : (
-        insights.map(({ insight, bucket }, i) => {
-          const confidence = insightConfidence(insight, model);
-          return (
-            <ReportCard key={`${bucket}-${insight.subjectId ?? i}`}>
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span
-                    className={cn(
-                      'flex-shrink-0 w-7 h-7 rounded-full text-white text-[12px] font-bold flex items-center justify-center',
-                    )}
-                    style={{ background: ACCENT[RANK_ACCENT[i % RANK_ACCENT.length]].hex }}
-                  >
-                    {i + 1}
-                  </span>
-                  <p className="text-[14px] font-bold text-[#1e2a5a] dark:text-gray-100 truncate">
-                    {cardTitle(insight, bucket)}
-                  </p>
-                </div>
+        insights.map((card, i) => (
+          <ReportCard key={card.key}>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <span
-                  className={cn(
-                    'flex-shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full',
-                    ACCENT[CONFIDENCE_ACCENT[confidence]].chip,
-                  )}
+                  className="flex-shrink-0 w-7 h-7 rounded-full text-white text-[12px] font-bold flex items-center justify-center"
+                  style={{ background: ACCENT[RANK_ACCENT[i % RANK_ACCENT.length]].hex }}
                 >
-                  {confidence === 'HIGH' ? 'High' : confidence === 'MEDIUM' ? 'Medium' : 'Low'} Confidence
+                  {i + 1}
                 </span>
+                <p className="text-[14px] font-bold text-[#1e2a5a] dark:text-gray-100 truncate">{card.title}</p>
               </div>
-              <div className="space-y-2.5">
-                <InsightField label="Evidence" value={insight.evidence} />
-                <InsightField label="AI Analysis" value={insight.implication} />
-                <InsightField label="What you can do" value={insight.action} />
-              </div>
-            </ReportCard>
-          );
-        })
+              <span
+                className={cn(
+                  'flex-shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full',
+                  ACCENT[CONFIDENCE_ACCENT[card.confidence]].chip,
+                )}
+              >
+                {card.confidence === 'HIGH' ? 'High' : card.confidence === 'MEDIUM' ? 'Medium' : 'Low'} Confidence
+              </span>
+            </div>
+            <div className="space-y-2.5">
+              {card.fields.map(f => (
+                <InsightField key={f.label} label={f.label} value={f.value} />
+              ))}
+            </div>
+          </ReportCard>
+        ))
       )}
 
       <div className="rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900 p-3.5 flex items-start gap-2.5">

@@ -993,12 +993,25 @@ export function taxonomyStatus(node: TopicNode): NodeStatus {
 // share the same real state (e.g. several 0%-accuracy rows) doesn't repeat one
 // identical label down the column — rotated deterministically by row index, never
 // randomly, so the same attempt always renders the same table.
-const AI_ANALYSIS_PHRASES: Record<NodeStatus, string[]> = {
+const AI_ANALYSIS_PHRASES: Record<Exclude<NodeStatus, 'INSUFFICIENT_EVIDENCE'>, string[]> = {
   STRONG: ['Strong', 'Solid grasp', 'On target'],
   DEVELOPING: ['Needs revision', 'Strengthen understanding', 'Revision required', 'Practise this again'],
   FOCUS: ['Needs concept clarity', 'Revise timeline', 'Concept gap', 'Focus on key events', 'Concept clarity needed', 'Learn key personalities'],
-  INSUFFICIENT_EVIDENCE: ['Too few answers yet'],
-  NOT_ASSESSED: ['Not attempted yet'],
+  NOT_ASSESSED: ['Not attempted yet', 'No attempts yet', 'Nothing attempted here'],
+};
+
+// INSUFFICIENT_EVIDENCE is not one flat phrase — a 1/1 row and a 0/1 row both
+// fall below `minEvidence`, but showing them the identical "not enough
+// evidence" text either way threw away the one thing that row DID show (which
+// way that single answer went). These are still hedged ("so far", "early") —
+// evidence is genuinely too thin to call the topic Strong or Focus outright,
+// which is exactly why the status stays INSUFFICIENT_EVIDENCE rather than
+// being promoted — but the phrase now at least points the same direction the
+// real number does, instead of being silent about it.
+const INSUFFICIENT_EVIDENCE_PHRASES = {
+  positive: ['Promising so far', 'Good early sign', 'Encouraging start'],
+  negative: ['Rough start so far', 'Early concern', 'Struggling so far'],
+  mixed: ['Too early to call', 'Not enough evidence yet', 'Needs more attempts to judge'],
 };
 
 /**
@@ -1009,6 +1022,12 @@ const AI_ANALYSIS_PHRASES: Record<NodeStatus, string[]> = {
  */
 export function topicAiAnalysis(node: TopicNode, index: number): string {
   const status = taxonomyStatus(node);
+  if (status === 'INSUFFICIENT_EVIDENCE') {
+    const acc = node.metrics.accuracy ?? 0;
+    const bucket = acc >= 70 ? 'positive' : acc <= 30 ? 'negative' : 'mixed';
+    const phrases = INSUFFICIENT_EVIDENCE_PHRASES[bucket];
+    return phrases[index % phrases.length];
+  }
   const phrases = AI_ANALYSIS_PHRASES[status];
   const phrase = phrases[index % phrases.length];
   return status === 'STRONG' && node.metrics.attempted === 1 ? `${phrase} (single question)` : phrase;

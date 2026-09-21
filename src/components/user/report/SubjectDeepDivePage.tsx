@@ -6,11 +6,14 @@
  * table exactly (# / Topic-Subtopic / Qns / Correct / Accuracy / AI Analysis) —
  * visually different enough from the existing 9-column admin table
  * (`AttemptDiagnosticReport.tsx`'s inline `SubjectDeepDive`) that reusing it
- * wholesale wouldn't match. Question Insights and Comparison & Trends (kept per
- * the approved plan, beyond what the mockup itself shows) reuse the same helpers
- * the existing inline version uses — `topicNarrative`/`comparisonNarrative`/
- * `STATUS_TONE`/`CONFIDENCE_TONE` are now exported from AttemptDiagnosticReport.tsx
- * for exactly this reuse, so there is still only one definition of each.
+ * wholesale wouldn't match. Question Insights reuses the same helpers the
+ * existing inline version uses — `topicNarrative`/`CONFIDENCE_TONE` are now
+ * exported from AttemptDiagnosticReport.tsx for exactly this reuse, so there is
+ * still only one definition of each.
+ *
+ * Two tabs only, per the final UX click map: "Comparison & Trends" is dropped
+ * here — trend information belongs only in Progress Journey, not duplicated on
+ * every subject's deep dive.
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -21,15 +24,66 @@ import {
   isOtherNode,
   topicAiAnalysis,
   topicNarrative,
-  comparisonNarrative,
   CONFIDENCE_TONE,
 } from '@/components/user/AttemptDiagnosticReport';
-import { ReportCard, StatTile, UnderlineTabs, MeterRow, WhatThisMeans, NotAvailable, subjectHue } from '@/components/user/report-ui';
+import { ReportCard, StatTile, UnderlineTabs, WhatThisMeans, NotAvailable, subjectHue } from '@/components/user/report-ui';
 import { cn } from '@/lib/utils';
+import type { AttemptAnalysisResponse, AttemptAnalysisSubjectDiagnosis } from '@/lib/userPortalApi';
 
-type DiveTab = 'topics' | 'questions' | 'trends';
+type DiveTab = 'topics' | 'questions';
 
-export function SubjectDeepDivePage({ model, subject }: { model: AttemptReportModel; subject: SubjectNode }) {
+const CONFIDENCE_LEVELS = new Set(['low', 'moderate', 'high']);
+
+function isLiveSubjectDiagnosis(d: unknown): d is AttemptAnalysisSubjectDiagnosis {
+  if (!d || typeof d !== 'object') return false;
+  const r = d as Record<string, unknown>;
+  return (
+    typeof r.summary === 'string' &&
+    typeof r.topic_note === 'string' &&
+    typeof r.next_action === 'string' &&
+    typeof r.confidence === 'string' &&
+    CONFIDENCE_LEVELS.has(r.confidence)
+  );
+}
+
+/**
+ * The "AI Diagnosis for this Subject" card's bullets — real, LLM-written,
+ * per-subject content (llm_subject_diagnosis.py) when the backend pipeline
+ * has it ready for THIS subject, falling back to the client-side
+ * deterministic sentence (diagnoseSubject() in attempt-report.ts) otherwise.
+ * Every subject is meant to get a live diagnosis eventually (see that
+ * module's doc — unlike topic_diagnoses, this isn't limited to ranked
+ * priority candidates), but a still-generating or shape-mismatched response
+ * must never crash this card or show nothing.
+ */
+function diagnosisBulletsFor(subject: SubjectNode, analysis?: AttemptAnalysisResponse | null): string[] {
+  const live = analysis?.subject_diagnoses?.find(d => d.subject_id === subject.subjectId);
+  if (isLiveSubjectDiagnosis(live)) {
+    return [live.summary, live.topic_note, live.next_action].filter(Boolean);
+  }
+  return subject.diagnosis.split(/(?<=[.!?])\s+/).filter(Boolean);
+}
+
+/** Same live-vs-deterministic preference as `diagnosisBulletsFor`, joined
+ * into one paragraph for the spots on this page that show the diagnosis as
+ * a single block of text rather than bullets. */
+function diagnosisTextFor(subject: SubjectNode, analysis?: AttemptAnalysisResponse | null): string {
+  const live = analysis?.subject_diagnoses?.find(d => d.subject_id === subject.subjectId);
+  if (isLiveSubjectDiagnosis(live)) {
+    return [live.summary, live.topic_note, live.next_action].filter(Boolean).join(' ');
+  }
+  return subject.diagnosis;
+}
+
+export function SubjectDeepDivePage({
+  model,
+  subject,
+  analysis,
+}: {
+  model: AttemptReportModel;
+  subject: SubjectNode;
+  analysis?: AttemptAnalysisResponse | null;
+}) {
   const navigate = useNavigate();
   const [tab, setTab] = useState<DiveTab>('topics');
   const m = subject.metrics;
@@ -39,12 +93,11 @@ export function SubjectDeepDivePage({ model, subject }: { model: AttemptReportMo
   // Flatten to one level for the mockup's flat, numbered table — a topic with
   // sub-topics is represented by its sub-topics, not by itself and its children.
   const rows: TopicNode[] = subject.topics.flatMap(t => (t.subtopics.length > 0 ? t.subtopics : [t]));
-  const diagnosisBullets = subject.diagnosis.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const diagnosisBullets = diagnosisBulletsFor(subject, analysis);
 
   const tabs: Array<{ value: DiveTab; label: string }> = [
     { value: 'topics', label: 'Topic Analysis' },
     { value: 'questions', label: 'Question Insights' },
-    { value: 'trends', label: 'Comparison & Trends' },
   ];
 
   return (
@@ -159,14 +212,14 @@ export function SubjectDeepDivePage({ model, subject }: { model: AttemptReportMo
               </>
             ) : (
               <div className="space-y-2">
-                <p className="text-[11px] leading-relaxed text-gray-700 dark:text-gray-200">{subject.diagnosis}</p>
+                <p className="text-[11px] leading-relaxed text-gray-700 dark:text-gray-200">{diagnosisTextFor(subject, analysis)}</p>
                 <NotAvailable reason="No question in this subject carries a topic tag, so the breakdown stops at subject level." />
               </div>
             ))}
 
           {tab === 'questions' && (
             <div className="space-y-2.5">
-              <p className="text-[11px] leading-relaxed text-gray-700 dark:text-gray-200">{subject.diagnosis}</p>
+              <p className="text-[11px] leading-relaxed text-gray-700 dark:text-gray-200">{diagnosisTextFor(subject, analysis)}</p>
               <p className="text-[11px] text-gray-500 dark:text-gray-400">
                 Main issue: <span className="font-semibold">{ISSUE_LABEL[subject.primaryIssue]}</span>
               </p>
@@ -190,33 +243,6 @@ export function SubjectDeepDivePage({ model, subject }: { model: AttemptReportMo
             </div>
           )}
 
-          {tab === 'trends' && (
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <MeterRow
-                  label={`${subject.name} accuracy`}
-                  value={m.accuracy}
-                  right={m.accuracy == null ? 'Not assessed' : `${m.accuracy}%`}
-                />
-                <MeterRow
-                  label="Whole paper accuracy"
-                  value={model.summary.accuracy}
-                  right={model.summary.accuracy == null ? 'Not assessed' : `${model.summary.accuracy}%`}
-                />
-                <MeterRow
-                  label={`${subject.name} coverage`}
-                  value={m.coverage}
-                  right={`${m.attempted} of ${m.questions} reached`}
-                />
-                <MeterRow
-                  label="Whole paper coverage"
-                  value={model.summary.attemptRate}
-                  right={`${model.summary.attempted} of ${model.summary.totalQuestions} reached`}
-                />
-              </div>
-              <WhatThisMeans>{comparisonNarrative(subject, model)}</WhatThisMeans>
-            </div>
-          )}
         </div>
       </ReportCard>
     </div>

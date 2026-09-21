@@ -7,7 +7,7 @@ import { useAttemptReportModel } from '@/hooks/use-attempt-report';
 
 export default function UserReportPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
-  const { model, examContext, loading, failed } = useAttemptReportModel(attemptId);
+  const { model, examContext, loading, failed, analysis } = useAttemptReportModel(attemptId);
 
   if (!attemptId) return <Navigate to="/user/history" replace />;
 
@@ -27,7 +27,7 @@ export default function UserReportPage() {
           </div>
         </div>
       ) : (
-        <ReportOverview model={model} exam={examContext} />
+        <ReportOverview model={model} exam={examContext} analysis={analysis} />
       )}
     </UserShell>
   );

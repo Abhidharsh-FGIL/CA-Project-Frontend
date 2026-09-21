@@ -7,8 +7,8 @@
  * opposite problems must not receive the same plan.
  */
 import { describe, expect, it } from 'vitest';
-import { buildAttemptReport, DEFAULT_REPORT_CONFIG } from './attempt-report';
-import type { AttemptDetailResponse, QuestionReviewItem } from './userPortalApi';
+import { buildAttemptReport, DEFAULT_REPORT_CONFIG, diagnosisFindingsToDisplay, insightHeadline } from './attempt-report';
+import type { AttemptAnalysisDiagnosis, AttemptDetailResponse, QuestionReviewItem } from './userPortalApi';
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -965,5 +965,90 @@ describe('subjects tagged two ways', () => {
     expect(m.subjects.length).toBe(3);
     // It cannot silently present a wrong total: the mismatch is stated.
     expect(m.dataQuality.warnings.join(' ')).toContain('questions but the paper carries');
+  });
+});
+
+describe('diagnosisFindingsToDisplay — new backend pipeline’s Diagnosis reshaped for the Overview cards', () => {
+  const diagnosis: AttemptAnalysisDiagnosis = {
+    headline: 'Polity is the single biggest lever holding this score back.',
+    findings: [
+      {
+        type: 'bottleneck',
+        scope_id: 'polity',
+        statement: 'Polity sits at 25% accuracy across 12 questions.',
+        evidence: ['25% accuracy', '12 questions'],
+        confidence: 'moderate',
+      },
+      {
+        type: 'caveat',
+        scope_id: null,
+        statement: 'Tamil has only 3 questions, too little evidence to call it weak yet.',
+        evidence: ['3 questions'],
+        confidence: 'low',
+      },
+    ],
+  };
+
+  it('returns null when nothing is ready yet, so a caller can fall back to the deterministic list', () => {
+    expect(diagnosisFindingsToDisplay(undefined)).toBeNull();
+    expect(diagnosisFindingsToDisplay({ headline: 'x', findings: [] })).toBeNull();
+  });
+
+  it('maps each finding to a ranked DiagnosticFinding, preserving text and evidence', () => {
+    const out = diagnosisFindingsToDisplay(diagnosis)!;
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({
+      rank: 1,
+      text: diagnosis.findings[0].statement,
+      evidence: diagnosis.findings[0].evidence,
+      confidence: 'MEDIUM',
+    });
+    expect(out[1]).toMatchObject({ rank: 2, confidence: 'LOW' });
+  });
+
+  it('never claims a bare confidence grade above what the backend actually sent', () => {
+    const highConfidence: AttemptAnalysisDiagnosis = {
+      headline: 'x',
+      findings: [{ type: 'foothold', scope_id: 'science', statement: 'x', evidence: [], confidence: 'high' }],
+    };
+    expect(diagnosisFindingsToDisplay(highConfidence)![0].confidence).toBe('HIGH');
+  });
+});
+
+describe('insightHeadline — a decimal number must not be read as a sentence end', () => {
+  it('does not truncate at the "." inside a decimal like "7.7s"', () => {
+    const f = {
+      rank: 4,
+      text:
+        'At 7.7s a question against the 54s this paper allows, you are working roughly 86% faster than the clock requires.',
+      evidence: [],
+      confidence: 'HIGH' as const,
+      basis: 'x',
+    };
+    const headline = insightHeadline(f);
+    expect(headline).not.toBe('At 7');
+    expect(headline).toBe('At 7.7s a question against');
+  });
+
+  it('still cuts at a real sentence-ending period, exactly as before', () => {
+    const f = {
+      rank: 1,
+      text: 'Coverage is good at 100%. Accuracy still needs work across the paper.',
+      evidence: [],
+      confidence: 'HIGH' as const,
+      basis: 'x',
+    };
+    expect(insightHeadline(f)).toBe('Coverage is good at 100%');
+  });
+
+  it('still cuts at the first comma, exactly as before', () => {
+    const f = {
+      rank: 2,
+      text: 'Indian Polity is the weakest measured subject at 0%, across 15 questions in this paper.',
+      evidence: [],
+      confidence: 'HIGH' as const,
+      basis: 'x',
+    };
+    expect(insightHeadline(f)).toBe('Indian Polity is the weakest');
   });
 });

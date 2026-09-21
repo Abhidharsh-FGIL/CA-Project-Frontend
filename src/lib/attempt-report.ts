@@ -21,6 +21,7 @@
  *   • expected_time_sec        — time bands fall back to the student's own median
  */
 import type {
+  AttemptAnalysisDiagnosis,
   AttemptDetailResponse,
   QuestionReviewItem,
   SubjectBreakdown,
@@ -983,6 +984,8 @@ export function buildAttemptReport(
     if (state === 'MEASURED' && (m.accuracy ?? 100) < cfg.targetAccuracy) badges.push('LOW ACCURACY');
     if (isSlow) badges.push('SLOW');
 
+    const topics = topicNodes(items, cfg);
+
     return {
       subjectId,
       name: labels.name,
@@ -992,11 +995,11 @@ export function buildAttemptReport(
       status,
       primaryIssue,
       confidence,
-      diagnosis: diagnoseSubject(labels.name, m, state, isSlow, cfg),
+      diagnosis: diagnoseSubject(labels.name, m, state, isSlow, cfg, topics),
       issueBadges: badges,
       difficultySplit: difficultyRows(items),
       questionIds: items.map(q => q.question_id),
-      topics: topicNodes(items, cfg),
+      topics,
     };
   });
 
@@ -1357,12 +1360,49 @@ export function factsFromModel(model: AttemptReportModel): Record<string, unknow
 
 // ─── Narrative builders ────────────────────────────────────────────────────────
 
+/**
+ * Names the specific topic(s) behind a subject's diagnosis — the subject-level
+ * sentence above says accuracy or coverage is the problem, but not WHICH
+ * topic, even though the Topic Analysis table on the same screen already
+ * breaks that down. One clearest lever named, never an unbounded list of
+ * every topic (a subject can carry a dozen-plus topics).
+ *
+ * Hedged the same way the rest of this file treats thin evidence: a topic
+ * that clears `MEASURED` gets named outright as weakest/strongest; below
+ * that, only the topic with the most wrong answers so far is named, and the
+ * sentence says explicitly that it isn't a settled pattern yet — matching
+ * `topicAiAnalysis`'s INSUFFICIENT_EVIDENCE handling in
+ * AttemptDiagnosticReport.tsx, which draws the same line.
+ */
+function topicBreakdownNote(topics: TopicNode[]): string | null {
+  const flat = topics.flatMap(t => (t.subtopics.length > 0 ? t.subtopics : [t]));
+  const attempted = flat.filter(t => t.metrics.attempted > 0);
+  if (attempted.length === 0) return null;
+
+  const measured = attempted.filter(t => t.state === 'MEASURED' && t.metrics.accuracy != null);
+  if (measured.length > 0) {
+    const worst = measured.reduce((lo, t) => ((t.metrics.accuracy ?? 100) < (lo.metrics.accuracy ?? 100) ? t : lo));
+    const best = measured.reduce((hi, t) => ((t.metrics.accuracy ?? 0) > (hi.metrics.accuracy ?? 0) ? t : hi));
+    const worstText = `${worst.name} is the weakest topic here, right on only ${worst.metrics.accuracy}% (${worst.metrics.correct}/${worst.metrics.attempted})`;
+    return worst.topicId === best.topicId || (best.metrics.accuracy ?? 0) <= (worst.metrics.accuracy ?? 0)
+      ? `${worstText}.`
+      : `${worstText}, while ${best.name} leads at ${best.metrics.accuracy}%.`;
+  }
+
+  const mostWrong = attempted
+    .filter(t => t.metrics.incorrect > 0)
+    .reduce<TopicNode | null>((worst, t) => (worst == null || t.metrics.incorrect > worst.metrics.incorrect ? t : worst), null);
+  if (!mostWrong) return null;
+  return `${mostWrong.name} has the most wrong answers so far (${mostWrong.metrics.incorrect} of ${mostWrong.metrics.attempted} attempted) — still too few questions there to call it a settled pattern.`;
+}
+
 function diagnoseSubject(
   name: string,
   m: NodeMetrics,
   state: EvidenceState,
   isSlow: boolean,
   cfg: ReportConfig,
+  topics: TopicNode[],
 ): string {
   if (state === 'NOT_ASSESSED') {
     return `None of the ${m.questions} ${name} questions were attempted, so this attempt says nothing about the subject either way.`;
@@ -1373,19 +1413,21 @@ function diagnoseSubject(
   const acc = m.accuracy ?? 0;
   const cov = m.coverage ?? 0;
   const base = `${m.correct} of ${m.attempted} attempted correct (${acc}%), covering ${cov}% of the ${m.questions} questions`;
+  const topicNote = topicBreakdownNote(topics);
+  const tail = topicNote ? ` ${topicNote}` : '';
   if (acc < cfg.targetAccuracy && cov < cfg.targetCoverage) {
-    return `${base}. Both accuracy and coverage are holding the score back here.`;
+    return `${base}. Both accuracy and coverage are holding the score back here.${tail}`;
   }
   if (acc < cfg.targetAccuracy) {
-    return `${base}. Coverage is fine; the marks are being lost on accuracy.`;
+    return `${base}. Coverage is fine; the marks are being lost on accuracy.${tail}`;
   }
   if (cov < cfg.targetCoverage) {
-    return `${base}. Accuracy is sound — the marks left behind are the ones never attempted.`;
+    return `${base}. Accuracy is sound — the marks left behind are the ones never attempted.${tail}`;
   }
   if (isSlow) {
-    return `${base}, but at ${m.avgTimeSec}s per question this is slower than the rest of the paper.`;
+    return `${base}, but at ${m.avgTimeSec}s per question this is slower than the rest of the paper.${tail}`;
   }
-  return `${base}. Performing at target on the evidence available.`;
+  return `${base}. Performing at target on the evidence available.${tail}`;
 }
 
 export type VerdictSeverity = 'not_assessed' | 'needs_coverage' | 'needs_focus' | 'on_track';
@@ -1477,17 +1519,40 @@ function buildVerdict(
   };
 }
 
-/** One short encouragement line, keyed off the same severity the verdict card uses — so a report never shows a downbeat trophy card next to an "On track" verdict. */
+/**
+ * One short encouragement line for the Momentum tile — the same real,
+ * per-attempt fact `verdict.note` already carries (the specific subject/gap/
+ * blank-count behind this attempt's severity), not a generic line picked
+ * from four fixed options per severity. The four static strings this
+ * replaced said the same thing on every "needs_focus" attempt regardless of
+ * which subject or how big the gap actually was — `verdict.note` already
+ * names that (e.g. "Indian Polity alone is costing you the most marks"), so
+ * reusing it keeps this tile honest without a second, parallel copy of the
+ * same reasoning to keep in sync.
+ */
 export function motivationalNote(model: Pick<AttemptReportModel, 'verdict'>): string {
+  return model.verdict.note;
+}
+
+/**
+ * The Momentum tile's headline — was a JSX literal ("Keep going!") that never
+ * changed no matter what the attempt actually showed, including on a
+ * `not_assessed` attempt with nothing answered, where "keep going" describes
+ * nothing real yet. Keyed off the same real `verdict.severity` this file
+ * already computes from the attempt's own numbers, so the headline and the
+ * `motivationalNote` hint below it always agree with each other and with
+ * what actually happened.
+ */
+export function momentumHeadline(model: Pick<AttemptReportModel, 'verdict'>): string {
   switch (model.verdict.severity) {
     case 'not_assessed':
-      return 'Every attempt is a step closer to your goal.';
+      return 'Get started!';
     case 'needs_coverage':
-      return 'Reaching more of the paper is the fastest way to move this score.';
+      return 'Cover more ground!';
     case 'needs_focus':
-      return 'The accuracy gap is closing work, not starting-over work.';
+      return 'Sharpen accuracy!';
     case 'on_track':
-      return 'Keep this pace going — the target is in reach.';
+      return 'Keep going!';
   }
 }
 
@@ -1666,9 +1731,56 @@ function buildDiagnostics(
  * classification step and stays true to the sentence underneath it.
  */
 export function insightHeadline(f: DiagnosticFinding): string {
-  const words = f.text.replace(/[.,;:!?].*$/, '').split(/\s+/).filter(Boolean);
+  // Cuts at the first sentence-ending punctuation — but only when it actually
+  // ends a sentence (followed by whitespace or the end of the string), not
+  // when it's a decimal point inside a number like "7.7s". The naive
+  // `/[.,;:!?].*$/` cut on the bare period in "7.7s a question..." and
+  // truncated the whole headline down to "At 7".
+  const words = f.text
+    .replace(/[.,;:!?](?=\s|$).*$/, '')
+    .split(/\s+/)
+    .filter(Boolean);
   const headline = words.slice(0, 5).join(' ');
   return headline.length > 0 ? headline : `Insight ${f.rank}`;
+}
+
+const ANALYSIS_CONFIDENCE: Record<'low' | 'moderate' | 'high', Confidence> = {
+  low: 'LOW',
+  moderate: 'MEDIUM',
+  high: 'HIGH',
+};
+
+/** Why this particular line appears, in the same "said in words" register as
+ * the deterministic `basis` values elsewhere in this file — the new
+ * pipeline's findings don't carry a basis string of their own, since a
+ * backend-derived confidence + evidence list already says how grounded a
+ * claim is; this fills the field `DiagnosticFinding` still requires. */
+const ANALYSIS_BASIS: Record<AttemptAnalysisDiagnosis['findings'][number]['type'], string> = {
+  bottleneck: 'Ranked by the backend as one of this attempt’s biggest levers',
+  strategy: 'A pattern read across the whole attempt’s approach',
+  foothold: 'Ranked by the backend as a genuine strength to build from',
+  caveat: 'A limitation in this attempt’s evidence, worth knowing before acting on it',
+};
+
+/**
+ * The new pipeline's Diagnosis output (Prompt A), reshaped into the same
+ * `DiagnosticFinding[]` shape the Overview's "AI Performance Insights" cards
+ * already render — a data-source swap, not a new card. Returns `null` when
+ * the section is not ready yet, so a caller can fall back to
+ * `model.diagnostics` exactly as it already does for a missing
+ * `report_insights` cache.
+ */
+export function diagnosisFindingsToDisplay(
+  diagnosis: AttemptAnalysisDiagnosis | undefined,
+): DiagnosticFinding[] | null {
+  if (!diagnosis || !Array.isArray(diagnosis.findings) || diagnosis.findings.length === 0) return null;
+  return diagnosis.findings.map((f, i) => ({
+    rank: i + 1,
+    text: f.statement,
+    evidence: f.evidence ?? [],
+    confidence: ANALYSIS_CONFIDENCE[f.confidence],
+    basis: ANALYSIS_BASIS[f.type],
+  }));
 }
 
 function buildRadarInterpretation(subjects: SubjectNode[], cfg: ReportConfig): string[] {

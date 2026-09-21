@@ -5,7 +5,6 @@ import {
   GraduationCap,
   Home,
   LineChart,
-  TrendingUp,
   LogOut,
   Menu,
   Moon,
@@ -28,12 +27,17 @@ const NAV = [
   { to: '/user/dashboard', label: 'Dashboard', icon: Home },
   { to: '/user/exams', label: 'Exams', icon: ClipboardList },
   { to: '/user/performance', label: 'Performance', icon: LineChart },
-  { to: '/user/progress', label: 'Progress', icon: TrendingUp },
   { to: '/user/history', label: 'History', icon: Receipt },
   // Mock Tests and Practice are hidden: both are now reached through Exams → group →
   // stage, where the mock/practice tabs sit under the exam they belong to. A flat
   // top-level entry showed every group's papers at once, which the dashboard and
   // performance screens no longer do.
+  //
+  // Progress is hidden here too — it now lives only as a tab on the report-scoped
+  // navy bar (`ReportSubNav`), reached from a specific attempt's report, so it stays
+  // inside that flow's own navigation rather than bouncing out to this top-level
+  // chrome and losing the report tabs. `/user/progress` (no attempt) still exists as
+  // a direct route for the case that flow has no attempt to key off yet.
   //
   // Bookmarks, Notes and Notifications are hidden too. Bookmarks and Notes have no
   // backend to save against (§4 of TNPSC_DASHBOARD_API.md), and the notification
@@ -42,7 +46,7 @@ const NAV = [
 
 /** The four that fit a phone; the rest live behind the drawer. */
 const MOBILE_NAV = NAV.filter(n =>
-  ['/user/dashboard', '/user/exams', '/user/performance', '/user/progress'].includes(n.to),
+  ['/user/dashboard', '/user/exams', '/user/performance', '/user/history'].includes(n.to),
 );
 
 /** The chrome navy from the approved design. One definition, used everywhere. */

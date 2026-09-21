@@ -11,7 +11,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { useUserPortal } from '@/contexts/UserPortalContext';
-import { getAttemptDetail, type AttemptDetailResponse } from '@/lib/userPortalApi';
+import {
+  getAttemptAnalysis,
+  getAttemptDetail,
+  requestAttemptAnalysis,
+  type AttemptAnalysisResponse,
+  type AttemptDetailResponse,
+} from '@/lib/userPortalApi';
 import { buildAttemptReport, type AttemptReportModel } from '@/lib/attempt-report';
 import { resolveExamContext } from '@/lib/exam-report-config';
 
@@ -22,6 +28,7 @@ export function useAttemptReportModel(attemptId: string | undefined) {
   const [detail, setDetail] = useState<AttemptDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [analysis, setAnalysis] = useState<AttemptAnalysisResponse | null>(null);
 
   useEffect(() => {
     if (!attemptId) return;
@@ -31,6 +38,43 @@ export function useAttemptReportModel(attemptId: string | undefined) {
       .then(setDetail)
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
+  }, [attemptId]);
+
+  /**
+   * The new, six-prompt backend pipeline's output (see the backend LLM
+   * architecture overhaul plan) — a separate endpoint from `getAttemptDetail`
+   * above, so it is fetched independently. Same "prime the cache in the
+   * background" idiom `ReportBody.tsx` already uses for the older
+   * `/report-insights` endpoint: read what's ready now, and if generation
+   * has never been dispatched for this attempt, dispatch it fire-and-forget
+   * so a *later* view of this same report has it cached. A screen that reads
+   * `analysis` renders its deterministic fallback in the meantime — nothing
+   * here blocks the page.
+   */
+  useEffect(() => {
+    if (!attemptId) return;
+    getAttemptAnalysis(attemptId)
+      .then(result => {
+        setAnalysis(result);
+        // Dispatch whenever this attempt isn't fully done yet — not just
+        // "not_started". The backend task is itself idempotent (it only
+        // regenerates whichever sections aren't "ready" yet, see
+        // ai_tasks.py), so re-dispatching on a "generating" or "failed"
+        // response is exactly what lets a section that failed once (a
+        // transient OpenAI error, a config issue since fixed) actually get
+        // retried on a later view — gating this on "not_started" alone
+        // meant a failed section stayed failed forever, since nothing ever
+        // asked the backend to try it again.
+        if (result.status !== 'ready') {
+          requestAttemptAnalysis(attemptId).catch(() => {
+            // Best-effort — the deterministic report already renders in full.
+          });
+        }
+      })
+      .catch(() => {
+        // Best-effort: a screen reading `analysis` treats a null value the
+        // same as "not ready yet" and falls back to deterministic content.
+      });
   }, [attemptId]);
 
   // The attempt's own group/stage is exact; the aspirant's registered exam is a
@@ -51,5 +95,5 @@ export function useAttemptReportModel(attemptId: string | undefined) {
     return buildAttemptReport(detail, {}, examContext);
   }, [detail, examContext]);
 
-  return { detail, model, examContext, loading, failed };
+  return { detail, model, examContext, loading, failed, analysis };
 }
