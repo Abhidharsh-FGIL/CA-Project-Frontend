@@ -102,3 +102,98 @@ export function langModeOptions(translation: string): Array<{ value: LangMode; l
     { value: 'translation', label: TRANSLATION_LABELS[translation] ?? translation },
   ];
 }
+
+/**
+ * A single language, not a stacked pair.
+ *
+ * The test screen offers 'both' because a candidate sitting a bilingual paper
+ * reads one language and checks the other. A report's Question Review is read,
+ * not sat: stacking two copies of a five-option question doubles the card for
+ * no gain, so that screen offers a two-state toggle over these roles only.
+ */
+export type SingleLangMode = Exclude<LangMode, 'both'>;
+
+/** One question's displayable text, in whichever language was chosen. */
+export interface QuestionCopy {
+  body: string;
+  options: string[] | null;
+  explanation: string | null;
+}
+
+/**
+ * Which mode renders `preferred`, given the paper's translation language.
+ *
+ * Expressed in language codes rather than roles because "show English by
+ * default" has to hold either way round: these papers are written in Tamil with
+ * an English `translations.en`, but the reverse arrangement exists, and a
+ * default hardcoded to 'translation' would show Tamil on one and English on the
+ * other. Falls back to 'primary' for a paper with no translation at all, and
+ * for one whose two languages don't include the preferred one — showing the
+ * language the paper was written in beats showing nothing.
+ */
+export function defaultLangMode(translation: string | null, preferred = 'en'): SingleLangMode {
+  if (!translation) return 'primary';
+  return translation === preferred ? 'translation' : 'primary';
+}
+
+/**
+ * The two choices a toggle offers, `preferred` first so it reads as the default
+ * it is.
+ */
+export function langToggleOptions(
+  translation: string,
+  preferred = 'en',
+): Array<{ mode: SingleLangMode; code: string; label: string }> {
+  const entries: Array<{ mode: SingleLangMode; code: string }> = [
+    { mode: 'translation', code: translation },
+    { mode: 'primary', code: primaryLangOf(translation) },
+  ];
+  const ordered = [
+    ...entries.filter(e => e.code === preferred),
+    ...entries.filter(e => e.code !== preferred),
+  ];
+  return ordered.map(e => ({ ...e, label: TRANSLATION_LABELS[e.code] ?? e.code.toUpperCase() }));
+}
+
+/**
+ * Translated options, index by index, falling back to the original for any the
+ * translation is missing.
+ *
+ * Never returns a different length from `base`. The A–E letters on a review
+ * screen are positions, and the stored answers point at those positions — a
+ * translation that dropped or added an option would slide every letter after it
+ * and mark the wrong option as the candidate's. The backend states these arrays
+ * are index-aligned; this makes a payload that isn't harmless rather than
+ * silently wrong.
+ */
+function mergedOptions(base: string[] | null, translated: unknown): string[] | null {
+  if (!base) return base;
+  if (!Array.isArray(translated) || translated.length === 0) return base;
+  return base.map((o, i) => {
+    const t = translated[i];
+    return typeof t === 'string' && t.trim() ? t : o;
+  });
+}
+
+/**
+ * One question's text in the chosen language, falling back field by field.
+ *
+ * Partial translations are normal — a paper often carries a translated stem and
+ * options but leaves `explanation` in the original. Falling back per field
+ * means choosing English never blanks a card; it shows English wherever English
+ * exists and the original everywhere else.
+ */
+export function questionCopyForMode(
+  translations: Record<string, QuestionTranslationBlock> | null | undefined,
+  base: QuestionCopy,
+  translation: string | null,
+  mode: SingleLangMode,
+): QuestionCopy {
+  if (mode === 'primary' || !translation) return base;
+  const tr = translations?.[translation];
+  if (!tr) return base;
+  const text = typeof tr.text === 'string' && tr.text.trim() ? tr.text : base.body;
+  const explanation =
+    typeof tr.explanation === 'string' && tr.explanation.trim() ? tr.explanation : base.explanation;
+  return { body: text, options: mergedOptions(base.options, tr.options), explanation };
+}

@@ -697,9 +697,17 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
                             </p>
                           ) : (
                             subjectOptions.map((s: string) => (
-                              <label key={s} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer text-sm">
-                                <Checkbox checked={selectedSubjects.includes(s)} onCheckedChange={() => toggleSubject(s)} />
-                                {s}
+                              // items-start, not items-center: a real subject
+                              // name wraps to two or three lines here, and a
+                              // vertically centred checkbox next to a wrapped
+                              // label reads as belonging to the middle line.
+                              <label key={s} className="flex items-start gap-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer text-sm">
+                                <Checkbox
+                                  className="mt-0.5 shrink-0"
+                                  checked={selectedSubjects.includes(s)}
+                                  onCheckedChange={() => toggleSubject(s)}
+                                />
+                                <span className="min-w-0 leading-snug">{s}</span>
                               </label>
                             ))
                           )}
@@ -708,7 +716,15 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
                       {selectedSubjects.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {selectedSubjects.map(s => (
-                            <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+                            // whitespace-normal: Badge is nowrap by default, so a
+                            // long subject name pushed the chip past the panel.
+                            <Badge
+                              key={s}
+                              variant="secondary"
+                              className="text-xs whitespace-normal text-left leading-snug max-w-full"
+                            >
+                              {s}
+                            </Badge>
                           ))}
                         </div>
                       )}

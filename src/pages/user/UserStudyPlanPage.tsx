@@ -11,14 +11,17 @@ import { UserShell } from '@/components/user/UserShell';
 import { StudyPlanView } from '@/components/user/StudyPlanView';
 import { buildStudyPlan } from '@/lib/study-plan';
 import { useAttemptReportModel } from '@/hooks/use-attempt-report';
+import { ReportGate } from '@/components/user/report/ReportGate';
 
 export default function UserStudyPlanPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
-  const { model, loading, failed, analysis } = useAttemptReportModel(attemptId);
+  const { model, loading, failed, analysis, analysisPhase, retryAnalysis } = useAttemptReportModel(attemptId);
 
-  // The deterministic plan stays as the fallback while the new backend's
-  // priorities/weekly_plan/daily_plan aren't ready yet — see StudyPlanView.tsx.
+  // Built from the attempt's own answers, and only ever rendered once the
+  // backend's own weekly_plan has arrived (see the ReportGate below) — it is
+  // the scaffold StudyPlanView fills with the real plan, not a stand-in shown
+  // while there isn't one.
   const plan = useMemo(() => (model ? buildStudyPlan(model) : null), [model]);
 
   if (loading) {
@@ -45,7 +48,14 @@ export default function UserStudyPlanPage() {
 
   return (
     <UserShell>
-      <StudyPlanView plan={plan} model={model} analysis={analysis} onBack={() => navigate(`/user/report/${attemptId}`)} />
+      <ReportGate
+        phase={analysisPhase}
+        analysis={analysis}
+        section="weekly_plan"
+        onRetry={retryAnalysis}
+      >
+        <StudyPlanView plan={plan} model={model} analysis={analysis} onBack={() => navigate(`/user/report/${attemptId}`)} />
+      </ReportGate>
     </UserShell>
   );
 }

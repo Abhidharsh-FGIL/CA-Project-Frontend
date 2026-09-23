@@ -710,17 +710,43 @@ export type MistakeCategory =
   | 'cannot_determine';
 
 /**
- * A displayed mistake category — the LLM classified each wrong answer
- * individually; this is the backend's own count and display-threshold
- * decision (count ≥ 3, ≥ 2 supporting questions, average confidence ≥
- * threshold), never something the frontend recomputes.
+ * One mistake category the backend grouped this attempt's wrong answers into.
+ * The LLM classified each wrong answer individually; the count and the `tier`
+ * banding are the backend's own (count ≥ 3, ≥ 2 supporting questions, average
+ * confidence ≥ threshold → "confirmed"), never something the frontend
+ * recomputes.
+ *
+ * `tier` distinguishes a settled repeated pattern from one that was classified
+ * but doesn't yet repeat often or confidently enough to be called one. Both are
+ * shown — an emerging row is still real wrong answers, and hiding it is how
+ * the screen used to total 22 questions out of 122.
  */
 export interface AttemptAnalysisErrorCluster {
   category: MistakeCategory;
+  tier?: 'confirmed' | 'emerging';
   count: number;
   supporting_question_ids: string[];
   average_confidence: number;
   sample_reason: string;
+}
+
+/**
+ * Mistake Intelligence's whole screen. Every incorrect question in the attempt
+ * lands in exactly one of the three `coverage` buckets, so
+ * `coverage.confirmed + coverage.emerging + coverage.undetermined ===
+ * total_incorrect` — the screen states that denominator rather than implying
+ * the rows it renders are all the wrong answers there were.
+ *
+ * `undetermined` is the `cannot_determine` residue kept out of `patterns` on
+ * purpose: it is not a pattern, it is the honest remainder, and on most real
+ * attempts it is large enough that ranking it by count would put "cannot
+ * determine" at the top of the screen.
+ */
+export interface AttemptAnalysisErrorIntelligence {
+  total_incorrect: number;
+  patterns: AttemptAnalysisErrorCluster[];
+  undetermined: { count: number; question_ids: string[] };
+  coverage: { confirmed: number; emerging: number; undetermined: number };
 }
 
 export type PriorityLevel = 'subject' | 'topic' | 'subtopic' | 'subject_foundation';
@@ -836,7 +862,9 @@ export interface AttemptAnalysisResponse {
   topic_diagnoses?: AttemptAnalysisTopicDiagnosis[];
   subject_diagnoses?: AttemptAnalysisSubjectDiagnosis[];
   diagnostic_insights?: Record<string, AttemptAnalysisDiagnosticInsight>;
-  error_intelligence?: AttemptAnalysisErrorCluster[];
+  /** An older backend returns the bare cluster array this replaced — see
+   * MistakeIntelligence.tsx, which normalises both shapes. */
+  error_intelligence?: AttemptAnalysisErrorIntelligence | AttemptAnalysisErrorCluster[];
   weekly_plan?: AttemptAnalysisWeeklyPlan;
   daily_plan?: DailyPlanEntry[];
   progress_insights?: unknown;

@@ -10,18 +10,29 @@
  * "Why the correct answer is right", from `explanation`/`tip` — is now the
  * only card, shown for every question regardless of whether the answer was
  * right, wrong, or skipped, instead of being duplicated/varied by outcome.
+ *
+ * A bilingual paper (TNPSC prints Parts B and C in Tamil and English) carries
+ * the second language under `translations`, index-aligned with `options`. This
+ * screen reads English by default and offers a toggle back to the language the
+ * paper was written in. The toggle appears only on a paper that actually
+ * carries both — a control that changes nothing on screen teaches the reader to
+ * distrust the ones that do.
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, XCircle, Sparkles } from 'lucide-react';
 import type { AttemptReportModel, SubjectNode } from '@/lib/attempt-report';
 import { answerLetter, isAttempted } from '@/components/user/report/SubjectQuestionsPage';
 import { ReportCard } from '@/components/user/report-ui';
+import {
+  defaultLangMode,
+  langToggleOptions,
+  paperTranslationLang,
+  questionCopyForMode,
+  type SingleLangMode,
+} from '@/lib/question-language';
+import { plainText } from '@/lib/question-text';
 import { cn } from '@/lib/utils';
-
-function stripHtml(s: string | null | undefined): string {
-  return (s ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-}
 
 export function QuestionReviewPage({
   model,
@@ -46,6 +57,23 @@ export function QuestionReviewPage({
   const currentIndex = subjectQuestions.findIndex(q => q.question_id === questionId);
   const q = subjectQuestions[currentIndex];
 
+  /**
+   * The language this paper can be switched into, read across the whole
+   * attempt rather than the question on screen: a single question missing its
+   * translation must not make the toggle flicker away as the reader pages past
+   * it. `questionCopyForMode` falls back per field, so the toggle stays
+   * harmless on such a question.
+   */
+  const trLang = useMemo(
+    () => paperTranslationLang(model.questions ?? [], x => x.body),
+    [model.questions],
+  );
+  // Null until the reader chooses, rather than seeded from `trLang` — `trLang`
+  // is only known once the model has loaded, and seeding state from it would
+  // need an effect to correct itself afterwards.
+  const [chosenMode, setChosenMode] = useState<SingleLangMode | null>(null);
+  const langMode = chosenMode ?? defaultLangMode(trLang);
+
   const goTo = (i: number) => {
     const target = subjectQuestions[i];
     if (target) navigate(`/user/report/${attemptId}/subjects/${subject.subjectId}/questions/${target.question_id}`);
@@ -60,9 +88,20 @@ export function QuestionReviewPage({
   }
 
   const attempted = isAttempted(q);
+  // Letters are resolved against the ORIGINAL options, never the translated
+  // ones: `answerLetter` can match an answer stored as the option's own text,
+  // and that text is in the language the paper was written in.
   const userLetter = answerLetter(q.user_answer, q.options);
   const correctLetter = answerLetter(q.correct_answer, q.options);
-  const explanation = stripHtml(q.explanation) || stripHtml(q.tip) || 'No explanation was recorded for this question.';
+
+  const copy = questionCopyForMode(
+    q.translations,
+    { body: q.body, options: q.options, explanation: q.explanation },
+    trLang,
+    langMode,
+  );
+  const explanation =
+    plainText(copy.explanation) || plainText(q.tip) || 'No explanation was recorded for this question.';
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4">
@@ -74,6 +113,30 @@ export function QuestionReviewPage({
           <ArrowLeft className="w-4 h-4" /> Back to Question Insights
         </button>
         <div className="inline-flex items-center gap-2">
+          {trLang && (
+            <div
+              role="group"
+              aria-label="Question language"
+              className="inline-flex items-center rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden mr-1"
+            >
+              {langToggleOptions(trLang).map(o => (
+                <button
+                  key={o.mode}
+                  type="button"
+                  onClick={() => setChosenMode(o.mode)}
+                  aria-pressed={langMode === o.mode}
+                  className={cn(
+                    'text-[11px] font-semibold px-2.5 py-1 transition-colors',
+                    langMode === o.mode
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800',
+                  )}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             type="button"
             onClick={() => goTo(currentIndex - 1)}
@@ -98,11 +161,14 @@ export function QuestionReviewPage({
 
       <div className="grid lg:grid-cols-[1.6fr_1fr] gap-4 items-start">
         <ReportCard>
-          <p className="text-[13px] font-bold text-[#1e2a5a] dark:text-gray-100 mb-3">
-            Q{q.number}. {stripHtml(q.body)}
+          {/* whitespace-pre-wrap: a stem that the paper set across several
+              lines — assertion/reason, match-the-following, a quoted passage —
+              keeps them. */}
+          <p className="text-[13px] font-bold text-[#1e2a5a] dark:text-gray-100 mb-3 whitespace-pre-wrap">
+            Q{q.number}. {plainText(copy.body)}
           </p>
           <div className="space-y-2">
-            {(q.options ?? []).map((opt, i) => {
+            {(copy.options ?? []).map((opt, i) => {
               const letter = String.fromCharCode(65 + i);
               const isUser = attempted && letter === userLetter;
               const isCorrect = letter === correctLetter;
@@ -130,7 +196,7 @@ export function QuestionReviewPage({
                   >
                     {isCorrect ? <CheckCircle2 className="w-3.5 h-3.5" /> : isUser ? <XCircle className="w-3.5 h-3.5" /> : letter}
                   </span>
-                  <span className="flex-1 text-[12px] text-gray-700 dark:text-gray-200">{stripHtml(opt)}</span>
+                  <span className="flex-1 text-[12px] text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{plainText(opt)}</span>
                   {isUser && (
                     <span className="flex-shrink-0 text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-white dark:bg-gray-900 rounded-md px-2 py-0.5">
                       Your Answer
@@ -173,7 +239,14 @@ export function QuestionReviewPage({
         <p className="inline-flex items-center gap-1.5 text-[12px] font-bold text-emerald-600 dark:text-emerald-400 mb-1.5">
           <CheckCircle2 className="w-3.5 h-3.5" /> {attempted ? 'Why the correct answer is right' : 'This question was not attempted — why the correct answer is right'}
         </p>
-        <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">{explanation}</p>
+        {/* The card this screen exists for. Explanations arrive as structured
+            prose — verdict, concept section, bullets, "why the others are
+            wrong", exam tip — and every one of those breaks is a `
+` that a
+            default `<p>` would collapse away. */}
+        <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
+          {explanation}
+        </p>
       </ReportCard>
 
       <ReportCard className="flex flex-wrap items-center justify-between gap-3 bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-100 dark:border-indigo-900">

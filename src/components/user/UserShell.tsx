@@ -18,6 +18,7 @@ import {
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
+import { BILLING_ENABLED } from '@/config/features';
 
 interface UserShellProps {
   children: ReactNode;
@@ -84,7 +85,10 @@ export function UserShell({ children }: UserShellProps) {
   if (!user) return null;
 
   const planLabel = PLAN_LABEL[user.subscription_tier] ?? 'Free Plan';
-  const isFree = user.subscription_tier === 'free';
+  // Every upgrade prompt is gated on the same flag, so plans cannot come
+  // back in one corner of the chrome and stay hidden in another.
+  const showBilling = BILLING_ENABLED;
+  const isFree = showBilling && user.subscription_tier === 'free';
   const isActive = (to: string) => pathname === to || pathname.startsWith(to + '/');
 
   const brand = (
@@ -257,7 +261,7 @@ export function UserShell({ children }: UserShellProps) {
                   </div>
                   <div className="hidden sm:block text-left leading-tight">
                     <p className="text-xs font-semibold text-white max-w-[110px] truncate">{user.name}</p>
-                    <p className="text-[10px] text-white/60">{planLabel}</p>
+                    {showBilling && <p className="text-[10px] text-white/60">{planLabel}</p>}
                   </div>
                 </button>
                 {menuOpen && (
@@ -269,8 +273,12 @@ export function UserShell({ children }: UserShellProps) {
                     {[
                       { to: '/user/profile', label: 'Profile', icon: User },
                       { to: '/user/profile?tab=settings', label: 'Settings', icon: Settings },
-                      { to: '/user/subscription', label: 'Subscription', icon: Sparkles },
-                      { to: '/user/billing', label: 'Payment History', icon: Receipt },
+                      ...(showBilling
+                        ? [
+                            { to: '/user/subscription', label: 'Subscription', icon: Sparkles },
+                            { to: '/user/billing', label: 'Payment History', icon: Receipt },
+                          ]
+                        : []),
                     ].map(({ to, label, icon: Icon }) => (
                       <Link
                         key={label}

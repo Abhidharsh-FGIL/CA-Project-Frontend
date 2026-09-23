@@ -4,10 +4,11 @@ import { UserShell } from '@/components/user/UserShell';
 import { ReportSubNav } from '@/components/user/ReportSubNav';
 import { ReportOverview } from '@/components/user/report/ReportOverview';
 import { useAttemptReportModel } from '@/hooks/use-attempt-report';
+import { ReportGate } from '@/components/user/report/ReportGate';
 
 export default function UserReportPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
-  const { model, examContext, loading, failed, analysis } = useAttemptReportModel(attemptId);
+  const { model, examContext, loading, failed, analysis, analysisPhase, retryAnalysis } = useAttemptReportModel(attemptId);
 
   if (!attemptId) return <Navigate to="/user/history" replace />;
 
@@ -27,7 +28,9 @@ export default function UserReportPage() {
           </div>
         </div>
       ) : (
-        <ReportOverview model={model} exam={examContext} analysis={analysis} />
+        <ReportGate phase={analysisPhase} analysis={analysis} onRetry={retryAnalysis}>
+          <ReportOverview model={model} exam={examContext} analysis={analysis} />
+        </ReportGate>
       )}
     </UserShell>
   );

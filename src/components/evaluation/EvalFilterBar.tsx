@@ -41,13 +41,30 @@ export function EvalFilterBar({
         />
       </div>
 
+      {/* Sized for the names that actually arrive. A real subject here reads
+          "History, Culture, Heritage and Socio-Political Movements of Tamil
+          Nadu" — at the 140px this used to be, the trigger's line-clamp cut
+          every one of them to a few words, and an un-truncated 60-character
+          item stretched the dropdown panel past the edge of the screen. The
+          trigger carries the full name as a tooltip for the part that still
+          doesn't fit, and items wrap rather than truncate so nothing is
+          unreadable. */}
       <Select value={subject} onValueChange={onSubjectChange}>
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger
+          className="w-[160px] sm:w-[220px]"
+          title={subject && subject !== 'all' ? subject : undefined}
+        >
           <SelectValue placeholder="Subject" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="max-w-[min(92vw,28rem)]">
           <SelectItem value="all">All Subjects</SelectItem>
-          {subjects.filter(s => s && s.trim() !== '').map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          {subjects
+            .filter(s => s && s.trim() !== '')
+            .map(s => (
+              <SelectItem key={s} value={s} className="whitespace-normal leading-snug">
+                {s}
+              </SelectItem>
+            ))}
         </SelectContent>
       </Select>
 

@@ -7,10 +7,11 @@ import { UserShell } from '@/components/user/UserShell';
 import { ReportSubNav } from '@/components/user/ReportSubNav';
 import { ReportInsights } from '@/components/user/report/ReportInsights';
 import { useAttemptReportModel } from '@/hooks/use-attempt-report';
+import { ReportGate } from '@/components/user/report/ReportGate';
 
 export default function UserReportInsightsPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
-  const { model, loading, failed, analysis } = useAttemptReportModel(attemptId);
+  const { model, loading, failed, analysis, analysisPhase, retryAnalysis } = useAttemptReportModel(attemptId);
   if (!attemptId) return <Navigate to="/user/history" replace />;
 
   return (
@@ -25,7 +26,9 @@ export default function UserReportInsightsPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">This attempt's detail could not be loaded.</p>
         </div>
       ) : (
-        <ReportInsights model={model} analysis={analysis} />
+        <ReportGate phase={analysisPhase} analysis={analysis} section="topic_diagnoses" onRetry={retryAnalysis}>
+          <ReportInsights model={model} analysis={analysis} />
+        </ReportGate>
       )}
     </UserShell>
   );

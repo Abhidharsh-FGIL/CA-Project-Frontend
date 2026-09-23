@@ -6,6 +6,7 @@ import { User, Lock, Bell, Monitor, Trash2, Crown, Mail, Phone, Calendar } from 
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getPlan } from '@/data/userPortalSampleData';
+import { BILLING_ENABLED } from '@/config/features';
 
 export default function UserProfilePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,6 +44,7 @@ export default function UserProfilePage() {
               </div>
             </div>
             <div className="flex gap-2 flex-wrap sm:pb-2">
+              {BILLING_ENABLED && (
               <span
                 className={cn(
                   'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold',
@@ -58,6 +60,7 @@ export default function UserProfilePage() {
                 {user.subscription_tier === 'premium' && <Crown className="w-3 h-3" />}
                 {plan.name} Plan
               </span>
+              )}
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                 {history.length} tests taken
               </span>

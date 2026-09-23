@@ -56,6 +56,7 @@ import UserPerformancePage from "@/pages/user/UserPerformancePage";
 import UserProgressPage from "@/pages/user/UserProgressPage";
 import UserStudyPlanPage from "@/pages/user/UserStudyPlanPage";
 import UserSavedPage from "@/pages/user/UserSavedPage";
+import { BILLING_ENABLED } from '@/config/features';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -201,9 +202,18 @@ function UserPortalRoutes() {
           />
           <Route path="report/:attemptId/mistakes" element={<UserMistakeIntelligencePage />} />
           <Route path="profile" element={<UserProfilePage />} />
-          <Route path="subscription" element={<SubscriptionPage />} />
+          {/* Hidden, not removed: the pages still build, but with billing off
+              a bookmarked or hand-typed URL lands on the dashboard rather than
+              on a plan picker the rest of the app no longer links to. */}
+          <Route
+            path="subscription"
+            element={BILLING_ENABLED ? <SubscriptionPage /> : <Navigate to="/user/dashboard" replace />}
+          />
           <Route path="notifications" element={<NotificationsPage />} />
-          <Route path="billing" element={<PaymentHistoryPage />} />
+          <Route
+            path="billing"
+            element={BILLING_ENABLED ? <PaymentHistoryPage /> : <Navigate to="/user/dashboard" replace />}
+          />
           <Route path="assessment/:assessmentId" element={<UserEvalAssessmentPage />} />
         </Route>
       </Routes>

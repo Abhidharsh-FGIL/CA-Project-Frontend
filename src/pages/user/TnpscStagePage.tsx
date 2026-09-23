@@ -36,6 +36,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BILLING_ENABLED } from '@/config/features';
 
 type Tab = 'mock' | 'practice';
 
@@ -507,12 +508,20 @@ function PaperCard({
         </span>
 
         {test.is_locked ? (
-          <Link
-            to="/user/subscription"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40"
-          >
-            <Lock className="w-3 h-3" /> Upgrade <Sparkles className="w-3 h-3" />
-          </Link>
+          // With billing hidden there is nowhere for an Upgrade link to go, so
+          // the chip states the fact and stops there.
+          BILLING_ENABLED ? (
+            <Link
+              to="/user/subscription"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40"
+            >
+              <Lock className="w-3 h-3" /> Upgrade <Sparkles className="w-3 h-3" />
+            </Link>
+          ) : (
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg">
+            <Lock className="w-3 h-3" /> Locked
+          </span>
+          )
         ) : exhausted ? (
           <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg">
             <Lock className="w-3 h-3" /> No attempts left

@@ -7,10 +7,11 @@ import { UserShell } from '@/components/user/UserShell';
 import { ReportSubNav } from '@/components/user/ReportSubNav';
 import { MistakeIntelligence } from '@/components/user/report/MistakeIntelligence';
 import { useAttemptReportModel } from '@/hooks/use-attempt-report';
+import { ReportGate } from '@/components/user/report/ReportGate';
 
 export default function UserMistakeIntelligencePage() {
   const { attemptId } = useParams<{ attemptId: string }>();
-  const { model, loading, failed, analysis } = useAttemptReportModel(attemptId);
+  const { model, loading, failed, analysis, analysisPhase, retryAnalysis } = useAttemptReportModel(attemptId);
   if (!attemptId) return <Navigate to="/user/history" replace />;
 
   return (
@@ -25,7 +26,9 @@ export default function UserMistakeIntelligencePage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">This attempt's detail could not be loaded.</p>
         </div>
       ) : (
-        <MistakeIntelligence model={model} analysis={analysis} />
+        <ReportGate phase={analysisPhase} analysis={analysis} section="error_intelligence" onRetry={retryAnalysis}>
+          <MistakeIntelligence model={model} analysis={analysis} />
+        </ReportGate>
       )}
     </UserShell>
   );

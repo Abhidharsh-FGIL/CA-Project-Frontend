@@ -181,3 +181,62 @@ export function cleanQuestionText<T extends Record<string, any>>(q: T): T {
     : q.translations;
   return { ...q, text, ...(q.translations ? { translations } : {}) };
 }
+
+/**
+ * Plain text from a question field, with the author's own line breaks intact.
+ *
+ * Explanations are written as structured prose — a verdict line, a blank line,
+ * a headed concept section, bulleted points, a "why the other options are
+ * wrong" list, an exam tip — and all of that structure lives in the `\n`
+ * characters the backend sends. The report used to clean these fields with a
+ * `\s+ -> ' '` collapse, which treats a newline as just another space: the
+ * whole thing arrived on screen as one unbroken wall of text, every heading and
+ * bullet run together mid-line.
+ *
+ * So this collapses runs of spaces and tabs, as a cleaner should, and leaves
+ * newlines alone. Block-level HTML is converted to the breaks it stands for
+ * before the tags are stripped, so an explanation authored as markup breaks in
+ * the same places as one authored as plain text. Three or more consecutive
+ * newlines become one blank line, so a field with loose spacing does not open a
+ * gap the size of the card.
+ *
+ * Render the result with `whitespace-pre-wrap`; without it the browser will
+ * collapse the newlines straight back out again.
+ */
+export function plainText(s: string | null | undefined): string {
+  if (!s) return '';
+  return (
+    s
+      // Breaks the markup stands for, recovered before the tags are removed.
+      .replace(/<br\s*\/?>/gi, '\n')
+      // `li` is closed by the opening tag of the next item, which already
+      // starts a line - listing it here as well put a blank line between
+      // every bullet. `ul`/`ol` close so a list is separated from the prose
+      // that follows it.
+      .replace(/<\/(?:p|div|tr|ul|ol|h[1-6]|blockquote)\s*>/gi, '\n')
+      .replace(/<li\b[^>]*>/gi, '\n• ')
+      .replace(/<[^>]+>/g, ' ')
+      // Entities the stripped tags leave behind. `&amp;` is decoded last so
+      // that "&amp;lt;" survives as the literal "&lt;" the author wrote.
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#0*39;/g, "'")
+      .replace(/&amp;/gi, '&')
+      .replace(/\r\n?/g, '\n')
+      // [^\S\n] is "whitespace that is not a newline" — the whole point.
+      .replace(/[^\S\n]+/g, ' ')
+      .replace(/ *\n */g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  );
+}
+
+/**
+ * The same text as a single line, for places that need to match or measure it
+ * rather than display it — a search box, a table cell, a tooltip.
+ */
+export function plainTextOneLine(s: string | null | undefined): string {
+  return plainText(s).replace(/\s+/g, ' ').trim();
+}

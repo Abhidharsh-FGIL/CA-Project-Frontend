@@ -8,11 +8,12 @@ import { UserShell } from '@/components/user/UserShell';
 import { ReportSubNav } from '@/components/user/ReportSubNav';
 import { SubjectQuestionsPage } from '@/components/user/report/SubjectQuestionsPage';
 import { useAttemptReportModel } from '@/hooks/use-attempt-report';
+import { ReportGate } from '@/components/user/report/ReportGate';
 
 export default function UserSubjectQuestionsPage() {
   const { attemptId, subjectId } = useParams<{ attemptId: string; subjectId: string }>();
   const navigate = useNavigate();
-  const { model, loading, failed } = useAttemptReportModel(attemptId);
+  const { model, loading, failed, analysis, analysisPhase, retryAnalysis } = useAttemptReportModel(attemptId);
   if (!attemptId) return <Navigate to="/user/history" replace />;
 
   const subject = model?.subjects.find(s => s.subjectId === subjectId);
@@ -39,7 +40,9 @@ export default function UserSubjectQuestionsPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">This subject wasn't found on this attempt.</p>
         </div>
       ) : (
-        <SubjectQuestionsPage model={model} subject={subject} />
+        <ReportGate phase={analysisPhase} analysis={analysis} onRetry={retryAnalysis}>
+          <SubjectQuestionsPage model={model} subject={subject} />
+        </ReportGate>
       )}
     </UserShell>
   );

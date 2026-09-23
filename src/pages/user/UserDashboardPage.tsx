@@ -57,6 +57,7 @@ import {
   type UserDashboardAnalytics,
 } from '@/lib/userDashboardApi';
 import { cn } from '@/lib/utils';
+import { BILLING_ENABLED } from '@/config/features';
 
 // Validated for colour-blind separation (see dataviz validator). Do not extend past
 // seven: a 14-hue version failed deutan separation, which is why more than seven
@@ -838,7 +839,7 @@ export default function UserDashboardPage() {
             </div>
           </Card>
 
-          {user.subscription_tier === 'free' && (
+          {BILLING_ENABLED && user.subscription_tier === 'free' && (
             <div className="rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 p-4 text-white">
               <Sparkles className="w-5 h-5 mb-2" />
               <p className="text-sm font-bold">Unlock unlimited mocks, detailed analytics &amp; more</p>

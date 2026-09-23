@@ -13,11 +13,12 @@ import { UserShell } from '@/components/user/UserShell';
 import { ReportSubNav } from '@/components/user/ReportSubNav';
 import { SubjectPerformance } from '@/components/user/AttemptDiagnosticReport';
 import { useAttemptReportModel } from '@/hooks/use-attempt-report';
+import { ReportGate } from '@/components/user/report/ReportGate';
 
 export default function UserAllSubjectsPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
-  const { model, loading, failed } = useAttemptReportModel(attemptId);
+  const { model, loading, failed, analysis, analysisPhase, retryAnalysis } = useAttemptReportModel(attemptId);
   if (!attemptId) return <Navigate to="/user/history" replace />;
 
   return (
@@ -38,11 +39,13 @@ export default function UserAllSubjectsPage() {
         ) : failed || !model ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">This attempt's detail could not be loaded.</p>
         ) : (
-          <SubjectPerformance
-            model={model}
-            expanded={null}
-            onToggle={subjectId => navigate(`/user/report/${attemptId}/subjects/${subjectId}`)}
-          />
+          <ReportGate phase={analysisPhase} analysis={analysis} onRetry={retryAnalysis}>
+            <SubjectPerformance
+              model={model}
+              expanded={null}
+              onToggle={subjectId => navigate(`/user/report/${attemptId}/subjects/${subjectId}`)}
+            />
+          </ReportGate>
         )}
       </div>
     </UserShell>

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { BILLING_ENABLED } from '@/config/features';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -409,24 +410,33 @@ function TestCard({
               {TIER_LABEL[test.required_tier ?? 'free'] ?? test.required_tier ?? 'Free'}
             </span>
           </span>
-          {(test.price ?? 0) > 0 ? (
-            <span className="inline-flex items-center text-[11px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded">
-              ₹{test.price}
-            </span>
-          ) : (
-            <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
-              FREE
-            </span>
-          )}
+          {BILLING_ENABLED &&
+            ((test.price ?? 0) > 0 ? (
+              <span className="inline-flex items-center text-[11px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded">
+                ₹{test.price}
+              </span>
+            ) : (
+              <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
+                FREE
+              </span>
+            ))}
         </div>
 
         {test.is_locked ? (
-          <button
-            onClick={e => { e.stopPropagation(); navigate('/user/subscription'); }}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
-          >
-            <Lock className="w-3 h-3" /> Upgrade <Sparkles className="w-3 h-3" />
-          </button>
+          // With billing hidden there is nowhere for an Upgrade action to go,
+          // so the chip states the fact and stops there.
+          BILLING_ENABLED ? (
+            <button
+              onClick={e => { e.stopPropagation(); navigate('/user/subscription'); }}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+            >
+              <Lock className="w-3 h-3" /> Upgrade <Sparkles className="w-3 h-3" />
+            </button>
+          ) : (
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg">
+            <Lock className="w-3 h-3" /> Locked
+          </span>
+          )
         ) : exhausted ? (
           <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg cursor-not-allowed"
             onClick={e => e.stopPropagation()}>
