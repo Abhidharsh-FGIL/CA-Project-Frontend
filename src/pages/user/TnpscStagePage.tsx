@@ -3,12 +3,16 @@ import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-r
 import { UserShell } from '@/components/user/UserShell';
 import { useTnpscCatalog, useTnpscMockTests, useTnpscPracticeTests } from '@/hooks/use-tnpsc';
 import {
+  LEVELS_HIDDEN,
   LEVEL_GATE_ENABLED,
   LEVEL_META,
   LEVEL_PASS_PERCENTAGE,
   PRACTICE_MAX_QUESTIONS,
   PRACTICE_MIN_QUESTIONS,
+  SINGLE_LEVEL_BLURB,
+  SINGLE_LEVEL_HEADING,
   TNPSC_LEVELS,
+  VISIBLE_LEVELS,
   answeredCount,
   findStage,
   negativeMarkingLabel,
@@ -58,7 +62,15 @@ export default function TnpscStagePage() {
   const mock = useTnpscMockTests(groupId, stageId);
   const practice = useTnpscPracticeTests(groupId, stageId);
 
-  const mockCount = useMemo(() => mock.levels.reduce((n, l) => n + l.tests_total, 0), [mock.levels]);
+  // Counts only what the aspirant can actually open, so the tab badge and the
+  // list below cannot disagree about how many papers there are.
+  const mockCount = useMemo(
+    () =>
+      mock.levels
+        .filter(l => VISIBLE_LEVELS.includes(l.level))
+        .reduce((n, l) => n + l.tests_total, 0),
+    [mock.levels],
+  );
   const practiceCount = useMemo(
     () => practice.subjects.reduce((n, s) => n + s.tests.length, 0),
     [practice.subjects],
@@ -183,7 +195,11 @@ function MockTrack({
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
             Every mock follows the real exam pattern
             {totalQuestions ? ` — ${totalQuestions} questions in one sitting` : ''}.{' '}
-            {LEVEL_GATE_ENABLED ? (
+            {LEVELS_HIDDEN ? (
+              <>
+                A paper counts as <b>cleared</b> once you score {passPercentage}% or more.
+              </>
+            ) : LEVEL_GATE_ENABLED ? (
               <>
                 Score <b>{passPercentage}% or more</b> in a <b>Simple</b> mock to unlock <b>Medium</b>,
                 and in a <b>Medium</b> mock to unlock <b>Complex</b>.
@@ -198,12 +214,14 @@ function MockTrack({
         </div>
       </div>
 
-      {/* Progression rail */}
-      <LevelRail levels={levels} />
+      {/* Progression rail — a one-step rail is decoration, so it goes with the levels. */}
+      {!LEVELS_HIDDEN && <LevelRail levels={levels} />}
 
-      {levels.map(level => (
-        <LevelSection key={level.level} group={level} />
-      ))}
+      {levels
+        .filter(level => VISIBLE_LEVELS.includes(level.level))
+        .map(level => (
+          <LevelSection key={level.level} group={level} />
+        ))}
     </div>
   );
 }
@@ -266,18 +284,30 @@ function LevelSection({ group }: { group: TnpscLevelGroup }) {
               locked ? 'from-gray-300 to-gray-400 dark:from-gray-700 dark:to-gray-600' : meta.accent,
             )}
           >
-            {locked ? <Lock className="w-5 h-5" /> : <span className="text-sm font-bold">{meta.order}</span>}
+            {/* The step number belongs to a sequence. With one group on screen
+                there is no sequence, so it gives way to the paper icon. */}
+            {locked ? (
+              <Lock className="w-5 h-5" />
+            ) : LEVELS_HIDDEN ? (
+              <FileText className="w-5 h-5" />
+            ) : (
+              <span className="text-sm font-bold">{meta.order}</span>
+            )}
           </span>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">{meta.label} Level</h3>
+              <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">
+                {LEVELS_HIDDEN ? SINGLE_LEVEL_HEADING : `${meta.label} Level`}
+              </h3>
               {group.is_completed && !locked && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full">
                   <CheckCircle2 className="w-3 h-3" /> Cleared
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{meta.blurb}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              {LEVELS_HIDDEN ? SINGLE_LEVEL_BLURB : meta.blurb}
+            </p>
           </div>
         </div>
 
@@ -311,7 +341,9 @@ function LevelSection({ group }: { group: TnpscLevelGroup }) {
           <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md mx-auto">
             {group.lock_reason
               ? `${group.lock_reason} These papers exist but are not being served yet.`
-              : `No ${meta.label.toLowerCase()} mock tests published yet.`}
+              : LEVELS_HIDDEN
+                ? 'No mock tests published yet.'
+                : `No ${meta.label.toLowerCase()} mock tests published yet.`}
           </p>
         </div>
       ) : (
@@ -478,7 +510,9 @@ function PaperCard({
           <MiniChip icon={<Clock className="w-3 h-3" />} label={`${test.time_limit_minutes} min`} />
         ) : null}
         {test.max_marks > 0 && <MiniChip icon={null} label={`${test.max_marks} marks`} />}
-        {test.level && (
+        {/* The level pill names a difficulty the portal is not offering a choice
+            between, so it goes while the levels are hidden. */}
+        {test.level && !LEVELS_HIDDEN && (
           <span className={cn('text-[11px] font-semibold px-2 py-1 rounded-md border', LEVEL_META[test.level as TnpscLevel].chip)}>
             {LEVEL_META[test.level as TnpscLevel].label}
           </span>

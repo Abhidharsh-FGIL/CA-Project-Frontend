@@ -52,7 +52,7 @@ import {
   type SubmitAttemptResponse,
 } from '@/lib/userPortalApi';
 import { toast } from 'sonner';
-import { normaliseOption, parseOptionRepr, stripInlineOptions } from '@/lib/question-text';
+import { normaliseLineBreaks, normaliseOption, parseOptionRepr, stripInlineOptions } from '@/lib/question-text';
 
 // ─── Option helpers (support text and image options) ────────────────────────────
 type DisplayOption = {
@@ -786,7 +786,7 @@ function QuestionView({
       {showResult && question.explanation && (
         <div className="ml-5 mt-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-300">
           <p className="font-medium text-xs mb-1">Explanation</p>
-          <MathText text={question.explanation} />
+          <MathText as="div" className="whitespace-pre-line" text={normaliseLineBreaks(question.explanation)} />
         </div>
       )}
     </div>
@@ -859,8 +859,9 @@ export function UserEvalAssessmentPage() {
       .filter((n): n is { section: string; value: number } => n.value != null);
   }, [examStage]);
 
-  // Section A's 60 first, then Section B's 100 — the order the paper is actually
-  // sat in. Everything downstream (numbering, palette, filters, next/previous) reads
+  // The order the paper is actually sat in — GAT-B's Section A before Section B,
+  // Group 4's 100 language questions before its 100 General Studies and Aptitude
+  // ones. Everything downstream (numbering, palette, filters, next/previous) reads
   // this list, so they all agree without further work.
   const questions = useMemo(
     () => orderBySection(examStage, rawQuestions, q => q.subject),

@@ -32,7 +32,6 @@ import {
   GraduationCap,
   Sparkles,
   User,
-  Flag,
   Info,
   Layers,
   Lightbulb,
@@ -65,7 +64,6 @@ import {
   type StatusTone,
 } from '@/components/user/report-ui';
 import {
-  ARCHETYPE_LABEL,
   DEFAULT_REPORT_CONFIG,
   ISSUE_LABEL,
   STATUS_LABEL,
@@ -78,7 +76,7 @@ import {
   type VerdictSeverity,
 } from '@/lib/attempt-report';
 import {
-  langModeOptions,
+  langToggleOptions,
   paperTranslationLang,
   type LangMode,
 } from '@/lib/question-language';
@@ -408,7 +406,9 @@ export function ReportTitleRow({
             )}
           >
             <Download className="w-3.5 h-3.5" />
-            {canDownload ? 'Download PDF' : 'Upgrade to download'}
+            {/* The locked state says what is true of the report, not what to buy —
+                the plan is not named anywhere in the chrome any more. */}
+            {canDownload ? 'Download PDF' : 'Download unavailable'}
           </button>
         )}
         {onShare && (
@@ -694,7 +694,7 @@ function buildTakeaways(model: AttemptReportModel): Array<{ text: string; accent
   if (model.coverageGaps.length > 0 || thin > 0) {
     const n = model.coverageGaps.length + thin;
     out.push({
-      text: `${n} subject${n === 1 ? ' was' : 's were'} not attempted enough — insufficient evidence.`,
+      text: `${n} subject${n === 1 ? ' was' : 's were'} not attempted enough to judge — too few answers.`,
       accent: 'sky',
       icon: <Info className="w-3 h-3" />,
     });
@@ -947,7 +947,9 @@ export function SubjectPerformance({
     { label: 'Incorrect', align: 'right' },
     { label: 'Skipped', align: 'right' },
     { label: 'Accuracy', note: 'on attempted', align: 'right' },
-    { label: 'Score', align: 'right' },
+    // Score is hidden: the marks per subject are a projection, and shown beside
+    // the real counts they read as an awarded result. The counts and accuracy
+    // are what this table is for. Its cell below is commented out to match.
     { label: 'Status' },
     { label: 'Action' },
   ];
@@ -1020,9 +1022,6 @@ export function SubjectPerformance({
                     <td className="px-3 py-2.5 text-right tabular-nums text-gray-400">{m.skipped}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums font-bold text-[#1e2a5a] dark:text-gray-100">
                       {m.accuracy == null ? <span className="font-normal text-gray-400">—</span> : `${m.accuracy}%`}
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-300">
-                      {m.marksEarned != null && m.marksAvailable != null ? `${m.marksEarned}/${m.marksAvailable}` : '—'}
                     </td>
                     <td className="px-3 py-2.5">
                       <StatusPill tone={STATUS_TONE[s.status]}>{STATUS_LABEL[s.status]}</StatusPill>
@@ -2046,90 +2045,6 @@ export function CoverageAnalysis({ model }: { model: AttemptReportModel }) {
   );
 }
 
-// ─── Key takeaways & next steps (reference screen 9) ──────────────────────────
-
-export function KeyTakeawaysAndNextSteps({
-  model,
-  onOpenPlan,
-}: {
-  model: AttemptReportModel;
-  onOpenPlan?: () => void;
-}) {
-  const nameOf = (id: string) => model.subjects.find(s => s.subjectId === id)?.name ?? id;
-
-  return (
-    <ReportCard>
-      <SectionHeader icon={<Flag className="w-4 h-4" />} title="Key takeaways and next steps" />
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-            What this attempt tells you
-          </p>
-          <ul className="space-y-2">
-            {model.diagnostics.map(f => (
-              <InsightLine key={f.rank} icon={<CheckCircle2 className="w-3 h-3" />} accent="emerald">
-                {f.text}
-              </InsightLine>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-            Recommended next actions
-          </p>
-          {model.priorities.length === 0 ? (
-            <p className="text-[11px] text-gray-400">Nothing to prioritise from this attempt yet.</p>
-          ) : (
-            <ol className="space-y-2">
-              {model.priorities.map(p => (
-                <li key={p.nodeId} className="flex items-start gap-2.5">
-                  <span className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold flex items-center justify-center mt-px">
-                    {p.rank}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[11px] font-semibold text-gray-900 dark:text-gray-100">
-                      {nameOf(p.nodeId)}
-                      <span className="ml-1.5 font-normal text-[10px] text-indigo-600 dark:text-indigo-400">
-                        {ARCHETYPE_LABEL[p.archetype]}
-                      </span>
-                    </span>
-                    <span className="block text-[11px] text-gray-700 dark:text-gray-200 leading-relaxed mt-0.5">
-                      {p.reason}
-                    </span>
-                    <span className="block text-[10px] text-gray-400 mt-0.5">{p.evidence.join(' · ')}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          )}
-          {model.queuedPriorities.length > 0 && (
-            <p className="mt-2 text-[10px] text-gray-400">
-              Queued: {model.queuedPriorities.map(p => nameOf(p.nodeId)).join(', ')}.
-            </p>
-          )}
-        </div>
-      </div>
-
-      {onOpenPlan && (
-        <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3 flex-wrap">
-          <p className="text-[11px] italic text-gray-500 dark:text-gray-400">
-            Consistency today leads to success tomorrow.
-          </p>
-          <button
-            type="button"
-            onClick={onOpenPlan}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-semibold px-3.5 py-2 hover:from-indigo-700 hover:to-purple-700 transition-all"
-          >
-            View detailed study plan
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-    </ReportCard>
-  );
-}
-
 // ─── Question insights table (reference screen 6) ─────────────────────────────
 
 /** Difficulty as a tinted pill, asked for by meaning rather than by colour. */
@@ -2431,19 +2346,36 @@ export function QuestionInsightsToolbar({
           ))}
         </select>
       )}
+      {/* One switch with two named sides, rather than a select that also offered
+          a stacked "Both" — a paper is read in one language at a time, and the
+          two copies are held separately in the payload anyway. */}
       {trLang && lang && onLang && (
-        <select
-          value={lang}
-          onChange={e => onLang(e.target.value as LangMode)}
+        <div
+          role="group"
           aria-label="Question language"
-          className="text-[11px] font-semibold px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 outline-none"
+          className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
         >
-          {langModeOptions(trLang).map(o => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          {langToggleOptions(trLang).map((o, i) => {
+            const active = lang === o.value;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => onLang(o.value)}
+                aria-pressed={active}
+                className={cn(
+                  'text-[11px] font-semibold px-2.5 py-1 transition-colors',
+                  i > 0 && 'border-l border-gray-200 dark:border-gray-700',
+                  active
+                    ? 'bg-violet-600 text-white'
+                    : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800',
+                )}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
       )}
       {(result !== 'all' || subject) && (
         <button

@@ -967,3 +967,155 @@ describe('subjects tagged two ways', () => {
     expect(m.dataQuality.warnings.join(' ')).toContain('questions but the paper carries');
   });
 });
+
+// ─── questionIds: what the question filters key on ─────────────────────────────
+
+/**
+ * The Question Insights subject filter selects by membership in
+ * `SubjectNode.questionIds`, not by comparing a question's `subject` tag against
+ * the subject's name. It used to compare names, and broke the moment names began
+ * resolving through the exam catalog: the filter looked for "Geography of India"
+ * while every question in it was tagged in Tamil, so choosing a subject emptied
+ * the list. These pin the contract that fix depends on.
+ */
+describe('subject questionIds', () => {
+  const GEO_TA = 'புவியியல்';
+  const exam = {
+    examId: 'group-4',
+    examName: 'TNPSC Group 4',
+    stageId: 'group-4-written',
+    stageName: 'Written',
+    taxonomy: [{ id: 'geography', name: 'Geography of India', aliases: [GEO_TA], topics: [] }],
+    marking: null,
+    totalQuestions: null,
+    totalMarks: null,
+    durationSec: null,
+  } as any;
+
+  it('lists every question of the subject, even when the name was translated away', () => {
+    const m = buildAttemptReport(detail([...block(GEO_TA, 2, 3, 0), ...block('Polity', 1, 1, 0)]), {}, exam);
+    const geo = m.subjects.find(x => x.subjectId === 'geography')!;
+    // The row reads in English; the questions are still tagged in Tamil.
+    expect(geo.name).toBe('Geography of India');
+    expect(geo.questionIds).toHaveLength(5);
+    for (const id of geo.questionIds) {
+      const q = m.questions.find(x => x.question_id === id)!;
+      expect(q.subject).toBe(GEO_TA);
+    }
+  });
+
+  it('gives every question to exactly one subject', () => {
+    const m = buildAttemptReport(detail([...block(GEO_TA, 2, 3, 0), ...block('Polity', 1, 1, 0)]), {}, exam);
+    const ids = m.subjects.flatMap(x => x.questionIds);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toHaveLength(m.questions.length);
+  });
+
+  it('counts by membership the same way the filter pills will', () => {
+    const m = buildAttemptReport(detail([...block(GEO_TA, 2, 3, 0), ...block('Polity', 1, 1, 0)]), {}, exam);
+    const geo = new Set(m.subjects.find(x => x.subjectId === 'geography')!.questionIds);
+    const inGeo = m.questions.filter(q => geo.has(q.question_id));
+    expect(inGeo.filter(q => q.user_answer && q.is_correct)).toHaveLength(2);
+    expect(inGeo.filter(q => q.user_answer && !q.is_correct)).toHaveLength(3);
+  });
+});
+
+/**
+ * "Marks left on the table" is the figure a candidate plans around, so it has to
+ * agree with the question count beside it and with the paper's own marks.
+ *
+ * Each case here was a way the two tiles disagreed in production: a subject the
+ * marks table worded differently was counted twice and priced once, a subject
+ * split across two tags was priced twice, and a paper with no marks table at all
+ * showed a dash next to 26 unanswered questions.
+ */
+describe('§18 marks left on the table', () => {
+  const exam = {
+    examId: 'e1',
+    examName: 'Group IV',
+    stageId: 's1',
+    stageName: 'Written',
+    taxonomy: [
+      { id: 'aptitude', name: 'Aptitude & Mental Ability', topics: [] },
+      { id: 'science', name: 'General Science', topics: [] },
+    ],
+    marking: { negativeMarking: false, negativeMarkValue: null, marksPerQuestion: 1.5, perSectionNegative: false },
+    totalQuestions: 30,
+    totalMarks: 45,
+    durationSec: 3600,
+  };
+
+  const row = (subject: string, total: number, correct: number, max: number) => ({
+    subject,
+    total_questions: total,
+    correct,
+    incorrect: 0,
+    unattempted: total - correct,
+    accuracy_percentage: correct > 0 ? 100 : 0,
+    estimated_marks: (max / total) * correct,
+    max_marks: max,
+  });
+
+  const withMarks = (questions: QuestionReviewItem[], rows: ReturnType<typeof row>[]) =>
+    detail(questions, {
+      performance_breakdown: {
+        subject_breakdown: rows,
+        overall_distribution: { correct: 4, incorrect: 0, unattempted: 26, total: 30 },
+        feedback: { performance_level: 'developing', motivation: null, strengths: [], improvement_areas: [] },
+      },
+    } as Partial<AttemptDetailResponse>);
+
+  /** 25 aptitude questions all skipped, 5 science with 4 right and 1 skipped. */
+  const paper = (aptitudeTag = 'Aptitude & Mental Ability') => [
+    ...block(aptitudeTag, 0, 0, 25, { subject_id: 'aptitude' } as Partial<QuestionReviewItem>),
+    ...block('General Science', 4, 0, 1, { subject_id: 'science' } as Partial<QuestionReviewItem>),
+  ];
+
+  it('joins a marks row that words the subject differently from the question tag', () => {
+    // "Aptitude and Mental Ability" against a paper tagged "Aptitude & Mental
+    // Ability": the join used to miss, so the row was re-added as a second
+    // subject and its 25 questions were counted on top of the real ones.
+    const m = buildAttemptReport(
+      withMarks(paper(), [row('Aptitude and Mental Ability', 25, 0, 37.5), row('General Science', 5, 4, 7.5)]),
+      {},
+      exam as any,
+    );
+    expect(m.coverage.totalSkipped).toBe(26);
+    expect(m.coverage.marksAtStake).toBe(39);
+    expect(m.dataQuality.warnings).toHaveLength(0);
+  });
+
+  it('splits a marks row shared by two tags instead of giving each the full marks', () => {
+    const questions = [
+      ...block('Aptitude & Mental Ability', 0, 0, 10, { subject_id: 'aptitude' } as Partial<QuestionReviewItem>),
+      ...block('Aptitude and Mental Ability', 0, 0, 15),
+      ...block('General Science', 4, 0, 1, { subject_id: 'science' } as Partial<QuestionReviewItem>),
+    ];
+    const m = buildAttemptReport(
+      withMarks(questions, [row('Aptitude and Mental Ability', 25, 0, 37.5), row('General Science', 5, 4, 7.5)]),
+      {},
+      exam as any,
+    );
+    expect(m.coverage.totalSkipped).toBe(26);
+    // 37.5 split 15/10 across the two tags, plus 1.5 for science — not 75 + 1.5.
+    expect(m.coverage.marksAtStake).toBe(39);
+    const aptitude = m.coverage.rows.filter(r => /Aptitude/.test(r.name));
+    expect(aptitude.reduce((n, r) => n + (r.marksAtStake ?? 0), 0)).toBe(37.5);
+  });
+
+  it('prices skipped questions from the paper when no marks table arrives', () => {
+    const m = buildAttemptReport(detail(paper()), {}, exam as any);
+    // 45 marks over 30 questions = 1.5 each; 26 skipped is 39, not a dash.
+    expect(m.coverage.totalSkipped).toBe(26);
+    expect(m.coverage.marksAtStake).toBe(39);
+  });
+
+  it('never prices more marks than the paper carries', () => {
+    const m = buildAttemptReport(
+      withMarks(paper(), [row('Aptitude and Mental Ability', 25, 0, 37.5), row('General Science', 5, 4, 7.5)]),
+      {},
+      exam as any,
+    );
+    expect(m.coverage.marksAtStake!).toBeLessThanOrEqual(exam.totalMarks);
+  });
+});

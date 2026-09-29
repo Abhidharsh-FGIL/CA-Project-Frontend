@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTrigger, DialogClose } from '@/components/
 import { ChevronDown, CheckCircle2, XCircle, Image, ZoomIn, ZoomOut, RotateCw, Maximize2, Minimize2, X } from 'lucide-react';
 import { useState } from 'react';
 import { MathText } from '@/components/ui/MathText';
+import { normaliseLineBreaks } from '@/lib/question-text';
 import { buildUrl } from '@/lib/api';
 
 const resolveUrl = (url: string | undefined) => {
@@ -319,7 +320,7 @@ export function EvalQuestionDetail({ question: q, index, showAnswer = true }: Ev
             Explanation
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-1.5 text-sm text-muted-foreground bg-muted/30 rounded-md p-3">
-            <MathText text={q.explanation} />
+            <MathText as="div" className="whitespace-pre-line" text={normaliseLineBreaks(q.explanation)} />
           </CollapsibleContent>
         </Collapsible>
       )}

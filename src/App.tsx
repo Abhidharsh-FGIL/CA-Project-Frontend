@@ -48,7 +48,6 @@ import TnpscStagePage from "@/pages/user/TnpscStagePage";
 import UserTrackPage from "@/pages/user/UserTrackPage";
 import UserPerformancePage from "@/pages/user/UserPerformancePage";
 import UserProgressPage from "@/pages/user/UserProgressPage";
-import UserStudyPlanPage from "@/pages/user/UserStudyPlanPage";
 import UserSavedPage from "@/pages/user/UserSavedPage";
 
 const queryClient = new QueryClient({
@@ -174,7 +173,10 @@ function UserPortalRoutes() {
           <Route path="practice" element={<UserTrackPage track="practice" />} />
           <Route path="performance" element={<UserPerformancePage />} />
           <Route path="progress" element={<UserProgressPage />} />
-          <Route path="study-plan/:attemptId" element={<UserStudyPlanPage />} />
+          {/* study-plan/:attemptId is hidden. Nothing links to it since the report's
+              takeaways card was removed, so the route only answered a typed URL.
+              UserStudyPlanPage, StudyPlanView and lib/study-plan are all still on
+              disk — restoring the feature is this line plus its import. */}
           <Route path="bookmarks" element={<UserSavedPage kind="bookmarks" />} />
           <Route path="notes" element={<UserSavedPage kind="notes" />} />
           <Route path="courses" element={<CourseListPage />} />

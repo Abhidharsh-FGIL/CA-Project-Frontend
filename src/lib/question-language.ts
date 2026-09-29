@@ -102,3 +102,61 @@ export function langModeOptions(translation: string): Array<{ value: LangMode; l
     { value: 'translation', label: TRANSLATION_LABELS[translation] ?? translation },
   ];
 }
+
+/**
+ * The two sides of a language toggle: one language or the other, no 'both'.
+ *
+ * A select offering three modes made the reader choose between two languages
+ * *and* a stacked view before they could read the question. A paper is read in
+ * one language at a time, so the control is one switch with two named sides.
+ *
+ * Ordered with the paper's own language first, since that is what the options
+ * were stored and graded in.
+ */
+export function langToggleOptions(
+  translation: string,
+): Array<{ value: Exclude<LangMode, 'both'>; label: string }> {
+  const primary = primaryLangOf(translation);
+  return [
+    { value: 'primary', label: TRANSLATION_LABELS[primary] ?? primary },
+    { value: 'translation', label: TRANSLATION_LABELS[translation] ?? translation },
+  ];
+}
+
+/**
+ * One question resolved into a single language.
+ *
+ * The payload keeps the two languages apart — the stem, options and explanation
+ * the paper was written in sit at the top level, and the other language sits
+ * under `translations.<code>`. Reading in one language therefore means picking a
+ * side field by field, not hiding half the card: a paper can carry a Tamil stem
+ * with no Tamil explanation, and blanking the explanation because the reader
+ * asked for Tamil loses the only copy there is.
+ *
+ * So each field falls back to the primary when the translation has nothing for
+ * it, and `usedFallback` says whether that happened, for a caller that wants to
+ * mark it.
+ */
+export function resolveLanguage<T>(
+  q: any,
+  mode: LangMode,
+  primary: { text: T; options: unknown; explanation: string | null | undefined },
+): { text: T; options: unknown; explanation: string | null | undefined; usedFallback: boolean } {
+  if (mode !== 'translation') return { ...primary, usedFallback: false };
+
+  const tr = translationOf(q, true);
+  const trText = typeof tr?.text === 'string' && tr.text.trim() ? (tr.text as unknown as T) : null;
+  const trOptions =
+    Array.isArray(tr?.options) && tr.options.some(o => typeof o === 'string' && o.trim())
+      ? tr.options
+      : null;
+  const trExplanation =
+    typeof tr?.explanation === 'string' && tr.explanation.trim() ? tr.explanation : null;
+
+  return {
+    text: trText ?? primary.text,
+    options: trOptions ?? primary.options,
+    explanation: trExplanation ?? primary.explanation,
+    usedFallback: trText == null || trOptions == null || trExplanation == null,
+  };
+}

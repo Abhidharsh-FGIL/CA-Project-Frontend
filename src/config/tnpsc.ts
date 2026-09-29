@@ -36,6 +36,34 @@ export type TnpscTestType = 'mock' | 'practice';
 export const TNPSC_LEVELS: TnpscLevel[] = ['simple', 'medium', 'complex'];
 
 /**
+ * The levels the aspirant is actually offered.
+ *
+ * Medium and Complex are withheld for now: the papers behind them are not ready,
+ * and three headings where only one has tests reads as two broken sections
+ * rather than as a roadmap.
+ *
+ * Only the student portal reads this. `TNPSC_LEVELS` still carries all three, so
+ * question tagging and the coverage panel keep every level available to staff —
+ * a paper can be written and tagged Medium today and appear the day this list
+ * grows. Restoring a level is one entry here.
+ */
+export const VISIBLE_LEVELS: TnpscLevel[] = ['simple'];
+
+/** True while the portal shows a single level, so it need not be named as one. */
+export const LEVELS_HIDDEN = VISIBLE_LEVELS.length <= 1;
+
+/**
+ * What the one visible group is called while the levels are hidden.
+ *
+ * "Simple Level" is a difficulty, and standing alone it invites the question of
+ * where the other two went. These papers are full-length and set to the official
+ * pattern, so that is what the heading says.
+ */
+export const SINGLE_LEVEL_HEADING = 'Exam Pattern';
+export const SINGLE_LEVEL_BLURB =
+  'Full-length papers set to the official exam pattern — the real question count in one sitting.';
+
+/**
  * Minimum score (%) in a level's mock test before the next level unlocks.
  *
  * The stricter of this and the server's `pass_percentage` wins (see
@@ -217,12 +245,28 @@ export interface TnpscExamPattern {
     /**
      * Which subjects this section covers, for the syllabus panel only.
      *
-     * Kept separate from `subject_ids` because that field drives marking and
-     * question ordering — `orderBySection` treats any section carrying it as a
-     * paper whose questions must be grouped by section, which is wrong for the
-     * TNPSC stages. This one is read by the UI and by nothing else.
+     * Kept separate from `subject_ids` because that field drives *marking*, and a
+     * paper whose sections are all worth the same has nothing to say there. Reading
+     * it would hand every TNPSC section a marking rule it does not have.
+     *
+     * Ordering is the exception: `orderBySection` falls back to this map for a paper
+     * that declares `order_block`, so Group 4 can print its sections in the published
+     * order without pretending its sections are marked differently.
      */
     syllabus_subject_ids?: string[];
+    /**
+     * Which printed block this section belongs to, lowest first.
+     *
+     * Present only where the commission fixes the order of the paper. Group 4 prints
+     * 100 General Tamil/English questions as Q1-100 and then 100 General Studies and
+     * Aptitude questions as Q101-200 — two blocks, so its General Studies and
+     * Aptitude sections share block 2 and keep the generator's order between them.
+     * That matches the real papers, where aptitude arrives in clusters through the
+     * second hundred rather than as a clean tail (see `qbank/pyq/map_2025.csv`).
+     *
+     * Sections without it sort after those that have it.
+     */
+    order_block?: number;
     /**
      * The published syllabus units under this section, with their question counts.
      * Present where the commission publishes a unit-wise split; sections without it
@@ -946,10 +990,16 @@ export const TNPSC_GROUPS: TnpscGroup[] = [
           total_marks: 300,
           duration_minutes: 180,
           negative_marking: false,
+          // Two printed blocks, not three: the language paper is Q1-100 and General
+          // Studies with Aptitude is Q101-200. The commission publishes them as three
+          // sections but numbers them as two, and the 2024/2025 papers scatter their
+          // aptitude questions through the second hundred rather than grouping them
+          // at the end — so those two share a block and keep the order they came in.
           sections: [
             {
               name: 'General Tamil / General English',
               questions: 100,
+              order_block: 1,
               syllabus_subject_ids: [TAMIL_SUBJECT.id, ENGLISH_SUBJECT.id],
               units: G4_TAMIL_UNITS,
               note: 'Differently abled candidates may sit General English instead — same 100 questions, split 25 / 15 / 10 / 10 / 20 / 5 / 15.',
@@ -957,12 +1007,14 @@ export const TNPSC_GROUPS: TnpscGroup[] = [
             {
               name: 'General Studies',
               questions: 75,
+              order_block: 2,
               syllabus_subject_ids: GENERAL_STUDIES_SUBJECTS.map(s => s.id),
               units: G4_GENERAL_STUDIES_UNITS,
             },
             {
               name: 'Aptitude & Mental Ability',
               questions: 25,
+              order_block: 2,
               syllabus_subject_ids: [APTITUDE_SUBJECT.id],
               units: G4_APTITUDE_UNITS,
             },
@@ -1129,7 +1181,13 @@ function subjectKey(s: string): string {
     .replace(/&/g, ' ')
     .replace(/\band\b/g, ' ')
     .replace(/\b(?:10\s*\+\s*2|xii|12th|plus two|higher secondary)\b/g, '12')
-    .replace(/[^a-z0-9+]+/g, ' ')
+    // Unicode-aware on purpose. An ASCII-only class silently emptied every Tamil
+    // string, and an empty key resolves to no subject at all - which made every
+    // `name_ta` and every Tamil alias in this file unreachable, and left a Group 4
+    // booklet's 100 Tamil questions in no section. Marks are kept because Tamil
+    // vowel signs are combining marks, not letters: dropping them would fold words
+    // that differ only by a vowel onto one key.
+    .replace(/[^\p{L}\p{N}\p{M}+]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -1294,10 +1352,14 @@ export function negativeForSubject(stage: TnpscStage | undefined, subject?: stri
  * 60 compulsory questions, then Section B's 100. Sorting here means the exam and
  * the report both number them the way the candidate expects.
  *
- * Stable: questions keep their relative order inside a section, and anything whose
+ * Group 4 is ordered the same way and for the same reason: the commission prints
+ * General Tamil/English as Q1-100 and General Studies with Aptitude as Q101-200, but
+ * a generated paper interleaves them. It declares `order_block` rather than
+ * `subject_ids` because its sections are all marked alike — see `sectionForOrdering`.
+ *
+ * Stable: questions keep their relative order inside a block, and anything whose
  * section cannot be resolved is left at the end rather than dropped. A no-op for a
- * paper whose pattern does not divide its subjects between sections, which is every
- * TNPSC stage.
+ * paper that neither blocks its sections nor divides its subjects between them.
  */
 export function orderBySection<T>(
   stage: TnpscStage | undefined,
@@ -1306,16 +1368,48 @@ export function orderBySection<T>(
 ): T[] {
   const sections = stage?.pattern?.sections;
   if (!sections || sections.length < 2) return items;
-  if (!sections.some(sec => sec.subject_ids?.length)) return items;
 
-  const rank = new Map(sections.map((sec, i) => [sec.name, i]));
+  // Two ways a paper can fix its order. Blocks win where a paper declares them, so
+  // sections sharing a block (Group 4's General Studies and Aptitude) stay merged
+  // instead of being split apart by their position in the list.
+  const blocked = sections.some(sec => sec.order_block != null);
+  if (!blocked && !sections.some(sec => sec.subject_ids?.length)) return items;
+
+  const LAST = Number.MAX_SAFE_INTEGER;
+  const rank = new Map(
+    sections.map((sec, i) => [sec.name, blocked ? sec.order_block ?? LAST : i] as const),
+  );
+
   return items
     .map((item, i) => {
-      const name = sectionForSubject(stage, subjectOf(item))?.name;
-      return { item, i, r: (name != null ? rank.get(name) : undefined) ?? sections.length };
+      const sec = blocked
+        ? sectionForOrdering(stage, subjectOf(item))
+        : sectionForSubject(stage, subjectOf(item));
+      return { item, i, r: (sec ? rank.get(sec.name) : undefined) ?? LAST };
     })
     .sort((a, b) => a.r - b.r || a.i - b.i)
     .map(x => x.item);
+}
+
+/**
+ * The section a subject sits in, for ordering only.
+ *
+ * Widens `sectionForSubject` to the display-only `syllabus_subject_ids` map, which
+ * is the only one a uniformly marked paper fills in. Group 4 needs that to know a
+ * Tamil question belongs in the first hundred, but nothing on the marking path may
+ * follow it there — reading it in `sectionForSubject` would give every TNPSC
+ * question per-section marks and a per-section deduction it does not have.
+ */
+function sectionForOrdering(
+  stage: TnpscStage | undefined,
+  subject?: string | null,
+): TnpscPatternSection | undefined {
+  const marked = sectionForSubject(stage, subject);
+  if (marked) return marked;
+
+  const id = resolveSubjectId(stage, subject);
+  if (!id) return undefined;
+  return stage?.pattern?.sections.find(sec => sec.syllabus_subject_ids?.includes(id));
 }
 
 /**

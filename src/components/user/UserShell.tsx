@@ -5,7 +5,6 @@ import {
   GraduationCap,
   Home,
   LineChart,
-  TrendingUp,
   LogOut,
   Menu,
   Moon,
@@ -28,8 +27,10 @@ const NAV = [
   { to: '/user/dashboard', label: 'Dashboard', icon: Home },
   { to: '/user/exams', label: 'Exams', icon: ClipboardList },
   { to: '/user/performance', label: 'Performance', icon: LineChart },
-  { to: '/user/progress', label: 'Progress', icon: TrendingUp },
   { to: '/user/history', label: 'History', icon: Receipt },
+  // Progress is hidden. /user/progress still resolves and the page is untouched;
+  // it is only off the bar.
+  //
   // Mock Tests and Practice are hidden: both are now reached through Exams → group →
   // stage, where the mock/practice tabs sit under the exam they belong to. A flat
   // top-level entry showed every group's papers at once, which the dashboard and
@@ -40,9 +41,9 @@ const NAV = [
   // surface goes with them. Every route still resolves, so restoring one is a line here.
 ];
 
-/** The four that fit a phone; the rest live behind the drawer. */
+/** The ones that fit a phone; the rest live behind the drawer. */
 const MOBILE_NAV = NAV.filter(n =>
-  ['/user/dashboard', '/user/exams', '/user/performance', '/user/progress'].includes(n.to),
+  ['/user/dashboard', '/user/exams', '/user/performance', '/user/history'].includes(n.to),
 );
 
 /** The chrome navy from the approved design. One definition, used everywhere. */
@@ -54,6 +55,16 @@ const PLAN_LABEL: Record<string, string> = {
   ultimate: 'Ultimate',
   premium: 'Premium',
 };
+
+/**
+ * Whether the subscription plan is shown in the chrome — the tier under the
+ * user's name, the upsell card in the drawer, and the Upgrade button.
+ *
+ * Turned off deliberately rather than deleted: the pages behind it still work
+ * and are still reachable from the profile menu, so restoring the promotion is
+ * a one-line change rather than a rebuild.
+ */
+const SHOW_PLAN_UI = false;
 
 export function UserShell({ children }: UserShellProps) {
   const { user, isAuthenticated, logout } = useUserPortal();
@@ -80,7 +91,7 @@ export function UserShell({ children }: UserShellProps) {
   if (!user) return null;
 
   const planLabel = PLAN_LABEL[user.subscription_tier] ?? 'Free Plan';
-  const isFree = user.subscription_tier === 'free';
+  const isFree = SHOW_PLAN_UI && user.subscription_tier === 'free';
   const isActive = (to: string) => pathname === to || pathname.startsWith(to + '/');
 
   const brand = (
@@ -253,7 +264,7 @@ export function UserShell({ children }: UserShellProps) {
                   </div>
                   <div className="hidden sm:block text-left leading-tight">
                     <p className="text-xs font-semibold text-white max-w-[110px] truncate">{user.name}</p>
-                    <p className="text-[10px] text-white/60">{planLabel}</p>
+                    {SHOW_PLAN_UI && <p className="text-[10px] text-white/60">{planLabel}</p>}
                   </div>
                 </button>
                 {menuOpen && (

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Download, Sparkles, AlertTriangle, CheckCircle2, XCircle, Brain, Clock, Target, TrendingUp, Trophy } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useUserPortal } from '@/contexts/UserPortalContext';
@@ -19,7 +19,7 @@ import {
   type TopicFocus,
 } from '@/lib/userPortalApi';
 import { MathText } from '@/components/ui/MathText';
-import { parseOptionRepr } from '@/lib/question-text';
+import { normaliseLineBreaks, parseOptionRepr } from '@/lib/question-text';
 import { orderBySection, stageForSubjects, stageForTitle } from '@/config/tnpsc';
 import { MarkdownText } from '@/components/ui/MarkdownText';
 import { buildUrl } from '@/lib/api';
@@ -30,8 +30,10 @@ import { resolveGroupKey } from '@/hooks/use-progress-trend';
 import { resolveExamContext, type ExamContext } from '@/lib/exam-report-config';
 import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { translationOf, type LangMode } from '@/lib/question-language';
+import { resolveLanguage, translationOf, type LangMode } from '@/lib/question-language';
+import { downloadQuestionCsv } from '@/lib/question-export';
 import { ReportLanguageProvider, type ReportLanguage } from '@/components/user/report-ui';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { buildAttemptReport, factsFromModel } from '@/lib/attempt-report';
 
@@ -43,7 +45,6 @@ import {
   QuestionInsightsTable,
   ReportCover,
   ReportTitleRow,
-  KeyTakeawaysAndNextSteps,
   PerformanceSnapshot,
   QuestionErrorAnalysis,
   QuestionInsightsToolbar,
@@ -95,6 +96,45 @@ function resolveAnswerLabel(key: string | null, options: any): { label: string; 
     return { label, text: raw.replace(/^[A-Fa-f][.)]\s*/, '').trim() || raw, image_url: null };
   }
   return { label, text: null, image_url: null };
+}
+
+/**
+ * Every option a question offered, in order.
+ *
+ * The review card used to show only the two answers — the one chosen and the
+ * right one — which is enough to mark a question but not enough to learn from
+ * it. Seeing the three you *didn't* pick is how you work out what the trap was.
+ *
+ * Handles all three shapes the payload uses: an array of strings, an array of
+ * `{text, image_url}`, and the legacy `{A: "..."}` map.
+ */
+function allOptions(
+  options: any,
+  translated?: string[] | null,
+): Array<{ label: string; text: string | null; image_url: string | null; translated: string | null }> {
+  const keys = Array.isArray(options)
+    ? options.map((_, i) => i)
+    : options && typeof options === 'object'
+      ? OPTION_LETTERS.map((_, i) => i).filter(i => optionAt(options, OPTION_LETTERS[i], i) != null)
+      : [];
+
+  return keys.map(i => {
+    const raw = optionAt(options, OPTION_LETTERS[i], i);
+    const label = OPTION_LABELS[i] ?? String(i + 1);
+    // The translation rides alongside rather than replacing the text: the stored
+    // answer is matched against the primary language.
+    let tr = translated?.[i] ?? null;
+    if (tr != null && String(tr).trim() === String(raw ?? '').trim()) tr = null;
+
+    if (raw && typeof raw === 'object') {
+      return { label, text: raw.text ?? null, image_url: raw.image_url ?? raw.imageUrl ?? null, translated: tr };
+    }
+    const rich = parseOptionRepr(raw);
+    if (rich) return { label, text: rich.text, image_url: rich.image_url, translated: tr };
+    const str = raw == null ? '' : String(raw);
+    if (isImageUrl(str)) return { label, text: null, image_url: str, translated: tr };
+    return { label, text: str.replace(/^[A-Fa-f][.)]\s*/, '').trim() || str || null, image_url: null, translated: tr };
+  });
 }
 
 function reasonLabel(reason: string): string {
@@ -193,8 +233,6 @@ function QuestionCard({
   // something the aspirant never chose.
   const showPrimary = langMode !== 'translation';
   const tr = translationOf(q, langMode !== 'primary');
-  const userAns = resolveAnswerLabel(q.user_answer, q.options);
-  const correctAns = resolveAnswerLabel(q.correct_answer, q.options);
 
   // The stem can arrive as plain text or — like the options on image questions —
   // as a stringified dict carrying the picture. Normalise before deciding.
@@ -202,8 +240,40 @@ function QuestionCard({
   // Blank-but-present bodies are common (" ", "\n"). Treated as text they render
   // nothing *and* used to suppress the image, which is how an image-only question
   // ended up showing neither.
-  const stemText = stem.text && stem.text.trim() ? stem.text : null;
+  const primaryStem = stem.text && stem.text.trim() ? stem.text : null;
   const stemImage = stem.image_url || q.attachment_url || q.question_image_url || null;
+
+  /**
+   * The card resolved into the language being read.
+   *
+   * In 'both' mode the two languages stack, so the primary stands and the
+   * translation rides underneath. Asking for one language instead means reading
+   * that language throughout — stem, options *and* explanation — which is why
+   * this replaces the source rather than annotating it: the options list used to
+   * stay in the paper's own language however the control was set.
+   */
+  const shown = resolveLanguage<string | null>(q, langMode, {
+    text: primaryStem,
+    options: q.options,
+    explanation: q.explanation ?? null,
+  });
+  const stemText = shown.text;
+
+  /**
+   * Every option the question offered.
+   *
+   * Computed here rather than inside the markup because two branches depend on
+   * it: the list renders when there is one, and the pair of answer panels stands
+   * in when there is not.
+   */
+  const options = allOptions(shown.options, showPrimary ? tr?.options : undefined);
+  const answerKey = (v: string | null) => (v ?? '').trim().toLowerCase();
+  const myKey = answerKey(q.user_answer);
+  const rightKey = answerKey(q.correct_answer);
+  // Answers are graded against the option's position, so the label is read off
+  // whichever language is on screen — the letter and the index are the same.
+  const userAns = resolveAnswerLabel(q.user_answer, shown.options);
+  const correctAns = resolveAnswerLabel(q.correct_answer, shown.options);
 
   const borderColor = !q.user_answer
     ? 'border-gray-200'
@@ -229,16 +299,17 @@ function QuestionCard({
           {index + 1}
         </span>
         <div className="flex-1 min-w-0">
-          {showPrimary && stemText && (
+          {stemText && (
             <p className={`text-sm text-gray-800 leading-snug ${isOpen ? 'whitespace-pre-wrap' : 'line-clamp-2'}`}>
               <MathText text={stemText} />
             </p>
           )}
           {/* The other language sits under the stem rather than replacing it in
-              'both' mode, which is how the test screen shows it. */}
-          {tr?.text && tr.text.trim() && (
+              'both' mode, which is how the test screen shows it. On a one-language
+              toggle the stem above is already in the chosen language. */}
+          {showPrimary && tr?.text && tr.text.trim() && (
             <p
-              className={`text-sm leading-snug ${showPrimary ? 'text-gray-500 mt-1' : 'text-gray-800'} ${
+              className={`text-sm leading-snug text-gray-500 mt-1 ${
                 isOpen ? 'whitespace-pre-wrap' : 'line-clamp-2'
               }`}
             >
@@ -290,66 +361,153 @@ function QuestionCard({
               <MarkdownText text={(q as any).passage} className="text-gray-700" />
             </div>
           )}
-          {/* Answer comparison */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div
-              className={`rounded-lg px-3 py-2.5 border ${
-                q.user_answer
-                  ? q.is_correct
-                    ? 'bg-emerald-50 border-emerald-200'
-                    : 'bg-red-50 border-red-200'
-                  : 'bg-gray-50 border-gray-200'
-              }`}
-            >
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Your answer</p>
-              {q.user_answer ? (
+          {/* Every option, with the right one and the one chosen both marked.
+              This replaced the pair of "your answer / correct answer" panels that
+              used to sit below: once each option carries its own marker, those
+              said the same thing twice. They survive only as a fallback for a
+              question that shipped no options at all. */}
+          {options.length > 0 && (
+            <div className="bg-white border border-gray-200 rounded-lg px-3 py-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">Options</p>
+              <ul className="space-y-1">
+                {options.map((o, i) => {
+                  const letter = OPTION_LETTERS[i];
+                  const isRight = rightKey === letter;
+                  const isMine = myKey === letter;
+                  return (
+                    <li
+                      key={o.label}
+                      className={`flex items-start gap-2 rounded-md px-2 py-1.5 ${
+                        isRight
+                          ? 'bg-emerald-50 border border-emerald-200'
+                          : isMine
+                            ? 'bg-red-50 border border-red-200'
+                            : 'border border-transparent'
+                      }`}
+                    >
+                      <span
+                        className={`flex-shrink-0 w-5 h-5 rounded font-bold text-[10px] flex items-center justify-center ${
+                          isRight
+                            ? 'bg-emerald-200 text-emerald-800'
+                            : isMine
+                              ? 'bg-red-200 text-red-800'
+                              : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        {o.label}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        {o.image_url ? (
+                          <img
+                            src={buildUrl(o.image_url)}
+                            alt={`Option ${o.label}`}
+                            className="max-h-24 rounded border border-gray-200 object-contain"
+                          />
+                        ) : (
+                          <span
+                            className={`block text-sm leading-snug ${
+                              isRight ? 'text-emerald-900 font-medium' : isMine ? 'text-red-900' : 'text-gray-700'
+                            }`}
+                          >
+                            <MathText text={o.text ?? ''} />
+                          </span>
+                        )}
+                        {o.translated && (
+                          <span className="block text-[11px] text-gray-500 leading-snug mt-0.5">
+                            <MathText text={o.translated} />
+                          </span>
+                        )}
+                      </span>
+                      {/* Said in words, not colour alone — the two markers must
+                          survive a colourblind reader and a printed page. */}
+                      {(isRight || isMine) && (
+                        <span
+                          className={`flex-shrink-0 text-[10px] font-bold whitespace-nowrap ${
+                            isRight ? 'text-emerald-700' : 'text-red-700'
+                          }`}
+                        >
+                          {isRight && isMine ? 'Correct · your answer' : isRight ? 'Correct' : 'Your answer'}
+                        </span>
+                      )}
+                    </li>
+                );
+                })}
+              </ul>
+            </div>
+          )}
+
+          {/* The two answers, but only where there was no options list to mark
+              them on — an image-only question, or a paper that shipped no
+              options. Otherwise this repeated what the list above already says. */}
+          {options.length === 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div
+                className={`rounded-lg px-3 py-2.5 border ${
+                  q.user_answer
+                    ? q.is_correct
+                      ? 'bg-emerald-50 border-emerald-200'
+                      : 'bg-red-50 border-red-200'
+                    : 'bg-gray-50 border-gray-200'
+                }`}
+              >
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Your answer</p>
+                {q.user_answer ? (
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`flex-shrink-0 w-6 h-6 rounded font-bold text-xs flex items-center justify-center ${
+                        q.is_correct ? 'bg-emerald-200 text-emerald-800' : 'bg-red-200 text-red-800'
+                      }`}
+                    >
+                      {userAns.label}
+                    </span>
+                    {userAns.image_url ? (
+                      <img src={buildUrl(userAns.image_url)} alt="Your answer" className="max-h-24 rounded border border-gray-200 object-contain" />
+                    ) : userAns.text ? (
+                      <span className="text-sm text-gray-800 leading-snug">
+                        <MathText text={userAns.text} />
+                      </span>
+                    ) : null}
+                  </div>
+                ) : (
+                  <span className="text-sm text-gray-400 italic">Not answered</span>
+                )}
+              </div>
+
+              <div className="rounded-lg px-3 py-2.5 border bg-emerald-50 border-emerald-200">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Correct answer</p>
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`flex-shrink-0 w-6 h-6 rounded font-bold text-xs flex items-center justify-center ${
-                      q.is_correct ? 'bg-emerald-200 text-emerald-800' : 'bg-red-200 text-red-800'
-                    }`}
-                  >
-                    {userAns.label}
+                  <span className="flex-shrink-0 w-6 h-6 rounded bg-emerald-200 text-emerald-800 font-bold text-xs flex items-center justify-center">
+                    {correctAns.label}
                   </span>
-                  {userAns.image_url ? (
-                    <img src={buildUrl(userAns.image_url)} alt="Your answer" className="max-h-24 rounded border border-gray-200 object-contain" />
-                  ) : userAns.text ? (
+                  {correctAns.image_url ? (
+                    <img src={buildUrl(correctAns.image_url)} alt="Correct answer" className="max-h-24 rounded border border-gray-200 object-contain" />
+                  ) : correctAns.text ? (
                     <span className="text-sm text-gray-800 leading-snug">
-                      <MathText text={userAns.text} />
+                      <MathText text={correctAns.text} />
                     </span>
                   ) : null}
                 </div>
-              ) : (
-                <span className="text-sm text-gray-400 italic">Not answered</span>
-              )}
-            </div>
-
-            <div className="rounded-lg px-3 py-2.5 border bg-emerald-50 border-emerald-200">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Correct answer</p>
-              <div className="flex items-center gap-2">
-                <span className="flex-shrink-0 w-6 h-6 rounded bg-emerald-200 text-emerald-800 font-bold text-xs flex items-center justify-center">
-                  {correctAns.label}
-                </span>
-                {correctAns.image_url ? (
-                  <img src={buildUrl(correctAns.image_url)} alt="Correct answer" className="max-h-24 rounded border border-gray-200 object-contain" />
-                ) : correctAns.text ? (
-                  <span className="text-sm text-gray-800 leading-snug">
-                    <MathText text={correctAns.text} />
-                  </span>
-                ) : null}
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Explanation */}
-          {q.explanation && (
+          {/* Explanation — `whitespace-pre-line` keeps the paragraph breaks the
+              explanation was written with, which HTML would otherwise collapse
+              into one unbroken block. */}
+          {shown.explanation && (
             <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2.5">
               <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-1">Explanation</p>
-              {showPrimary && <p className="text-sm text-indigo-900 leading-relaxed">{q.explanation}</p>}
-              {tr?.explanation && tr.explanation.trim() && (
-                <p className={`text-sm leading-relaxed ${showPrimary ? 'text-indigo-700/80 mt-1.5' : 'text-indigo-900'}`}>
-                  {tr.explanation}
-                </p>
+              <MathText
+                as="p"
+                className="text-sm text-indigo-900 leading-relaxed whitespace-pre-line"
+                text={normaliseLineBreaks(shown.explanation)}
+              />
+              {showPrimary && tr?.explanation && tr.explanation.trim() && (
+                <MathText
+                  as="p"
+                  className="text-sm leading-relaxed whitespace-pre-line text-indigo-700/80 mt-1.5"
+                  text={normaliseLineBreaks(tr.explanation)}
+                />
               )}
             </div>
           )}
@@ -358,7 +516,11 @@ function QuestionCard({
           {q.tip && (
             <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5">
               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-1">Study tip</p>
-              <p className="text-sm text-amber-900 leading-relaxed">{q.tip}</p>
+              <MathText
+                as="p"
+                className="text-sm text-amber-900 leading-relaxed whitespace-pre-line"
+                text={normaliseLineBreaks(q.tip)}
+              />
             </div>
           )}
         </div>
@@ -484,7 +646,6 @@ export function AttemptReport({
   /** Shown on the cover. Admin passes the candidate; the portal passes the aspirant. */
   studentName?: string;
 }) {
-  const navigate = useNavigate();
   const [expandAll, setExpandAll] = useState(false);
   /** Which subject's inline deep dive is open, and which subject filters the questions. */
   const [openSubject, setOpenSubject] = useState<string | null>(null);
@@ -499,7 +660,42 @@ export function AttemptReport({
    * paper read both columns then, and a review that silently drops one of them
    * is not the paper they sat.
    */
-  const [questionLang, setQuestionLang] = useState<LangMode>('both');
+  // One language at a time: the toolbar offers a two-sided toggle, and the
+  // paper's own language is the side it opens on.
+  const [questionLang, setQuestionLang] = useState<LangMode>('primary');
+  /**
+   * Which file the download produces.
+   *
+   * CSV opens in Excel and is for working with — sorting by subject, filtering to
+   * the wrong answers. Word is for reading: a review booklet grouped by subject
+   * and topic. Defaults to CSV because that is the cheaper, faster one and the
+   * commoner ask.
+   */
+  const [exportFormat, setExportFormat] = useState<'csv' | 'docx'>('csv');
+  const [exporting, setExporting] = useState(false);
+
+  /**
+   * Runs the export the reader asked for.
+   *
+   * Word packing takes a moment on a 200-question paper, so the button reports
+   * progress and refuses a second click rather than building the file twice.
+   */
+  const runExport = async () => {
+    if (!model || exporting) return;
+    setExporting(true);
+    try {
+      if (exportFormat === 'docx') {
+        const { downloadQuestionDocx } = await import('@/lib/question-docx-export');
+        await downloadQuestionDocx(model, studentName);
+      } else {
+        downloadQuestionCsv(model);
+      }
+    } catch {
+      toast.error('Could not build that file. Try the other format.');
+    } finally {
+      setExporting(false);
+    }
+  };
   /**
    * The language the report's labels are read in.
    *
@@ -537,8 +733,20 @@ export function AttemptReport({
     });
   }, [model]);
 
+  /**
+   * The counts on the result pills, narrowed to the chosen subject.
+   *
+   * They were whole-paper figures, so picking Geography of India still offered
+   * "Correct (23)" — a count from a set the reader was no longer looking at. Each
+   * pill now says how many of the *visible* subject's questions it would select,
+   * which is what a filter row is read as.
+   */
   const questionCounts = useMemo(() => {
-    const list = model?.questions ?? [];
+    const all = model?.questions ?? [];
+    const inSubject = questionSubject
+      ? new Set(model?.subjects.find(sub => sub.subjectId === questionSubject)?.questionIds ?? [])
+      : null;
+    const list = inSubject ? all.filter(q => inSubject.has(q.question_id)) : all;
     const answered = (q: any) => q.user_answer != null && String(q.user_answer).trim() !== '';
     return {
       all: list.length,
@@ -546,7 +754,7 @@ export function AttemptReport({
       incorrect: list.filter(q => answered(q) && !q.is_correct).length,
       skipped: list.filter(q => !answered(q)).length,
     };
-  }, [model]);
+  }, [model, questionSubject]);
 
   useEffect(() => {
     setQuestionPage(1);
@@ -555,11 +763,23 @@ export function AttemptReport({
 
   const visibleQuestions = useMemo(() => {
     const list = model?.questions ?? [];
-    const subjectName = questionSubject
-      ? model?.subjects.find(sub => sub.subjectId === questionSubject)?.name ?? null
+
+    /**
+     * The subject filter matches on membership, not on the subject's name.
+     *
+     * It used to resolve the chosen subject to its name and compare that against
+     * each question's `subject` tag. That broke the moment subject names started
+     * resolving through the exam catalog: the filter looked for "Geography of
+     * India" while every question in it was tagged "புவியியல்", so selecting a
+     * subject emptied the list. `questionIds` is the grouping the model actually
+     * built, so it cannot disagree with the table above.
+     */
+    const inSubject = questionSubject
+      ? new Set(model?.subjects.find(sub => sub.subjectId === questionSubject)?.questionIds ?? [])
       : null;
+
     return list.filter(q => {
-      if (subjectName && (q.subject ?? '').trim() !== subjectName) return false;
+      if (inSubject && !inSubject.has(q.question_id)) return false;
       const answered = q.user_answer != null && String(q.user_answer).trim() !== '';
       if (resultFilter === 'correct') return answered && q.is_correct;
       if (resultFilter === 'incorrect') return answered && !q.is_correct;
@@ -732,14 +952,6 @@ export function AttemptReport({
           <CoverageAnalysis model={model} />
           <QuestionErrorAnalysis model={model} />
           <StrengthsAndGaps model={model} />
-          <KeyTakeawaysAndNextSteps
-            model={model}
-            onOpenPlan={
-              model.meta.attemptId
-                ? () => navigate(`/user/study-plan/${model.meta.attemptId}`)
-                : undefined
-            }
-          />
         </div>
       ) : (
         !loading && (
@@ -768,9 +980,41 @@ export function AttemptReport({
             <span className="text-xs text-gray-400">
               {visibleQuestions.length} of {questions.length}
             </span>
+            {/* The whole paper, not the filtered view — the count is in the label
+                so there is no doubt about what the file will contain. */}
+            {model && (
+              <div className="ml-auto flex items-center gap-1.5">
+                <select
+                  value={exportFormat}
+                  onChange={e => setExportFormat(e.target.value as 'csv' | 'docx')}
+                  aria-label="Download format"
+                  className="text-xs font-semibold px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 outline-none"
+                >
+                  <option value="csv">Excel (.csv)</option>
+                  <option value="docx">Word (.docx)</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={runExport}
+                  disabled={exporting}
+                  title={
+                    exportFormat === 'docx'
+                      ? 'A review booklet grouped by subject and topic — every question with its options, your answer, the correct answer and the explanation. Skipped questions included.'
+                      : 'One row per question with its options, your answer, the correct answer, subject, topic, sub-topic, difficulty and explanation. Skipped questions included.'
+                  }
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 disabled:opacity-60 disabled:cursor-wait px-2.5 py-1.5 rounded-lg transition-colors"
+                >
+                  <Download className={cn('w-3.5 h-3.5', exporting && 'animate-pulse')} />
+                  {exporting ? 'Preparing…' : `Download all ${questions.length}`}
+                </button>
+              </div>
+            )}
             <button
               onClick={() => setExpandAll(v => !v)}
-              className="ml-auto text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+              className={cn(
+                'text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400',
+                !model && 'ml-auto',
+              )}
             >
               {expandAll ? 'Collapse all' : 'Expand all'}
             </button>

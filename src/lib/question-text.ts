@@ -112,6 +112,31 @@ function normalise(s: string): string {
 }
 
 /**
+ * Restore the paragraph breaks an explanation was written with.
+ *
+ * Explanations are authored in several paragraphs — the answer, then the
+ * concept, then why each distractor is wrong — but HTML collapses newlines to
+ * single spaces, so the whole thing arrived as one unbroken wall of text with
+ * the bullets running inline. The CSS at the render site (`whitespace-pre-line`)
+ * is what shows the breaks; this makes sure real breaks are there to show.
+ *
+ * Two things are repaired. A literal backslash-n, which is what survives when
+ * text is JSON-encoded a second time somewhere in the import path, becomes a
+ * real newline. And a run of three or more blank lines is capped at one blank
+ * line, so a stray gap in the source does not open a hole in the card.
+ *
+ * Carriage returns are dropped so Windows-authored text breaks the same way.
+ */
+export function normaliseLineBreaks(text: string | null | undefined): string {
+  if (!text || typeof text !== 'string') return '';
+  return text
+    .replace(/\\r\\n|\\n|\\r/g, '\n')
+    .replace(/\r\n?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
  * Strip a trailing inline list of answer choices from a question stem.
  * Returns the text unchanged when no duplicated run is found.
  */

@@ -13,6 +13,7 @@ import { DownloadDropdown } from './DownloadDropdown';
 import { exportReport, type ExportFormat, type MetaField, type StudentRow } from '@/lib/eval-export-utils';
 import { format } from 'date-fns';
 import { MathText } from '@/components/ui/MathText';
+import { normaliseLineBreaks } from '@/lib/question-text';
 import { AttemptReport } from '@/components/user/ReportBody';
 
 interface Props {
@@ -354,7 +355,7 @@ function AttemptDetailViewLegacy({ assessmentId, attemptId, onBack }: {
                     <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-1 flex items-center gap-1">
                       <HelpCircle className="h-3 w-3" /> Explanation
                     </p>
-                    <p className="text-xs text-blue-800 dark:text-blue-300 whitespace-pre-wrap"><MathText text={q.explanation} /></p>
+                    <p className="text-xs text-blue-800 dark:text-blue-300 whitespace-pre-line"><MathText text={normaliseLineBreaks(q.explanation)} /></p>
                   </div>
                 )}
               </CardContent>

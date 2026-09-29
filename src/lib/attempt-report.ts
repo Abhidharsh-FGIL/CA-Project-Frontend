@@ -481,6 +481,33 @@ function slug(s: string): string {
 }
 
 /**
+ * A looser key for joining a subject named by two systems that do not share ids.
+ *
+ * `slug` already folds punctuation and case, which is enough when both sides
+ * spell a subject the same way. They frequently do not: the question bank tags
+ * "Aptitude & Mental Ability" while the scoring service returns "Aptitude and
+ * Mental Ability", and the slugs then differ by one token. The join failed
+ * silently, and a failed join is not a cosmetic problem here — the subject's
+ * marks row goes unclaimed, gets re-added as a second row carrying the same
+ * questions again, and the paper reports more unanswered questions than it has.
+ *
+ * So: normalise the ampersand to its word, and drop the joining words that
+ * carry no distinguishing sense. Nothing else is collapsed — two subjects that
+ * genuinely differ still differ after this.
+ */
+function matchKey(s: string): string {
+  return (
+    slug(s.replace(/&/g, ' and '))
+      .split('-')
+      .filter(part => part.length > 0 && !MATCH_NOISE.has(part))
+      .join('-') || 'untagged'
+  );
+}
+
+/** Joining words that never distinguish one subject from another. */
+const MATCH_NOISE = new Set(['and', 'the', 'of', 'in', 'a', 'an']);
+
+/**
  * The key to group a question's taxonomy level under.
  *
  * Prefers the id the backend assigns, which is stable across the two languages a
@@ -865,7 +892,13 @@ export function buildAttemptReport(
   for (const row of breakdown?.subject_breakdown ?? []) {
     const node = matchTaxonomy(exam, null, row.subject);
     marksBySubject.set(slug(row.subject), row);
-    if (node) marksBySubject.set(node.id, row);
+    // The looser key is set only where nothing already holds it, so an exact
+    // slug match always wins over a fuzzy one.
+    if (!marksBySubject.has(matchKey(row.subject))) marksBySubject.set(matchKey(row.subject), row);
+    if (node) {
+      marksBySubject.set(node.id, row);
+      if (!marksBySubject.has(matchKey(node.name))) marksBySubject.set(matchKey(node.name), row);
+    }
   }
 
   /**
@@ -899,6 +932,10 @@ export function buildAttemptReport(
     bySubject.set(id, entry);
   }
 
+  /** The marks row a subject group resolves to, or null when none matches. */
+  const marksRowFor = (subjectId: string, name: string): SubjectBreakdown | null =>
+    marksBySubject.get(subjectId) ?? marksBySubject.get(slug(name)) ?? marksBySubject.get(matchKey(name)) ?? null;
+
   /**
    * A subject that appears only in the server's marks table still belongs in the
    * matrix — otherwise a fully-skipped subject vanishes instead of reading
@@ -910,7 +947,7 @@ export function buildAttemptReport(
    */
   const claimedRows = new Set<string>();
   for (const [subjectId, { name }] of bySubject.entries()) {
-    const row = marksBySubject.get(subjectId) ?? marksBySubject.get(slug(name));
+    const row = marksRowFor(subjectId, name);
     if (row) claimedRows.add(row.subject);
   }
   for (const row of breakdown?.subject_breakdown ?? []) {
@@ -930,13 +967,19 @@ export function buildAttemptReport(
    * count, from the marks table above.
    */
 
-  /** The marks row a subject group resolves to, or null when none matches. */
-  const marksRowFor = (subjectId: string, name: string): SubjectBreakdown | null =>
-    marksBySubject.get(subjectId) ?? marksBySubject.get(slug(name)) ?? null;
-
   for (const [subjectId, { name }] of bySubject.entries()) {
     const row = marksRowFor(subjectId, name);
     if (row) marksRowClaims.set(row.subject, (marksRowClaims.get(row.subject) ?? 0) + 1);
+  }
+
+  /**
+   * Questions each marks row's claimants hold between them, so a shared row's
+   * marks can be split rather than handed out whole to each claimant.
+   */
+  const marksRowQuestions = new Map<string, number>();
+  for (const [subjectId, { name, items }] of bySubject.entries()) {
+    const row = marksRowFor(subjectId, name);
+    if (row) marksRowQuestions.set(row.subject, (marksRowQuestions.get(row.subject) ?? 0) + items.length);
   }
 
   const subjects: SubjectNode[] = [...bySubject.entries()].map(([subjectId, { name, items }]) => {
@@ -945,13 +988,27 @@ export function buildAttemptReport(
     const labels = subjectLabels(exam, items[0], name);
 
     if (marks) {
-      m.marksEarned = marks.estimated_marks;
-      m.marksAvailable = marks.max_marks;
+      const claims = marksRowClaims.get(marks.subject) ?? 1;
+      /**
+       * A row describing one subject gives up its marks whole. A row shared by
+       * two groups is split between them by question share — handing each the
+       * full `max_marks` counted the same marks twice, which inflated both the
+       * subject's score line and the marks priced into its skipped questions.
+       */
+      const share =
+        claims > 1
+          ? (marksRowQuestions.get(marks.subject) ?? 0) > 0
+            ? items.length / (marksRowQuestions.get(marks.subject) ?? 1)
+            : 1 / claims
+          : 1;
+
+      m.marksEarned = round1(marks.estimated_marks * share);
+      m.marksAvailable = round1(marks.max_marks * share);
       m.scoreEfficiency = marks.max_marks > 0 ? pct(marks.estimated_marks, marks.max_marks) : null;
       // Trust the server's question total for a subject whose questions were not
       // all projected into the list — but only where this marks row describes
       // exactly one subject row, or the same total gets counted twice.
-      if (marks.total_questions > m.questions && (marksRowClaims.get(marks.subject) ?? 1) === 1) {
+      if (marks.total_questions > m.questions && claims === 1) {
         m.questions = marks.total_questions;
         m.skipped = Math.max(0, marks.total_questions - m.attempted);
         m.coverage = pct(m.attempted, m.questions);
@@ -1927,13 +1984,37 @@ function buildCoverage(
     topicsBySubject.set(node.id, node.topics.map(t => t.name));
   }
 
+  /**
+   * What one question is worth across this paper, for subjects the marks table
+   * does not price individually.
+   *
+   * Without this, a subject whose marks row never arrived contributed nothing to
+   * the total while its skipped questions still counted in the headline — the
+   * report then showed, say, 26 questions unanswered next to a marks figure that
+   * only covered 19 of them. Every unanswered question is worth something; the
+   * only question is at what rate.
+   *
+   * Preference runs from the most specific evidence to the most general: what
+   * this paper actually priced, then what the exam is configured to carry.
+   */
+  const pricedSubjects = subjects.filter(s => s.metrics.marksAvailable != null && s.metrics.questions > 0);
+  const pricedMarks = pricedSubjects.reduce((n, s) => n + (s.metrics.marksAvailable ?? 0), 0);
+  const pricedQuestions = pricedSubjects.reduce((n, s) => n + s.metrics.questions, 0);
+  const paperRate =
+    pricedQuestions > 0
+      ? pricedMarks / pricedQuestions
+      : exam?.totalMarks != null && exam?.totalQuestions != null && exam.totalQuestions > 0
+        ? exam.totalMarks / exam.totalQuestions
+        : (exam?.marking?.marksPerQuestion ?? null);
+
   const rows: CoverageRow[] = subjects
     .filter(s => s.metrics.skipped > 0)
     .map(s => {
       const m = s.metrics;
       // Marks per question in this subject, so skipped questions can be priced.
+      // Falls back to the paper's rate where this subject carries no marks row.
       const perQuestion =
-        m.marksAvailable != null && m.questions > 0 ? m.marksAvailable / m.questions : null;
+        m.marksAvailable != null && m.questions > 0 ? m.marksAvailable / m.questions : paperRate;
       const marksAtStake = perQuestion != null ? Math.round(perQuestion * m.skipped * 10) / 10 : null;
       const state: CoverageRow['state'] = m.attempted === 0 ? 'NOT_ASSESSED' : 'PARTIAL';
       const topics = topicsBySubject.get(s.subjectId) ?? topicsBySubject.get(slug(s.name)) ?? [];
@@ -2065,7 +2146,7 @@ function buildInsights(
     if (s.state === 'INSUFFICIENT_EVIDENCE') {
       gaps.push({
         subjectId: s.subjectId,
-        title: `${s.name} — insufficient evidence`,
+        title: `${s.name} — too few answers to judge`,
         evidence: `${m.correct}/${m.attempted} correct (${m.accuracy}% raw)`,
         implication: `${m.attempted} attempted question${m.attempted === 1 ? '' : 's'} cannot support a reliable conclusion either way.`,
         action: `Attempt a ${s.name} practice set to establish a real baseline.`,
@@ -2306,11 +2387,18 @@ function archetypeFor(s: SubjectNode, cfg: ReportConfig): InterventionArchetype 
 
 // ─── Labels the UI shares ──────────────────────────────────────────────────────
 
+/**
+ * What each status says to the candidate reading it.
+ *
+ * Written as a verdict in plain words, not as a category name. "Focus" was a
+ * label for a bucket, and a reader had to be told what it meant; "Needs focus"
+ * says the thing itself and needs no key.
+ */
 export const STATUS_LABEL: Record<NodeStatus, string> = {
   STRONG: 'Strong',
   DEVELOPING: 'Developing',
-  FOCUS: 'Focus',
-  INSUFFICIENT_EVIDENCE: 'Insufficient evidence',
+  FOCUS: 'Needs focus',
+  INSUFFICIENT_EVIDENCE: 'Too few answers',
   NOT_ASSESSED: 'Not assessed',
 };
 
