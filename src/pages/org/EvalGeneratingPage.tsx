@@ -11,7 +11,7 @@ import { Loader2, CheckCircle2, XCircle, BookOpen, Brain } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { stripInlineOptions, stripInlineOptionsFromTranslation } from '@/lib/question-text';
+import { mapGeneratedQuestions } from '@/lib/eval-review-mapper';
 
 type JobStatus = 'running' | 'completed' | 'failed';
 
@@ -140,44 +140,8 @@ export function EvalGeneratingPage() {
               }));
 
               if (data.status === 'completed' && Array.isArray(data.question_json)) {
-                const answerKey: any[] = data.answer_key_json || [];
-                const mapped: ReviewQuestion[] = data.question_json.map((q: any) => {
-                  const ak = answerKey.find((a: any) => a.id === q.id);
-                  return {
-                    id: q.id,
-                    type: q.type,
-                    subtype: q.subtype,   // MCQ subtype from AI (e.g. 'standard', 'higher_order')
-                    // The generator sometimes repeats the choices inside the stem;
-                    // drop that run so the paper doesn't show them twice.
-                    text: stripInlineOptions(q.text, q.options),
-                    options: q.options,
-                    points: q.points || 1,
-                    pairs: q.pairs,
-                    correctAnswer: (() => {
-                      if (!ak) return undefined;
-                      if (q.type === 'mcq' && Array.isArray(q.options)) {
-                        const idx = q.options.indexOf(ak.correctAnswer);
-                        return idx >= 0 ? idx : ak.correctAnswer;
-                      }
-                      return ak.correctAnswer;
-                    })(),
-                    explanation: ak?.explanation,
-                    subject: q.subject,
-                    chapter: q.chapter,
-                    // Shared-passage grouping emitted by the backend (optional).
-                    passage: q.passage,
-                    group_id: q.group_id,
-                    // Bilingual payload — carried through review into /papers/save.
-                    translations: q.translations
-                      ? Object.fromEntries(
-                          Object.entries(q.translations).map(([lang, tr]) => [
-                            lang,
-                            stripInlineOptionsFromTranslation(tr as any),
-                          ]),
-                        )
-                      : undefined,
-                  };
-                });
+                // Carries each question's difficulty and subtopic through to review.
+                const mapped: ReviewQuestion[] = mapGeneratedQuestions(data.question_json, data.answer_key_json);
                 setReviewQuestions(mapped);
                 toast.success(`Generated ${mapped.length} question${mapped.length !== 1 ? 's' : ''}!`);
                 if (data.capped) {
@@ -211,6 +175,11 @@ export function EvalGeneratingPage() {
         ...q,
         subject: (q as any).subject || config.subjects[0]?.subject,
         chapter: (q as any).chapter,
+        subtopic: q.subtopic,
+        // The level the question was generated at, or the admin's correction
+        // from the review screen. The backend falls back to the paper's level
+        // only when this is missing.
+        difficulty: q.difficulty,
         // Pass shared-passage grouping back through so it persists (optional fields).
         passage: (q as any).passage,
         group_id: (q as any).group_id,
@@ -248,6 +217,7 @@ export function EvalGeneratingPage() {
           saveLabel="Save"
           hideQuizButton
           mcqOnly
+          showDifficulty
         />
       </GenVerseShell>
     );
