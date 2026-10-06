@@ -32,6 +32,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { UserShell } from '@/components/user/UserShell';
+import { StudyPlanCard } from '@/components/user/study-plan/StudyPlanCard';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { FilterSelect } from '@/components/user/FilterSelect';
@@ -522,6 +523,12 @@ export default function UserDashboardPage() {
 
         {/* ── Right rail ─────────────────────────────────────────────────── */}
         <div className="space-y-3 sm:space-y-4">
+          {/* Today's study plan, or a prompt to build one. Leads the rail because
+              it is the only card here that asks for an action today rather than
+              reporting on what already happened. Renders nothing while the
+              backend has no study-plan endpoints. */}
+          <StudyPlanCard />
+
           {/* Strengths */}
           <Card>
             <CardHead

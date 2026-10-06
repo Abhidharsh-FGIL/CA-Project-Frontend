@@ -35,6 +35,8 @@ import CourseDetailPage from "@/pages/user/CourseDetailPage";
 import TestStartPage from "@/pages/user/TestStartPage";
 import UserHistoryPage from "@/pages/user/UserHistoryPage";
 import UserReportPage from "@/pages/user/UserReportPage";
+import UserStudyPlanPage from "@/pages/user/UserStudyPlanPage";
+import StudyPlanWizardPage from "@/pages/user/StudyPlanWizardPage";
 import UserProfilePage from "@/pages/user/UserProfilePage";
 import SubscriptionPage from "@/pages/user/SubscriptionPage";
 import NotificationsPage from "@/pages/user/NotificationsPage";
@@ -173,10 +175,13 @@ function UserPortalRoutes() {
           <Route path="practice" element={<UserTrackPage track="practice" />} />
           <Route path="performance" element={<UserPerformancePage />} />
           <Route path="progress" element={<UserProgressPage />} />
-          {/* study-plan/:attemptId is hidden. Nothing links to it since the report's
-              takeaways card was removed, so the route only answered a typed URL.
-              UserStudyPlanPage, StudyPlanView and lib/study-plan are all still on
-              disk — restoring the feature is this line plus its import. */}
+          {/* Study plan. `new` is the intake wizard; the bare path resolves the
+              active plan; :planId opens a specific one, including superseded
+              revisions. The plan itself is generated and stored server-side —
+              see STUDY_PLAN_BACKEND_CHANGES.md. */}
+          <Route path="study-plan" element={<UserStudyPlanPage />} />
+          <Route path="study-plan/new" element={<StudyPlanWizardPage />} />
+          <Route path="study-plan/:planId" element={<UserStudyPlanPage />} />
           <Route path="bookmarks" element={<UserSavedPage kind="bookmarks" />} />
           <Route path="notes" element={<UserSavedPage kind="notes" />} />
           <Route path="courses" element={<CourseListPage />} />

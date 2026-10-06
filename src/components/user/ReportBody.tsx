@@ -36,6 +36,7 @@ import { ReportLanguageProvider, type ReportLanguage } from '@/components/user/r
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { buildAttemptReport, factsFromModel } from '@/lib/attempt-report';
+import { StudyPlanReportCta } from '@/components/user/study-plan/StudyPlanCard';
 
 /** Rows per page in the question table — a full 200-question paper needs paging. */
 const QUESTIONS_PER_PAGE = 25;
@@ -1088,6 +1089,11 @@ export function AttemptReport({
           )}
         </div>
       )}
+      {/* The report ends on the one thing the aspirant can act on: turning what
+          they have just read into a dated plan. This is the moment of maximum
+          intent — they have the diagnosis on screen. Renders nothing when the
+          study-plan endpoints are absent. */}
+      <StudyPlanReportCta attemptId={attempt.attempt_id} />
     </div>
   );
 

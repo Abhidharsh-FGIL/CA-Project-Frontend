@@ -6,6 +6,30 @@ import { User, Lock, Bell, Monitor, Trash2, Crown, Mail, Phone, Calendar } from 
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getPlan } from '@/data/userPortalSampleData';
+import { TNPSC_GROUPS } from '@/config/tnpsc';
+
+/**
+ * Exams the portal can prepare for.
+ *
+ * Derived from the catalog rather than hardcoded, exactly as the registration
+ * form does it, so adding a group to TNPSC_GROUPS offers it in both places. The
+ * stored value is always the group id — never the label — so renaming a group
+ * does not orphan everyone's profile.
+ */
+const EXAM_OPTIONS = TNPSC_GROUPS.map(g => ({ value: g.id, label: g.name }));
+
+const examLabel = (id: string) => TNPSC_GROUPS.find(g => g.id === id)?.name ?? id;
+
+const MEDIUM_OPTIONS = [
+  { value: 'English', label: 'English' },
+  { value: 'Tamil', label: 'Tamil' },
+];
+
+const GENDER_OPTIONS = [
+  { value: 'Male', label: 'Male' },
+  { value: 'Female', label: 'Female' },
+  { value: 'Other', label: 'Other' },
+];
 
 export default function UserProfilePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -89,7 +113,13 @@ export default function UserProfilePage() {
         </nav>
 
         <div>
-          {tab === 'profile' && <ProfileSection user={user} updateProfile={updateProfile} />}
+          {tab === 'profile' && (
+            <ProfileSection
+              user={user}
+              updateProfile={updateProfile}
+              autoEdit={searchParams.get('edit') === '1' && !user.preferred_exam}
+            />
+          )}
           {tab === 'security' && <SecuritySection changePassword={changePassword} />}
           {tab === 'settings' && <SettingsSection />}
         </div>
@@ -128,9 +158,12 @@ function TabBtn({
 function ProfileSection({
   user,
   updateProfile,
+  autoEdit,
 }: {
   user: ReturnType<typeof useUserPortal>['user'];
   updateProfile: ReturnType<typeof useUserPortal>['updateProfile'];
+  /** Opened straight into edit mode — set when sent here to pick an exam. */
+  autoEdit: boolean;
 }) {
   const initialForm = {
     name: user!.name,
@@ -138,16 +171,11 @@ function ProfileSection({
     phone: user!.phone,
     date_of_birth: user!.date_of_birth ?? '',
     gender: user!.gender ?? '',
-    student_class: user!.student_class ?? '',
-    section: user!.section ?? '',
-    roll_no: user!.roll_no ?? '',
-    school_name: user!.school_name ?? '',
     medium: user!.medium ?? '',
-    class_teacher: user!.class_teacher ?? '',
-    academic_year: user!.academic_year ?? '',
+    preferred_exam: user!.preferred_exam ?? '',
   };
   const [form, setForm] = useState(initialForm);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(autoEdit);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -155,8 +183,8 @@ function ProfileSection({
       toast.error('Phone must be 10 digits');
       return;
     }
-    if (form.academic_year && !/^\d{4}-\d{2}$/.test(form.academic_year.trim())) {
-      toast.error('Academic year must use format YYYY-YY (e.g. 2025-26)');
+    if (!form.preferred_exam) {
+      toast.error('Choose the exam you are preparing for');
       return;
     }
     setSaving(true);
@@ -166,13 +194,8 @@ function ProfileSection({
       phone: form.phone,
       date_of_birth: form.date_of_birth,
       gender: form.gender,
-      student_class: form.student_class,
-      section: form.section,
-      roll_no: form.roll_no,
-      school_name: form.school_name,
       medium: form.medium,
-      class_teacher: form.class_teacher,
-      academic_year: form.academic_year,
+      preferred_exam: form.preferred_exam,
     });
     setSaving(false);
     if (res.ok) {
@@ -241,49 +264,52 @@ function ProfileSection({
           value={form.gender}
           editing={editing}
           onChange={v => setForm(f => ({ ...f, gender: v }))}
+          options={GENDER_OPTIONS}
         />
-        <FormRow
-          label="Class"
-          value={form.student_class}
-          editing={editing}
-          onChange={v => setForm(f => ({ ...f, student_class: v }))}
-        />
-        <FormRow
-          label="Section"
-          value={form.section}
-          editing={editing}
-          onChange={v => setForm(f => ({ ...f, section: v.toUpperCase().slice(0, 3) }))}
-        />
-        <FormRow
-          label="Roll No."
-          value={form.roll_no}
-          editing={editing}
-          onChange={v => setForm(f => ({ ...f, roll_no: v }))}
-        />
-        <FormRow
-          label="School Name"
-          value={form.school_name}
-          editing={editing}
-          onChange={v => setForm(f => ({ ...f, school_name: v }))}
-        />
-        <FormRow
-          label="Medium"
-          value={form.medium}
-          editing={editing}
-          onChange={v => setForm(f => ({ ...f, medium: v }))}
-        />
-        <FormRow
-          label="Class Teacher"
-          value={form.class_teacher}
-          editing={editing}
-          onChange={v => setForm(f => ({ ...f, class_teacher: v }))}
-        />
-        <FormRow
-          label="Academic Year"
-          value={form.academic_year}
-          editing={editing}
-          onChange={v => setForm(f => ({ ...f, academic_year: v.replace(/[^\d-]/g, '').slice(0, 7) }))}
-        />
+
+        {/* Preparation — the two fields the rest of the portal actually reads.
+            `preferred_exam` decides which syllabus the Exams screens and the
+            study plan work from, so it is the one field here that is required. */}
+        <div className="pt-4 mt-4 border-t border-gray-100 dark:border-gray-800">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-4">
+            Preparation
+          </p>
+          <div className="space-y-4">
+            {!form.preferred_exam && !editing && (
+              <div className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/70 dark:bg-amber-950/30 px-3 py-2.5 mb-1">
+                <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                  You haven't chosen an exam yet
+                </p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
+                  Your study plan can't be built without one — it needs to know whose syllabus to
+                  work from. Tap Edit above to set it.
+                </p>
+              </div>
+            )}
+            <FormRow
+              label="Preparing for"
+              value={form.preferred_exam}
+              editing={editing}
+              onChange={v => setForm(f => ({ ...f, preferred_exam: v }))}
+              options={EXAM_OPTIONS}
+              placeholder="Select the exam…"
+              display={examLabel(form.preferred_exam)}
+              hint={
+                editing
+                  ? 'Your mock tests, reports and study plan are all built from this exam’s syllabus.'
+                  : undefined
+              }
+            />
+            <FormRow
+              label="Medium"
+              value={form.medium}
+              editing={editing}
+              onChange={v => setForm(f => ({ ...f, medium: v }))}
+              options={MEDIUM_OPTIONS}
+              hint={editing ? 'The language your question papers are set in.' : undefined}
+            />
+          </div>
+        </div>
       </div>
 
       {editing && (
@@ -317,6 +343,9 @@ function FormRow({
   onChange,
   hint,
   type = 'text',
+  options,
+  placeholder,
+  display,
 }: {
   label: string;
   value: string;
@@ -324,20 +353,42 @@ function FormRow({
   onChange: (v: string) => void;
   hint?: string;
   type?: string;
+  /** Renders a select instead of a text input — a closed set of valid answers. */
+  options?: { value: string; label: string }[];
+  placeholder?: string;
+  /** What to show when not editing, where the stored value is an id, not a label. */
+  display?: string;
 }) {
+  const field = cn(
+    'w-full px-3 py-2 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400',
+  );
+
   return (
     <div className="grid sm:grid-cols-[140px_1fr] gap-2 items-center">
       <label className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</label>
       <div>
         {editing ? (
-          <input
-            type={type}
-            value={value}
-            onChange={e => onChange(e.target.value)}
-            className="w-full px-3 py-2 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400"
-          />
+          options ? (
+            <select value={value} onChange={e => onChange(e.target.value)} className={field}>
+              <option value="">{placeholder ?? 'Select…'}</option>
+              {options.map(o => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type={type}
+              value={value}
+              onChange={e => onChange(e.target.value)}
+              className={field}
+            />
+          )
         ) : (
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{value || '—'}</p>
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            {display || value || '—'}
+          </p>
         )}
         {hint && <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">{hint}</p>}
       </div>

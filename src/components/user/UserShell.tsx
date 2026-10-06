@@ -1,6 +1,7 @@
 import { ReactNode, useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import {
+  CalendarCheck,
   ClipboardList,
   GraduationCap,
   Home,
@@ -23,10 +24,19 @@ interface UserShellProps {
   children: ReactNode;
 }
 
-const NAV = [
+interface NavItem {
+  to: string;
+  label: string;
+  /** Used by the phone bar, where a fifth of the width cannot hold two words. */
+  short?: string;
+  icon: typeof Home;
+}
+
+const NAV: NavItem[] = [
   { to: '/user/dashboard', label: 'Dashboard', icon: Home },
   { to: '/user/exams', label: 'Exams', icon: ClipboardList },
   { to: '/user/performance', label: 'Performance', icon: LineChart },
+  { to: '/user/study-plan', label: 'Study Plan', short: 'Plan', icon: CalendarCheck },
   { to: '/user/history', label: 'History', icon: Receipt },
   // Progress is hidden. /user/progress still resolves and the page is untouched;
   // it is only off the bar.
@@ -43,7 +53,9 @@ const NAV = [
 
 /** The ones that fit a phone; the rest live behind the drawer. */
 const MOBILE_NAV = NAV.filter(n =>
-  ['/user/dashboard', '/user/exams', '/user/performance', '/user/history'].includes(n.to),
+  ['/user/dashboard', '/user/exams', '/user/study-plan', '/user/performance', '/user/history'].includes(
+    n.to,
+  ),
 );
 
 /** The chrome navy from the approved design. One definition, used everywhere. */
@@ -322,7 +334,7 @@ export function UserShell({ children }: UserShellProps) {
 
       {/* ── Bottom bar (mobile) ───────────────────────────────────────────── */}
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-t border-gray-100 dark:border-gray-800 flex items-stretch px-1 py-1.5">
-        {MOBILE_NAV.map(({ to, label, icon: Icon }) => {
+        {MOBILE_NAV.map(({ to, label, short, icon: Icon }) => {
           const active = isActive(to);
           return (
             <Link
@@ -334,7 +346,9 @@ export function UserShell({ children }: UserShellProps) {
               )}
             >
               <Icon className={cn('w-[18px] h-[18px] transition-transform', active && 'scale-110')} />
-              <span className={cn('text-[10px] leading-tight', active ? 'font-bold' : 'font-medium')}>{label}</span>
+              <span className={cn('text-[10px] leading-tight', active ? 'font-bold' : 'font-medium')}>
+                {short ?? label}
+              </span>
             </Link>
           );
         })}

@@ -86,13 +86,8 @@ interface UserPortalContextValue {
         | 'phone'
         | 'date_of_birth'
         | 'gender'
-        | 'student_class'
-        | 'section'
-        | 'roll_no'
-        | 'school_name'
         | 'medium'
-        | 'class_teacher'
-        | 'academic_year'
+        | 'preferred_exam'
       >
     >,
   ) => Promise<{ ok: boolean; error?: string }>;
@@ -530,13 +525,8 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
           | 'phone'
           | 'date_of_birth'
           | 'gender'
-          | 'student_class'
-          | 'section'
-          | 'roll_no'
-          | 'school_name'
           | 'medium'
-          | 'class_teacher'
-          | 'academic_year'
+          | 'preferred_exam'
         >
       >,
     ) => {
@@ -546,13 +536,10 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
       if (data.phone !== undefined) payload.phone = data.phone;
       if (data.date_of_birth !== undefined) payload.date_of_birth = data.date_of_birth;
       if (data.gender !== undefined) payload.gender = data.gender;
-      if (data.student_class !== undefined) payload.student_class = data.student_class;
-      if (data.section !== undefined) payload.section = data.section;
-      if (data.roll_no !== undefined) payload.roll_no = data.roll_no;
-      if (data.school_name !== undefined) payload.school_name = data.school_name;
       if (data.medium !== undefined) payload.medium = data.medium;
-      if (data.class_teacher !== undefined) payload.class_teacher = data.class_teacher;
-      if (data.academic_year !== undefined) payload.academic_year = data.academic_year;
+      // Only ever a TNPSC_GROUPS id, never the display label — the study plan and
+      // the exam screens resolve a syllabus from it.
+      if (data.preferred_exam !== undefined) payload.preferred_exam = data.preferred_exam;
       try {
         const profile = await updateUserProfile(payload);
         setUser(mapProfileToSampleUser(profile));
