@@ -28,6 +28,7 @@ import type { EvalPaperConfig, EvalSubjectConfig } from '@/hooks/use-evaluation'
 import { EXAMS } from '@/constants';
 import { getSyllabusSubjects, getSyllabusChapters, getSyllabusSections } from '@/data/examSyllabus';
 import { bilingualLanguageForExamType } from '@/config/tnpsc';
+import { DIFFICULTY_LABELS, difficultyLabel } from '@/lib/eval-difficulty';
 
 const MCQ_SUBTYPES = [
   { value: 'standard', label: 'Standard MCQ', description: 'Single-correct multiple choice.' },
@@ -221,13 +222,18 @@ export function EvalPaperConfigPanel({ config, onChange, onGenerate, isGeneratin
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label="Difficulty" hint="Overall difficulty of the generated questions.">
+                <Field
+                  label="Difficulty"
+                  hint="Every question is written at this level. Mixed splits each subject into equal Simple, Medium and Hard thirds."
+                >
+                  {/* Values stay easy / medium / hard / mixed — only the labels use the portal's wording. */}
                   <Select value={config.difficulty} onValueChange={v => onChange({ ...config, difficulty: v })}>
                     <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="easy">Easy</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="hard">Hard</SelectItem>
+                      <SelectItem value="easy">{DIFFICULTY_LABELS.easy}</SelectItem>
+                      <SelectItem value="medium">{DIFFICULTY_LABELS.medium}</SelectItem>
+                      <SelectItem value="hard">{DIFFICULTY_LABELS.hard}</SelectItem>
+                      <SelectItem value="mixed">{DIFFICULTY_LABELS.mixed}</SelectItem>
                     </SelectContent>
                   </Select>
                 </Field>
@@ -581,7 +587,7 @@ function ReviewSummary({
     <div className="rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">
       <SummaryRow label="Title" value={config.title || <em className="text-slate-400">Untitled</em>} />
       <SummaryRow label="Test Type" value={config.testType || <em className="text-slate-400">Not set</em>} />
-      <SummaryRow label="Difficulty" value={<span className="capitalize">{config.difficulty}</span>} />
+      <SummaryRow label="Difficulty" value={<span>{difficultyLabel(config.difficulty)}</span>} />
       <SummaryRow
         label="Subjects"
         value={
@@ -655,7 +661,7 @@ function LiveSummary({
   const rows: { label: string; value: React.ReactNode; placeholder?: string }[] = [
     { label: 'Title', value: config.title || null, placeholder: 'Untitled' },
     { label: 'Test Type', value: config.testType || null, placeholder: 'Not set' },
-    { label: 'Difficulty', value: <span className="capitalize">{config.difficulty}</span> },
+    { label: 'Difficulty', value: <span>{difficultyLabel(config.difficulty)}</span> },
     {
       label: 'Subjects',
       value: config.subjects.length > 0

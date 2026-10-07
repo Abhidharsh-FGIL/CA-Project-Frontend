@@ -32,6 +32,14 @@ import { MathTextarea } from '@/components/ui/math-textarea';
 import { downloadAssessmentPDF } from '@/lib/assessment-pdf-export';
 import { downloadPaperAsDocx } from '@/lib/eval-docx-export';
 import { stripInlineOptions } from '@/lib/question-text';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  DIFFICULTY_LABELS,
+  DIFFICULTY_PILL,
+  QUESTION_DIFFICULTIES,
+  asQuestionDifficulty,
+  formatDifficultySummary,
+} from '@/lib/eval-difficulty';
 
 export interface ReviewQuestion {
   id: string;
@@ -57,6 +65,13 @@ export interface ReviewQuestion {
    * level of every report.
    */
   subtopic?: string;
+  /**
+   * The level this question was generated at: 'easy' | 'medium' | 'hard'
+   * (shown as Simple / Medium / Hard). Carried untouched to POST /papers/save,
+   * which stores it per question; editable on the review screen when the panel
+   * is given `showDifficulty`.
+   */
+  difficulty?: string;
   /** Reading-comprehension / shared-context passage. Questions sharing a group_id show it once. */
   passage?: string;
   /** Groups questions that share the same passage/context. */
@@ -105,6 +120,8 @@ interface QuestionReviewPanelProps {
   saveLabel?: string;
   hideQuizButton?: boolean;
   mcqOnly?: boolean;
+  /** Show each question's level (Simple / Medium / Hard), editable, plus a count summary. */
+  showDifficulty?: boolean;
 }
 
 export function QuestionReviewPanel({
@@ -119,6 +136,7 @@ export function QuestionReviewPanel({
   saveLabel,
   hideQuizButton,
   mcqOnly,
+  showDifficulty,
 }: QuestionReviewPanelProps) {
   const [questions, setQuestions] = useState<ReviewQuestion[]>(initialQuestions);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -141,6 +159,8 @@ export function QuestionReviewPanel({
       options: type === 'mcq' ? ['', '', '', ''] : type === 'true_false' ? ['True', 'False'] : undefined,
       correctAnswer: '',
       pairs: type === 'match' ? [{ left: '', right: '' }, { left: '', right: '' }] : undefined,
+      // A hand-added question starts at the paper's level (none for a mixed paper).
+      difficulty: showDifficulty ? asQuestionDifficulty(config.difficulty) : undefined,
     };
     setQuestions(qs => [...qs, newQ]);
   };
@@ -293,6 +313,8 @@ export function QuestionReviewPanel({
     case:             'Case-based MCQ',
     assertion_reason: 'Assertion & Reason',
     higher_order:     'Higher Order Thinking',
+    // TNPSC statement sets ("Consider the following statements …").
+    statement_based:  'Statement-based',
   };
 
   /** Tailwind color classes for each MCQ subtype badge */
@@ -301,6 +323,7 @@ export function QuestionReviewPanel({
     case:             'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
     assertion_reason: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800',
     higher_order:     'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
+    statement_based:  'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800',
   };
 
   const typeLabel = (t: string, subtype?: string) => {
@@ -327,6 +350,11 @@ export function QuestionReviewPanel({
           <div>
             <h2 className="text-lg font-bold">{config.title || 'Review Questions'}</h2>
             <p className="text-sm text-muted-foreground">{questions.length} questions • {config.subject} • {config.difficulty}</p>
+            {showDifficulty && (
+              <p className="text-xs font-medium text-muted-foreground mt-0.5" data-testid="difficulty-summary">
+                {formatDifficultySummary(questions)}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -444,6 +472,30 @@ export function QuestionReviewPanel({
                     >
                       {typeLabel(q.type, q.subtype)}
                     </span>
+                    {showDifficulty && (() => {
+                      const level = asQuestionDifficulty(q.difficulty);
+                      return (
+                        <Select
+                          value={level ?? ''}
+                          onValueChange={v => updateQuestion(q.id, { difficulty: v })}
+                        >
+                          <SelectTrigger
+                            className={cn(
+                              'h-6 w-auto gap-1 rounded-full border px-2.5 py-0 text-[11px] font-semibold',
+                              level ? DIFFICULTY_PILL[level] : 'bg-muted text-muted-foreground border-border',
+                            )}
+                            aria-label="Question difficulty"
+                          >
+                            <SelectValue placeholder="Set level" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {QUESTION_DIFFICULTIES.map(d => (
+                              <SelectItem key={d} value={d}>{DIFFICULTY_LABELS[d]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center gap-2">
                     <Input
