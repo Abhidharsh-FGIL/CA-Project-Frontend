@@ -231,6 +231,14 @@ export interface TnpscExamPattern {
     marks?: number;
     /** Answer any `attempt` of `questions`. Omitted when the whole section is mandatory. */
     attempt?: number;
+    /**
+     * The section this one is sat *instead of*, naming it.
+     *
+     * Group 4's language paper is taken in Tamil or in English, so the two carry
+     * the same 100 questions and only one of them counts toward `total_questions`.
+     * A reader that sums section counts must skip one side of such a pair.
+     */
+    alternative_to?: string;
     /** Marks per correct answer, when sections are not all weighted the same. */
     marks_per_question?: number;
     /** Deduction per wrong answer in this section, overriding the paper-wide value. */
@@ -787,6 +795,14 @@ const GATB_SECTION_B_SUBJECTS: TnpscSubject[] = [
 // Services Examination – IV syllabus (Code 496, dated 12.12.2024). Counts are as
 // printed and sum to their section: 75 + 25 + 100 = 200.
 
+/**
+ * Part A of the published paper.
+ *
+ * `name_ta` here is a translation supplied for display, not the commission's own
+ * wording: the published syllabus prints Parts A and B in English only, and sets
+ * out Tamil text for Part C alone. Part C's units (`G4_TAMIL_UNITS`) carry the
+ * printed Tamil instead.
+ */
 const G4_GENERAL_STUDIES_UNITS: TnpscSyllabusUnit[] = [
   {
     id: 'g4-gs-general-science',
@@ -795,6 +811,22 @@ const G4_GENERAL_STUDIES_UNITS: TnpscSyllabusUnit[] = [
     name_ta: 'பொது அறிவியல்',
     questions: 5,
     subject_ids: ['general-science'],
+    topics: [
+      { id: 'nature-of-universe', name: 'Nature of Universe' },
+      { id: 'measurement', name: 'Measurement of physical quantities' },
+      { id: 'laws-in-motion', name: 'General scientific laws in motion — force, pressure and energy' },
+      { id: 'everyday-physics', name: 'Everyday application of mechanics, electricity, magnetism, light, sound, heat and nuclear physics' },
+      { id: 'elements-and-compounds', name: 'Elements and compounds, acids, bases, salts' },
+      { id: 'petroleum-fertilizers', name: 'Petroleum products, fertilizers, pesticides' },
+      { id: 'metallurgy-adulterants', name: 'Metallurgy and food adulterants' },
+      { id: 'life-science', name: 'Main concepts of life science' },
+      { id: 'classification-living', name: 'Classification of living organisms' },
+      { id: 'evolution-genetics', name: 'Evolution, genetics and physiology' },
+      { id: 'nutrition-health', name: 'Nutrition, health and hygiene, human diseases' },
+      { id: 'environmental-science', name: 'Environmental science' },
+      { id: 'latest-inventions', name: 'Latest inventions in science and technology' },
+      { id: 'gs-science-current-affairs', name: 'Current affairs' },
+    ],
   },
   {
     id: 'g4-gs-geography',
@@ -803,15 +835,43 @@ const G4_GENERAL_STUDIES_UNITS: TnpscSyllabusUnit[] = [
     name_ta: 'புவியியல்',
     questions: 5,
     subject_ids: ['geography'],
+    topics: [
+      { id: 'earth-location', name: 'Earth location' },
+      { id: 'physical-features', name: 'Physical features' },
+      { id: 'monsoon-climate', name: 'Monsoon, rainfall, weather and climate' },
+      { id: 'water-resources-rivers', name: 'Water resources and rivers' },
+      { id: 'soil-minerals', name: 'Soil, minerals and natural resources' },
+      { id: 'forest-wildlife', name: 'Forest and wildlife' },
+      { id: 'agriculture-pattern', name: 'Agriculture pattern' },
+      { id: 'transport-communication', name: 'Transport and communication' },
+      { id: 'population-density', name: 'Population density and distribution in Tamil Nadu and India' },
+      { id: 'calamities-disaster', name: 'Calamities and disaster management' },
+      { id: 'environment-climate-change', name: 'Environment and climate change' },
+      { id: 'geographical-landmarks', name: 'Geographical landmarks' },
+      { id: 'gs-geography-current-affairs', name: 'Current affairs' },
+    ],
   },
   {
     id: 'g4-gs-history-and-inm',
     label: 'III',
     name: 'History, Culture of India, and Indian National Movement',
+    name_ta: 'இந்திய வரலாறு, பண்பாடு மற்றும் இந்திய தேசிய இயக்கம்',
     questions: 10,
     // One printed unit, two catalog subjects — the syllabus states no split between
     // them, so the 10 stays on the unit rather than being halved.
     subject_ids: ['history-and-culture', 'indian-national-movement'],
+    topics: [
+      { id: 'indus-valley', name: 'Indus Valley Civilization' },
+      { id: 'guptas-sultans-mughals', name: 'Guptas, Delhi Sultans, Mughals and Marathas' },
+      { id: 'south-indian-history', name: 'South Indian History' },
+      { id: 'national-renaissance', name: 'National Renaissance' },
+      { id: 'early-uprising', name: 'Early uprising against British Rule' },
+      { id: 'indian-national-congress', name: 'Indian National Congress' },
+      { id: 'emergence-of-leaders', name: 'Emergence of leaders — Ambedkar, Bhagat Singh, Bharathiar, V.O.C., Periyar, Nehru, Tagore, Kamarajar, Gandhi' },
+      { id: 'tn-modes-of-agitation', name: 'Different modes of agitation of Tamil Nadu and movements' },
+      { id: 'indian-culture', name: 'Characteristics of Indian culture — unity in diversity, race, language, custom' },
+      { id: 'secular-state', name: 'India as a secular state' },
+    ],
   },
   {
     id: 'g4-gs-indian-polity',
@@ -820,20 +880,79 @@ const G4_GENERAL_STUDIES_UNITS: TnpscSyllabusUnit[] = [
     name_ta: 'இந்திய அரசியலமைப்பு',
     questions: 15,
     subject_ids: ['indian-polity'],
+    topics: [
+      { id: 'constitution-preamble', name: 'Constitution of India — Preamble' },
+      { id: 'salient-features', name: 'Salient features of the Constitution' },
+      { id: 'union-state-ut', name: 'Union, State and Union Territory' },
+      { id: 'citizenship-rights-duties', name: 'Citizenship, Fundamental Rights and Fundamental Duties' },
+      { id: 'directive-principles', name: 'Directive Principles of State Policy' },
+      { id: 'union-executive-legislature', name: 'Union Executive and Union Legislature' },
+      { id: 'state-executive-legislature', name: 'State Executive and State Legislature' },
+      { id: 'local-government-panchayat', name: 'Local Governments and Panchayat Raj' },
+      { id: 'federalism', name: 'Spirit of federalism — Centre–State relationships' },
+      { id: 'election', name: 'Election' },
+      { id: 'judiciary-rule-of-law', name: 'Judiciary in India — Rule of Law' },
+      { id: 'anti-corruption', name: 'Corruption in public life — Lokpal and Lokayukta' },
+      { id: 'right-to-information', name: 'Right to Information' },
+      { id: 'empowerment-of-women', name: 'Empowerment of Women' },
+      { id: 'consumer-protection', name: 'Consumer Protection Forums' },
+      { id: 'human-rights-charter', name: 'Human Rights Charter' },
+      { id: 'political-parties', name: 'Political parties and political system in Tamil Nadu and India' },
+      { id: 'gs-polity-current-affairs', name: 'Current affairs' },
+    ],
   },
   {
     id: 'g4-gs-economy-and-dev-admin',
     label: 'V',
     name: 'Indian Economy and Development Administration in Tamil Nadu',
+    name_ta: 'இந்தியப் பொருளாதாரம் மற்றும் தமிழ்நாட்டில் வளர்ச்சி நிர்வாகம்',
     questions: 20,
     subject_ids: ['indian-economy', 'development-administration-tn'],
+    topics: [
+      { id: 'nature-of-economy', name: 'Nature of Indian economy' },
+      { id: 'five-year-plans', name: 'Five-year plan models — an assessment' },
+      { id: 'planning-niti-aayog', name: 'Planning Commission and NITI Aayog' },
+      { id: 'sources-of-revenue', name: 'Sources of revenue' },
+      { id: 'reserve-bank', name: 'Reserve Bank of India' },
+      { id: 'finance-commission', name: 'Finance Commission' },
+      { id: 'resource-sharing', name: 'Resource sharing between Union and State Governments' },
+      { id: 'gst', name: 'Goods and Services Tax' },
+      { id: 'employment-generation', name: 'Economic trends — employment generation' },
+      { id: 'land-reforms-agriculture', name: 'Land reforms and agriculture' },
+      { id: 'science-in-agriculture', name: 'Application of science and technology in agriculture' },
+      { id: 'industrial-growth', name: 'Industrial growth' },
+      { id: 'rural-welfare', name: 'Rural welfare oriented programmes' },
+      { id: 'social-problems', name: 'Social problems — population, education, health, employment, poverty' },
+      { id: 'social-justice', name: 'Social justice and social harmony' },
+      { id: 'tn-education-health', name: 'Education and health systems in Tamil Nadu' },
+      { id: 'tn-geography-economy', name: 'Geography of Tamil Nadu and its impact on economic growth' },
+      { id: 'welfare-schemes', name: 'Welfare schemes of Government' },
+      { id: 'current-socio-economic', name: 'Current socio-economic issues' },
+      { id: 'gs-economy-current-affairs', name: 'Current affairs' },
+    ],
   },
   {
     id: 'g4-gs-tamil-nadu-history',
     label: 'VI',
     name: 'History, Culture, Heritage, and Socio-Political Movements of Tamil Nadu',
+    name_ta: 'தமிழ்நாட்டின் வரலாறு, பண்பாடு, பாரம்பரியம் மற்றும் சமூக-அரசியல் இயக்கங்கள்',
     questions: 20,
     subject_ids: ['tamil-nadu-history-and-society'],
+    topics: [
+      { id: 'tamil-society-archaeology', name: 'History of Tamil Society and related archaeological discoveries' },
+      { id: 'tamil-literature-sangam', name: 'Tamil literature from Sangam age till contemporary times' },
+      { id: 'thirukkural-secular', name: 'Thirukkural — significance as a secular literature' },
+      { id: 'thirukkural-everyday', name: 'Thirukkural — relevance to everyday life and impact on humanity' },
+      { id: 'thirukkural-values', name: 'Thirukkural and universal values' },
+      { id: 'thirukkural-socio-politico', name: 'Thirukkural — relevance to socio-politico-economic affairs' },
+      { id: 'thirukkural-philosophy', name: 'Philosophical content in Thirukkural' },
+      { id: 'tn-freedom-struggle', name: 'Role of Tamil Nadu in the freedom struggle' },
+      { id: 'tn-early-agitations', name: 'Early agitations against British Rule' },
+      { id: 'women-freedom-struggle', name: 'Role of women in the freedom struggle' },
+      { id: 'social-reformers', name: 'Various social reformers' },
+      { id: 'social-reform-movements', name: 'Social reform movements' },
+      { id: 'social-transformation-tn', name: 'Social transformation of Tamil Nadu' },
+    ],
   },
 ];
 
@@ -842,11 +961,13 @@ const G4_APTITUDE_UNITS: TnpscSyllabusUnit[] = [
     id: 'g4-apt-aptitude',
     label: 'I',
     name: 'Aptitude',
+    name_ta: 'திறனறிவு',
     questions: 15,
     topics: [
       { id: 'simplification', name: 'Simplification' },
       { id: 'percentage', name: 'Percentage' },
-      { id: 'hcf-lcm', name: 'HCF & LCM' },
+      { id: 'hcf', name: 'Highest Common Factor (HCF)' },
+      { id: 'lcm', name: 'Lowest Common Multiple (LCM)' },
       { id: 'ratio-and-proportion', name: 'Ratio and Proportion' },
       { id: 'simple-interest', name: 'Simple interest' },
       { id: 'compound-interest', name: 'Compound interest' },
@@ -859,6 +980,7 @@ const G4_APTITUDE_UNITS: TnpscSyllabusUnit[] = [
     id: 'g4-apt-reasoning',
     label: 'II',
     name: 'Reasoning',
+    name_ta: 'தருக்க அறிவு',
     questions: 10,
     topics: [
       { id: 'logical-reasoning', name: 'Logical reasoning' },
@@ -875,16 +997,105 @@ const G4_APTITUDE_UNITS: TnpscSyllabusUnit[] = [
 // General English instead, whose seven units carry a different split (25 / 15 / 10 /
 // 10 / 20 / 5 / 15) — noted on the section rather than listed twice.
 const G4_TAMIL_UNITS: TnpscSyllabusUnit[] = [
-  { id: 'g4-ta-grammar', label: 'I', name: 'Grammar', name_ta: 'இலக்கணம்', questions: 25 },
-  { id: 'g4-ta-vocabulary', label: 'II', name: 'Vocabulary', name_ta: 'சொல்லகராதி', questions: 15 },
-  { id: 'g4-ta-writing', label: 'III', name: 'Writing Skills', name_ta: 'எழுதும் திறன்', questions: 15 },
-  { id: 'g4-ta-technical-terms', label: 'IV', name: 'Technical Terms', name_ta: 'கலைச் சொற்கள்', questions: 10 },
+  {
+    id: 'g4-ta-grammar',
+    label: 'I',
+    name: 'Grammar',
+    name_ta: 'இலக்கணம்',
+    questions: 25,
+    topics: [
+      { id: 'pirithu-ezhuthal', name: 'பிரித்து எழுதுதல் (Splitting words)' },
+      { id: 'serthu-ezhuthal', name: 'சேர்த்து எழுதுதல் (Joining words)' },
+      { id: 'santhi-pizhai', name: 'சந்திப்பிழை (Sandhi errors)' },
+      { id: 'kuril-nedil', name: 'குறில் – நெடில் வேறுபாடு' },
+      { id: 'la-la-zha', name: 'லகர, ளகர, ழகர வேறுபாடு' },
+      { id: 'na-nna', name: 'னகர, ணகர வேறுபாடு' },
+      { id: 'ra-rra', name: 'ரகர, றகர வேறுபாடு' },
+      { id: 'ina-ezhuthukkal', name: 'இனவெழுத்துகள் அறிதல்' },
+      { id: 'suttu-vina-ezhuthukkal', name: 'சுட்டு எழுத்துகள், வினா எழுத்துகள்' },
+      { id: 'orumai-panmai', name: 'ஒருமை – பன்மை அறிதல்' },
+      { id: 'verchol', name: 'வேர்ச்சொல் அறிதல்' },
+      { id: 'vinaimutru-vinaiyechcham', name: 'வினைமுற்று, வினையெச்சம், பெயரெச்சம்' },
+      { id: 'vinaiyalanaiyum-peyar', name: 'வினையாலணையும் பெயர்' },
+      { id: 'ayarchol-tamizhchol', name: 'அயற்சொல், தமிழ்ச்சொல்' },
+      { id: 'ethirchol', name: 'எதிர்ச்சொல்' },
+      { id: 'ezhuthu-otru-pizhai', name: 'எழுத்துப் பிழை, ஒற்றுப் பிழை அறிதல்' },
+    ],
+  },
+  {
+    id: 'g4-ta-vocabulary',
+    label: 'II',
+    name: 'Vocabulary',
+    name_ta: 'சொல்லகராதி',
+    questions: 15,
+    topics: [
+      { id: 'ethirchol-eduthezhuthal', name: 'எதிர்ச்சொல்லை எடுத்தெழுதுதல்' },
+      { id: 'orezhuthu-oru-mozhi', name: 'ஓரெழுத்து ஒரு மொழி' },
+      { id: 'oruporul-pala-sorkal', name: 'ஒருபொருள் தரும் பல சொற்கள்' },
+      { id: 'porunthaa-sol', name: 'பொருந்தா சொல்லைக் கண்டறிதல்' },
+      { id: 'akara-varisai', name: 'அகர வரிசைப்படி சொற்களைச் சீர்செய்தல்' },
+      { id: 'oruporul-panmozhi', name: 'ஒருபொருள் பன்மொழி' },
+      { id: 'iruporul-sorkal', name: 'இருபொருள் குறிக்கும் சொற்கள்' },
+      { id: 'pechu-ezhuthu-vazhakku', name: 'பேச்சு வழக்கு, எழுத்து வழக்கு' },
+      { id: 'maruu', name: 'ஊர்ப் பெயர்களின் மரூஉ' },
+      { id: 'pizhai-thiruthuthal', name: 'பிழை திருத்துதல்' },
+      { id: 'porutthamana-sol', name: 'பொருத்தமான சொல்லைத் தேர்வு செய்தல்' },
+    ],
+  },
+  {
+    id: 'g4-ta-writing',
+    label: 'III',
+    name: 'Writing Skills',
+    name_ta: 'எழுதும் திறன்',
+    questions: 15,
+    topics: [
+      { id: 'sorrodar-amaithal', name: 'சொற்களை ஒழுங்குபடுத்திச் சொற்றொடர் அமைத்தல்' },
+      { id: 'thodar-vakaikal', name: 'தொடர் வகைகள் – செய்வினை, செயப்பாட்டு வினை' },
+      { id: 'thanvinai-piravinai', name: 'தன்வினை, பிறவினை' },
+      { id: 'thinai-marabu', name: 'திணை மரபு' },
+      { id: 'paal-marabu', name: 'பால் மரபு' },
+      { id: 'kaala-marabu', name: 'கால மரபு' },
+      { id: 'ilamai-peyar', name: 'இளமைப் பெயர்' },
+      { id: 'oli-marabu', name: 'ஒலி மரபு' },
+      { id: 'vinai-marabu', name: 'வினை மரபு' },
+      { id: 'thogai-marabu', name: 'தொகை மரபு' },
+      { id: 'nirutthal-kuriyeedugal', name: 'நிறுத்தற் குறியீடுகள்' },
+    ],
+  },
+  {
+    id: 'g4-ta-technical-terms',
+    label: 'IV',
+    name: 'Technical Terms',
+    name_ta: 'கலைச் சொற்கள்',
+    questions: 10,
+    topics: [
+      { id: 'ta-tech-science', name: 'அறிவியல் கலைச் சொற்கள்' },
+      { id: 'ta-tech-education', name: 'கல்வி கலைச் சொற்கள்' },
+      { id: 'ta-tech-medicine', name: 'மருத்துவம்' },
+      { id: 'ta-tech-management', name: 'மேலாண்மை' },
+      { id: 'ta-tech-law', name: 'சட்டம்' },
+      { id: 'ta-tech-geography', name: 'புவியியல்' },
+      { id: 'ta-tech-technology', name: 'தொழில்நுட்பம்' },
+      { id: 'ta-tech-media', name: 'ஊடகம்' },
+      { id: 'ta-tech-it', name: 'தகவல் தொழில்நுட்பம்' },
+    ],
+  },
   {
     id: 'g4-ta-comprehension',
     label: 'V',
     name: 'Reading Comprehension',
     name_ta: 'வாசித்தல் – புரிந்து கொள்ளும் திறன்',
     questions: 15,
+    topics: [
+      { id: 'paththi-vinaakkal', name: 'பத்தியிலிருந்து வினாக்களுக்கு விடை தேர்ந்தெடுத்தல்' },
+      { id: 'seythithaal-thalaiyangam', name: 'செய்தித்தாள், தலையங்கம்' },
+      { id: 'mugappu-seythikal', name: 'முகப்புச் செய்திகள், அரசு சார்ந்த செய்திகள்' },
+      { id: 'katturaikal', name: 'கட்டுரைகள்' },
+      { id: 'uvamai-thodar', name: 'உவமைத் தொடரின் பொருளறிதல்' },
+      { id: 'marabu-thodar', name: 'மரபுத் தொடரின் பொருளறிதல்' },
+      { id: 'pazhamozhikal', name: 'பழமொழிகள் பொருளறிதல்' },
+      { id: 'aavana-ullatakkam', name: 'ஆவண உள்ளடக்கங்களைப் புரிந்து கொள்ளுதல்' },
+    ],
   },
   {
     id: 'g4-ta-translation',
@@ -892,6 +1103,13 @@ const G4_TAMIL_UNITS: TnpscSyllabusUnit[] = [
     name: 'Simple Translation',
     name_ta: 'எளிய மொழி பெயர்ப்பு',
     questions: 5,
+    topics: [
+      { id: 'inaiyana-tamizh-sorkal', name: 'ஆங்கிலச் சொற்களுக்கு இணையான தமிழ்ச் சொற்கள்' },
+      { id: 'mozhipeyarthal', name: 'ஆங்கிலச் சொற்களை மொழிபெயர்த்தல்' },
+      { id: 'aavana-thalaippu', name: 'ஆவணங்களின் தலைப்பு' },
+      { id: 'koppu-kadithangal', name: 'கோப்புகள், கடிதங்கள், மனுக்கள்' },
+      { id: 'mozhipeyarppu-purithal', name: 'மொழிபெயர்ப்பு புரிந்து கொள்ளுதல்' },
+    ],
   },
   {
     id: 'g4-ta-literature',
@@ -899,6 +1117,147 @@ const G4_TAMIL_UNITS: TnpscSyllabusUnit[] = [
     name: 'Literature, Tamil Scholars and Service to Tamil',
     name_ta: 'இலக்கியம், தமிழ் அறிஞர்களும், தமிழ்த்தொண்டும்',
     questions: 15,
+    topics: [
+      { id: 'thirukkural', name: 'திருக்குறள் (இருபது அதிகாரங்கள் மட்டும்)' },
+      { id: 'naladiyar', name: 'நாலடியார், நான்மணிக்கடிகை' },
+      { id: 'pazhamozhi-nanooru', name: 'பழமொழி நானூறு, முதுமொழிக்காஞ்சி' },
+      { id: 'thirikadugam', name: 'திரிகடுகம், இன்னா நாற்பது' },
+      { id: 'sirupanchamoolam', name: 'சிறுபஞ்சமூலம், ஏலாதி, ஔவையார் பாடல்கள்' },
+      { id: 'tamizh-thonmai', name: 'தமிழின் தொன்மை, சிறப்பு' },
+      { id: 'dravida-mozhikal', name: 'திராவிட மொழிகள்' },
+      { id: 'uve-saminatha-iyer', name: 'உ.வே.சாமிநாத ஐயர், தெ.பொ.மீனாட்சி சுந்தரம்' },
+      { id: 'ilakkuvanar-paavaanar', name: 'சி.இலக்குவனார், தேவநேய பாவாணர்' },
+      { id: 'gu-pope-veeramamunivar', name: 'ஜி.யு.போப், வீரமாமுனிவர்' },
+      { id: 'tamizh-saandror', name: 'தமிழ்ச் சான்றோர்கள்' },
+    ],
+  },
+];
+
+/**
+ * The General English paper, for candidates who sit it instead of General Tamil.
+ *
+ * Seven units in the same order as the Tamil paper, carrying the split the
+ * commission publishes for English — 25 / 15 / 10 / 10 / 20 / 5 / 15, which is the
+ * figure this file already recorded as a note on the combined section. It differs
+ * from Tamil only in Writing Skills (10, not 15) and Reading Comprehension (20,
+ * not 15); both papers total 100.
+ */
+const G4_ENGLISH_UNITS: TnpscSyllabusUnit[] = [
+  {
+    id: 'g4-en-grammar',
+    label: 'I',
+    name: 'Grammar',
+    questions: 25,
+    topics: [
+      { id: 'parts-of-speech', name: 'Parts of speech' },
+      { id: 'concord', name: 'Concord' },
+      { id: 'tense', name: 'Tense' },
+      { id: 'voice', name: 'Active and passive voice' },
+      { id: 'types-of-sentences', name: 'Types of sentences' },
+      { id: 'transformation', name: 'Transformation of sentences' },
+      { id: 'verbs', name: 'Main and auxiliary verbs' },
+      { id: 'regular-irregular-verbs', name: 'Regular and irregular verbs' },
+      { id: 'infinitives-gerunds-participles', name: 'Infinitives, gerunds and participles' },
+      { id: 'question-tags', name: 'Question tags' },
+      { id: 'sentence-patterns', name: 'Sentence patterns' },
+      { id: 'phrases-and-clauses', name: 'Phrases and clauses' },
+      { id: 'degrees-of-comparison', name: 'Degrees of comparison' },
+      { id: 'direct-indirect', name: 'Direct and indirect speech' },
+      { id: 'synthesis-of-sentences', name: 'Synthesis of sentences' },
+      { id: 'punctuation', name: 'Punctuation' },
+    ],
+  },
+  {
+    id: 'g4-en-vocabulary',
+    label: 'II',
+    name: 'Vocabulary',
+    questions: 15,
+    topics: [
+      { id: 'synonyms', name: 'Synonyms' },
+      { id: 'antonyms', name: 'Antonyms' },
+      { id: 'homonyms-homophones', name: 'Homonyms and homophones' },
+      { id: 'collocations', name: 'Collocations' },
+      { id: 'idioms-and-phrases', name: 'Idioms and phrases' },
+      { id: 'phrasal-verbs', name: 'Phrasal verbs' },
+      { id: 'spelling', name: 'Spelling of words' },
+      { id: 'correct-usage', name: 'Correct usage of words' },
+      { id: 'one-word-substitution', name: 'One word substitution' },
+      { id: 'word-creation', name: 'Word creation' },
+      { id: 'singular-plural', name: 'Singular and plural (including zero plural)' },
+      { id: 'derivatives', name: 'Derivatives' },
+      { id: 'abbreviations', name: 'Abbreviations' },
+      { id: 'british-american-english', name: 'British and American English' },
+      { id: 'compound-words', name: 'Compound words' },
+      { id: 'figures-of-speech', name: 'Figures of speech' },
+    ],
+  },
+  {
+    id: 'g4-en-writing',
+    label: 'III',
+    name: 'Writing Skills',
+    questions: 10,
+    topics: [
+      { id: 'letter-writing', name: 'Letter writing (formal and informal)' },
+      { id: 'types-of-letters', name: 'Types of letters' },
+      { id: 'jumbled-sentences', name: 'Jumbled sentences' },
+      { id: 'right-order', name: 'Finding the right order of sentences' },
+      { id: 'making-queries', name: 'Making queries' },
+      { id: 'inferences', name: 'Inferences' },
+      { id: 'blanks', name: 'Blanks' },
+      { id: 'substitutions', name: 'Substitutions' },
+    ],
+  },
+  {
+    id: 'g4-en-technical-terms',
+    label: 'IV',
+    name: 'Technical Terms',
+    questions: 10,
+    topics: [
+      { id: 'administrative-terms', name: 'Administrative terms' },
+      { id: 'department-related', name: 'Department related terms' },
+      { id: 'general-official-terms', name: 'General and official terms' },
+      { id: 'official-correspondence', name: 'Official correspondence (basics)' },
+    ],
+  },
+  {
+    id: 'g4-en-comprehension',
+    label: 'V',
+    name: 'Reading Comprehension',
+    questions: 20,
+    topics: [
+      { id: 'unseen-passages', name: 'Unseen passages' },
+      { id: 'newspaper-headlines', name: 'Newspapers, headlines and editorials' },
+      { id: 'government-news', name: 'Government related news' },
+      { id: 'strong-weak-questions', name: 'Strong and weak questions' },
+      { id: 'match-the-following', name: 'Match the following' },
+      { id: 'sentence-completion', name: 'Sentence completion' },
+      { id: 'ascertainment-of-facts', name: 'Ascertainment of facts' },
+    ],
+  },
+  {
+    id: 'g4-en-translation',
+    label: 'VI',
+    name: 'Translation',
+    questions: 5,
+    topics: [
+      { id: 'word-translation', name: 'Word translation' },
+      { id: 'sentence-translation', name: 'Sentence translation' },
+      { id: 'tense-translation', name: 'Tense related translation tasks' },
+      { id: 'voice-translation', name: 'Tense / voice related tasks' },
+    ],
+  },
+  {
+    id: 'g4-en-literary-works',
+    label: 'VII',
+    name: 'Literary Works',
+    questions: 15,
+    topics: [
+      { id: 'en-figures-of-speech', name: 'Figures of speech' },
+      { id: 'poetry-appreciation', name: 'Appreciation and analysis of poetry' },
+      { id: 'lines-of-significance', name: 'Lines of significance' },
+      { id: 'prescribed-poems', name: 'Prescribed poems' },
+      { id: 'prescribed-prose', name: 'Prescribed prose' },
+    ],
   },
 ];
 
@@ -996,13 +1355,28 @@ export const TNPSC_GROUPS: TnpscGroup[] = [
           // aptitude questions through the second hundred rather than grouping them
           // at the end — so those two share a block and keep the order they came in.
           sections: [
+            // The language paper is one 100-question section the candidate sits in
+            // *one* of two languages — never both. It is listed as two sections so
+            // each can show its own units and its own practice, which a combined
+            // entry could not: the two papers do not share a split. `total_questions`
+            // still counts the language once, so the pattern totals stay correct.
             {
-              name: 'General Tamil / General English',
+              name: 'General Tamil',
               questions: 100,
               order_block: 1,
-              syllabus_subject_ids: [TAMIL_SUBJECT.id, ENGLISH_SUBJECT.id],
+              alternative_to: 'General English',
+              syllabus_subject_ids: [TAMIL_SUBJECT.id],
               units: G4_TAMIL_UNITS,
-              note: 'Differently abled candidates may sit General English instead — same 100 questions, split 25 / 15 / 10 / 10 / 20 / 5 / 15.',
+              note: 'The Tamil Eligibility-cum-Scoring Test. Sat by every candidate except those taking General English, never alongside it.',
+            },
+            {
+              name: 'General English',
+              questions: 100,
+              order_block: 1,
+              alternative_to: 'General Tamil',
+              syllabus_subject_ids: [ENGLISH_SUBJECT.id],
+              units: G4_ENGLISH_UNITS,
+              note: 'Printed as "General English (For Differently Abled Candidates only)". Sat instead of General Tamil, never alongside it.',
             },
             {
               name: 'General Studies',

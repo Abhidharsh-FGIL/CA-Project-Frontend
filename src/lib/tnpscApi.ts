@@ -191,9 +191,19 @@ function mergePattern(
 }
 
 /**
- * Sections match on name. A server that predates the per-section fields sends only
- * `{name, questions, marks}`, so the bundled `attempt` / `marks_per_question` /
- * `negative_mark_value` must survive underneath it.
+ * Sections match on name.
+ *
+ * A server that predates the per-section fields sends only `{name, questions,
+ * marks}`, so the bundled `attempt` / `marks_per_question` / `negative_mark_value`
+ * — and above all `units`, which the server has never sent — must survive
+ * underneath it.
+ *
+ * One name does not match one-for-one. Group 4's language paper is published as a
+ * single section the candidate sits in *one* of two languages, and the server
+ * still sends it combined as "General Tamil / General English" while the bundled
+ * catalog lists the two separately so each can show its own units and its own
+ * split. A combined name is therefore expanded into the local sections it names,
+ * rather than matching nothing and arriving with no units at all.
  */
 function mergeSections(
   server: TnpscExamPattern['sections'],
@@ -201,9 +211,25 @@ function mergeSections(
 ): TnpscExamPattern['sections'] {
   if (!sent(server)) return local;
   const byName = new Map((local ?? []).map(sec => [sec.name, sec]));
-  return server.map(sec => {
-    const l = byName.get(sec.name);
-    return l ? { ...l, ...populated(sec) } : sec;
+
+  return server.flatMap(sec => {
+    const exact = byName.get(sec.name);
+    if (exact) return [{ ...exact, ...populated(sec) }];
+
+    // "A / B" — the same section the bundled catalog splits in two. Each part
+    // carries the combined section's own question count, because the candidate
+    // sits one of them in full; `name` is dropped from the overlay so each part
+    // keeps its own.
+    const parts = sec.name.split('/').map(x => x.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      const locals = parts.map(n => byName.get(n)).filter((x): x is NonNullable<typeof x> => !!x);
+      if (locals.length === parts.length) {
+        const { name: _ignored, ...rest } = populated(sec);
+        return locals.map(l => ({ ...l, ...rest }));
+      }
+    }
+
+    return [sec];
   });
 }
 
