@@ -55,7 +55,7 @@ export default function UserProgressPage() {
     return (
       <UserShell>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
       </UserShell>
     );
@@ -76,7 +76,7 @@ export default function UserProgressPage() {
           </p>
           <Link
             to="/user/exams"
-            className="inline-flex items-center gap-1.5 mt-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-semibold px-3.5 py-2 hover:from-indigo-700 hover:to-purple-700 transition-all"
+            className="inline-flex items-center gap-1.5 mt-4 rounded-xl bg-gradient-to-r from-brand-600 to-brand-400 text-white text-xs font-semibold px-3.5 py-2 hover:from-brand-700 hover:to-brand-500 transition-all"
           >
             Choose an exam
           </Link>
@@ -89,7 +89,7 @@ export default function UserProgressPage() {
     <UserShell>
       {buildingReport && (
         <div className="mb-3 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
           Reading {loaded} of {total} attempts…
         </div>
       )}
@@ -97,7 +97,7 @@ export default function UserProgressPage() {
         <ProgressReportView model={model} studentName={user.name} examName={exam?.examName ?? null} />
       ) : (
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
       )}
       {(inScope > PROGRESS_WINDOW || excluded > 0) && (

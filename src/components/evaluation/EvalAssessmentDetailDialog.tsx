@@ -33,6 +33,7 @@ export function EvalAssessmentDetailDialog({ assessmentId, onClose }: Props) {
       text: q.text || '', type: q.type || '', points: q.points || 1,
       subject: q.subject, difficulty: q.difficulty, options: q.options,
       correct_answer: q.correct_answer, explanation: q.explanation, pairs: q.pairs,
+      translations: q.translations,
     }));
 
     try {

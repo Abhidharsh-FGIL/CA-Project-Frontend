@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import {
   CalendarCheck,
   ClipboardList,
-  GraduationCap,
   Home,
   LineChart,
   LogOut,
@@ -16,6 +15,8 @@ import {
   User,
   X,
 } from 'lucide-react';
+import { LogoMark, LogoTile, Wordmark } from '@/components/brand/Brand';
+import { SHOW_STUDY_PLAN } from '@/config/features';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
@@ -36,8 +37,12 @@ const NAV: NavItem[] = [
   { to: '/user/dashboard', label: 'Dashboard', icon: Home },
   { to: '/user/exams', label: 'Exams', icon: ClipboardList },
   { to: '/user/performance', label: 'Performance', icon: LineChart },
-  { to: '/user/study-plan', label: 'Study Plan', short: 'Plan', icon: CalendarCheck },
+  ...(SHOW_STUDY_PLAN
+    ? [{ to: '/user/study-plan', label: 'Study Plan', short: 'Plan', icon: CalendarCheck }]
+    : []),
   { to: '/user/history', label: 'History', icon: Receipt },
+  // Plans and billing. It is also in the profile menu; this puts it on the bar itself, one click away.
+  { to: '/user/subscription', label: 'Subscription', short: 'Plans', icon: Sparkles },
   // Progress is hidden. /user/progress still resolves and the page is untouched;
   // it is only off the bar.
   //
@@ -51,15 +56,25 @@ const NAV: NavItem[] = [
   // surface goes with them. Every route still resolves, so restoring one is a line here.
 ];
 
-/** The ones that fit a phone; the rest live behind the drawer. */
+/**
+ * The ones that fit a phone; the rest live behind the drawer.
+ *
+ * A fifth of the width each, so five at most — the order of `NAV` decides which make it, and
+ * Subscription, last, is the one that gives way if Study Plan is switched back on.
+ */
 const MOBILE_NAV = NAV.filter(n =>
-  ['/user/dashboard', '/user/exams', '/user/study-plan', '/user/performance', '/user/history'].includes(
-    n.to,
-  ),
-);
+  [
+    '/user/dashboard',
+    '/user/exams',
+    '/user/study-plan',
+    '/user/performance',
+    '/user/history',
+    '/user/subscription',
+  ].includes(n.to),
+).slice(0, 5);
 
 /** The chrome navy from the approved design. One definition, used everywhere. */
-export const REPORT_NAVY = '#1e2a5a';
+export const REPORT_NAVY = '#122447';
 
 const PLAN_LABEL: Record<string, string> = {
   free: 'Free Plan',
@@ -108,15 +123,16 @@ export function UserShell({ children }: UserShellProps) {
 
   const brand = (
     <Link to="/user/dashboard" className="flex items-center gap-2.5 group">
-      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-200 dark:shadow-indigo-900/40 group-hover:scale-105 transition-transform">
-        <GraduationCap className="w-5 h-5 text-white" />
-      </div>
+      {/* On a light surface the mark stands alone; the tile is for dark mode, where its navy cap would vanish. */}
+      <span className="flex-shrink-0 rounded-xl p-0.5 transition-transform group-hover:scale-105 dark:bg-white dark:p-1">
+        <LogoMark className="h-9 w-auto dark:h-7" />
+      </span>
       <div className="min-w-0">
-        <p className="font-bold text-sm leading-tight text-gray-900 dark:text-gray-100 whitespace-nowrap truncate">
-          BrightLearn Academy
+        <p className="text-sm leading-tight whitespace-nowrap truncate">
+          <Wordmark />
         </p>
-        <p className="hidden xs:block text-[9px] font-semibold text-indigo-500/80 dark:text-indigo-400/80 uppercase tracking-[0.14em] whitespace-nowrap truncate">
-          Learn Bright · Score Brighter
+        <p className="hidden xs:block text-[9px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-[0.14em] whitespace-nowrap truncate">
+          Practice · Prepare · Succeed
         </p>
       </div>
     </Link>
@@ -125,13 +141,13 @@ export function UserShell({ children }: UserShellProps) {
   /** The same lockup as `brand`, inverted for the navy bar. */
   const brandOnNavy = (
     <Link to="/user/dashboard" className="flex items-center gap-2.5 group">
-      <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center group-hover:bg-white/25 transition-colors">
-        <GraduationCap className="w-5 h-5 text-white" />
-      </div>
+      <LogoTile className="h-9 w-9 transition-transform group-hover:scale-105" />
       <div className="min-w-0 hidden sm:block">
-        <p className="font-bold text-sm leading-tight text-white whitespace-nowrap">BrightLearn Academy</p>
+        <p className="text-sm leading-tight whitespace-nowrap">
+          <Wordmark onDark />
+        </p>
         <p className="text-[9px] font-semibold text-white/60 uppercase tracking-[0.14em] whitespace-nowrap">
-          Learn · Practice · Score · Succeed
+          Practice · Prepare · Succeed
         </p>
       </div>
     </Link>
@@ -148,12 +164,12 @@ export function UserShell({ children }: UserShellProps) {
             className={cn(
               'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
               active
-                ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300'
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-brand-300'
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-100',
             )}
           >
             {active && (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-indigo-600 dark:bg-indigo-400" />
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-brand-600 dark:bg-blue-400" />
             )}
             <Icon className="w-[18px] h-[18px] flex-shrink-0" />
             <span className="truncate">{label}</span>
@@ -164,14 +180,14 @@ export function UserShell({ children }: UserShellProps) {
   );
 
   const planCard = isFree && (
-    <div className="m-3 rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/60 dark:to-purple-950/50 border border-indigo-100 dark:border-indigo-900 p-4">
+    <div className="m-3 rounded-2xl bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/60 dark:to-purple-950/50 border border-blue-100 dark:border-blue-900 p-4">
       <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Free Plan</p>
       <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5 leading-snug">
         Mock tests not included in this plan.
       </p>
       <Link
         to="/user/subscription"
-        className="mt-3 flex items-center justify-center gap-1.5 w-full rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-semibold py-2 hover:from-indigo-700 hover:to-purple-700 transition-all"
+        className="mt-3 flex items-center justify-center gap-1.5 w-full rounded-xl bg-gradient-to-r from-brand-600 to-brand-400 text-white text-xs font-semibold py-2 hover:from-brand-700 hover:to-brand-500 transition-all"
       >
         <Sparkles className="w-3.5 h-3.5" /> Upgrade Now
       </Link>
@@ -250,7 +266,7 @@ export function UserShell({ children }: UserShellProps) {
               {isFree && (
                 <Link
                   to="/user/subscription"
-                  className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-white text-indigo-700 text-xs font-semibold px-3.5 py-2 hover:bg-white/90 transition-all"
+                  className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-white text-blue-700 text-xs font-semibold px-3.5 py-2 hover:bg-white/90 transition-all"
                 >
                   <Sparkles className="w-3.5 h-3.5" /> Upgrade
                 </Link>
@@ -304,7 +320,8 @@ export function UserShell({ children }: UserShellProps) {
                       onClick={() => {
                         logout();
                         setMenuOpen(false);
-                        navigate('/user/login');
+                        // Leave the portal before `logout` clears the user, or the guards would send us to /user/login.
+                        navigate('/', { replace: true });
                       }}
                       className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 border-t border-gray-100 dark:border-gray-800"
                     >
@@ -322,11 +339,11 @@ export function UserShell({ children }: UserShellProps) {
           <main className="min-w-0 px-3 sm:px-5 py-5 pb-24 lg:pb-6">{children}</main>
 
           <footer className="hidden lg:flex items-center justify-between px-5 py-4 text-[11px] text-gray-400 dark:text-gray-600 border-t border-gray-100 dark:border-gray-800">
-          <span>© 2026 BrightLearn Academy. All rights reserved.</span>
-          <span className="flex items-center gap-4">
-            <Link to="/user/profile" className="hover:text-gray-600 dark:hover:text-gray-400">Privacy Policy</Link>
-            <Link to="/user/profile" className="hover:text-gray-600 dark:hover:text-gray-400">Terms of Service</Link>
-            <Link to="/user/profile" className="hover:text-gray-600 dark:hover:text-gray-400">Support</Link>
+          <span>© 2026 MyGovExams. All rights reserved.</span>
+          <span className="flex items-center divide-x divide-gray-200 dark:divide-gray-800">
+            <Link to="/terms" target="_blank" rel="noopener noreferrer" className="px-3 hover:text-gray-600 dark:hover:text-gray-400">Terms &amp; Conditions</Link>
+            <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="px-3 hover:text-gray-600 dark:hover:text-gray-400">Privacy Policy</Link>
+            <a href="mailto:admin@futuregeninnovation.com" className="pl-3 hover:text-gray-600 dark:hover:text-gray-400">Support</a>
             </span>
           </footer>
         </div>
@@ -342,7 +359,7 @@ export function UserShell({ children }: UserShellProps) {
               to={to}
               className={cn(
                 'flex-1 flex flex-col items-center gap-0.5 py-1 rounded-lg transition-colors',
-                active ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500',
+                active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500',
               )}
             >
               <Icon className={cn('w-[18px] h-[18px] transition-transform', active && 'scale-110')} />

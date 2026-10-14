@@ -17,15 +17,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import {
-  SUBSCRIPTION_PROMO_CODES,
-  validateSubscriptionPromo,
-  getEffectivePlanPrice,
-  getSubscriptionPlanPrice,
-  type SubscriptionTier,
-  type SubscriptionPlanInfo,
-  type SubscriptionPromoCode,
-} from '@/data/userPortalSampleData';
+import { getEffectivePlanPrice, getSubscriptionPlanPrice, type SubscriptionTier, type SubscriptionPlanInfo, type SubscriptionPromoCode, getPlan } from '@/data/userPortalSampleData';
+import { validatePromo } from '@/lib/subscriptionApi';
+import type { PurchaseOutcome } from '@/lib/purchase';
 
 export default function SubscriptionPage() {
   const { user, plans, upgradeSubscription, payForSubscription } = useUserPortal();
@@ -38,14 +32,14 @@ export default function SubscriptionPage() {
     <UserShell>
       {/* Hero header */}
       <div className="mb-8 animate-fadeIn">
-        <div className="relative overflow-hidden rounded-2xl border border-indigo-100 dark:border-indigo-900 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-indigo-950/50 dark:via-purple-950/50 dark:to-pink-950/50 bg-[length:200%_auto] animate-gradient-x p-6 sm:p-8 text-center">
+        <div className="relative overflow-hidden rounded-2xl border border-blue-100 dark:border-blue-900 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-950/50 dark:via-purple-950/50 dark:to-pink-950/50 bg-[length:200%_auto] animate-gradient-x p-6 sm:p-8 text-center">
           <div className="absolute -top-16 -right-16 w-48 h-48 bg-purple-300/30 dark:bg-purple-700/20 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-indigo-300/30 dark:bg-indigo-700/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-blue-300/30 dark:bg-brand-700/20 rounded-full blur-3xl pointer-events-none" />
 
           <div className="relative">
-            <div className="inline-flex items-center gap-2 bg-white/80 dark:bg-gray-900/60 backdrop-blur border border-indigo-200 dark:border-indigo-800 rounded-full px-3 py-1 mb-4">
-              <Sparkles className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
-              <p className="text-[10px] uppercase tracking-[0.25em] text-indigo-700 dark:text-indigo-300 font-bold">
+            <div className="inline-flex items-center gap-2 bg-white/80 dark:bg-gray-900/60 backdrop-blur border border-blue-200 dark:border-blue-800 rounded-full px-3 py-1 mb-4">
+              <Sparkles className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+              <p className="text-[10px] uppercase tracking-[0.25em] text-blue-700 dark:text-brand-300 font-bold">
                 Upgrade · Unlock More
               </p>
             </div>
@@ -54,7 +48,7 @@ export default function SubscriptionPage() {
             </h1>
             <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-3 max-w-xl mx-auto">
               Unlock more practice, mock tests, and detailed AI reports. You're currently on{' '}
-              <strong className="text-indigo-600 dark:text-indigo-400 capitalize">{user.subscription_tier}</strong>.
+              <strong className="text-blue-600 dark:text-blue-400 capitalize">{user.subscription_tier}</strong>.
             </p>
           </div>
         </div>
@@ -89,7 +83,23 @@ export default function SubscriptionPage() {
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:pt-3">
+      {/* A retired plan is not on the page, so say where its holder stands rather
+          than showing three plans and none marked as theirs. */}
+      {user && getPlan(user.subscription_tier)?.legacy && (
+        <div className="mb-5 max-w-5xl mx-auto rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/70 dark:bg-amber-950/30 px-4 py-3 text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+          You are on <b>{getPlan(user.subscription_tier).name}</b>, which is no longer sold. It stays
+          active, with everything it includes, until it expires — after that you can choose any of the
+          plans below.
+        </div>
+      )}
+
+      <div
+        className={cn(
+          'grid sm:grid-cols-2 gap-3 sm:gap-4 lg:pt-3',
+          // Three plans centre in a narrower row; four fill it.
+          plans.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3 lg:max-w-5xl lg:mx-auto',
+        )}
+      >
         {plans.map((plan, i) => {
           const isCurrent = plan.tier === user.subscription_tier;
           const price = getSubscriptionPlanPrice(plan, billing);
@@ -101,8 +111,8 @@ export default function SubscriptionPage() {
             >
               {plan.highlight && (
                 <>
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl opacity-20 blur pointer-events-none" />
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40 animate-bounce-soft whitespace-nowrap">
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-brand-500 via-brand-400 to-pink-500 rounded-2xl opacity-20 blur pointer-events-none" />
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 bg-gradient-to-r from-brand-600 to-brand-400 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-lg shadow-blue-200 dark:shadow-blue-900/40 animate-bounce-soft whitespace-nowrap">
                     ★ Most Popular
                   </span>
                 </>
@@ -112,17 +122,20 @@ export default function SubscriptionPage() {
                 className={cn(
                   'relative bg-white dark:bg-gray-900 rounded-2xl border p-5 sm:p-6 transition-all duration-300 hover-lift card-shine h-full',
                   plan.highlight
-                    ? 'border-indigo-500 dark:border-indigo-400 shadow-xl shadow-indigo-200 dark:shadow-indigo-900/40'
-                    : 'border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-lg hover:shadow-indigo-100/50 dark:hover:shadow-black/50 hover:border-indigo-200 dark:hover:border-indigo-800',
+                    ? 'border-brand-500 dark:border-blue-400 shadow-xl shadow-blue-200 dark:shadow-blue-900/40'
+                    : 'border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-black/50 hover:border-blue-200 dark:hover:border-blue-800',
                 )}
               >
                 <div className="flex items-center gap-2 mb-3">
                   {plan.tier === 'free' && <Star className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
                   {plan.tier === 'standard' && <Sparkles className="w-4 h-4 text-blue-500 dark:text-blue-400" />}
-                  {plan.tier === 'ultimate' && <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                  {plan.tier === 'ultimate' && <Sparkles className="w-4 h-4 text-blue-500 dark:text-blue-400" />}
                   {plan.tier === 'premium' && <Crown className="w-4 h-4 text-amber-500 dark:text-amber-400" />}
                   <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{plan.name}</h2>
                 </div>
+                {plan.tagline && (
+                  <p className="-mt-2 mb-3 text-xs text-gray-500 dark:text-gray-400">{plan.tagline}</p>
+                )}
 
                 <div className="mb-5 relative">
                   {price === 0 ? (
@@ -182,7 +195,7 @@ export default function SubscriptionPage() {
                     isCurrent
                       ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                       : plan.highlight
-                      ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-[length:200%_auto] hover:bg-right-bottom text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40 hover:shadow-xl hover:shadow-indigo-300'
+                      ? 'bg-gradient-to-r from-brand-600 via-brand-400 to-brand-600 bg-[length:200%_auto] hover:bg-right-bottom text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/40 hover:shadow-xl hover:shadow-blue-300'
                       : 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 hover:shadow-md',
                   )}
                 >
@@ -205,23 +218,12 @@ export default function SubscriptionPage() {
             <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
               Click any "Choose Plan" button to open checkout, then enter your code for instant discount.
             </p>
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {SUBSCRIPTION_PROMO_CODES.map(p => (
-                <code
-                  key={p.code}
-                  className="text-[10px] font-bold bg-white dark:bg-gray-900 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 rounded"
-                  title={p.label}
-                >
-                  {p.code}
-                </code>
-              ))}
-            </div>
           </div>
         </div>
       </div>
 
       <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-8">
-        Sample portal — no real payment is collected. Real backend will integrate with Razorpay/Stripe.
+        Payments are processed securely by Razorpay. We never see or store your card details.
       </p>
 
       {checkoutPlan && (
@@ -230,10 +232,7 @@ export default function SubscriptionPage() {
           billing={billing}
           currentTier={user.subscription_tier}
           onClose={() => setCheckoutPlan(null)}
-          onConfirm={async (tier, baseAmount, finalAmount, promoCode) => {
-            const res = await payForSubscription(tier, billing, baseAmount, finalAmount, promoCode);
-            return res.ok;
-          }}
+          onConfirm={(plan, promoCode) => payForSubscription(plan, billing, promoCode)}
         />
       )}
     </UserShell>
@@ -253,18 +252,15 @@ interface CheckoutModalProps {
   billing: 'monthly' | 'yearly';
   currentTier: SubscriptionTier;
   onClose: () => void;
-  onConfirm: (
-    tier: SubscriptionTier,
-    baseAmount: number,
-    finalAmount: number,
-    promoCode?: string,
-  ) => Promise<boolean>;
+  /** Runs the purchase and reports how it ended. */
+  onConfirm: (plan: SubscriptionPlanInfo, promoCode?: string) => Promise<PurchaseOutcome>;
 }
 
 function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: CheckoutModalProps) {
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<SubscriptionPromoCode | null>(null);
   const [paying, setPaying] = useState(false);
+  const [checkingPromo, setCheckingPromo] = useState(false);
 
   const basePrice = useMemo(() => getSubscriptionPlanPrice(plan, billing), [plan, billing]);
   const finalPrice = useMemo(
@@ -274,21 +270,37 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
   const discount = basePrice - finalPrice;
   const isDowngradeOrSame = plan.tier === currentTier;
 
-  const handleApply = () => {
-    if (!promoInput.trim()) {
+  /**
+   * Check the code with the server.
+   *
+   * The percentage shown here is a preview — the server applies the code again
+   * when it creates the order, and what Razorpay charges is that figure, not this
+   * one. The previous version checked against a list of sample codes bundled with
+   * the app, which the backend has never heard of.
+   */
+  const handleApply = async () => {
+    const code = promoInput.trim();
+    if (!code) {
       toast.error('Enter a promo code');
       return;
     }
-    const res = validateSubscriptionPromo(promoInput, plan.tier, billing);
-    if (!res.ok) {
-      toast.error(res.error);
-      return;
-    }
-    setAppliedPromo(res.promo);
-    if (res.promo.discount_pct >= 100) {
-      toast.success('Promo applied — this plan is free for this cycle!');
-    } else {
-      toast.success(`Promo applied — ${res.promo.discount_pct}% off!`);
+    setCheckingPromo(true);
+    try {
+      const res = await validatePromo(code);
+      if (!res.valid) {
+        toast.error(res.message || 'That promo code is not valid.');
+        return;
+      }
+      setAppliedPromo({ code, discount_pct: res.discount_pct, label: res.message });
+      toast.success(
+        res.discount_pct >= 100
+          ? 'Promo applied — this plan is free for this cycle!'
+          : `Promo applied — ${res.discount_pct}% off!`,
+      );
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not check that code. Please try again.');
+    } finally {
+      setCheckingPromo(false);
     }
   };
 
@@ -299,17 +311,38 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
 
   const handlePay = async () => {
     setPaying(true);
-    const ok = await onConfirm(plan.tier, basePrice, finalPrice, appliedPromo?.code);
+    const outcome = await onConfirm(plan, appliedPromo?.code);
     setPaying(false);
-    if (ok) {
-      if (finalPrice === 0) {
-        toast.success(`${plan.name} activated — free with promo!`);
-      } else {
-        toast.success(`Payment of ₹${finalPrice} successful — ${plan.name} activated!`);
+
+    switch (outcome.kind) {
+      case 'paid': {
+        const until = new Date(outcome.result.end_date).toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        });
+        const invoice = outcome.result.invoice_no ? ` Invoice ${outcome.result.invoice_no}.` : '';
+        toast.success(`Payment successful — ${plan.name} is active until ${until}.${invoice}`);
+        onClose();
+        break;
       }
-      onClose();
-    } else {
-      toast.error('Payment failed. Please try again.');
+      case 'free':
+        toast.success(`${plan.name} activated.`);
+        onClose();
+        break;
+      case 'cancelled':
+        // Stay open so they can try again; nothing alarming to say.
+        toast.info('Payment cancelled — you have not been charged.');
+        break;
+      case 'failed':
+        toast.error(outcome.message);
+        break;
+      case 'unconfirmed':
+        // Money may have moved. This must not read as a failure, and must outlast
+        // a glance — it is the one message here someone may need to act on.
+        toast.warning(outcome.message, { duration: 30_000 });
+        onClose();
+        break;
     }
   };
 
@@ -328,7 +361,7 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
             'relative p-5 overflow-hidden text-white',
             plan.tier === 'premium'
               ? 'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500'
-              : 'bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500',
+              : 'bg-gradient-to-br from-brand-500 via-brand-400 to-pink-500',
             'bg-[length:200%_auto] animate-gradient-x',
           )}
         >
@@ -414,30 +447,28 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
                   onKeyDown={e => {
                     if (e.key === 'Enter') handleApply();
                   }}
-                  placeholder="Enter code (e.g. WELCOME26)"
+                  placeholder="Enter promo code"
                   className="flex-1 px-3 py-2 border border-amber-200 dark:border-amber-900 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-amber-400/60 dark:placeholder:text-amber-300/40 rounded-lg text-sm uppercase tracking-wide focus:outline-none focus:ring-2 focus:ring-amber-300 dark:focus:ring-amber-700"
                 />
                 <button
                   onClick={handleApply}
-                  className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-amber-700 transition-colors press"
+                  disabled={checkingPromo}
+                  className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-amber-700 transition-colors press disabled:opacity-60"
                 >
-                  Apply
+                  {checkingPromo ? 'Checking…' : 'Apply'}
                 </button>
               </div>
             )}
 
             <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-2">
-              Try: <code className="bg-white dark:bg-gray-800 dark:text-amber-200 px-1 rounded">WELCOME26</code>{' '}
-              <span className="opacity-70">(50% off)</span> ·{' '}
-              <code className="bg-white dark:bg-gray-800 dark:text-amber-200 px-1 rounded">STUDENT100</code>{' '}
-              <span className="opacity-70">(Standard free)</span>
+              The final amount is confirmed when you pay.
             </p>
           </div>
 
           {/* Price breakdown */}
-          <div className="rounded-xl border border-indigo-100 dark:border-indigo-900 bg-gradient-to-br from-indigo-50/60 via-white to-purple-50/60 dark:from-indigo-950/30 dark:via-gray-900 dark:to-purple-950/30 p-4 mb-4">
+          <div className="rounded-xl border border-blue-100 dark:border-blue-900 bg-gradient-to-br from-blue-50/60 via-white to-purple-50/60 dark:from-blue-950/30 dark:via-gray-900 dark:to-purple-950/30 p-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
-              <CreditCard className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <p className="text-xs font-bold text-gray-900 dark:text-gray-100">Order Summary</p>
             </div>
 
@@ -459,7 +490,7 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
                 </div>
               )}
 
-              <div className="border-t border-indigo-100 dark:border-indigo-900 my-2" />
+              <div className="border-t border-blue-100 dark:border-blue-900 my-2" />
 
               <div className="flex items-center justify-between text-base font-bold text-gray-900 dark:text-gray-100">
                 <span>Total</span>
@@ -480,8 +511,8 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
           {/* Pay button */}
           <button
             onClick={handlePay}
-            disabled={paying || isDowngradeOrSame}
-            className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-[length:200%_auto] hover:bg-right-bottom text-white py-3 rounded-xl font-semibold transition-all duration-500 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40 hover:shadow-xl hover:shadow-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none press"
+            disabled={paying || isDowngradeOrSame || !plan.plan_id}
+            className="w-full bg-gradient-to-r from-brand-600 via-brand-400 to-brand-600 bg-[length:200%_auto] hover:bg-right-bottom text-white py-3 rounded-xl font-semibold transition-all duration-500 shadow-lg shadow-blue-200 dark:shadow-blue-900/40 hover:shadow-xl hover:shadow-blue-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none press"
           >
             <span className="inline-flex items-center justify-center gap-2">
               {paying ? (
@@ -505,7 +536,9 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
 
           <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
             <ShieldCheck className="w-3 h-3" />
-            Demo mode — no real payment will be charged.
+            {plan.plan_id
+              ? 'Secure payment by Razorpay — card, UPI and net banking.'
+              : 'Plans have not loaded from the server, so this cannot be bought right now. Refresh the page.'}
           </p>
         </div>
       </div>

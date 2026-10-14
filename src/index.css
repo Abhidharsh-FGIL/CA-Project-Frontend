@@ -8,7 +8,7 @@ html {
 
 /* Ensure Indic scripts render correctly in all elements including form inputs */
 body, input, textarea, select, button {
-  font-family: "Inter", "Noto Sans", "Noto Sans Tamil", "Noto Sans Devanagari",
+  font-family: "Open Sans", "Noto Sans Tamil", "Noto Sans", "Noto Sans Devanagari",
     "Noto Sans Telugu", "Noto Sans Kannada", "Noto Sans Malayalam",
     "Noto Sans Bengali", "Noto Sans Gujarati", system-ui, sans-serif;
 }
@@ -17,28 +17,33 @@ body, input, textarea, select, button {
 @layer base {
   :root {
     /* Base theme tokens */
-    --background: 0 0% 98%;
-    --foreground: 222 47% 11%;
+    /*
+     * The landing page's palette (src/pages/landing/landing.css): navy text, a soft
+     * near-white page, light blue-grey outlines, and one orange for everything that is
+     * an action. Keep these in step with the --mge-* values there.
+     */
+    --background: 240 100% 99.5%;
+    --foreground: 220 60% 17%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 220 60% 17%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --muted: 30 35% 96%;
-    --muted-foreground: 25 12% 46%;
-    --accent: 45 90% 93%;
-    --accent-foreground: 28 60% 26%;
+    --popover-foreground: 220 60% 17%;
+    --muted: 220 43% 97%;
+    --muted-foreground: 219 19% 46%;
+    --accent: 29 100% 94%;
+    --accent-foreground: 15 74% 31%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 24 30% 90%;
-    --input: 24 30% 90%;
-    --ring: 12 80% 60%;
+    --border: 218 40% 92%;
+    --input: 218 40% 92%;
+    --ring: 20 100% 57%;
     --radius: 0.875rem;
 
-    /* Primary - Warm Coral (K-12 default) */
-    --primary: 12 80% 60%;
+    /* Primary - landing orange */
+    --primary: 20 100% 57%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 173 55% 93%;
-    --secondary-foreground: 173 75% 22%;
+    --secondary: 208 68% 95%;
+    --secondary-foreground: 209 66% 35%;
 
     /* Gamification colors */
     --xp: 45 93% 47%;
@@ -66,16 +71,16 @@ body, input, textarea, select, button {
     /* Sidebar */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 12 80% 60%;
+    --sidebar-primary: 20 100% 57%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 45 90% 93%;
-    --sidebar-accent-foreground: 28 60% 26%;
-    --sidebar-border: 24 30% 90%;
-    --sidebar-ring: 12 80% 60%;
+    --sidebar-accent: 29 100% 94%;
+    --sidebar-accent-foreground: 15 74% 31%;
+    --sidebar-border: 218 40% 92%;
+    --sidebar-ring: 20 100% 57%;
 
-    /* Gradient tokens */
-    --gradient-primary: linear-gradient(135deg, hsl(12 80% 60%) 0%, hsl(25 90% 58%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(12 80% 56%) 0%, hsl(25 90% 56%) 50%, hsl(38 92% 56%) 100%);
+    /* Gradient tokens — the landing page's button gradient, #ff5921 to #ff8617 */
+    --gradient-primary: linear-gradient(100deg, hsl(15 100% 56%) 0%, hsl(29 100% 55%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(15 100% 54%) 0%, hsl(25 100% 55%) 50%, hsl(35 100% 56%) 100%);
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(30 50% 98%) 100%);
     --gradient-xp: linear-gradient(90deg, hsl(45 93% 47%) 0%, hsl(38 92% 50%) 100%);
     --gradient-mastery: linear-gradient(90deg, hsl(142 76% 36%) 0%, hsl(142 76% 46%) 100%);
@@ -540,7 +545,7 @@ body, input, textarea, select, button {
 
   /* Gradient text — warm playful coral→amber→teal sweep */
   .gradient-text {
-    background: linear-gradient(135deg, #ef5e3a 0%, #f9a826 50%, #14b8a6 100%);
+    background: linear-gradient(100deg, #ff5921 0%, #ff8617 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -548,7 +553,7 @@ body, input, textarea, select, button {
 
   /* Animated gradient text */
   .gradient-text-animated {
-    background: linear-gradient(90deg, #ef5e3a, #f9a826, #14b8a6, #f9a826, #ef5e3a);
+    background: linear-gradient(90deg, #ff5921, #ff8617, #ff5921);
     background-size: 300% 100%;
     -webkit-background-clip: text;
     background-clip: text;
@@ -616,7 +621,7 @@ body, input, textarea, select, button {
     transform: translateX(-50%);
     width: 0;
     height: 2px;
-    background: linear-gradient(90deg, #6366f1, #a855f7);
+    background: linear-gradient(90deg, #ff5921, #ff8617);
     transition: width 0.3s ease;
     border-radius: 1px;
   }

@@ -7,7 +7,9 @@ export default defineConfig({
   //   host: "::",
   //   port: 4201,
   // },
-  base:'/assessment/',
+  // Served from the site root. Code that builds a URL (payment return, share links, artwork) reads
+  // `import.meta.env.BASE_URL` rather than hardcoding a prefix, so this is the one place it lives.
+  base: '/',
   plugins: [react()],
   resolve: {
     alias: {

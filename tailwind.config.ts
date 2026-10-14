@@ -15,6 +15,29 @@ export default {
       // rather than wrapped (see the brand block in UserShell).
       screens: { xs: '400px' },
       colors: {
+        /*
+         * The landing page's orange, as a scale.
+         *
+         * 500 is the button colour (#ff6c24), 400 the far end of its gradient (#ff8617),
+         * and the light shades are the pale orange the page tints its orange icons with.
+         * The app used `indigo-*` for all of this; those classes were re-pointed by role
+         * (solid fills and gradient stops → `brand`, tints / links / headings → `blue`)
+         * rather than by recolouring the name, so purple, violet and pink keep their own
+         * hues and the categories that used them stay distinguishable.
+         */
+        brand: {
+          50: "#fff6ef",
+          100: "#ffeadb",
+          200: "#ffd0b0",
+          300: "#ffb07d",
+          400: "#ff8617",
+          500: "#ff6c24",
+          600: "#f05418",
+          700: "#c93f0f",
+          800: "#a1340f",
+          900: "#822f11",
+          950: "#471707",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -98,8 +121,9 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        display: ["Inter", "system-ui", "sans-serif"],
+        // Open Sans has no Tamil; Noto Sans Tamil is loaded beside it in index.html.
+        sans: ["Open Sans", "Noto Sans Tamil", "system-ui", "sans-serif"],
+        display: ["Open Sans", "Noto Sans Tamil", "system-ui", "sans-serif"],
       },
       keyframes: {
         "accordion-down": {

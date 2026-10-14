@@ -11,8 +11,9 @@ import { useEvalAssessments, useDeleteEvalAssessment, useEvalInvitationStats } f
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { format } from 'date-fns';
 import { TnpscTagDialog } from './TnpscTagDialog';
-import { describeTag, isTagged, readTnpscTag } from '@/lib/tnpscAdminApi';
+import { describeTag, isTagged, listReportsPlacement, readTnpscTag } from '@/lib/tnpscAdminApi';
 import { TNPSC_GROUPS } from '@/config/tnpsc';
+import { difficultyLabel } from '@/lib/eval-difficulty';
 
 interface Props {
   onDistribute: (assessmentId: string) => void;
@@ -40,18 +41,22 @@ interface AssessmentCardProps {
   isConstant: boolean;
   hasQuestions: boolean;
   stat: any;
+  /** False when the server's list carries no placement at all, so "not placed" cannot be claimed. */
+  placementKnown: boolean;
   onDistribute: (assessmentId: string) => void;
   onDelete: () => void;
 }
 
 function AssessmentCard({
   a, st, StatusIcon, isExpired, invited, submitted, completionPct,
-  isConstant, hasQuestions, stat, onDistribute, onDelete,
+  isConstant, hasQuestions, stat, placementKnown, onDistribute, onDelete,
 }: AssessmentCardProps) {
   const [showQuestions, setShowQuestions] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
   const tnpsc = readTnpscTag(a);
   const placed = isTagged(tnpsc);
+  /** Untagged *and* the server would have told us if it were tagged. */
+  const notPlaced = !placed && placementKnown;
 
   return (
     <Card className={`group hover:shadow-md transition-shadow ${isExpired ? 'opacity-75' : ''}`}>
@@ -61,13 +66,13 @@ function AssessmentCard({
           <div className="flex-1 min-w-0">
             <h4 className="font-semibold text-sm truncate">{a.title}</h4>
             {a.course_name && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900 rounded-full px-2 py-0.5 mt-1">
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900 rounded-full px-2 py-0.5 mt-1">
                 <BookOpen className="h-2.5 w-2.5 shrink-0" />
                 <span className="truncate max-w-[160px]">{a.course_name}</span>
               </span>
             )}
             <p className="text-xs text-muted-foreground mt-0.5">
-              {a.difficulty} • {a.question_count} Q
+              {difficultyLabel(a.difficulty)} • {a.question_count} Q
               {a.max_score ? ` • ${a.max_score} marks` : ''}
               {a.negative_marking && ` • -${a.negative_mark_value || 0.25} negative`}
             </p>
@@ -76,12 +81,20 @@ function AssessmentCard({
             <Badge
               variant="outline"
               className={`text-[10px] gap-1 ${placed
-                ? 'border-indigo-300 text-indigo-600 dark:border-indigo-700 dark:text-indigo-400'
-                : 'border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400'}`}
-              title={placed ? 'Visible in the aspirant portal' : 'Not tagged — invisible to aspirants'}
+                ? 'border-blue-300 text-blue-600 dark:border-brand-700 dark:text-blue-400'
+                : notPlaced
+                  ? 'border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400'
+                  : 'border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400'}`}
+              title={
+                placed
+                  ? 'Visible in the aspirant portal'
+                  : notPlaced
+                    ? 'Not tagged — invisible to aspirants'
+                    : 'The server’s list does not say where a paper is placed. Open Placement to check or set it.'
+              }
             >
-              {placed ? <Tag className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-              {placed ? describeTag(tnpsc) : 'Not placed'}
+              {placed ? <Tag className="h-3 w-3" /> : notPlaced ? <EyeOff className="h-3 w-3" /> : <Tag className="h-3 w-3" />}
+              {placed ? describeTag(tnpsc) : notPlaced ? 'Not placed' : 'Placement unknown'}
             </Badge>
             {a.mode && (
               <Badge variant="outline" className={`text-[10px] ${a.mode === 'exam' ? 'border-red-300 text-red-600 dark:border-red-700 dark:text-red-400' : 'border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400'}`}>
@@ -136,7 +149,7 @@ function AssessmentCard({
             </div>
             <div className="h-1.5 bg-muted rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${completionPct === 100 ? 'bg-green-500' : 'bg-indigo-500'}`}
+                className={`h-full rounded-full transition-all ${completionPct === 100 ? 'bg-green-500' : 'bg-brand-500'}`}
                 style={{ width: `${Math.min(completionPct, 100)}%` }}
               />
             </div>
@@ -195,12 +208,12 @@ function AssessmentCard({
           </span>
           <div className="flex items-center gap-1.5">
             <Button
-              variant={placed ? 'ghost' : 'outline'}
+              variant={placed || !notPlaced ? 'ghost' : 'outline'}
               size="sm"
-              className={`h-7 text-xs gap-1 ${!placed ? 'border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400' : ''}`}
+              className={`h-7 text-xs gap-1 ${notPlaced ? 'border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400' : ''}`}
               onClick={() => setTagOpen(true)}
             >
-              <Tag className="h-3 w-3" /> {placed ? 'Placement' : 'Place'}
+              <Tag className="h-3 w-3" /> {placed || !notPlaced ? 'Placement' : 'Place'}
             </Button>
             {!isExpired && (
               <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
@@ -267,6 +280,8 @@ export function EvalAssessmentsList({ onDistribute, onViewReport }: Props) {
     return rows;
   }, [assessments, statusFilter, placementFilter]);
 
+  const placementKnown = useMemo(() => listReportsPlacement(assessments as any[]), [assessments]);
+
   const untaggedCount = useMemo(
     () => ((assessments as any[]) || []).filter((a: any) => !isTagged(readTnpscTag(a))).length,
     [assessments],
@@ -305,7 +320,11 @@ export function EvalAssessmentsList({ onDistribute, onViewReport }: Props) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All placements</SelectItem>
-            <SelectItem value="untagged">Not placed{untaggedCount > 0 ? ` (${untaggedCount})` : ''}</SelectItem>
+            <SelectItem value="untagged" disabled={!placementKnown}>
+              {placementKnown
+                ? `Not placed${untaggedCount > 0 ? ` (${untaggedCount})` : ''}`
+                : 'Not placed — the server does not say'}
+            </SelectItem>
             <SelectItem value="mock">Mock tests</SelectItem>
             <SelectItem value="practice">Practice tests</SelectItem>
             {TNPSC_GROUPS.flatMap(g =>
@@ -317,8 +336,8 @@ export function EvalAssessmentsList({ onDistribute, onViewReport }: Props) {
             )}
           </SelectContent>
         </Select>
-      </div>
 
+      </div>
       {untaggedCount > 0 && placementFilter === 'all' && (
         <button
           onClick={() => setPlacementFilter('untagged')}
@@ -366,6 +385,7 @@ export function EvalAssessmentsList({ onDistribute, onViewReport }: Props) {
                 isConstant={isConstant}
                 hasQuestions={hasQuestions}
                 stat={stat}
+                placementKnown={placementKnown}
                 onDistribute={onDistribute}
                 onDelete={() => deleteAssessment.mutate(a.id)}
               />

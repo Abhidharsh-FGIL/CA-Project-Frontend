@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { difficultyLabel } from '@/lib/eval-difficulty';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -38,7 +39,7 @@ const DIFFICULTY_COLOR: Record<string, string> = {
   easy: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300',
   medium: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300',
   hard: 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300',
-  mixed: 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300',
+  mixed: 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-brand-300',
 };
 
 /** Default max-attempts per mode. */
@@ -123,22 +124,22 @@ export default function CourseDetailPage() {
       {/* Back */}
       <button
         onClick={() => navigate('/user/courses')}
-        className="group inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-4 transition-colors animate-fadeIn"
+        className="group inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 mb-4 transition-colors animate-fadeIn"
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
         Back to Courses
       </button>
 
       {/* Course header */}
-      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-100 dark:border-indigo-900/40 rounded-2xl p-3 sm:p-4 mb-5 animate-scaleIn">
+      <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/40 dark:to-purple-950/40 border border-blue-100 dark:border-blue-900/40 rounded-2xl p-3 sm:p-4 mb-5 animate-scaleIn">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0 flex-1">
             {course.exam_body && (
-              <span className="inline-block bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full mb-1.5">
+              <span className="inline-block bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-brand-300 text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full mb-1.5">
                 {course.exam_body}
               </span>
             )}
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400">
               {course.subject}
             </p>
             <h1 className="text-lg sm:text-xl font-bold mt-0.5 text-gray-900 dark:text-gray-100">
@@ -152,11 +153,11 @@ export default function CourseDetailPage() {
           {/* Count pills */}
           {!loading && (
             <div className="flex gap-2 text-xs flex-shrink-0">
-              <div className="bg-white dark:bg-gray-900 border border-indigo-100 dark:border-indigo-900/40 rounded-lg px-3 py-1.5 text-center">
+              <div className="bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900/40 rounded-lg px-3 py-1.5 text-center">
                 <p className="font-bold text-base text-gray-900 dark:text-gray-100 leading-tight">{practiceCount}</p>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400">Practice</p>
               </div>
-              <div className="bg-white dark:bg-gray-900 border border-indigo-100 dark:border-indigo-900/40 rounded-lg px-3 py-1.5 text-center">
+              <div className="bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900/40 rounded-lg px-3 py-1.5 text-center">
                 <p className="font-bold text-base text-gray-900 dark:text-gray-100 leading-tight">{mockCount}</p>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400">Mock</p>
               </div>
@@ -174,7 +175,7 @@ export default function CourseDetailPage() {
             className={cn(
               'px-5 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-all duration-300',
               tab === t
-                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                ? 'border-brand-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
                 : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
             )}
           >
@@ -184,7 +185,7 @@ export default function CourseDetailPage() {
                 className={cn(
                   'ml-2 text-xs px-1.5 py-0.5 rounded transition-all',
                   tab === t
-                    ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
+                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-brand-300'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
                 )}
               >
@@ -198,7 +199,7 @@ export default function CourseDetailPage() {
       {/* Content */}
       {loading ? (
         <div className="flex items-center justify-center py-20 gap-3 text-gray-400 dark:text-gray-500 animate-fadeIn">
-          <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+          <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
           <span className="text-sm">Loading assessments…</span>
         </div>
       ) : hasError ? (
@@ -212,7 +213,7 @@ export default function CourseDetailPage() {
           </p>
           <button
             onClick={() => { loadTests(); loadEvalAssessments(); }}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-gray-900 px-4 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-900 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Try again
@@ -317,7 +318,7 @@ function SectionHeader({
         className={cn(
           'inline-flex items-center justify-center w-6 h-6 rounded-md',
           accent
-            ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400'
+            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
             : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
         )}
       >
@@ -353,7 +354,7 @@ function TestCard({
       className={cn(
         'bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-4 transition-all relative',
         canStart
-          ? 'hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800 cursor-pointer'
+          ? 'hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 cursor-pointer'
           : 'opacity-95',
       )}
       onClick={() => canStart && navigate(`/user/test/${test.test_id}/start`)}
@@ -395,7 +396,7 @@ function TestCard({
             -{test.negative_marking_fraction || 0.25} neg
           </span>
         )}
-        <span className={cn('inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md', exhausted ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400' : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300')}
+        <span className={cn('inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md', exhausted ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400' : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-brand-300')}
           title={`${attemptsUsed} of ${maxAttempts} attempts used`}>
           {attemptsUsed}/{maxAttempts} attempts
         </span>
@@ -410,7 +411,7 @@ function TestCard({
             </span>
           </span>
           {(test.price ?? 0) > 0 ? (
-            <span className="inline-flex items-center text-[11px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded">
+            <span className="inline-flex items-center text-[11px] font-bold text-blue-700 dark:text-brand-300 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded">
               ₹{test.price}
             </span>
           ) : (
@@ -435,7 +436,7 @@ function TestCard({
         ) : (
           <Link
             to={`/user/test/${test.test_id}/start`}
-            className={cn('text-xs font-semibold px-3 py-1.5 rounded-lg transition-all', test.mode === 'mock' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-emerald-600 text-white hover:bg-emerald-700')}
+            className={cn('text-xs font-semibold px-3 py-1.5 rounded-lg transition-all', test.mode === 'mock' ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-emerald-600 text-white hover:bg-emerald-700')}
             onClick={e => e.stopPropagation()}
           >
             {test.mode === 'mock' ? 'Start Mock' : 'Practice'}
@@ -457,7 +458,7 @@ function FreeAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
       className={cn(
         'bg-white dark:bg-gray-900 rounded-2xl border p-4 transition-all relative cursor-pointer',
         !isExpired
-          ? 'border-indigo-100 dark:border-indigo-900/60 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800'
+          ? 'border-blue-100 dark:border-blue-900/60 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800'
           : 'border-gray-100 dark:border-gray-800 opacity-70',
       )}
       onClick={() => !isExpired && navigate(`/user/assessment/${a.assessment_id}`)}
@@ -472,7 +473,7 @@ function FreeAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
         <p className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-2">
           {a.title}
         </p>
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mt-0.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mt-0.5">
           Free Assessment
         </p>
       </div>
@@ -490,7 +491,7 @@ function FreeAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
               DIFFICULTY_COLOR[a.difficulty] ?? 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300',
             )}
           >
-            {a.difficulty}
+            {difficultyLabel(a.difficulty)}
           </span>
         )}
         {a.negative_marking && (
@@ -527,7 +528,7 @@ function FreeAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
             className={cn(
               'text-xs font-semibold px-3 py-1.5 rounded-lg transition-all',
               a.mode === 'mock'
-                ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                ? 'bg-brand-600 text-white hover:bg-brand-700'
                 : 'bg-emerald-600 text-white hover:bg-emerald-700',
             )}
           >
@@ -558,7 +559,7 @@ function EvalAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
       className={cn(
         'bg-white dark:bg-gray-900 rounded-2xl border p-4 transition-all relative',
         canStart
-          ? 'border-indigo-100 dark:border-indigo-900/60 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800 cursor-pointer'
+          ? 'border-blue-100 dark:border-blue-900/60 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 cursor-pointer'
           : 'border-gray-100 dark:border-gray-800',
         isExpired && 'opacity-70',
       )}
@@ -576,7 +577,7 @@ function EvalAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
         <p className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-2">
           {a.title}
         </p>
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mt-0.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mt-0.5">
           Scheduled Assessment
         </p>
       </div>
@@ -589,7 +590,7 @@ function EvalAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
         )}
         {a.difficulty && (
           <span className={cn('text-[11px] font-semibold px-2 py-1 rounded-md capitalize', DIFFICULTY_COLOR[a.difficulty] ?? 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300')}>
-            {a.difficulty}
+            {difficultyLabel(a.difficulty)}
           </span>
         )}
         {a.negative_marking && (
@@ -616,7 +617,7 @@ function EvalAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
             className={cn(
               'text-xs font-semibold px-3 py-1.5 rounded-lg transition-all',
               a.mode === 'mock'
-                ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                ? 'bg-brand-600 text-white hover:bg-brand-700'
                 : 'bg-emerald-600 text-white hover:bg-emerald-700',
             )}
           >

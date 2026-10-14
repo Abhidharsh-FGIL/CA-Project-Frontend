@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { GraduationCap, Eye, EyeOff, Mail, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { ArrowRight, BarChart3, BookOpen, CheckCircle2, Eye, EyeOff, FileText, Lock, Mail, Target } from 'lucide-react';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { toast } from 'sonner';
+import { ROUTES } from '@/pages/landing/LandingShell';
+import { ArtImage, AuthField, AuthLayout, AuthModal } from './auth/AuthShell';
+
+/** What the product offers, as a row under the form. */
+const POINTS = [
+  { icon: FileText, label: 'Full mock tests', tone: 'blue' },
+  { icon: BookOpen, label: 'Unit-wise practice', tone: 'orange' },
+  { icon: Target, label: 'Previous year papers', tone: 'purple' },
+  { icon: BarChart3, label: 'AI performance reports', tone: 'green' },
+];
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -54,165 +64,141 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="h-[100dvh] overflow-y-auto bg-gradient-to-br from-orange-50 via-amber-50 to-rose-100 dark:from-stone-950 dark:via-orange-950/50 dark:to-rose-950/40 flex justify-center p-4 py-8 relative">
-      {/* Decorative blobs */}
-      <div className="absolute top-1/4 -left-20 w-80 h-80 bg-amber-300/30 dark:bg-amber-700/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-orange-300/30 dark:bg-orange-700/20 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Back to Home */}
-      <Link
-        to="/"
-        className="absolute top-4 left-4 z-20 flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors group"
-      >
-        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform duration-150" />
-        <span>Back to Home</span>
-      </Link>
-
-      <div className="max-w-md w-full relative z-10 animate-fadeIn my-auto">
-        <Link to="/" className="flex items-center justify-center gap-2 mb-8 group">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center shadow-lg shadow-orange-200 dark:shadow-orange-900/50 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-            <GraduationCap className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-lg font-bold gradient-text">BrightLearn Academy</span>
-        </Link>
-
-        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur rounded-2xl shadow-xl shadow-indigo-100/50 dark:shadow-black/40 border border-white dark:border-gray-800 p-5 sm:p-7 animate-scaleIn">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Welcome back</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Log in to continue your learning journey.</p>
-
-          {locked && (
-            <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-xl p-3 mb-4 text-xs text-red-700 dark:text-red-300">
-              <strong>Account locked.</strong> Too many failed attempts. Check your email for the unlock link.
+    <AuthLayout
+      title="Login | MyGovExams"
+      side={<ArtImage name="hero.png" alt="A student preparing for her government exam" />}
+      below={
+        <div className="mge-auth-points">
+          {POINTS.map(p => (
+            <div className="mge-auth-point" key={p.label}>
+              <span className={`mge-tile mge-tile-${p.tone}`}>
+                <p.icon aria-hidden="true" />
+              </span>
+              {p.label}
             </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                className="w-full px-4 py-2.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-xl focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/40 outline-none transition-all text-sm"
-              />
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setForgotEmail(email);
-                    setForgotOpen(true);
-                  }}
-                  className="text-xs text-indigo-600 font-semibold hover:underline"
-                >
-                  Forgot password?
-                </button>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPwd ? 'text' : 'password'}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="w-full px-4 py-2.5 pr-11 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-xl focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/40 outline-none transition-all text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPwd(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                >
-                  {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting || locked}
-              className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-[length:200%_auto] text-white py-3 rounded-xl font-semibold hover:bg-right-bottom transition-all duration-500 shadow-lg shadow-indigo-200 hover:shadow-xl hover:shadow-indigo-300 disabled:opacity-60 active:scale-[0.98] press relative overflow-hidden"
-            >
-              {submitting ? (
-                <span className="inline-flex items-center gap-2">
-                  <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Logging in...
-                </span>
-              ) : (
-                'Log in'
-              )}
-            </button>
-          </form>
-
-          <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
-            New here?{' '}
-            <Link to="/user/register" className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">
-              Create an account
-            </Link>
-          </p>
+          ))}
         </div>
+      }
+    >
+      <div className="mge-auth-card">
+        <h1>Welcome Back</h1>
+        <p className="mge-auth-sub">Login to continue your exam preparation</p>
+
+        {locked && (
+          <div className="mge-auth-alert">
+            <strong>Account locked.</strong> Too many failed attempts. Check your email for the unlock link.
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="mge-auth-form">
+          <AuthField
+            icon={Mail}
+            type="email"
+            value={email}
+            onChange={setEmail}
+            placeholder="Email"
+            required
+            autoComplete="email"
+          />
+          <AuthField
+            icon={Lock}
+            type={showPwd ? 'text' : 'password'}
+            value={password}
+            onChange={setPassword}
+            placeholder="Password"
+            required
+            autoComplete="current-password"
+            trailing={
+              <button
+                type="button"
+                className="mge-eye"
+                aria-label={showPwd ? 'Hide password' : 'Show password'}
+                onClick={() => setShowPwd(p => !p)}
+              >
+                {showPwd ? <EyeOff /> : <Eye />}
+              </button>
+            }
+          />
+
+          <button
+            type="button"
+            className="mge-link-btn"
+            onClick={() => {
+              setForgotEmail(email);
+              setForgotOpen(true);
+            }}
+          >
+            Forgot Password?
+          </button>
+
+          <button type="submit" disabled={submitting || locked} className="mge-btn mge-btn-primary mge-auth-submit">
+            {submitting ? (
+              <>
+                <span className="mge-spinner" /> Logging in...
+              </>
+            ) : (
+              <>
+                Login <ArrowRight size={19} />
+              </>
+            )}
+          </button>
+        </form>
+
+        <div className="mge-auth-rule" />
+        <p className="mge-auth-switch">
+          Don't have an account?
+          <Link to={ROUTES.signup}>Sign up</Link>
+        </p>
       </div>
 
       {forgotOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-sm w-full p-7 animate-scaleIn border border-transparent dark:border-gray-800">
-            {forgotSent ? (
-              <div className="text-center">
-                <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/40 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <CheckCircle2 className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">Check your email</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
-                  We've sent a reset link to <strong>{forgotEmail}</strong>.
-                </p>
-                <button
-                  onClick={() => {
-                    setForgotOpen(false);
-                    setForgotSent(false);
-                  }}
-                  className="w-full bg-indigo-600 text-white py-2.5 rounded-xl font-semibold hover:bg-indigo-700 transition-all"
-                >
-                  Close
-                </button>
+        <AuthModal>
+          {forgotSent ? (
+            <>
+              <div className="mge-modal-icon mge-tile-green">
+                <CheckCircle2 size={30} />
               </div>
-            ) : (
-              <form onSubmit={submitForgot}>
-                <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-950/40 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Mail className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
-                </div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 text-center mb-1">Reset your password</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-5">
-                  Enter your email and we'll send a reset link.
-                </p>
-                <input
-                  type="email"
-                  value={forgotEmail}
-                  onChange={e => setForgotEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  required
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-xl focus:border-indigo-500 dark:focus:border-indigo-400 outline-none mb-4"
-                />
-                <button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2.5 rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all"
-                >
-                  Send reset link
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForgotOpen(false)}
-                  className="w-full mt-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 py-2"
-                >
-                  Cancel
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
+              <h2>Check your email</h2>
+              <p>
+                We've sent a reset link to <strong>{forgotEmail}</strong>.
+              </p>
+              <button
+                type="button"
+                className="mge-btn mge-btn-primary mge-auth-submit"
+                onClick={() => {
+                  setForgotOpen(false);
+                  setForgotSent(false);
+                }}
+              >
+                Close
+              </button>
+            </>
+          ) : (
+            <form onSubmit={submitForgot}>
+              <div className="mge-modal-icon mge-tile-blue">
+                <Mail size={28} />
+              </div>
+              <h2>Reset your password</h2>
+              <p>Enter your email and we'll send a reset link.</p>
+              <AuthField
+                icon={Mail}
+                type="email"
+                value={forgotEmail}
+                onChange={setForgotEmail}
+                placeholder="Email"
+                required
+                autoComplete="email"
+              />
+              <button type="submit" className="mge-btn mge-btn-primary mge-auth-submit">
+                Send reset link
+              </button>
+              <button type="button" className="mge-modal-text-btn" onClick={() => setForgotOpen(false)}>
+                Cancel
+              </button>
+            </form>
+          )}
+        </AuthModal>
       )}
-    </div>
+    </AuthLayout>
   );
 }

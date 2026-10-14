@@ -45,7 +45,7 @@ interface PlanEditorForm {
 const TIER_META: Record<PlanName, { icon: typeof Sparkles; color: string }> = {
   free: { icon: Star, color: 'from-gray-400 to-gray-500' },
   standard: { icon: Sparkles, color: 'from-blue-500 to-cyan-500' },
-  ultimate: { icon: Sparkles, color: 'from-indigo-500 to-purple-500' },
+  ultimate: { icon: Sparkles, color: 'from-brand-500 to-brand-400' },
   premium: { icon: Crown, color: 'from-amber-500 to-orange-500' },
 };
 
@@ -116,7 +116,7 @@ export default function AdminPlansPage() {
 
       {plansLoading ? (
         <div className="flex items-center justify-center py-24">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
       ) : (
       <div className="space-y-5 pb-6">
@@ -161,7 +161,7 @@ export default function AdminPlansPage() {
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gradient-to-r from-gray-50 to-indigo-50/30 dark:from-gray-800/60 dark:to-indigo-950/30 border-b border-gray-100 dark:border-gray-800">
+              <thead className="bg-gradient-to-r from-gray-50 to-blue-50/30 dark:from-gray-800/60 dark:to-blue-950/30 border-b border-gray-100 dark:border-gray-800">
                 <tr className="text-left text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold">
                   <th className="px-4 py-3 sticky left-0 bg-gray-50/95 dark:bg-gray-800/95 z-10">Feature</th>
                   {plans.map(p => {
@@ -226,7 +226,7 @@ export default function AdminPlansPage() {
                     return (
                       <span key={p.name} className="text-gray-700 dark:text-gray-300">
                         {val === 'unlimited' ? (
-                          <InfinityIcon className="inline w-4 h-4 text-indigo-500" />
+                          <InfinityIcon className="inline w-4 h-4 text-blue-500" />
                         ) : (
                           String(val)
                         )}
@@ -241,7 +241,7 @@ export default function AdminPlansPage() {
                     return (
                       <span key={p.name} className="text-gray-700 dark:text-gray-300">
                         {val === 'unlimited' ? (
-                          <InfinityIcon className="inline w-4 h-4 text-indigo-500" />
+                          <InfinityIcon className="inline w-4 h-4 text-blue-500" />
                         ) : val === 'none' ? (
                           <span className="text-gray-400">—</span>
                         ) : (
@@ -256,7 +256,7 @@ export default function AdminPlansPage() {
                   cells={plans.map(p => (
                     <span
                       key={p.name}
-                      className="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded"
+                      className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-brand-300 px-1.5 py-0.5 rounded"
                     >
                       {(p.features?.ai_report_level as string) ?? 'basic'}
                     </span>
@@ -311,7 +311,7 @@ export default function AdminPlansPage() {
                     <td key={p.name} className="px-4 py-3 text-center">
                       <button
                         onClick={() => setEditing(planToForm(p))}
-                        className="inline-flex items-center gap-1 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-3 py-1.5 rounded-lg shadow-sm press"
+                        className="inline-flex items-center gap-1 text-xs font-semibold bg-gradient-to-r from-brand-600 to-brand-400 hover:from-brand-700 hover:to-brand-500 text-white px-3 py-1.5 rounded-lg shadow-sm press"
                       >
                         <Edit2 className="w-3 h-3" /> Edit
                       </button>
@@ -326,7 +326,7 @@ export default function AdminPlansPage() {
         {/* Perks comparison */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm p-5">
           <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-3 inline-flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             Plan Perks
           </h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -458,7 +458,7 @@ function PlanEditor({
                   min={0}
                   value={form.price_monthly}
                   onChange={e => setForm(f => ({ ...f, price_monthly: parseInt(e.target.value) || 0 }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </FormField>
               <FormField label="Yearly Price (₹)">
@@ -467,7 +467,7 @@ function PlanEditor({
                   min={0}
                   value={form.price_yearly}
                   onChange={e => setForm(f => ({ ...f, price_yearly: parseInt(e.target.value) || 0 }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </FormField>
             </div>
@@ -501,7 +501,7 @@ function PlanEditor({
                 <select
                   value={form.ai_report_level}
                   onChange={e => updateFeature('ai_report_level', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 capitalize"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 capitalize"
                 >
                   {REPORT_LEVELS.map(l => (
                     <option key={l} value={l}>{l}</option>
@@ -529,7 +529,7 @@ function PlanEditor({
                   type="text"
                   value={form.support}
                   onChange={e => updateFeature('support', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </FormField>
             </div>
@@ -544,7 +544,7 @@ function PlanEditor({
                   min={1}
                   value={form.duration_days_monthly}
                   onChange={e => setForm(f => ({ ...f, duration_days_monthly: parseInt(e.target.value) || 30 }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </FormField>
               <FormField label="Yearly (days)">
@@ -553,7 +553,7 @@ function PlanEditor({
                   min={1}
                   value={form.duration_days_yearly}
                   onChange={e => setForm(f => ({ ...f, duration_days_yearly: parseInt(e.target.value) || 365 }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </FormField>
             </div>
@@ -577,7 +577,7 @@ function PlanEditor({
                     type="text"
                     value={perk}
                     onChange={e => updatePerk(i, e.target.value)}
-                    className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
                   />
                   <button
                     type="button"
@@ -591,7 +591,7 @@ function PlanEditor({
               <button
                 type="button"
                 onClick={addPerk}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 px-3 py-1.5 rounded-lg border-2 border-dashed border-indigo-200 dark:border-indigo-900 hover:border-indigo-300 dark:hover:border-indigo-800"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-brand-200 px-3 py-1.5 rounded-lg border-2 border-dashed border-blue-200 dark:border-blue-900 hover:border-blue-300 dark:hover:border-blue-800"
               >
                 <Plus className="w-3 h-3" /> Add Perk
               </button>
@@ -608,7 +608,7 @@ function PlanEditor({
             </button>
             <button
               type="submit"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg shadow-md press"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-gradient-to-r from-brand-600 to-brand-400 hover:from-brand-700 hover:to-brand-500 text-white px-4 py-2 rounded-lg shadow-md press"
             >
               <Save className="w-3.5 h-3.5" /> Save Changes
             </button>
@@ -640,7 +640,7 @@ function LimitInput({
           className={cn(
             'px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border',
             mode === 'numeric'
-              ? 'bg-indigo-600 text-white border-transparent'
+              ? 'bg-brand-600 text-white border-transparent'
               : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700',
           )}
         >
@@ -652,7 +652,7 @@ function LimitInput({
           className={cn(
             'px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border',
             mode === 'unlimited'
-              ? 'bg-indigo-600 text-white border-transparent'
+              ? 'bg-brand-600 text-white border-transparent'
               : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700',
           )}
         >
@@ -665,7 +665,7 @@ function LimitInput({
             className={cn(
               'px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border',
               mode === 'none'
-                ? 'bg-indigo-600 text-white border-transparent'
+                ? 'bg-brand-600 text-white border-transparent'
                 : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700',
             )}
           >
@@ -679,7 +679,7 @@ function LimitInput({
           min={0}
           value={value as number}
           onChange={e => onChange(parseInt(e.target.value) || 0)}
-          className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
         />
       )}
     </div>

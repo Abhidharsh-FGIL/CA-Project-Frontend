@@ -14,10 +14,17 @@
  */
 import { api } from './api';
 import {
+  LEVELS_HIDDEN,
+  LEVEL_META,
+  MIXED_LABEL,
   PRACTICE_MAX_QUESTIONS,
   PRACTICE_MIN_QUESTIONS,
   TNPSC_GROUPS,
   findStage,
+  findUnit,
+  unitDisplayName,
+  subjectForUnit,
+  unitTopics,
   type TnpscLevel,
   type TnpscTestType,
 } from '@/config/tnpsc';
@@ -29,17 +36,55 @@ export interface TnpscTagValue {
   stage_id: string | null;
   track: TnpscTestType | null;
   level: TnpscLevel | null;
+  /**
+   * The published syllabus unit this paper belongs to — "Unit IV: Indian Polity".
+   *
+   * The aspirant portal lists practice by unit, so this is what decides where a
+   * paper appears. `subject_id` is kept alongside and filled from the unit, since
+   * the backend's existing contract is written against it and a unit can span two
+   * catalog subjects.
+   */
+  unit_id: string | null;
   subject_id: string | null;
   topic_id: string | null;
+  /**
+   * How much of the syllabus this paper stands for.
+   *
+   * `unit` — one published unit, optionally at one difficulty.
+   * `section` — a whole printed section (General Studies, General Tamil, …).
+   *
+   * A section paper and a Full Unit paper are both *whole* papers, so both are
+   * composed to the 20/30/50 blend rather than filtered to a single difficulty.
+   * Exams are always whole papers and carry no scope of their own.
+   */
+  scope: TnpscScope | null;
+  /** The section a `section`-scoped paper covers, by its printed name. */
+  section_name: string | null;
+  /**
+   * Which language paper an exam is sat in.
+   *
+   * Group 4's paper is General Studies + Aptitude plus *one* of General Tamil or
+   * General English, never both — so a full mock has to say which.
+   */
+  language: TnpscExamLanguage | null;
 }
+
+/** Practice covers one unit, or a whole printed section. */
+export type TnpscScope = 'unit' | 'section';
+
+export type TnpscExamLanguage = 'tamil' | 'english';
 
 export const EMPTY_TAG: TnpscTagValue = {
   group_id: null,
   stage_id: null,
   track: null,
   level: null,
+  unit_id: null,
   subject_id: null,
   topic_id: null,
+  scope: null,
+  section_name: null,
+  language: null,
 };
 
 /** Wire shape sent to the backend — `group_id` is derivable from `stage_id`, sent for clarity. */
@@ -47,17 +92,47 @@ interface TnpscTagPayload {
   stage_id: string | null;
   track: TnpscTestType | null;
   level: TnpscLevel | null;
+  unit_id: string | null;
   subject_id: string | null;
   topic_id: string | null;
+  scope: TnpscScope | null;
+  section_name: string | null;
+  language: TnpscExamLanguage | null;
 }
 
 function toPayload(tag: TnpscTagValue): TnpscTagPayload {
+  /*
+   * The subject is derived here as well as in the form.
+   *
+   * The backend's practice endpoints filter on it, so it has to be right
+   * whatever built the tag — a form, `readTnpscTag` over an older row, or a bulk
+   * action. Deriving it once at the edge is cheaper than trusting every caller.
+   */
+  const stage = findStage(
+    tag.group_id ?? groupOfStage(tag.stage_id) ?? undefined,
+    tag.stage_id ?? undefined,
+  )?.stage;
+  const derivedSubject =
+    tag.subject_id ?? subjectForUnit(stage, findUnit(stage, tag.unit_id)) ?? null;
+
   return {
     stage_id: tag.stage_id,
     track: tag.track,
-    level: tag.track === 'mock' ? tag.level : null,
-    subject_id: tag.track === 'practice' ? tag.subject_id : null,
-    topic_id: tag.track === 'practice' ? tag.topic_id : null,
+    // Both tracks carry a level now. A mock's level gates progression; a
+    // practice paper's decides which of a unit's difficulty buttons it sits
+    // behind, and may be null for a set that covers the whole unit.
+    //
+    // The server refuses a mock without one (422 LEVEL_REQUIRED), so a mock that
+    // was never asked — the form no longer does while the portal shows a single
+    // level — is filed under the lowest, which is the group that is shown.
+    level: tag.track === 'mock' ? (tag.level ?? 'simple') : tag.level,
+    // A unit belongs to a unit-scoped practice paper and nothing else.
+    unit_id: tag.track === 'practice' && tag.scope === 'unit' ? tag.unit_id : null,
+    subject_id: tag.track === 'practice' ? derivedSubject : null,
+    topic_id: tag.track === 'practice' && tag.scope === 'unit' ? tag.topic_id : null,
+    scope: tag.track === 'practice' ? tag.scope : null,
+    section_name: tag.track === 'practice' && tag.scope === 'section' ? tag.section_name : null,
+    language: tag.track === 'mock' ? tag.language : null,
   };
 }
 
@@ -73,10 +148,29 @@ export function readTnpscTag(row: any): TnpscTagValue {
   const stage_id = row.tnpsc_stage_id ?? row.stage_id ?? null;
   const track = (row.track ?? row.test_track ?? null) as TnpscTestType | null;
   const level = (row.tnpsc_level ?? row.level ?? null) as TnpscLevel | null;
+  const unit_id = row.tnpsc_unit_id ?? row.unit_id ?? null;
+  const section_name = row.tnpsc_section_name ?? row.section_name ?? null;
+  const language = (row.tnpsc_language ?? row.language ?? null) as TnpscExamLanguage | null;
+  // A row from before scopes existed still knows which it is: a unit id means
+  // unit-scoped, a section name means section-scoped.
+  const scope = (row.tnpsc_scope ?? row.scope ?? (unit_id ? 'unit' : section_name ? 'section' : null)) as
+    | TnpscScope
+    | null;
   const subject_id = row.tnpsc_subject_id ?? row.subject_id ?? null;
   const topic_id = row.tnpsc_topic_id ?? row.topic_id ?? null;
   const group_id = row.tnpsc_group_id ?? row.group_id ?? groupOfStage(stage_id);
-  return { group_id, stage_id, track, level, subject_id, topic_id };
+  return {
+    group_id,
+    stage_id,
+    track,
+    level,
+    unit_id,
+    subject_id,
+    topic_id,
+    scope,
+    section_name,
+    language,
+  };
 }
 
 export function groupOfStage(stageId: string | null): string | null {
@@ -85,6 +179,21 @@ export function groupOfStage(stageId: string | null): string | null {
     if (g.stages.some(s => s.id === stageId)) return g.id;
   }
   return null;
+}
+
+/**
+ * Whether the server's list says anything about placement at all.
+ *
+ * `GET /evaluation/assessments` does not return the TNPSC fields (BACKEND_WORK.md item 4),
+ * so every row reads as untagged whether it is placed or not. A badge that says "Not
+ * placed" on forty papers, some of which are placed, is worse than no badge: it sends the
+ * admin to re-place work that is done. If no row carries any placement field, the list
+ * cannot tell, and should say so.
+ */
+export function listReportsPlacement(rows: any[] | null | undefined): boolean {
+  return (rows ?? []).some(
+    r => r && (r.tnpsc_stage_id != null || r.stage_id != null || r.track != null || r.test_track != null),
+  );
 }
 
 export function isTagged(tag: TnpscTagValue): boolean {
@@ -96,16 +205,83 @@ export function describeTag(tag: TnpscTagValue): string | null {
   if (!isTagged(tag)) return null;
   const found = findStage(tag.group_id ?? groupOfStage(tag.stage_id) ?? undefined, tag.stage_id ?? undefined);
   const stageLabel = found ? `${found.group.short_name} ${found.stage.short_name}` : tag.stage_id!;
-  const trackLabel = tag.track === 'mock' ? 'Mock' : 'Practice';
-  const tail =
-    tag.track === 'mock'
-      ? tag.level
-        ? ` · ${tag.level[0].toUpperCase()}${tag.level.slice(1)}`
-        : ''
-      : tag.subject_id
-      ? ` · ${subjectName(tag) ?? tag.subject_id}`
-      : '';
-  return `${stageLabel} · ${trackLabel}${tail}`;
+  const trackLabel = tag.track === 'mock' ? 'Exam' : 'Practice';
+  const levelLabel = tag.level ? LEVEL_META[tag.level].label : null;
+
+  // A practice paper now names the unit it is filed under and the difficulty
+  // button it sits behind — "G4 Written · Practice · Indian Polity · Simple" —
+  // because those are the two things that decide where an aspirant finds it.
+  const parts: string[] = [stageLabel, trackLabel];
+  if (tag.track === 'practice') {
+    const unit = found ? findUnit(found.stage, tag.unit_id) : undefined;
+    const where = (unit && unitDisplayName(found?.stage, unit)) || subjectName(tag) || tag.subject_id;
+    if (where) parts.push(where);
+    parts.push(levelLabel ?? MIXED_LABEL);
+  } else if (levelLabel && !LEVELS_HIDDEN) {
+    // A mock is composed across all three difficulties, so naming one of them on it
+    // is only honest while the portal tells the levels apart.
+    parts.push(levelLabel);
+  }
+  return parts.join(' · ');
+}
+
+/**
+ * A name for a paper, written from its placement.
+ *
+ * The placement cascade already says exactly what a paper is — which exam, which
+ * track, which unit or section, which difficulty — so making the admin invent a
+ * title for it is asking them to restate what they just chose, and invites the
+ * inconsistent naming that makes a list of two hundred papers unreadable.
+ *
+ * Returned as a suggestion, not a rule: the field stays editable and stops being
+ * overwritten the moment it is typed in.
+ *
+ * Examples:
+ *   TNPSC Group 4 — Indian Polity · Simple
+ *   TNPSC Group 4 — Indian Polity: Fundamental Rights · Mixed
+ *   TNPSC Group 4 — General Studies · Full Set
+ *   TNPSC Group 4 — Full Mock (Tamil) · Complex
+ */
+export function suggestAssessmentTitle(tag: TnpscTagValue): string | null {
+  const found = findStage(
+    tag.group_id ?? groupOfStage(tag.stage_id) ?? undefined,
+    tag.stage_id ?? undefined,
+  );
+  if (!found || !tag.track) return null;
+
+  const { group, stage } = found;
+  /*
+   * The stage earns a mention where the group has more than one — counted across
+   * the whole catalog, not just the open ones. Counting open stages would name
+   * Group 1 papers "TNPSC Group 1" today and "TNPSC Group 1 Prelims" the day Mains
+   * opens, leaving two naming conventions in one list and no way to sort it.
+   */
+  const head = group.stages.length > 1 ? `${group.name} ${stage.short_name}` : group.name;
+
+  const levelLabel = tag.level ? LEVEL_META[tag.level].label : null;
+  const parts: string[] = [];
+
+  if (tag.track === 'mock') {
+    const lang = tag.language === 'tamil' ? 'Tamil' : tag.language === 'english' ? 'English' : null;
+    parts.push(lang ? `Full Mock (${lang})` : 'Full Mock');
+    // "Simple" on a paper that is 20% Simple, 30% Medium and 50% Complex is a
+    // mislabel, so the level is left off while the portal shows no levels.
+    if (levelLabel && !LEVELS_HIDDEN) parts.push(levelLabel);
+  } else if (tag.scope === 'section') {
+    if (!tag.section_name) return null;
+    parts.push(tag.section_name, 'Full Set');
+  } else {
+    const unit = findUnit(stage, tag.unit_id);
+    if (!unit) return null;
+    const topic = tag.topic_id
+      ? unitTopics(stage, unit).find(t => t.id === tag.topic_id)?.name
+      : undefined;
+    const unitName = unitDisplayName(stage, unit);
+    parts.push(topic ? `${unitName}: ${topic}` : unitName);
+    parts.push(levelLabel ?? MIXED_LABEL);
+  }
+
+  return `${head} — ${parts.join(' · ')}`;
 }
 
 /**
@@ -152,19 +328,62 @@ export function validateTnpscTag(tag: TnpscTagValue, questionCount?: number): Ta
   }
 
   if (tag.track === 'mock') {
-    if (!tag.level) errors.push('A mock test must be assigned a level (Simple / Medium / Complex).');
+    // Not asked while the portal shows one level — `toPayload` fills it in.
+    if (!tag.level && !LEVELS_HIDDEN) errors.push('An exam must be assigned a level (Simple / Medium / Complex).');
     // The question-count-vs-pattern warning was removed by request. The "Apply pattern"
     // button on the placement card still offers the full-length shape in one click.
   }
 
+  if (tag.track === 'mock' && found?.stage.pattern?.sections.some(sec => sec.alternative_to)) {
+    // Group 4's paper is sat in one language or the other, so a full mock has to
+    // say which — the two have different units and different splits.
+    if (!tag.language) errors.push('Choose the language this exam is sat in.');
+  }
+
   if (tag.track === 'practice') {
-    if (!tag.subject_id) errors.push('A practice test must be assigned a syllabus subject.');
-    if (tag.subject_id && found && !found.stage.subjects.some(s => s.id === tag.subject_id)) {
+    if (!tag.scope) errors.push('Choose whether this covers one unit or a whole section.');
+  }
+
+  if (tag.track === 'practice' && tag.scope === 'section') {
+    if (!tag.section_name) errors.push('Select the section this paper covers.');
+    if (
+      tag.section_name &&
+      found &&
+      !found.stage.pattern?.sections.some(sec => sec.name === tag.section_name)
+    ) {
+      errors.push('That section does not belong to the selected stage.');
+    }
+  }
+
+  if (tag.track === 'practice' && tag.scope === 'unit') {
+    // The unit is what the portal lists unit-wise practice by, so it is required.
+    // `subject_id` is derived from it and still checked, because the backend's
+    // practice endpoints filter on the subject.
+    if (!tag.unit_id) errors.push('A unit-wise practice test must be assigned a syllabus unit.');
+    if (tag.unit_id && found && !findUnit(found.stage, tag.unit_id)) {
+      errors.push('That unit does not belong to the selected stage.');
+    }
+    // The subject is derived from the unit where the unit does not name one, so
+    // this only fires when neither says anything — never on a complete form.
+    const subject =
+      tag.subject_id ?? subjectForUnit(found?.stage, findUnit(found?.stage, tag.unit_id));
+    if (!subject) errors.push('A practice test must be assigned a syllabus subject.');
+    if (subject && found && !found.stage.subjects.some(s => s.id === subject)) {
       errors.push('That subject does not belong to the selected stage.');
     }
-    if (questionCount != null && (questionCount < PRACTICE_MIN_QUESTIONS || questionCount > PRACTICE_MAX_QUESTIONS)) {
+    // A unit publishes its own question count; a set far off it is worth flagging.
+    const unit = tag.unit_id && found ? findUnit(found.stage, tag.unit_id) : undefined;
+    // A level is optional on practice: without one the set covers the whole unit
+    // and sits behind "Full Unit" rather than a difficulty button.
+    if (unit && questionCount != null && questionCount < unit.questions) {
       warnings.push(
-        `Practice sets must be ${PRACTICE_MIN_QUESTIONS}–${PRACTICE_MAX_QUESTIONS} questions — this one has ${questionCount}.`,
+        `${unitDisplayName(found?.stage, unit)} carries ${unit.questions} questions in the real paper — this set has ${questionCount}.`,
+      );
+    }
+    if (questionCount != null && (questionCount < PRACTICE_MIN_QUESTIONS || questionCount > PRACTICE_MAX_QUESTIONS)) {
+      // A warning, not a rule — "must" promised an enforcement that is not there.
+      warnings.push(
+        `Practice sets are usually ${PRACTICE_MIN_QUESTIONS}–${PRACTICE_MAX_QUESTIONS} questions — this one has ${questionCount}.`,
       );
     }
   }
@@ -174,6 +393,38 @@ export function validateTnpscTag(tag: TnpscTagValue, questionCount?: number): Ta
 
 // ─── Write ─────────────────────────────────────────────────────────────────────
 
+/**
+ * What to tell an admin whose placement was refused.
+ *
+ * Two different failures used to read the same. A server that does not have the
+ * endpoint answers 404 "Not Found"; a server that has it and does not know the
+ * *subject* answers 404 `SUBJECT_NOT_FOUND`. The first means "wait for a deploy",
+ * the second means "the stage is missing a subject" — and telling someone the
+ * endpoint is not deployed when it is sends them to the wrong team.
+ */
+export function describeTagError(err: any, tag: TnpscTagValue): string {
+  const message: string = typeof err?.message === 'string' ? err.message : '';
+  const code: string | undefined = err?.code ?? err?.detail?.error_code;
+
+  if (code === 'SUBJECT_NOT_FOUND' || /has no subject/i.test(message)) {
+    const slug = message.match(/subject '([^']+)'/)?.[1];
+    const found = findStage(tag.group_id ?? groupOfStage(tag.stage_id) ?? undefined, tag.stage_id ?? undefined);
+    const name = slug ? (found?.stage.subjects.find(s => s.id === slug)?.name ?? slug) : 'this';
+    const where = found ? `${found.group.name} ${found.stage.short_name}` : 'that exam';
+    return (
+      `The server has no “${name}” subject under ${where} yet, so this paper could not be placed. ` +
+      `The paper itself is saved. Once the backend adds that subject (BACKEND_WORK.md, item 13), ` +
+      `place it from the Assessments tab.`
+    );
+  }
+
+  if (err?.status === 404 && !code && /^not found$/i.test(message.trim())) {
+    return 'The tagging endpoint is not available on the server yet (PATCH /evaluation/assessments/{id}/tnpsc).';
+  }
+
+  return message || 'The placement could not be saved.';
+}
+
 /** PATCH the TNPSC tags onto an Evaluation-Hub assessment. */
 export function tagAssessment(assessmentId: string, tag: TnpscTagValue): Promise<any> {
   return api.patch(`/api/v1/evaluation/assessments/${assessmentId}/tnpsc`, toPayload(tag));
@@ -182,6 +433,26 @@ export function tagAssessment(assessmentId: string, tag: TnpscTagValue): Promise
 /** PATCH the TNPSC tags onto an admin-managed test. */
 export function tagTest(testId: string, tag: TnpscTagValue): Promise<any> {
   return api.patch(`/api/v1/admin/tests/${testId}/tnpsc`, toPayload(tag));
+}
+
+/**
+ * Record what a collection actually contains.
+ *
+ * Collections are where this belongs rather than assessments: a collection is the
+ * content and an assessment is one publication of it, so fixing the collection
+ * fixes every assessment built from it afterwards — and there is one collection
+ * where there may be a dozen assessments.
+ *
+ * `PATCH /api/v1/evaluation/papers/{id}` already exists (the Collections list
+ * renames through it). Accepting `difficulty` and `tnpsc_level` on it is the whole
+ * backend change — see TNPSC_RECLASSIFY.md §3. Callers should treat 404/405/422 as
+ * "not supported yet" rather than as a failure.
+ */
+export function setPaperClassification(
+  paperId: string,
+  patch: { difficulty?: string; tnpsc_level?: TnpscLevel },
+): Promise<any> {
+  return api.patch(`/api/v1/evaluation/papers/${paperId}`, patch);
 }
 
 export interface BulkTagResult {

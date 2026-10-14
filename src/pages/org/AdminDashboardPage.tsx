@@ -60,10 +60,10 @@ const TONE_CLASSES: Record<
   { iconBg: string; iconText: string; accent: string; glow: string }
 > = {
   indigo: {
-    iconBg: 'bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/60 dark:to-indigo-900/40',
-    iconText: 'text-indigo-600 dark:text-indigo-400',
-    accent: 'from-indigo-500/10',
-    glow: 'hover:shadow-indigo-100/50 dark:hover:shadow-indigo-950/40',
+    iconBg: 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/60 dark:to-blue-900/40',
+    iconText: 'text-blue-600 dark:text-blue-400',
+    accent: 'from-brand-500/10',
+    glow: 'hover:shadow-blue-100/50 dark:hover:shadow-blue-950/40',
   },
   blue: {
     iconBg: 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/60 dark:to-blue-900/40',
@@ -130,7 +130,7 @@ export default function AdminDashboardPage() {
     const url = `${window.location.origin}${import.meta.env.BASE_URL}#/take-assessment?token=${token}`;
     const subject = encodeURIComponent(`Test invitation: ${testName}`);
     const body = encodeURIComponent(
-      `Hi,\n\nYou've been invited to take the following test:\n\n${testName}\n\nClick the link below to begin:\n${url}\n\nGood luck!\nBrightLearn Academy`,
+      `Hi,\n\nYou've been invited to take the following test:\n\n${testName}\n\nClick the link below to begin:\n${url}\n\nGood luck!\nMyGovExams`,
     );
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
@@ -259,7 +259,7 @@ export default function AdminDashboardPage() {
               <div className="flex items-start justify-between gap-2 mb-4 flex-wrap">
                 <div>
                   <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     Daily Test Attempts
                   </h2>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Last 7 days</p>
@@ -269,7 +269,7 @@ export default function AdminDashboardPage() {
                     <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> <span className="text-gray-600 dark:text-gray-400">Practice</span>
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-sm bg-indigo-500" /> <span className="text-gray-600 dark:text-gray-400">Mock</span>
+                    <span className="w-2.5 h-2.5 rounded-sm bg-brand-500" /> <span className="text-gray-600 dark:text-gray-400">Mock</span>
                   </span>
                 </div>
               </div>
@@ -295,7 +295,7 @@ export default function AdminDashboardPage() {
                         />
                         {/* Mock — stacked on top of practice */}
                         <div
-                          className="absolute left-0 right-0 bg-indigo-500 group-hover:bg-indigo-600 transition-all duration-500"
+                          className="absolute left-0 right-0 bg-brand-500 group-hover:bg-brand-600 transition-all duration-500"
                           style={{ bottom: `${practiceShare}%`, height: `${mockShare}%`, animationDelay: `${i * 0.06}s` }}
                           title={`${d.mock} mock attempts`}
                         />
@@ -317,7 +317,7 @@ export default function AdminDashboardPage() {
                 <Link
                   to="/org/evaluation"
                   state={{ tab: 'reports' }}
-                  className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1"
+                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
                 >
                   View all <ArrowUpRight className="w-3 h-3" />
                 </Link>
@@ -328,11 +328,11 @@ export default function AdminDashboardPage() {
                 ) : recentAttempts.map((a, i) => (
                   <div
                     key={a.attempt_id}
-                    className="px-4 sm:px-5 py-3 hover:bg-indigo-50/40 dark:hover:bg-indigo-950/30 transition-colors animate-fadeIn"
+                    className="px-4 sm:px-5 py-3 hover:bg-blue-50/40 dark:hover:bg-blue-950/30 transition-colors animate-fadeIn"
                     style={{ animationDelay: `${0.4 + i * 0.04}s` }}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                         {a.user_name[0]}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -342,7 +342,7 @@ export default function AdminDashboardPage() {
                             className={cn(
                               'text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded',
                               a.mode === 'mock'
-                                ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
+                                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-brand-300'
                                 : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
                             )}
                           >
@@ -430,13 +430,13 @@ export default function AdminDashboardPage() {
             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-4 sm:p-5 animate-slideInRight" style={{ animationDelay: '0.45s' }}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  <Link2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <Link2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   Recent Tests
                 </h2>
                 <Link
                   to="/org/evaluation"
                   state={{ tab: 'assessments' }}
-                  className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   All tests
                 </Link>
@@ -445,7 +445,7 @@ export default function AdminDashboardPage() {
                 {recentTests.map(t => (
                   <div
                     key={t.test_id}
-                    className="group rounded-lg border border-gray-100 dark:border-gray-800 hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors p-2.5"
+                    className="group rounded-lg border border-gray-100 dark:border-gray-800 hover:border-blue-200 dark:hover:border-blue-800 transition-colors p-2.5"
                   >
                     <div className="flex items-start justify-between gap-2 mb-1.5">
                       <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 line-clamp-2 flex-1">{t.name}</p>
@@ -453,7 +453,7 @@ export default function AdminDashboardPage() {
                         className={cn(
                           'text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0',
                           t.mode === 'mock'
-                            ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
+                            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-brand-300'
                             : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
                         )}
                       >
@@ -474,19 +474,19 @@ export default function AdminDashboardPage() {
                     <div className="flex items-stretch gap-1">
                       <button
                         onClick={() => copyLink(t.link_token)}
-                        className="flex-1 inline-flex items-center justify-between gap-2 text-[10px] font-mono bg-gray-50 dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-gray-700 dark:text-gray-300 px-2 py-1.5 rounded transition-colors group/btn"
+                        className="flex-1 inline-flex items-center justify-between gap-2 text-[10px] font-mono bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-gray-700 dark:text-gray-300 px-2 py-1.5 rounded transition-colors group/btn"
                         title="Copy shareable link"
                       >
                         <span className="truncate">/{t.link_token}</span>
                         {copiedToken === t.link_token ? (
                           <CheckCircle2 className="w-3 h-3 text-emerald-500 flex-shrink-0" />
                         ) : (
-                          <Copy className="w-3 h-3 text-gray-400 group-hover/btn:text-indigo-600 dark:group-hover/btn:text-indigo-400 flex-shrink-0" />
+                          <Copy className="w-3 h-3 text-gray-400 group-hover/btn:text-blue-600 dark:group-hover/btn:text-blue-400 flex-shrink-0" />
                         )}
                       </button>
                       <button
                         onClick={() => shareEmail(t.name, t.link_token)}
-                        className="inline-flex items-center justify-center bg-gray-50 dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 px-2 py-1.5 rounded transition-colors"
+                        className="inline-flex items-center justify-center bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 px-2 py-1.5 rounded transition-colors"
                         title="Share via email"
                       >
                         <Mail className="w-3 h-3" />
@@ -534,10 +534,10 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Footer info */}
-        <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 dark:from-indigo-950/30 dark:via-purple-950/30 dark:to-pink-950/30 border border-indigo-100 dark:border-indigo-900 rounded-2xl p-4 sm:p-5 flex items-start justify-between gap-3 flex-wrap animate-fadeIn" style={{ animationDelay: '0.6s' }}>
+        <div className="bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-blue-950/30 dark:via-purple-950/30 dark:to-pink-950/30 border border-blue-100 dark:border-blue-900 rounded-2xl p-4 sm:p-5 flex items-start justify-between gap-3 flex-wrap animate-fadeIn" style={{ animationDelay: '0.6s' }}>
           <div className="flex items-start gap-3 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-white dark:bg-gray-800 shadow-md flex items-center justify-center flex-shrink-0">
-              <Download className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <Download className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
               <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Export platform data</p>
@@ -548,7 +548,7 @@ export default function AdminDashboardPage() {
           </div>
           <button
             onClick={() => toast.info('Export — sample stub. Real backend will generate CSV/Excel.')}
-            className="inline-flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md shadow-indigo-200 dark:shadow-indigo-900/40 press"
+            className="inline-flex items-center gap-1.5 bg-gradient-to-r from-brand-600 to-brand-400 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold hover:from-brand-700 hover:to-brand-500 transition-all shadow-md shadow-blue-200 dark:shadow-blue-900/40 press"
           >
             Export CSV <ChevronRight className="w-3 h-3" />
           </button>
@@ -598,17 +598,17 @@ function QuickAction({
   tone: 'indigo' | 'emerald' | 'blue' | 'purple' | 'amber' | 'rose';
 }) {
   const tones = {
-    indigo: 'from-indigo-500 to-indigo-600 shadow-indigo-200 dark:shadow-indigo-900/40 hover:shadow-indigo-300',
+    indigo: 'from-brand-500 to-brand-600 shadow-blue-200 dark:shadow-blue-900/40 hover:shadow-blue-300',
     emerald: 'from-emerald-500 to-emerald-600 shadow-emerald-200 dark:shadow-emerald-900/40 hover:shadow-emerald-300',
     blue: 'from-blue-500 to-blue-600 shadow-blue-200 dark:shadow-blue-900/40 hover:shadow-blue-300',
-    purple: 'from-purple-500 to-purple-600 shadow-purple-200 dark:shadow-purple-900/40 hover:shadow-purple-300',
+    purple: 'from-purple-500 to-brand-400 shadow-purple-200 dark:shadow-purple-900/40 hover:shadow-purple-300',
     amber: 'from-amber-500 to-orange-500 shadow-amber-200 dark:shadow-amber-900/40 hover:shadow-amber-300',
     rose: 'from-rose-500 to-pink-500 shadow-rose-200 dark:shadow-rose-900/40 hover:shadow-rose-300',
   } as const;
   return (
     <button
       onClick={onClick}
-      className="group text-left bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-xl p-3 transition-colors hover:shadow-md"
+      className="group text-left bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-brand-700 rounded-xl p-3 transition-colors hover:shadow-md"
     >
       <div className={cn('w-9 h-9 rounded-lg bg-gradient-to-br text-white flex items-center justify-center mb-2 [&>svg]:w-5 [&>svg]:h-5 [&>svg]:stroke-[2.5]', tones[tone])}>
         {icon}

@@ -26,6 +26,11 @@ interface Props {
   sort?: SubjectSort;
   /** Rows to render before "show all"; omit to render everything. */
   limit?: number;
+  /**
+   * Draw the correct / wrong / not-answered key above the list. A page that lays the list
+   * out in several columns turns this off and draws one `SubjectKey` of its own instead.
+   */
+  showKey?: boolean;
   className?: string;
 }
 
@@ -41,6 +46,7 @@ export function SubjectBreakdown({
   composition = false,
   sort = 'weakest',
   limit,
+  showKey = true,
   className,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
@@ -52,14 +58,7 @@ export function SubjectBreakdown({
 
   return (
     <div className={className}>
-      {composition && (
-        // Status colour never carries meaning alone — the key names each state.
-        <div className="flex items-center gap-3 mb-2.5 text-[10px] text-gray-500 dark:text-gray-400">
-          <Key color={CORRECT} label="Correct" />
-          <Key color={WRONG} label="Wrong" />
-          <Key className="bg-gray-200 dark:bg-gray-700" label="Not answered" />
-        </div>
-      )}
+      {composition && showKey && <SubjectKey className="mb-2.5" />}
 
       <ul className="space-y-2.5">
         {rows.map(s => {
@@ -71,35 +70,43 @@ export function SubjectBreakdown({
 
           return (
             <li key={s.subject}>
-              <div className="flex items-baseline gap-2 mb-1">
-                <span className="text-[11px] text-gray-700 dark:text-gray-200 truncate flex-1 min-w-0">
-                  {s.subject}
-                </span>
-                <span className="text-[11px] font-bold text-gray-900 dark:text-gray-100 tabular-nums">
-                  {Math.round(s.accuracy)}%
-                </span>
-              </div>
-
               {composition ? (
                 <>
-                  {/* 2px gaps between segments keep adjacent fills readable. */}
-                  <div className="flex items-center gap-[2px] h-2">
-                    <Seg width={pct(correct)} color={CORRECT} />
-                    <Seg width={pct(wrong)} color={WRONG} />
-                    <div className="h-full flex-1 rounded-r bg-gray-100 dark:bg-gray-800" />
+                  <p className="text-[11px] text-gray-700 dark:text-gray-200 truncate mb-1">{s.subject}</p>
+                  {/* The percentage ends the bar's own line, so the eye reads name, bar, number. */}
+                  <div className="flex items-center gap-3">
+                    {/* 2px gaps between segments keep adjacent fills readable. */}
+                    <div className="flex flex-1 items-center gap-[2px] h-2 min-w-0">
+                      <Seg width={pct(correct)} color={CORRECT} />
+                      <Seg width={pct(wrong)} color={WRONG} />
+                      <div className="h-full flex-1 rounded-r bg-gray-100 dark:bg-gray-800" />
+                    </div>
+                    <span className="w-9 text-right text-[11px] font-bold text-gray-900 dark:text-gray-100 tabular-nums">
+                      {Math.round(s.accuracy)}%
+                    </span>
                   </div>
                   <p className="text-[10px] text-gray-400 mt-1">
                     {correct} correct · {wrong} wrong · {Math.max(0, total - attempted)} not answered
                   </p>
                 </>
               ) : (
-                <div className="h-2 rounded bg-gray-100 dark:bg-gray-800 overflow-hidden">
-                  <div
-                    className="h-full rounded bg-indigo-500 dark:bg-indigo-400"
-                    style={{ width: `${Math.max(2, Math.min(100, s.accuracy))}%` }}
-                    title={`${correct} of ${attempted} answered correctly`}
-                  />
-                </div>
+                <>
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <span className="text-[11px] text-gray-700 dark:text-gray-200 truncate flex-1 min-w-0">
+                      {s.subject}
+                    </span>
+                    <span className="text-[11px] font-bold text-gray-900 dark:text-gray-100 tabular-nums">
+                      {Math.round(s.accuracy)}%
+                    </span>
+                  </div>
+                  <div className="h-2 rounded bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                    <div
+                      className="h-full rounded bg-brand-500 dark:bg-blue-400"
+                      style={{ width: `${Math.max(2, Math.min(100, s.accuracy))}%` }}
+                      title={`${correct} of ${attempted} answered correctly`}
+                    />
+                  </div>
+                </>
               )}
             </li>
           );
@@ -110,11 +117,22 @@ export function SubjectBreakdown({
         <button
           type="button"
           onClick={() => setExpanded(v => !v)}
-          className="mt-3 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+          className="mt-3 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
         >
           {expanded ? 'Show fewer' : `Show all ${ordered.length} subjects`}
         </button>
       )}
+    </div>
+  );
+}
+
+/** What the three bar colours mean. Status colour never carries meaning alone — this names each state. */
+export function SubjectKey({ className }: { className?: string }) {
+  return (
+    <div className={cn('flex items-center gap-3 text-[10px] text-gray-500 dark:text-gray-400', className)}>
+      <Key color={CORRECT} label="Correct" />
+      <Key color={WRONG} label="Wrong" />
+      <Key className="bg-gray-200 dark:bg-gray-700" label="Not answered" />
     </div>
   );
 }

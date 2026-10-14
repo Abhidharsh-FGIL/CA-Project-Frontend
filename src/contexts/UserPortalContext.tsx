@@ -1,4 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { offeredPlans, plansFromApi } from '@/lib/plans';
+import { purchasePlan, type PurchaseOutcome } from '@/lib/purchase';
+import { openCheckout } from '@/lib/razorpay';
+import { createOrder, getCurrentSubscription, verifyPayment } from '@/lib/subscriptionApi';
 import {
   SUBSCRIPTION_PLANS,
   SAMPLE_USER_TRANSACTIONS,
@@ -14,6 +19,7 @@ import {
   type SubscriptionTier,
   type SubscriptionPlanInfo,
   type PaymentTransaction,
+  setLivePlans,
 } from '@/data/userPortalSampleData';
 import {
   registerUser,
@@ -41,6 +47,7 @@ import {
   type ApiEvalAssessment,
   type ApiAttempt,
   type ApiNotification,
+  getSubscriptionPlans,
 } from '@/lib/userPortalApi';
 import { ApiError, getUserToken } from '@/lib/api';
 
@@ -92,13 +99,17 @@ interface UserPortalContextValue {
     >,
   ) => Promise<{ ok: boolean; error?: string }>;
   changePassword: (oldPwd: string, newPwd: string) => Promise<{ ok: boolean; error?: string }>;
+  /**
+   * Buy a plan through Razorpay.
+   *
+   * Returns how it ended rather than throwing — paid, free, cancelled, failed, or
+   * paid-but-unconfirmed — because each wants a different message.
+   */
   payForSubscription: (
-    tier: SubscriptionTier,
+    plan: SubscriptionPlanInfo,
     billingCycle: 'monthly' | 'yearly',
-    baseAmount: number,
-    finalAmount: number,
     promoCode?: string,
-  ) => Promise<{ ok: boolean; error?: string }>;
+  ) => Promise<PurchaseOutcome>;
 
   /** Tests the user has paid for in this session — simulated payment ledger. */
   paidTestIds: Set<string>;
@@ -485,34 +496,62 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
 
   const payForSubscription = useCallback(
     async (
-      tier: SubscriptionTier,
+      plan: SubscriptionPlanInfo,
       billingCycle: 'monthly' | 'yearly',
-      baseAmount: number,
-      finalAmount: number,
       promoCode?: string,
-    ) => {
-      // Simulate gateway delay
-      await new Promise(r => setTimeout(r, finalAmount > 0 ? 900 : 400));
-      setUser(prev => (prev ? { ...prev, subscription_tier: tier } : prev));
-      const plan = getPlan(tier);
-      recordTransaction({
-        txn_id: `txn_${Date.now()}`,
-        type: 'subscription',
-        item_id: tier,
-        item_name: plan.name,
-        billing_cycle: billingCycle,
-        base_amount: baseAmount,
-        discount_amount: Math.max(0, baseAmount - finalAmount),
-        final_amount: finalAmount,
-        promo_code: promoCode,
-        status: 'success',
-        payment_method: randomPaymentMethod(),
-        invoice_no: nextInvoiceNo(),
-        created_at: new Date().toISOString(),
-      });
-      return { ok: true };
+    ): Promise<PurchaseOutcome> => {
+      if (!plan.plan_id) {
+        // Only the bundled fallback lacks an id. Buying against it would mean an
+        // order for a plan the backend never confirmed.
+        return {
+          kind: 'failed',
+          message: 'Plans could not be loaded from the server, so this one cannot be bought right now. Please refresh and try again.',
+        };
+      }
+
+      const outcome = await purchasePlan(
+        {
+          planId: plan.plan_id,
+          planLabel: plan.name,
+          billing: billingCycle,
+          promoCode,
+          customer: user ? { name: user.name, email: user.email, contact: user.phone } : undefined,
+        },
+        { createOrder, verifyPayment, openCheckout, getCurrentSubscription },
+      );
+
+      if (outcome.kind === 'paid' || outcome.kind === 'free') {
+        const order = outcome.order;
+        // The server's own end date where it sent one; otherwise the plan's length.
+        const expiry =
+          outcome.kind === 'paid'
+            ? outcome.result.end_date
+            : new Date(Date.now() + order.duration_days * 86_400_000).toISOString();
+
+        setUser(prev => (prev ? { ...prev, subscription_tier: plan.tier, subscription_expiry: expiry } : prev));
+
+        // The server holds the real record; this is the session's own mirror of it,
+        // using the server's figures and invoice number, not ones made up here.
+        recordTransaction({
+          txn_id: outcome.kind === 'paid' ? (outcome.result.txn_id ?? `txn_${Date.now()}`) : `txn_${Date.now()}`,
+          type: 'subscription',
+          item_id: plan.tier,
+          item_name: plan.name,
+          billing_cycle: billingCycle,
+          base_amount: order.base_amount ?? 0,
+          discount_amount: order.discount_amount ?? 0,
+          final_amount: order.final_amount ?? 0,
+          promo_code: promoCode,
+          status: 'success',
+          payment_method: 'online',
+          invoice_no: (outcome.kind === 'paid' && outcome.result.invoice_no) || nextInvoiceNo(),
+          created_at: new Date().toISOString(),
+        });
+      }
+
+      return outcome;
     },
-    [recordTransaction],
+    [user, recordTransaction],
   );
 
   const updateProfile = useCallback(
@@ -575,6 +614,28 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
     [user],
   );
 
+  /**
+   * The plans, from the backend.
+   *
+   * Fetched once per session and shared through the query cache. `setLivePlans`
+   * runs inside the query function so the module-level slot `getPlan` reads is
+   * filled *before* the data state updates and consumers re-render — otherwise
+   * they would render once against the fallback and never notice the change.
+   * A failed fetch is not an error worth showing: the fallback mirrors the
+   * backend, so the page is still correct, just not live.
+   */
+  const { data: livePlans } = useQuery({
+    queryKey: ['subscription-plans'],
+    queryFn: async () => {
+      const mapped = plansFromApi(await getSubscriptionPlans());
+      setLivePlans(mapped);
+      return mapped;
+    },
+    enabled: !!user,
+    staleTime: 10 * 60_000,
+    retry: 1,
+  });
+
   const value: UserPortalContextValue = {
     user,
     isAuthenticated: !!user,
@@ -585,7 +646,9 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
     tests: SAMPLE_TESTS,
     courses,
     assessments,
-    plans: SUBSCRIPTION_PLANS,
+    // The backend's plans when they have loaded, the bundled mirror until then.
+    // Inactive plans stay resolvable through `getPlan` but are not offered.
+    plans: offeredPlans(livePlans ?? SUBSCRIPTION_PLANS),
     lastLoginAt,
     redeemedPromoCodes,
     paidTestIds,

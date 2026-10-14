@@ -11,12 +11,12 @@ export default function CourseListPage() {
     <UserShell>
       {/* Hero header */}
       <div className="mb-6 animate-fadeIn">
-        <div className="relative overflow-hidden rounded-2xl border border-indigo-100 dark:border-indigo-900 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-indigo-950/50 dark:via-purple-950/50 dark:to-pink-950/50 bg-[length:200%_auto] animate-gradient-x p-5 sm:p-6">
+        <div className="relative overflow-hidden rounded-2xl border border-blue-100 dark:border-blue-900 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-950/50 dark:via-purple-950/50 dark:to-pink-950/50 bg-[length:200%_auto] animate-gradient-x p-5 sm:p-6">
           <div className="absolute -top-16 -right-16 w-48 h-48 bg-purple-300/30 dark:bg-purple-700/20 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-indigo-300/30 dark:bg-indigo-700/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-blue-300/30 dark:bg-brand-700/20 rounded-full blur-3xl pointer-events-none" />
           <div className="relative flex items-end justify-between gap-3 flex-wrap">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.25em] text-indigo-700 dark:text-indigo-300 font-bold mb-2">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-blue-700 dark:text-brand-300 font-bold mb-2">
                 Your Library
               </p>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
@@ -45,23 +45,23 @@ export default function CourseListPage() {
             <Link
               key={c.course_id}
               to={`/user/courses/${c.course_id}`}
-              className="group bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden hover:shadow-xl hover:shadow-indigo-100/50 dark:hover:shadow-black/50 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all duration-300 animate-slideUp hover-lift card-shine"
+              className="group bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden hover:shadow-xl hover:shadow-blue-100/50 dark:hover:shadow-black/50 hover:border-blue-200 dark:hover:border-blue-800 transition-all duration-300 animate-slideUp hover-lift card-shine"
               style={{ animationDelay: `${i * 0.06}s` }}
             >
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border-b border-indigo-100 dark:border-indigo-900/40 px-3 py-2 flex items-center justify-between gap-2">
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/40 dark:to-purple-950/40 border-b border-blue-100 dark:border-blue-900/40 px-3 py-2 flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-base font-bold text-gray-900 dark:text-gray-100 truncate leading-tight">
                     {c.subject ?? c.name}
                   </p>
                   {c.exam_body && (
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mt-0.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mt-0.5">
                       {c.exam_body}
                     </p>
                   )}
                 </div>
               </div>
               <div className="p-4">
-                <p className="text-base font-bold text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                <p className="text-base font-bold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   {c.name}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{c.description}</p>
@@ -69,7 +69,7 @@ export default function CourseListPage() {
                   <span className="text-[11px] text-gray-500 dark:text-gray-400 font-semibold">
                     {c.total_tests} test{c.total_tests !== 1 ? 's' : ''}
                   </span>
-                  <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
+                  <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
                 </div>
               </div>
             </Link>
@@ -89,7 +89,7 @@ function Pill({ icon, label, value, accent }: { icon: React.ReactNode; label: st
           : 'bg-white/80 dark:bg-gray-900/60 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
       }`}
     >
-      <span className={accent ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'}>{icon}</span>
+      <span className={accent ? 'text-white' : 'text-blue-600 dark:text-blue-400'}>{icon}</span>
       <span>
         <span className="tabular-nums font-bold">{value}</span>{' '}
         <span className={accent ? 'opacity-90' : 'text-gray-500 dark:text-gray-400 font-normal uppercase tracking-wider text-[10px]'}>{label}</span>

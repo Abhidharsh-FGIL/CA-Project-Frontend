@@ -146,6 +146,7 @@ export function AssessmentDownloadButton({ assessment }: Props) {
         correct_answer: q.correct_answer,
         explanation: q.explanation,
         pairs: q.pairs,
+        translations: q.translations,
       }));
       await exportAssessment(meta, rows, d.title || 'Assessment', format);
       toast.success('Downloaded');

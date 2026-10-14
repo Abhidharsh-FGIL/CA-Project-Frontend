@@ -30,6 +30,7 @@ import {
   type TnpscStage,
   type TnpscTestType,
 } from '@/config/tnpsc';
+import { withTitlePlacement } from '@/lib/tnpsc-title-placement';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,21 @@ export interface TnpscTest {
   test_type: TnpscTestType;
   /** Mock tests only — practice tests are ungated. */
   level: TnpscLevel | null;
+  /**
+   * The published syllabus unit this paper was tagged to, when the admin set one.
+   *
+   * The stage page lists practice by unit, so an exact id here is what it needs —
+   * subject and topic matching are the fallback for papers tagged before units
+   * existed. See `tnpscAdminApi.TnpscTagValue.unit_id`.
+   */
+  unit_id?: string | null;
+  /**
+   * The section this paper is the full set of, when the admin tagged it as one.
+   *
+   * Only a section's Full Set carries it — a unit paper has `unit_id` instead. Without it the
+   * stage page falls back to the paper's title and subject. See `tnpsc-full-set.ts`.
+   */
+  section_name?: string | null;
   subject_id: string | null;
   subject_name: string | null;
   topic_id: string | null;
@@ -163,7 +179,15 @@ function mergeGroup(server: TnpscGroup, local: TnpscGroup): TnpscGroup {
   const seen = new Set(serverStages.map(st => st.id));
   for (const l of local.stages) if (!seen.has(l.id)) stages.push(l);
 
-  return { ...local, ...populated(server), stages };
+  return {
+    ...local,
+    ...populated(server),
+    // The description is the product's own copy, and the server's can lag it — the same call the
+    // subject names make below. Left to the server, editing it in the bundled catalog changed
+    // nothing on screen. An exam only the server knows keeps the server's wording.
+    description: local.description || server.description,
+    stages,
+  };
 }
 
 function mergeStage(server: TnpscStage, local: TnpscStage): TnpscStage {
@@ -172,9 +196,52 @@ function mergeStage(server: TnpscStage, local: TnpscStage): TnpscStage {
     ...populated(server),
     // `subjects: []` means "not populated yet", not "this stage has no syllabus" —
     // an empty list would leave the practice track with nothing to bucket into.
-    subjects: sent(server.subjects) ? server.subjects : local.subjects,
+    subjects: mergeSubjects(server.subjects, local.subjects),
     pattern: mergePattern(server.pattern, local.pattern),
   };
+}
+
+/**
+ * Subjects match on id, and the bundled catalog keeps the naming.
+ *
+ * Taking the server's list wholesale meant its wording won outright, and the two
+ * drift: the server still calls GAT-B's first subject "Physics (10+2)" where the
+ * published syllabus names it "Physics" and states the level once, on the
+ * section. The bundled catalog is the syllabus source of truth — it is what the
+ * unit rows, the syllabus panel and the report labels all read — so its `name`,
+ * `name_ta` and `topics` stand.
+ *
+ * The server's wording is not discarded: it joins `aliases`, so a question the
+ * backend tagged "Physics (10+2)" still resolves to this subject. Everything the
+ * server populates that the catalog has no opinion on passes through, and a
+ * subject the catalog has never heard of passes through whole.
+ */
+function mergeSubjects(
+  server: TnpscStage['subjects'] | undefined,
+  local: TnpscStage['subjects'],
+): TnpscStage['subjects'] {
+  if (!sent(server)) return local;
+  const localById = new Map(local.map(sub => [sub.id, sub]));
+
+  const merged = server.map(sub => {
+    const l = localById.get(sub.id);
+    if (!l) return sub;
+    const aliases = Array.from(
+      new Set([...(l.aliases ?? []), ...(sub.aliases ?? []), sub.name].filter(Boolean)),
+    ).filter(a => a !== l.name);
+    return {
+      ...sub,
+      ...populated(l),
+      name: l.name,
+      name_ta: l.name_ta ?? sub.name_ta,
+      topics: sent(l.topics) ? l.topics : sub.topics,
+      aliases,
+    };
+  });
+
+  const seen = new Set(server.map(sub => sub.id));
+  for (const l of local) if (!seen.has(l.id)) merged.push(l);
+  return merged;
 }
 
 function mergePattern(
@@ -205,24 +272,59 @@ function mergePattern(
  * split. A combined name is therefore expanded into the local sections it names,
  * rather than matching nothing and arriving with no units at all.
  */
+/**
+ * A stable key for a section, so a rename on either side still matches.
+ *
+ * Sections carry no id, so the merge used to match on the whole name — which
+ * meant renaming "Section A — 10+2 Level" to "Section A — Basic Sciences" in the
+ * catalog stopped it matching the server's section at all, and the server's
+ * version passed through untouched with its old title. A paper's sections are
+ * lettered or named; either is stable where the descriptive tail is not.
+ */
+function sectionKey(name: string): string {
+  const lettered = /^\s*(section|part)\s+([a-z0-9]+)/i.exec(name);
+  if (lettered) return `${lettered[1].toLowerCase()} ${lettered[2].toLowerCase()}`;
+  return name.trim().toLowerCase();
+}
+
+/**
+ * Sections match on their stable key, and the bundled catalog keeps the naming.
+ *
+ * A server that predates the per-section fields sends only `{name, questions,
+ * marks}`, so the bundled `attempt` / `marks_per_question` / `negative_mark_value`
+ * — and above all `units`, which the server has never sent — must survive
+ * underneath it. The catalog is also the source of truth for what a section is
+ * *called*, for the same reason it is for subject names: the two drift, and the
+ * published syllabus is the side that is right.
+ *
+ * One name does not always match one section. Group 4's language paper is
+ * published as a single section sat in one of two languages, and the server
+ * still sends it combined as "General Tamil / General English" while the catalog
+ * lists the two separately so each can show its own units and split. A combined
+ * name is therefore expanded into the local sections it names.
+ */
 function mergeSections(
   server: TnpscExamPattern['sections'],
   local: TnpscExamPattern['sections'],
 ): TnpscExamPattern['sections'] {
   if (!sent(server)) return local;
-  const byName = new Map((local ?? []).map(sec => [sec.name, sec]));
+  const byKey = new Map((local ?? []).map(sec => [sectionKey(sec.name), sec]));
 
   return server.flatMap(sec => {
-    const exact = byName.get(sec.name);
-    if (exact) return [{ ...exact, ...populated(sec) }];
+    const match = byKey.get(sectionKey(sec.name));
+    if (match) {
+      // The server's own `name` is dropped: the catalog's title stands.
+      const { name: _serverName, ...rest } = populated(sec);
+      return [{ ...match, ...rest }];
+    }
 
-    // "A / B" — the same section the bundled catalog splits in two. Each part
-    // carries the combined section's own question count, because the candidate
-    // sits one of them in full; `name` is dropped from the overlay so each part
-    // keeps its own.
+    // "A / B" — the same section the catalog splits in two. Each part carries the
+    // combined section's question count, because the candidate sits one in full.
     const parts = sec.name.split('/').map(x => x.trim()).filter(Boolean);
     if (parts.length > 1) {
-      const locals = parts.map(n => byName.get(n)).filter((x): x is NonNullable<typeof x> => !!x);
+      const locals = parts
+        .map(n => byKey.get(sectionKey(n)))
+        .filter((x): x is NonNullable<typeof x> => !!x);
       if (locals.length === parts.length) {
         const { name: _ignored, ...rest } = populated(sec);
         return locals.map(l => ({ ...l, ...rest }));
@@ -403,13 +505,41 @@ export async function getTnpscPracticeSubjects(
     const res = await userApi.get<{ subjects?: TnpscPracticeSubject[]; tests?: TnpscTest[] }>(
       `/api/v1/user/tnpsc/stages/${stageId}/practice-tests`,
     );
-    if (res && Array.isArray(res.subjects)) return res.subjects;
+    // The stage's own units are the only thing a title can be read against.
+    const stage = findStage(groupId, stageId)?.stage;
+    if (res && Array.isArray(res.subjects)) {
+      return res.subjects.map(s => ({
+        ...s,
+        tests: withTitlePlacement(stage, withSectionTag(s.tests ?? [])),
+      }));
+    }
     if (res && Array.isArray(res.tests)) tests = res.tests;
     else throw new Error('unexpected payload');
   } catch {
     tests = await deriveTests(groupId, stageId, 'practice');
   }
-  return groupPracticeBySubject(groupId, stageId, tests);
+  return groupPracticeBySubject(
+    groupId,
+    stageId,
+    // A paper the server placed on a unit but did not list a unit for is placed here
+    // from its title — see `tnpsc-title-placement.ts`.
+    withTitlePlacement(findStage(groupId, stageId)?.stage, withSectionTag(tests)),
+  );
+}
+
+/**
+ * Read the section a paper is tagged to off the row, whichever name the server used for it.
+ *
+ * The assessment tables call it `tnpsc_section_name`; the listing's own papers may carry
+ * `section_name`. Either lands on `section_name`, which is what the stage page reads to tell a
+ * section's Full Set from a unit paper that happens to have the same number of questions.
+ */
+function withSectionTag(tests: TnpscTest[]): TnpscTest[] {
+  return tests.map(t => {
+    if (t.section_name) return t;
+    const tagged = (t as TnpscTest & { tnpsc_section_name?: string | null }).tnpsc_section_name;
+    return tagged ? { ...t, section_name: tagged } : t;
+  });
 }
 
 /** Bucket practice tests under the syllabus subjects of the stage. */
@@ -495,6 +625,8 @@ function toTnpscTest(
     stage_id: stageId,
     test_type: type,
     level: type === 'mock' ? DIFFICULTY_TO_LEVEL[(a.difficulty || '').toLowerCase()] ?? 'simple' : null,
+    unit_id: a.tnpsc_unit_id ?? null,
+    section_name: a.tnpsc_section_name ?? null,
     subject_id: subject?.id ?? null,
     subject_name: subject?.name ?? null,
     topic_id: null,

@@ -13,6 +13,7 @@ import { api } from '@/lib/api';
 import { exportReport, type ExportFormat, type MetaField, type StudentRow } from '@/lib/eval-export-utils';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { difficultyLabel } from '@/lib/eval-difficulty';
 
 interface Props {
   onViewReport: (assessmentId: string) => void;
@@ -154,7 +155,7 @@ export function EvalReportsList({ onViewReport }: Props) {
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {a.board && `${a.board} • `}
                         {a.grade && `Grade ${a.grade} • `}
-                        {a.difficulty} • {a.question_count} Q
+                        {difficultyLabel(a.difficulty)} • {a.question_count} Q
                         {a.negative_marking && ` • -${a.negative_mark_value || 0.25} negative`}
                       </p>
                     </div>
@@ -201,7 +202,7 @@ export function EvalReportsList({ onViewReport }: Props) {
                       </div>
                       <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all ${completionPct === 100 ? 'bg-green-500' : 'bg-indigo-500'}`}
+                          className={`h-full rounded-full transition-all ${completionPct === 100 ? 'bg-green-500' : 'bg-brand-500'}`}
                           style={{ width: `${Math.min(completionPct, 100)}%` }}
                         />
                       </div>

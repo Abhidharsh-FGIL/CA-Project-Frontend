@@ -38,6 +38,7 @@ import {
   subjectDisplayName,
   type TnpscPatternSection,
 } from '@/config/tnpsc';
+import { subjectIdForQuestion } from '@/lib/unit-pool';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import {
   getEvalAssessmentDetail,
@@ -172,7 +173,7 @@ function CircularTimer({
       ? '#ef4444'
       : isWarning
         ? '#fbbf24'
-        : '#818cf8';
+        : '#ff8f4a';
   const textColor = isCritical || isUrgent
     ? 'text-red-300'
     : isWarning
@@ -256,7 +257,7 @@ function FilterRow({
       onClick={onClick}
       title={title}
       className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-left transition-colors ${
-        active ? 'bg-indigo-600' : 'bg-white hover:bg-gray-50'
+        active ? 'bg-brand-600' : 'bg-white hover:bg-gray-50'
       }`}
     >
       <span
@@ -266,7 +267,7 @@ function FilterRow({
       </span>
       <span
         className={`text-[10px] font-bold tabular-nums flex-shrink-0 ${
-          active ? 'text-indigo-200' : 'text-gray-400'
+          active ? 'text-brand-200' : 'text-gray-400'
         }`}
       >
         {count}
@@ -369,7 +370,7 @@ function ActiveQuestionCard({
     <div>
       {/* Number badge + question text + tags */}
       <div className="flex items-start gap-4 mb-5">
-        <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
           {index + 1}
         </div>
         <div className="flex-1 min-w-0">
@@ -435,18 +436,18 @@ function ActiveQuestionCard({
                 onClick={() => onChange(optionValue(opt))}
                 className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all duration-150 ${
                   isSelected
-                    ? 'border-indigo-500 bg-indigo-50'
+                    ? 'border-brand-500 bg-blue-50'
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 <span
                   className={`flex-shrink-0 w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center ${
-                    isSelected ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'
+                    isSelected ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600'
                   }`}
                 >
                   {opt.label}
                 </span>
-                <span className={`text-sm flex-1 ${isSelected ? 'text-indigo-900 font-medium' : 'text-gray-700'}`}>
+                <span className={`text-sm flex-1 ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
                   {/*
                     * Display only. `optionValue` still returns the primary text, so
                     * the answer stored and graded is unaffected by the language the
@@ -479,7 +480,7 @@ function ActiveQuestionCard({
                 onClick={() => onChange(val)}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
                   isSelected
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-800'
+                    ? 'border-brand-500 bg-blue-50 text-blue-800'
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700'
                 }`}
               >
@@ -497,7 +498,7 @@ function ActiveQuestionCard({
           value={answer ?? ''}
           onChange={e => onChange(e.target.value)}
           placeholder="Type your answer here…"
-          className="w-full ml-[52px] px-4 py-3 border-2 border-gray-200 bg-white text-gray-900 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+          className="w-full ml-[52px] px-4 py-3 border-2 border-gray-200 bg-white text-gray-900 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none text-sm"
         />
       )}
 
@@ -508,7 +509,7 @@ function ActiveQuestionCard({
           onChange={e => onChange(e.target.value)}
           rows={5}
           placeholder="Write your answer here…"
-          className="w-full ml-[52px] px-4 py-3 border-2 border-gray-200 bg-white text-gray-900 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-y text-sm"
+          className="w-full ml-[52px] px-4 py-3 border-2 border-gray-200 bg-white text-gray-900 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-y text-sm"
         />
       )}
     </div>
@@ -617,8 +618,8 @@ function QuestionView({
                       ? 'border-red-400 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300'
                       : 'border-gray-200 dark:border-gray-700 text-gray-500'
                     : isSelected
-                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-200 ring-1 ring-indigo-500/30'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700',
+                    ? 'border-brand-500 bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-brand-200 ring-1 ring-brand-500/30'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-brand-700',
                 )}
                 onClick={() => !showResult && onChange(optionValue(opt))}
               >
@@ -626,7 +627,7 @@ function QuestionView({
                   className={cn(
                     'w-6 h-6 shrink-0 rounded-full border-2 flex items-center justify-center text-xs font-bold',
                     isSelected && !showResult
-                      ? 'border-indigo-500 bg-indigo-500 text-white'
+                      ? 'border-brand-500 bg-brand-500 text-white'
                       : 'border-gray-300 dark:border-gray-600',
                   )}
                 >
@@ -672,8 +673,8 @@ function QuestionView({
                       ? 'border-red-400 bg-red-50 dark:bg-red-950/40 text-red-700'
                       : 'border-gray-200 text-gray-400'
                     : isSelected
-                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-800 ring-1 ring-indigo-500/30'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300',
+                    ? 'border-brand-500 bg-blue-50 dark:bg-blue-950/40 text-blue-800 ring-1 ring-brand-500/30'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-300',
                 )}
                 onClick={() => !showResult && onChange(val)}
               >
@@ -725,7 +726,7 @@ function QuestionView({
               value={answer ?? ''}
               onChange={e => onChange(e.target.value)}
               placeholder="Type your answer here…"
-              className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           )}
         </div>
@@ -752,7 +753,7 @@ function QuestionView({
               onChange={e => onChange(e.target.value)}
               rows={4}
               placeholder="Write your answer here…"
-              className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+              className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
             />
           )}
         </div>
@@ -863,14 +864,32 @@ export function UserEvalAssessmentPage() {
   // Group 4's 100 language questions before its 100 General Studies and Aptitude
   // ones. Everything downstream (numbering, palette, filters, next/previous) reads
   // this list, so they all agree without further work.
+  /**
+   * The subject a question carries, as the catalog names it.
+   *
+   * A booklet tags a subject several ways ("General Tamil", "தமிழ்", "கலைச்சொற்கள்") and some
+   * put the passage's subject in the Subject column and the unit in the Topic. Read raw,
+   * those are separate subjects: each gets its own row in the filter, none counts toward its
+   * real subject, and every one with no section sorts to the end of the paper — so Tamil
+   * questions turned up after the Aptitude ones. Resolve first, from the Subject and then
+   * from the Topic; what neither names keeps its own wording.
+   */
+  const subjectNameOf = useCallback(
+    (q: EvalAttemptQuestion) => {
+      const id = subjectIdForQuestion(examStage, q);
+      return (id && examStage?.subjects.find(s => s.id === id)?.name) || q.subject || '';
+    },
+    [examStage],
+  );
+
   const questions = useMemo(
-    () => orderBySection(examStage, rawQuestions, q => q.subject),
-    [examStage, rawQuestions],
+    () => orderBySection(examStage, rawQuestions, subjectNameOf),
+    [examStage, rawQuestions, subjectNameOf],
   );
 
   const sectionOf = useCallback(
-    (q: EvalAttemptQuestion) => sectionForSubject(examStage, q.subject)?.name ?? null,
-    [examStage],
+    (q: EvalAttemptQuestion) => sectionForSubject(examStage, subjectNameOf(q))?.name ?? null,
+    [examStage, subjectNameOf],
   );
 
   /** Sections of the exam pattern that this paper actually has questions in. */
@@ -898,8 +917,8 @@ export function UserEvalAssessmentPage() {
    * names it.
    */
   const subjectIdOf = useCallback(
-    (q: EvalAttemptQuestion) => resolveSubjectId(examStage, q.subject) ?? (q.subject ?? ''),
-    [examStage],
+    (q: EvalAttemptQuestion) => resolveSubjectId(examStage, subjectNameOf(q)) ?? (q.subject ?? ''),
+    [examStage, subjectNameOf],
   );
 
   /** Subjects available, narrowed to the chosen section. */
@@ -913,13 +932,13 @@ export function UserEvalAssessmentPage() {
       // name a composite unit like "Indian History & Freedom Movement", which
       // the catalog splits into two subjects and so cannot resolve.
       const canonical = (q.subject_name ?? '').trim();
-      const label = canonical || subjectDisplayName(examStage, q.subject);
+      const label = canonical || subjectDisplayName(examStage, subjectNameOf(q));
       const entry = counts.get(key) ?? { label, count: 0 };
       entry.count += 1;
       counts.set(key, entry);
     }
     return [...counts.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label));
-  }, [questions, filterSection, sectionOf, subjectIdOf, examStage]);
+  }, [questions, filterSection, sectionOf, subjectIdOf, subjectNameOf, examStage]);
 
   /** Questions passing the filter, carrying their original paper position. */
   const visibleQuestions = useMemo(
@@ -1161,6 +1180,14 @@ export function UserEvalAssessmentPage() {
       setPageState('loading');
       expiredRef.current = false;
       const data = await startEvalAttempt(assessmentId);
+      if (import.meta.env.DEV) {
+        // One line instead of scrolling a 50 KB response: how many questions came, and whether the
+        // server says it skipped any whose collection was deleted. `not reported` means the server
+        // does not apply that rule yet (BACKEND_LIVE_POOL.md).
+        console.info(
+          `[start] ${data.questions.length} questions dealt · pool_size = ${data.pool_size ?? '?'} · skipped_deleted = ${data.skipped_deleted ?? 'not reported by this server'}`,
+        );
+      }
       setRawQuestions(data.questions);
       setAttemptId(data.attempt_id);
       setStartTimeIso(data.start_time);
@@ -1197,7 +1224,7 @@ export function UserEvalAssessmentPage() {
   if (pageState === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-blue-200 border-t-brand-600 rounded-full animate-spin" />
       </div>
     );
   }
@@ -1227,7 +1254,7 @@ export function UserEvalAssessmentPage() {
       <UserShell>
         <button
           onClick={() => navigate(-1)}
-          className="group inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-4 transition-colors animate-fadeIn"
+          className="group inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 mb-4 transition-colors animate-fadeIn"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" /> Back
         </button>
@@ -1238,7 +1265,7 @@ export function UserEvalAssessmentPage() {
             <div
               className={`relative p-5 sm:p-6 lg:p-8 overflow-hidden ${
                 isMock
-                  ? 'bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500'
+                  ? 'bg-gradient-to-br from-brand-500 via-brand-400 to-pink-500'
                   : 'bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500'
               } text-white`}
             >
@@ -1279,7 +1306,7 @@ export function UserEvalAssessmentPage() {
             <div className="p-4 sm:p-6 lg:p-8">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <AssessmentInfoTile
-                  icon={<FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
+                  icon={<FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
                   label="Questions"
                   value={String(assessment.question_count)}
                 />
@@ -1311,7 +1338,7 @@ export function UserEvalAssessmentPage() {
 
               <div className="mt-6 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
                 <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Instructions
+                  <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" /> Instructions
                 </p>
                 <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-1.5 list-disc pl-5">
                   <li>Read each question carefully before answering.</li>
@@ -1354,7 +1381,7 @@ export function UserEvalAssessmentPage() {
                     type="checkbox"
                     checked={agreed}
                     onChange={e => setAgreed(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+                    className="mt-0.5 w-4 h-4 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-blue-600 focus:ring-brand-500 dark:focus:ring-blue-400"
                   />
                   <span className="text-xs text-gray-700 dark:text-gray-300">
                     I have read and understood the instructions. I agree to abide by the assessment rules.
@@ -1365,7 +1392,7 @@ export function UserEvalAssessmentPage() {
               <button
                 onClick={handleStart}
                 disabled={!assessment.can_attempt || !agreed}
-                className="group w-full mt-5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-[length:200%_auto] hover:bg-right-bottom text-white py-3.5 rounded-xl font-semibold transition-all duration-500 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40 hover:shadow-xl hover:shadow-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                className="group w-full mt-5 bg-gradient-to-r from-brand-600 via-brand-400 to-brand-600 bg-[length:200%_auto] hover:bg-right-bottom text-white py-3.5 rounded-xl font-semibold transition-all duration-500 shadow-lg shadow-blue-200 dark:shadow-blue-900/40 hover:shadow-xl hover:shadow-blue-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
               >
                 <span className="inline-flex items-center justify-center gap-2">
                   {assessment.in_progress_attempt_id ? 'Resume Test' : 'Begin Test'}
@@ -1386,7 +1413,7 @@ export function UserEvalAssessmentPage() {
   if (pageState === 'submitting') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-gray-50 dark:bg-gray-950">
-        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-blue-200 border-t-brand-600 rounded-full animate-spin" />
         <p className="text-sm text-gray-500 dark:text-gray-400">Submitting your answers…</p>
       </div>
     );
@@ -1403,7 +1430,7 @@ export function UserEvalAssessmentPage() {
         <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
           {pageState === 'analysing' && (
             <div className="flex items-center justify-center gap-2.5 py-2">
-              <div className="w-5 h-5 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-blue-300 border-t-brand-600 rounded-full animate-spin" />
               <span className="text-gray-600 dark:text-gray-400 font-medium text-sm">
                 Analysing your performance…
               </span>
@@ -1449,7 +1476,7 @@ export function UserEvalAssessmentPage() {
           {(analysisText || pageState === 'analysing') && (
             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
               <div className="flex items-center gap-2 mb-4">
-                <Brain className="h-4 w-4 text-indigo-500" />
+                <Brain className="h-4 w-4 text-blue-500" />
                 <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">
                   AI Performance Analysis
                 </h3>
@@ -1460,7 +1487,7 @@ export function UserEvalAssessmentPage() {
                 <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
                   {analysisText}
                   {pageState === 'analysing' && (
-                    <span className="inline-block w-0.5 h-4 bg-indigo-500 ml-0.5 animate-pulse align-middle" />
+                    <span className="inline-block w-0.5 h-4 bg-brand-500 ml-0.5 animate-pulse align-middle" />
                   )}
                 </p>
               )}
@@ -1474,7 +1501,7 @@ export function UserEvalAssessmentPage() {
               </Button>
               {result.can_retake && (
                 <Button
-                  className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+                  className="gap-2 bg-brand-600 hover:bg-brand-700 text-white"
                   onClick={() => {
                     sseControllerRef.current?.abort();
                     setResult(null);
@@ -1617,7 +1644,7 @@ export function UserEvalAssessmentPage() {
       {/* User info */}
       {user && (
         <div className="flex items-center gap-2.5 mb-4 p-3 bg-white rounded-xl border border-gray-200">
-          <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
             {(user.name?.[0] ?? 'U').toUpperCase()}
           </div>
           <p className="text-xs text-gray-600 truncate">{user.email}</p>
@@ -1667,7 +1694,7 @@ export function UserEvalAssessmentPage() {
                   setFilterSection('all');
                   setFilterSubject('all');
                 }}
-                className="text-[10px] font-semibold text-indigo-600 hover:underline"
+                className="text-[10px] font-semibold text-blue-600 hover:underline"
               >
                 Clear
               </button>
@@ -1699,7 +1726,7 @@ export function UserEvalAssessmentPage() {
             <select
               value={filterSubject}
               onChange={e => setFilterSubject(e.target.value)}
-              className="w-full text-[11px] rounded-lg border border-gray-200 px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="w-full text-[11px] rounded-lg border border-gray-200 px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
             >
               <option value="all">All subjects</option>
               {subjectOptions.map(([key, { label, count }]) => (
@@ -1719,7 +1746,7 @@ export function UserEvalAssessmentPage() {
             QUESTIONS
           </p>
           {filtersActive && (
-            <p className="text-[10px] font-semibold text-indigo-600">
+            <p className="text-[10px] font-semibold text-blue-600">
               {visibleQuestions.length} of {totalQ}
             </p>
           )}
@@ -1738,7 +1765,7 @@ export function UserEvalAssessmentPage() {
                 key={q.question_id}
                 onClick={() => goToQuestion(idx)}
                 className={`w-full aspect-square rounded-lg text-[11px] font-bold flex items-center justify-center transition-all ${STATUS_STYLE[st]} ${
-                  isCurrent ? 'ring-2 ring-offset-1 ring-indigo-500' : 'hover:scale-110'
+                  isCurrent ? 'ring-2 ring-offset-1 ring-brand-500' : 'hover:scale-110'
                 }`}
               >
                 {idx + 1}
@@ -1758,7 +1785,7 @@ export function UserEvalAssessmentPage() {
         <div className="max-w-screen-xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
             {assessment?.difficulty && (
-              <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.2em] leading-none mb-0.5">
+              <p className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em] leading-none mb-0.5">
                 {assessment.difficulty}
               </p>
             )}
@@ -1770,7 +1797,7 @@ export function UserEvalAssessmentPage() {
               {/* Without this, running off the end of a filtered set just looks like
                   a dead Next button. */}
               {filtersActive && filteredPos !== -1 && (
-                <span className="text-indigo-300">
+                <span className="text-brand-300">
                   {' · '}
                   {filteredPos + 1} of {visibleQuestions.length} filtered
                 </span>
@@ -1834,7 +1861,7 @@ export function UserEvalAssessmentPage() {
                     <select
                       value={langMode}
                       onChange={e => setLangMode(e.target.value as LangMode)}
-                      className="text-xs font-semibold text-gray-700 rounded-lg border border-gray-200 bg-white px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="text-xs font-semibold text-gray-700 rounded-lg border border-gray-200 bg-white px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
                       {langModeOptions(paperTranslationLang).map(o => (
                         <option key={o.value} value={o.value}>
@@ -1857,7 +1884,7 @@ export function UserEvalAssessmentPage() {
                 // Section A, 1 in Section B) cannot show one figure on every
                 // question — the subject decides. Falls back to the paper value.
                 negative_mark_value={
-                  negativeForSubject(examStage, currentQ.subject) ??
+                  negativeForSubject(examStage, subjectNameOf(currentQ)) ??
                   assessment?.negative_mark_value ??
                   null
                 }
@@ -1910,7 +1937,7 @@ export function UserEvalAssessmentPage() {
                 <button
                   onClick={() => stepQuestion(1)}
                   disabled={!canStep(1)}
-                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   Save & Next
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -2017,8 +2044,8 @@ export function UserEvalAssessmentPage() {
       {quotaReached && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
-            <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-indigo-50 flex items-center justify-center">
-              <CheckCircle2 className="w-7 h-7 text-indigo-600" />
+            <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-blue-50 flex items-center justify-center">
+              <CheckCircle2 className="w-7 h-7 text-blue-600" />
             </div>
             <h3 className="text-lg font-bold text-gray-900 mb-1.5">
               {sectionShort(quotaReached.name)} complete
@@ -2034,7 +2061,7 @@ export function UserEvalAssessmentPage() {
             </p>
             <button
               onClick={() => setQuotaReached(null)}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-semibold transition-colors text-sm"
+              className="w-full bg-brand-600 hover:bg-brand-700 text-white py-2.5 rounded-xl font-semibold transition-colors text-sm"
             >
               Continue
             </button>
@@ -2083,7 +2110,7 @@ function AssessmentInfoTile({
   valueClass?: string;
 }) {
   return (
-    <div className="bg-gradient-to-br from-gray-50 to-gray-100/70 dark:from-gray-800/80 dark:to-gray-800/40 rounded-xl p-3 hover:from-indigo-50 hover:to-purple-50 dark:hover:from-indigo-950/40 dark:hover:to-purple-950/40 transition-colors duration-300">
+    <div className="bg-gradient-to-br from-gray-50 to-gray-100/70 dark:from-gray-800/80 dark:to-gray-800/40 rounded-xl p-3 hover:from-blue-50 hover:to-purple-50 dark:hover:from-blue-950/40 dark:hover:to-purple-950/40 transition-colors duration-300">
       <div className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
         {icon}
         {label}

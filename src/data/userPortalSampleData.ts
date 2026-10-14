@@ -163,11 +163,29 @@ export interface PlanFeatures {
 }
 
 export interface SubscriptionPlanInfo {
+  /**
+   * The backend's id for this plan — what an order is created against.
+   *
+   * Absent on the bundled fallback, which is deliberate: a plan the backend never
+   * confirmed cannot be bought, so a failed plans fetch disables purchase rather
+   * than letting it proceed against an id nobody checked.
+   */
+  plan_id?: string;
   tier: SubscriptionTier;
   name: string;
+  /** One line on who the plan is for — shown under the name. */
+  tagline?: string;
   price_monthly: number;
   price_yearly: number;
   highlight?: boolean;
+  /**
+   * No longer sold, but still held by existing subscribers.
+   *
+   * Kept in the list rather than removed: `getPlan` looks a user's tier up here
+   * and a missing entry would crash every screen that reads their plan. The
+   * pricing page filters these out, so nobody new can buy one.
+   */
+  legacy?: boolean;
   features: PlanFeatures;
   perks: string[];
 }
@@ -203,10 +221,27 @@ export interface SampleUser {
   preferred_exam?: string;
 }
 
+/**
+ * The plans as the backend last served them — an **offline fallback**.
+ *
+ * The portal reads `GET /api/v1/user/subscription/plans` (see `lib/plans.ts`) and
+ * only reaches for this list when that has not loaded or has failed. It therefore
+ * has one job: to say what the backend says, so a failed fetch cannot put prices
+ * or limits on screen that the backend does not hold. It previously said ₹299 and
+ * ₹599 while the backend charged ₹199 and ₹499.
+ *
+ * Do not "improve" the numbers here. Change a plan on the Admin → Plans page and
+ * bring this list into line afterwards. What is *recommended* for the plans lives
+ * in PLANS.md, not in code.
+ *
+ * `tagline` is the one field the API has no column for, so it is owned here and
+ * merged onto whatever the API returns.
+ */
 export const SUBSCRIPTION_PLANS: SubscriptionPlanInfo[] = [
   {
     tier: 'free',
     name: 'Free',
+    tagline: 'See how the method works on your own syllabus',
     price_monthly: 0,
     price_yearly: 0,
     features: {
@@ -214,41 +249,43 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlanInfo[] = [
       mock_tests_per_month: 'none',
       ai_report_level: 'basic',
       history_retention_days: 30,
-      support: 'Community',
+      support: 'email',
       download_pdf: false,
     },
-    perks: ['2 practice tests / month', 'Basic AI report', '30-day history'],
+    perks: ['2 practice tests per month', 'Basic AI reports', '30-day history'],
   },
   {
     tier: 'standard',
     name: 'Standard',
-    price_monthly: 299,
-    price_yearly: 2999,
+    tagline: 'For steady, daily preparation',
+    price_monthly: 199,
+    price_yearly: 1999,
     features: {
       practice_tests_per_month: 'unlimited',
       mock_tests_per_month: 3,
       ai_report_level: 'standard',
       history_retention_days: 90,
-      support: 'Email',
-      download_pdf: true,
+      support: 'email',
+      download_pdf: false,
     },
-    perks: ['Unlimited practice', '3 mock tests / month', 'Standard AI report', 'PDF download'],
+    perks: ['Unlimited practice tests', '3 mock tests per month', 'Standard AI reports', '90-day history'],
   },
   {
     tier: 'ultimate',
     name: 'Ultimate',
-    price_monthly: 599,
-    price_yearly: 5999,
+    tagline: 'For the final stretch before the exam',
+    price_monthly: 499,
+    price_yearly: 4999,
     highlight: true,
     features: {
       practice_tests_per_month: 'unlimited',
       mock_tests_per_month: 'unlimited',
       ai_report_level: 'detailed',
       history_retention_days: 365,
-      support: 'Priority Email',
-      download_pdf: true,
+      support: 'priority email',
+      download_pdf: false,
     },
-    perks: ['Unlimited practice & mock', 'Detailed AI report', '1-year history', 'Priority email'],
+    perks: ['Unlimited practice tests', 'Unlimited mock tests', 'Detailed AI reports', '1-year history'],
   },
   {
     tier: 'premium',
@@ -260,12 +297,37 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlanInfo[] = [
       mock_tests_per_month: 'unlimited',
       ai_report_level: 'full',
       history_retention_days: 'unlimited',
-      support: 'Dedicated',
+      support: 'priority',
       download_pdf: true,
     },
-    perks: ['Everything in Ultimate', 'Priority mock access', 'Full AI report', 'Dedicated support'],
+    perks: [
+      'Unlimited practice & mock tests',
+      'Priority mock tests',
+      'Full downloadable AI reports',
+      'Unlimited history',
+    ],
   },
 ];
+
+/**
+ * The plans the backend served, once they have loaded.
+ *
+ * A module-level slot rather than React state because `getPlan` is called from
+ * plain functions all over the portal — limit checks, the profile page, the report
+ * — that have no hook to subscribe with. The provider fills it when the fetch
+ * resolves, and re-renders every consumer of the context, which is what makes the
+ * new values visible.
+ */
+let livePlans: SubscriptionPlanInfo[] | null = null;
+
+export function setLivePlans(plans: SubscriptionPlanInfo[] | null): void {
+  livePlans = plans && plans.length > 0 ? plans : null;
+}
+
+/** What AI-written report text a plan includes. */
+export function includesAiInsights(plan: SubscriptionPlanInfo): boolean {
+  return plan.features.ai_report_level === 'detailed' || plan.features.ai_report_level === 'full';
+}
 
 export const TIER_ORDER: SubscriptionTier[] = ['free', 'standard', 'ultimate', 'premium'];
 
@@ -292,7 +354,7 @@ export const SAMPLE_COURSES: SampleCourse[] = [
     description: 'Number System & Simplification, Percentages & Ratio, Averages, Time & Work, Mensuration and Data Interpretation — full SSC CGL Tier-1 Quant syllabus.',
     subject: 'Quantitative Aptitude',
     total_tests: 22,
-    thumbnail_color: 'from-blue-700 to-indigo-800',
+    thumbnail_color: 'from-blue-700 to-blue-800',
     enrolled_at: '2026-01-20T00:00:00Z',
     exam_body: 'Other',
   },
@@ -302,7 +364,7 @@ export const SAMPLE_COURSES: SampleCourse[] = [
     description: 'Physics, Chemistry and Biology fundamentals — Motion & Force, Acids & Bases, Human Physiology, Cell Biology and everyday science for SSC & Railways.',
     subject: 'General Science',
     total_tests: 26,
-    thumbnail_color: 'from-indigo-700 to-violet-800',
+    thumbnail_color: 'from-brand-700 to-brand-500',
     enrolled_at: '2026-02-25T00:00:00Z',
     exam_body: 'Other',
   },
@@ -1075,7 +1137,9 @@ export function isTierSufficient(userTier: SubscriptionTier, requiredTier: Subsc
 }
 
 export function getPlan(tier: SubscriptionTier): SubscriptionPlanInfo {
-  return SUBSCRIPTION_PLANS.find(p => p.tier === tier)!;
+  // Live first, then the fallback — and always *some* answer, since a missing plan
+  // would crash every screen that reads a user's own.
+  return (livePlans ?? []).find(p => p.tier === tier) ?? SUBSCRIPTION_PLANS.find(p => p.tier === tier)!;
 }
 
 /**
@@ -1225,7 +1289,11 @@ export interface PaymentTransaction {
   final_amount: number;
   promo_code?: string;
   status: TransactionStatus;
-  payment_method: 'card' | 'upi' | 'netbanking' | 'wallet';
+  /**
+   * `online` is a real Razorpay payment: its callback does not say which instrument
+   * was used, and recording a guess would be inventing data.
+   */
+  payment_method: 'card' | 'upi' | 'netbanking' | 'wallet' | 'online';
   invoice_no: string;
   created_at: string;
 }
@@ -1316,6 +1384,7 @@ const PAYMENT_METHOD_LABEL: Record<PaymentTransaction['payment_method'], string>
   upi: 'UPI',
   netbanking: 'Net Banking',
   wallet: 'Wallet',
+  online: 'Online (Razorpay)',
 };
 
 export function formatPaymentMethod(m: PaymentTransaction['payment_method']): string {

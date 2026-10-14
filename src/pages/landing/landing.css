@@ -1,0 +1,1438 @@
+/*
+ * MyGovExams landing page.
+ *
+ * Written against the supplied mockup (a full-width page: photo hero, stats band, a
+ * "Powered by AI" row of five cards, the "currently available" banner, how-it-works with four
+ * product previews, plans and a closing call to action). Every class is prefixed `mge-`
+ * and every rule sits under `.mge`, so nothing here can reach the rest of the app and
+ * nothing in the app's own `.btn`, `.nav` or `.logo` can reach this. To change the design,
+ * edit the rules; to add a rule, keep the `.mge .mge-…` shape.
+ *
+ * The two blocks that come first exist because the app is not the page the design was
+ * written for.
+ */
+
+/*
+ * The scroll container. html, body and #root are all `overflow: hidden` in this app, so
+ * the document never scrolls — the landing page does, and the sticky header sticks to it.
+ */
+.mge {
+  height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  line-height: normal;
+}
+
+/*
+ * Browser defaults, put back. Tailwind's reset zeroes heading sizes and weights, paragraph
+ * margins and the inline display of SVGs, and index.css makes every heading semibold with
+ * tight tracking; the design was written against the browser's own defaults and leans on
+ * them (a bare `<p>` has margins, an `<h3>` is bold, an icon sits inline in a line of text).
+ */
+.mge h1,
+.mge h2,
+.mge h3,
+.mge h4,
+.mge h5 {
+  font-weight: 700;
+  letter-spacing: normal;
+}
+.mge h2 { font-size: 1.5em; margin: 0.83em 0; }
+.mge h3 { font-size: 1.17em; margin: 1em 0; }
+.mge h4 { font-size: 1em; margin: 1.33em 0; }
+.mge h5 { font-size: 0.83em; margin: 1.67em 0; }
+.mge p { margin: 1em 0; }
+.mge ul { margin: 1em 0; padding-left: 40px; }
+.mge small { font-size: 80%; }
+.mge svg { display: inline; vertical-align: baseline; }
+.mge figure { margin: 0; }
+
+/* ───────────────────────── the design ───────────────────────── */
+
+.mge {
+  --mge-navy: #122447;
+  --mge-text: #34456a;
+  --mge-muted: #5f6f8c;
+  --mge-line: #e7ecf4;
+  --mge-orange: #ff6c24;
+  --mge-blue: #167eac;
+  --mge-shadow: 0 10px 40px rgba(24, 45, 90, 0.07);
+  /* The light outline every section sits in. */
+  --mge-panel: #e3e9f3;
+  --mge-radius: 26px;
+  font-family: "Open Sans", "Noto Sans Tamil", system-ui, sans-serif;
+  color: var(--mge-navy);
+  background:
+    radial-gradient(ellipse 60% 30% at 8% 52%, #fff5ec 0%, transparent 70%),
+    radial-gradient(ellipse 50% 28% at 96% 30%, #eef6ff 0%, transparent 70%),
+    #fdfdff;
+  font-synthesis: none;
+}
+
+.mge * {
+  box-sizing: border-box;
+}
+
+.mge a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.mge button {
+  font: inherit;
+}
+
+/*
+ * The page fills the window, as the mockup does — about 3% of margin each side, not a
+ * fixed 1,180px column. The old container left a quarter of a laptop screen empty on both
+ * sides. It caps only on very wide monitors, where line lengths would otherwise sprawl.
+ */
+.mge .mge-container {
+  width: min(100% - 2 * clamp(20px, 3.4vw, 72px), 1560px);
+  margin-inline: auto;
+  padding: 0;
+}
+
+/* ── header ── */
+
+.mge .mge-header {
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.mge .mge-nav {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mge .mge-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.mge .mge-logo-full {
+  height: 46px;
+  width: auto;
+}
+
+.mge .mge-accent,
+.mge h1 span {
+  color: var(--mge-orange);
+}
+
+.mge .mge-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.mge .mge-nav-links > a:first-child:hover {
+  color: var(--mge-orange);
+}
+
+.mge .mge-login {
+  border: 1px solid #dbe2ee;
+  padding: 12px 26px;
+  border-radius: 30px;
+}
+
+.mge .mge-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border-radius: 30px;
+  padding: 15px 26px;
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.mge .mge-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px #f76d2c30;
+}
+
+.mge .mge-btn-primary {
+  background: linear-gradient(100deg, #ff5921, #ff8617);
+  color: white;
+}
+
+.mge .mge-btn-secondary {
+  border: 1px solid #c9d6e7;
+  background: white;
+  color: var(--mge-navy);
+}
+
+.mge .mge-menu-button {
+  display: none;
+  background: none;
+  border: 0;
+  color: var(--mge-navy);
+}
+
+/* ── hero ── */
+
+.mge .mge-hero {
+  padding: 28px 0 28px;
+}
+
+.mge .mge-hero-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  align-items: center;
+  gap: 24px;
+  padding: 40px clamp(24px, 3.2vw, 60px);
+  border: 1px solid var(--mge-panel);
+  border-radius: var(--mge-radius);
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 46% 90% at 85% 46%, #e8f4fe 0%, rgba(232, 244, 254, 0.55) 48%, transparent 76%),
+    radial-gradient(ellipse 40% 70% at 4% 90%, #fff4ea 0%, transparent 70%),
+    rgba(255, 255, 255, 0.7);
+}
+
+.mge .mge-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  color: #2a77b8;
+  background: #eaf3fb;
+  padding: 9px 18px;
+  border-radius: 30px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.mge .mge-eyebrow i {
+  width: 1px;
+  height: 14px;
+  margin: 0 12px;
+  background: currentColor;
+  opacity: 0.45;
+}
+
+/*
+ * The hero chip, in its "End-to-end AI-powered exam preparation" form: a sparkle and a line of
+ * small capitals on a pale periwinkle pill. (The divider rule above is for the two-part
+ * "TNPSC Group 4 | Online Test Platform" form of the same chip.)
+ */
+.mge .mge-eyebrow-ai {
+  gap: 7px;
+  padding: 7px 16px;
+  color: #6d2cf5;
+  background: #ebeffe;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.mge .mge-eyebrow-ai svg {
+  flex: none;
+}
+
+.mge h1 {
+  font-size: clamp(40px, 4.5vw, 70px);
+  line-height: 1.07;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+  /* Three lines, as in the design: "Your Government / Exam Preparation / Starts Here". */
+  max-width: 9.6em;
+  margin: 24px 0 22px;
+}
+
+/* Keeps a hyphenated term whole on one line, so "AI-" is never left stranded at a line's end. */
+.mge .mge-nowrap {
+  white-space: nowrap;
+}
+
+.mge .mge-lead {
+  max-width: 600px;
+  font-size: clamp(16px, 1.3vw, 20px);
+  line-height: 1.6;
+  color: var(--mge-text);
+  margin: 0 0 30px;
+}
+
+.mge .mge-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.mge .mge-hero-actions .mge-btn {
+  min-height: 58px;
+  padding: 0 34px;
+  font-size: 16px;
+}
+
+.mge .mge-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px clamp(14px, 1.4vw, 24px);
+  margin-top: 28px;
+  font-size: clamp(12.5px, 0.9vw, 14px);
+  font-weight: 600;
+  color: var(--mge-text);
+}
+
+.mge .mge-checks span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.mge .mge-checks svg {
+  width: 18px;
+  height: 18px;
+  color: #19a974;
+}
+
+/*
+ * The artwork is positioned in percentages and sized in container units (cqw), so the lettering
+ * and the badge keep their place on the picture as it scales down to a phone.
+ */
+.mge .mge-hero-art {
+  position: relative;
+  container-type: inline-size;
+}
+
+/* "Your AI Study Partner" — handwriting, in the empty sky to the right of the student. */
+.mge .mge-art-note {
+  position: absolute;
+  left: 85%;
+  top: 40%;
+  width: 17%;
+  margin: 0;
+  transform: rotate(-4deg);
+  font-family: 'Kalam', 'Segoe Print', 'Bradley Hand', cursive;
+  font-weight: 700;
+  font-size: 4.3cqw;
+  line-height: 1.13;
+  letter-spacing: -0.01em;
+  color: #0e1573;
+  pointer-events: none;
+}
+
+/* "Learn. Practice. Succeed with AI." — in the corner the picture leaves empty. */
+.mge .mge-art-badge {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px 8px 11px;
+  border-radius: 12px;
+  background: #e9f5ff;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 10px 26px rgba(30, 64, 120, 0.14);
+  color: #0e1573;
+  font-size: clamp(10px, 2.2cqw, 14px);
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.mge .mge-art-badge svg {
+  flex: none;
+  color: #f59e0b;
+}
+
+.mge .mge-hero-art img {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* The artwork is a crop with its own pale backdrop. Fading each edge — and only the edge,
+     so the lettering near the right side stays whole — lets it sit on the page instead of
+     reading as a rectangle. */
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent 0, #000 10%, #000 93%, transparent 100%),
+    linear-gradient(180deg, transparent 0, #000 9%, #000 90%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent 0, #000 10%, #000 93%, transparent 100%),
+    linear-gradient(180deg, transparent 0, #000 9%, #000 90%, transparent 100%);
+  mask-composite: intersect;
+}
+
+/* ── stats band ── */
+
+.mge .mge-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: #fff;
+  border-radius: var(--mge-radius);
+  box-shadow: var(--mge-shadow);
+  border: 1px solid var(--mge-panel);
+  padding: 24px 0;
+}
+
+.mge .mge-stats > div {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 4px clamp(16px, 2.6vw, 44px);
+  border-left: 1px solid var(--mge-line);
+}
+
+.mge .mge-stats > div:first-child {
+  border-left: 0;
+}
+
+.mge .mge-stats strong {
+  display: block;
+  font-size: clamp(18px, 1.6vw, 26px);
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.mge .mge-stats span {
+  display: block;
+}
+
+.mge .mge-stats > div > div > span {
+  margin-top: 3px;
+  font-size: 14px;
+  color: var(--mge-muted);
+  line-height: 1.35;
+}
+
+.mge .mge-stat-icon {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  display: grid !important;
+  place-items: center;
+}
+
+.mge .mge-tone-blue { color: #2f80d8; }
+.mge .mge-tone-sky { color: #3b8fe4; }
+.mge .mge-tone-gold { color: #f5b400; }
+.mge .mge-tone-gold svg { fill: #f8c53a; }
+.mge .mge-tone-green { color: #19a974; }
+
+/* ── "Powered by AI. Designed for Your Success." ── */
+
+.mge .mge-ai-section {
+  margin-top: 54px;
+}
+
+.mge .mge-ai-heading {
+  text-align: center;
+  margin-bottom: 26px;
+}
+
+.mge .mge-ai-heading h2 {
+  margin: 0;
+  font-size: clamp(26px, 2.6vw, 38px);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  color: var(--mge-navy);
+}
+
+.mge .mge-ai-heading h2 span {
+  color: #f43b34;
+}
+
+.mge .mge-ai-heading p {
+  margin: 10px auto 0;
+  max-width: 62em;
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--mge-muted);
+}
+
+.mge .mge-ai-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+
+.mge .mge-ai-card {
+  padding: 22px 20px 24px;
+  background: #fff;
+  border: 1px solid var(--mge-line);
+  border-radius: 20px;
+  box-shadow: var(--mge-shadow);
+}
+
+.mge .mge-ai-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mge .mge-ai-icon {
+  flex: none;
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.mge .mge-ai-blue { background: #e5f1fe; color: #2f7fe0; }
+.mge .mge-ai-pink { background: #fde9f3; color: #e5336f; }
+.mge .mge-ai-purple { background: #f3f1fe; color: #8450ec; }
+.mge .mge-ai-green { background: #e9fcf3; color: #1fb06e; }
+.mge .mge-ai-rose { background: #feebf3; color: #e5306b; }
+
+.mge .mge-ai-card h3 {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.3;
+  color: var(--mge-navy);
+}
+
+.mge .mge-ai-card p {
+  margin: 14px 0 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--mge-muted);
+}
+
+/* ── currently available ── */
+
+.mge .mge-exam-banner {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr minmax(290px, 400px);
+  align-items: center;
+  gap: 20px;
+  padding: 34px clamp(24px, 3vw, 52px);
+  border-radius: var(--mge-radius);
+  border: 1px solid #d9ecd6;
+  background: linear-gradient(95deg, #e9f7e8 0%, #f1faf0 46%, #fbf9ee 100%);
+  overflow: hidden;
+}
+
+.mge .mge-kicker {
+  display: block;
+  font-size: clamp(16px, 1.3vw, 19px);
+  font-weight: 600;
+  color: var(--mge-navy);
+}
+
+.mge .mge-exam-copy h2 {
+  font-size: clamp(34px, 3.6vw, 54px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 4px 0 12px;
+}
+
+.mge .mge-exam-copy p {
+  margin: 0;
+  max-width: 480px;
+  font-size: clamp(15px, 1.2vw, 18px);
+  line-height: 1.55;
+  color: var(--mge-text);
+}
+
+.mge .mge-exam-art img {
+  display: block;
+  width: 100%;
+  height: auto;
+  -webkit-mask-image: radial-gradient(ellipse 80% 84% at 50% 56%, #000 52%, transparent 100%);
+  mask-image: radial-gradient(ellipse 80% 84% at 50% 56%, #000 52%, transparent 100%);
+}
+
+.mge .mge-soon {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 24px 26px;
+  border-radius: 20px;
+  background: #fff3d3;
+}
+
+.mge .mge-soon svg {
+  flex: none;
+  color: #1d7fc7;
+}
+
+.mge .mge-soon strong {
+  display: block;
+  font-size: clamp(16px, 1.25vw, 19px);
+  line-height: 1.3;
+}
+
+.mge .mge-soon p {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--mge-muted);
+  line-height: 1.45;
+}
+
+/* ── how it works ── */
+
+.mge .mge-section {
+  margin-top: 28px;
+  padding: 40px clamp(24px, 3.2vw, 60px) 36px;
+  border: 1px solid var(--mge-panel);
+  border-radius: var(--mge-radius);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.mge .mge-section-heading {
+  text-align: center;
+}
+
+.mge .mge-section-heading.mge-left {
+  text-align: left;
+}
+
+.mge .mge-section-heading h2 {
+  font-size: clamp(30px, 3vw, 46px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+
+.mge .mge-section-heading p {
+  margin: 0;
+  font-size: clamp(15px, 1.2vw, 18px);
+  color: var(--mge-muted);
+}
+
+.mge .mge-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(20px, 2.6vw, 44px);
+  margin-top: 32px;
+}
+
+.mge .mge-step-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mge .mge-step-number {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.mge .mge-step-0 { background: #2f7fe0; }
+.mge .mge-step-1 { background: #f5792a; }
+.mge .mge-step-2 { background: #1fae71; }
+.mge .mge-step-3 { background: #8a4de3; }
+
+.mge .mge-step-icon {
+  flex: none;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.mge .mge-step-icon-0 { background: #e8f1fd; color: #2f7fe0; }
+.mge .mge-step-icon-1 { background: #fff0e2; color: #f58a2f; }
+.mge .mge-step-icon-2 { background: #e5f7ee; color: #1fae71; }
+.mge .mge-step-icon-3 { background: #f1eafd; color: #7b4de0; }
+
+.mge .mge-step-arrow {
+  margin-left: auto;
+  color: #9aa8c2;
+}
+
+.mge .mge-step h3 {
+  font-size: clamp(16px, 1.3vw, 19px);
+  margin: 16px 0 6px;
+}
+
+.mge .mge-step p {
+  margin: 0;
+  max-width: 300px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--mge-muted);
+}
+
+/* ── the four product previews ── */
+
+.mge .mge-demo-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(16px, 2vw, 30px);
+  margin-top: 34px;
+}
+
+.mge .mge-demo-card {
+  height: 100%;
+  min-height: 340px;
+  background: #fff;
+  border: 1px solid var(--mge-line);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: var(--mge-shadow);
+  font-size: 12.5px;
+  color: var(--mge-text);
+}
+
+.mge .mge-demo-grid figure {
+  display: flex;
+  flex-direction: column;
+}
+
+.mge .mge-demo-grid figure > .mge-demo-card {
+  flex: 1;
+}
+
+.mge .mge-demo-card h4 {
+  margin: 0 0 14px;
+  font-size: 15px;
+  color: var(--mge-navy);
+}
+
+.mge .mge-demo-card h4 em {
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: #eef2f8;
+  color: #6a7a95;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.mge .mge-demo-card h5 {
+  margin: 16px 0 10px;
+  font-size: 12.5px;
+  color: var(--mge-navy);
+}
+
+.mge .mge-demo-grid figcaption {
+  max-width: 280px;
+  margin: 14px auto 0;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--mge-muted);
+}
+
+/* mock test */
+.mge .mge-q-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--mge-muted);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--mge-line);
+}
+
+.mge .mge-q-head span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mge .mge-q-text {
+  margin: 12px 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--mge-navy);
+}
+
+.mge .mge-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 7px 0;
+  padding: 8px 10px;
+  border: 1px solid #e3e9f3;
+  border-radius: 8px;
+}
+
+.mge .mge-opt i {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid #b9c5d8;
+}
+
+.mge .mge-opt-on {
+  background: #e9f8ef;
+  border-color: #8bd5a8;
+  font-weight: 600;
+}
+
+.mge .mge-opt-on i {
+  background: #19a974;
+  border-color: #19a974;
+}
+
+.mge .mge-q-next {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #1fae71;
+  color: #fff;
+  font-weight: 700;
+}
+
+/* unit-wise practice */
+.mge .mge-select {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 9px;
+  padding: 10px 12px;
+  border: 1px solid #dfe6f0;
+  border-radius: 8px;
+  color: var(--mge-text);
+}
+
+.mge .mge-difficulty {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding: 0 14px;
+  height: 46px;
+  border-radius: 11px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.mge .mge-difficulty span {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mge .mge-difficulty b {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  background: currentColor;
+  opacity: 0.85;
+}
+
+.mge .mge-d0 { background: #e7f8ee; color: #14804f; }
+.mge .mge-d1 { background: #fff3e0; color: #b86a0a; }
+.mge .mge-d2 { background: #fde8ea; color: #c0344a; }
+
+/* AI report */
+.mge .mge-score-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mge .mge-donut {
+  flex: none;
+  position: relative;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: conic-gradient(#1fae71 0 72%, #e6edf6 0);
+  display: grid;
+  place-items: center;
+}
+
+.mge .mge-donut::before {
+  content: '';
+  position: absolute;
+  inset: 11px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.mge .mge-donut span {
+  position: relative;
+  font-size: 21px;
+  font-weight: 800;
+  color: var(--mge-navy);
+}
+
+.mge .mge-legend {
+  flex: 1;
+  font-size: 12px;
+}
+
+.mge .mge-legend span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.mge .mge-legend b {
+  color: var(--mge-navy);
+}
+
+.mge .mge-legend .mge-bad {
+  color: #e5484d;
+}
+
+.mge .mge-bar-line {
+  display: grid;
+  grid-template-columns: 96px 1fr 34px;
+  align-items: center;
+  gap: 8px;
+  margin: 9px 0;
+  font-size: 11.5px;
+}
+
+.mge .mge-bar-line b {
+  text-align: right;
+  color: var(--mge-navy);
+}
+
+.mge .mge-bar {
+  height: 6px;
+  border-radius: 99px;
+  background: #e9eef6;
+  overflow: hidden;
+}
+
+.mge .mge-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: #1fae71;
+}
+
+.mge .mge-orange-bar i {
+  background: #f59e2b;
+}
+
+/* study plan */
+.mge .mge-demo-card h5.mge-plan-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.mge .mge-plan-line {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 9px;
+  padding: 10px 12px;
+  border: 1px solid #e8edf5;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mge-navy);
+}
+
+.mge .mge-plan-icon {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+}
+
+.mge .mge-plan-icon.mge-tone-red { background: #fde8ea; color: #e5484d; }
+.mge .mge-plan-icon.mge-tone-purple { background: #f1eafd; color: #7b4de0; }
+.mge .mge-plan-icon.mge-tone-violet { background: #ece6fd; color: #6d46d8; }
+.mge .mge-plan-icon.mge-tone-blue { background: #e8f1fd; color: #2f7fe0; }
+
+/* ── plans ── */
+
+.mge .mge-pricing-section {
+  padding: 28px 0 0;
+}
+
+.mge .mge-pricing-section > .mge-container {
+  padding: 44px clamp(24px, 3.2vw, 60px) 32px;
+  border: 1px solid var(--mge-panel);
+  border-radius: var(--mge-radius);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.mge .mge-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(20px, 2.4vw, 36px);
+  width: min(100%, 1240px);
+  margin: 40px auto 0;
+}
+
+/* Four plans fill the row, as they do on the Subscription page — but only where there is room. */
+.mge .mge-pricing-grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(14px, 1.6vw, 24px);
+}
+
+.mge .mge-price-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 30px clamp(22px, 2.2vw, 34px) 30px;
+  background: #fff;
+  border: 1px solid #e6ebf4;
+  border-radius: 24px;
+  box-shadow: var(--mge-shadow);
+}
+
+.mge .mge-price-card.mge-popular {
+  border: 2px solid #ff8a3d;
+}
+
+.mge .mge-popular-label {
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 22px;
+  border-radius: 9px;
+  background: #ff7a2f;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Plan names and taglines come from the backend and are not all the same length —
+   "See how the method works on your own syllabus" wraps to two lines — so the heading
+   reserves two lines and the prices below it stay level across cards. */
+.mge .mge-plan-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 64px;
+}
+
+.mge .mge-plan-heading h3 {
+  margin: 0;
+  font-size: 21px;
+}
+
+.mge .mge-plan-heading p {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--mge-muted);
+}
+
+.mge .mge-plan-symbol {
+  flex: none;
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+}
+
+.mge .mge-sym-green { background: #e5f7ee; color: #1fae71; }
+.mge .mge-sym-violet { background: #f1eafd; color: #7b4de0; }
+.mge .mge-sym-gold { background: #fff1d6; color: #f5a30a; }
+
+.mge .mge-price {
+  margin: 20px 0 14px;
+  font-size: clamp(36px, 3.2vw, 46px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.mge .mge-price span {
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: normal;
+  color: var(--mge-muted);
+}
+
+.mge .mge-price-card ul {
+  flex: 1;
+  list-style: none;
+  margin: 0 0 26px;
+  padding: 0;
+}
+
+.mge .mge-price-card li {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin: 13px 0;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.mge .mge-price-card li svg {
+  flex: none;
+  margin-top: 2px;
+  color: #19a974;
+}
+
+.mge .mge-price-btn {
+  width: 100%;
+  min-height: 54px;
+  font-size: 15px;
+}
+
+/* While the plans load: three blank cards, so the section does not jump when they arrive. */
+.mge .mge-price-skeleton {
+  min-height: 430px;
+  background: linear-gradient(100deg, #f3f6fb 30%, #fafcff 50%, #f3f6fb 70%) 0 0 / 220% 100%;
+  animation: mge-shimmer 1.3s linear infinite;
+}
+
+@keyframes mge-shimmer {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+.mge .mge-pricing-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 36px 16px;
+  color: var(--mge-muted);
+  text-align: center;
+}
+
+.mge .mge-pricing-error p {
+  margin: 0;
+}
+
+.mge .mge-pricing-note {
+  margin: 28px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--mge-muted);
+}
+
+/* ── closing call to action ── */
+
+.mge .mge-cta-section {
+  margin-top: 28px;
+  margin-bottom: 52px;
+}
+
+.mge .mge-final-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 30px clamp(24px, 3.4vw, 60px);
+  border-radius: var(--mge-radius);
+  border: 1px solid #d3e3fa;
+  background: linear-gradient(95deg, #e5f0ff 0%, #eef6ff 55%, #e8f2ff 100%);
+}
+
+.mge .mge-final-cta > div {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+}
+
+.mge .mge-final-cta svg {
+  flex: none;
+  color: #2f7fe0;
+}
+
+.mge .mge-final-cta h2 {
+  margin: 0;
+  font-size: clamp(22px, 2.4vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.mge .mge-final-cta p {
+  margin: 6px 0 0;
+  font-size: clamp(14px, 1.2vw, 17px);
+  color: var(--mge-text);
+}
+
+.mge .mge-final-cta .mge-btn {
+  min-height: 58px;
+  padding: 0 38px;
+  font-size: 16px;
+}
+
+/* ── footer ── */
+
+.mge footer {
+  border-top: 1px solid #edf0f5;
+  background: #fff;
+}
+
+.mge .mge-footer-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 0;
+  font-size: 13px;
+  color: var(--mge-muted);
+}
+
+.mge .mge-footer-logo {
+  height: 48px;
+  width: auto;
+}
+
+.mge .mge-footer-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.mge .mge-footer-meta a:hover {
+  color: var(--mge-navy);
+  text-decoration: underline;
+}
+
+/* ── legal pages (terms) ── */
+
+.mge .mge-legal-main {
+  padding: clamp(24px, 4vw, 56px) 0 clamp(40px, 6vw, 80px);
+}
+
+.mge .mge-legal {
+  max-width: 860px;
+  margin-inline: auto;
+  padding: clamp(24px, 4vw, 52px);
+  background: #fff;
+  border: 1px solid var(--mge-panel);
+  border-radius: var(--mge-radius);
+  box-shadow: var(--mge-shadow);
+}
+
+.mge .mge-legal h1 {
+  margin: 0;
+  font-size: clamp(28px, 3.4vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.mge .mge-legal-date {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--mge-muted);
+}
+
+.mge .mge-legal-lead {
+  margin: 24px 0 0;
+}
+
+.mge .mge-legal h2 {
+  margin: 32px 0 6px;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.mge .mge-legal p,
+.mge .mge-legal li {
+  font-size: 15.5px;
+  line-height: 1.7;
+  color: var(--mge-text);
+}
+
+.mge .mge-legal p {
+  margin: 8px 0;
+}
+
+.mge .mge-legal ul {
+  margin: 8px 0;
+  padding-left: 22px;
+  list-style: disc;
+}
+
+.mge .mge-legal li {
+  margin: 6px 0;
+}
+
+.mge .mge-legal a {
+  color: #2a6fd6;
+  font-weight: 600;
+}
+
+.mge .mge-legal a:hover {
+  text-decoration: underline;
+}
+
+/* ───────────────────────── smaller screens ───────────────────────── */
+
+@media (max-width: 1100px) {
+  .mge .mge-hero-grid {
+    grid-template-columns: 1fr;
+  }
+  .mge .mge-hero-art {
+    /* Explicit, because auto margins make a grid item shrink to its content — and a
+       size-contained box (it is a container for the lettering) has none, so it collapsed. */
+    width: 100%;
+    max-width: 620px;
+    margin: 0 auto;
+  }
+  .mge .mge-stats {
+    grid-template-columns: repeat(2, 1fr);
+    row-gap: 18px;
+  }
+  .mge .mge-stats > div:nth-child(3) {
+    border-left: 0;
+  }
+  /* Five cards: three above, two centred below. */
+  .mge .mge-ai-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .mge .mge-ai-card {
+    grid-column: span 2;
+  }
+  .mge .mge-ai-card:nth-child(4) {
+    grid-column: 2 / span 2;
+  }
+  .mge .mge-ai-card:nth-child(5) {
+    grid-column: 4 / span 2;
+  }
+  .mge .mge-exam-banner {
+    grid-template-columns: 1fr;
+  }
+  .mge .mge-exam-art {
+    max-width: 420px;
+  }
+  .mge .mge-steps {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .mge .mge-step-arrow {
+    display: none;
+  }
+  .mge .mge-demo-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .mge .mge-pricing-grid,
+  .mge .mge-pricing-grid-4 {
+    grid-template-columns: 1fr;
+    max-width: 520px;
+  }
+  /* Four plans, on a tablet: two by two rather than a very long column. */
+  @media (min-width: 651px) {
+    .mge .mge-pricing-grid-4 {
+      grid-template-columns: repeat(2, 1fr);
+      max-width: 860px;
+    }
+  }
+  .mge .mge-final-cta {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+  }
+  .mge .mge-final-cta .mge-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 650px) {
+  .mge {
+    --mge-radius: 20px;
+  }
+  .mge .mge-hero-grid,
+  .mge .mge-section,
+  .mge .mge-pricing-section > .mge-container {
+    padding: 26px 18px;
+  }
+  .mge .mge-nav {
+    min-height: 68px;
+  }
+  .mge .mge-logo {
+    font-size: 22px;
+  }
+  .mge .mge-logo-full {
+    height: 36px;
+  }
+  .mge .mge-menu-button {
+    display: block;
+  }
+  .mge .mge-nav-links {
+    display: none;
+    position: absolute;
+    top: 68px;
+    left: 0;
+    right: 0;
+    padding: 18px;
+    background: #fff;
+    box-shadow: 0 15px 25px #0001;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 13px;
+  }
+  .mge .mge-nav-links.mge-open {
+    display: flex;
+  }
+  .mge .mge-nav-links > a {
+    text-align: center;
+  }
+  .mge .mge-hero {
+    padding-top: 30px;
+  }
+  .mge .mge-hero-actions .mge-btn {
+    flex: 1 1 100%;
+  }
+  .mge .mge-stats {
+    grid-template-columns: 1fr;
+    padding: 12px 0;
+  }
+  .mge .mge-stats > div {
+    border-left: 0;
+    padding: 12px 22px;
+  }
+  .mge .mge-ai-grid {
+    grid-template-columns: 1fr;
+  }
+  .mge .mge-ai-card,
+  .mge .mge-ai-card:nth-child(4),
+  .mge .mge-ai-card:nth-child(5) {
+    grid-column: auto;
+  }
+  .mge .mge-steps,
+  .mge .mge-demo-grid {
+    grid-template-columns: 1fr;
+  }
+  .mge .mge-final-cta > div {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .mge .mge-footer-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  .mge .mge-footer-meta {
+    align-items: center;
+  }
+}
+
+@media (max-width: 400px) {
+  .mge h1 {
+    font-size: 34px;
+  }
+}

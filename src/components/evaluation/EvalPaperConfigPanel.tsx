@@ -28,7 +28,7 @@ import type { EvalPaperConfig, EvalSubjectConfig } from '@/hooks/use-evaluation'
 import { EXAMS } from '@/constants';
 import { getSyllabusSubjects, getSyllabusChapters, getSyllabusSections } from '@/data/examSyllabus';
 import { bilingualLanguageForExamType } from '@/config/tnpsc';
-import { DIFFICULTY_LABELS, difficultyLabel } from '@/lib/eval-difficulty';
+import { DIFFICULTY_LABELS, difficultyLabel, PAPER_DIFFICULTY_OPTIONS } from '@/lib/eval-difficulty';
 
 const MCQ_SUBTYPES = [
   { value: 'standard', label: 'Standard MCQ', description: 'Single-correct multiple choice.' },
@@ -230,10 +230,9 @@ export function EvalPaperConfigPanel({ config, onChange, onGenerate, isGeneratin
                   <Select value={config.difficulty} onValueChange={v => onChange({ ...config, difficulty: v })}>
                     <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="easy">{DIFFICULTY_LABELS.easy}</SelectItem>
-                      <SelectItem value="medium">{DIFFICULTY_LABELS.medium}</SelectItem>
-                      <SelectItem value="hard">{DIFFICULTY_LABELS.hard}</SelectItem>
-                      <SelectItem value="mixed">{DIFFICULTY_LABELS.mixed}</SelectItem>
+                      {PAPER_DIFFICULTY_OPTIONS.map(o => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </Field>
@@ -382,7 +381,7 @@ export function EvalPaperConfigPanel({ config, onChange, onGenerate, isGeneratin
                         className={cn(
                           'flex items-start gap-2 rounded-lg border p-2.5 cursor-pointer transition-all',
                           checked
-                            ? 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/30 ring-1 ring-indigo-500/30'
+                            ? 'border-brand-500 bg-blue-50/60 dark:bg-blue-950/30 ring-1 ring-brand-500/30'
                             : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600',
                         )}
                       >
@@ -392,7 +391,7 @@ export function EvalPaperConfigPanel({ config, onChange, onGenerate, isGeneratin
                           className="mt-0.5"
                         />
                         <div className="min-w-0">
-                          <p className={cn('text-sm font-medium', checked ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-800 dark:text-slate-200')}>
+                          <p className={cn('text-sm font-medium', checked ? 'text-blue-700 dark:text-brand-300' : 'text-slate-800 dark:text-slate-200')}>
                             {sub.label}
                           </p>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{sub.description}</p>
@@ -493,8 +492,8 @@ function Stepper({
               <span
                 className={cn(
                   'flex items-center justify-center w-9 h-9 rounded-full border-2 transition-all',
-                  isCurrent && 'border-indigo-600 bg-indigo-600 text-white ring-4 ring-indigo-100 dark:ring-indigo-950/60',
-                  isPast && 'border-indigo-600 bg-indigo-600 text-white',
+                  isCurrent && 'border-brand-600 bg-brand-600 text-white ring-4 ring-blue-100 dark:ring-blue-950/60',
+                  isPast && 'border-brand-600 bg-brand-600 text-white',
                   !isCurrent && !isPast && 'border-slate-300 dark:border-slate-700 text-slate-400 dark:text-slate-500',
                 )}
               >
@@ -503,7 +502,7 @@ function Stepper({
               <span
                 className={cn(
                   'text-[11px] font-medium uppercase tracking-wider',
-                  isCurrent ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400',
+                  isCurrent ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400',
                 )}
               >
                 {s.label}
@@ -514,7 +513,7 @@ function Stepper({
                 <div
                   className={cn(
                     'h-px w-full transition-colors',
-                    i < currentIndex ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700',
+                    i < currentIndex ? 'bg-brand-600' : 'bg-slate-200 dark:bg-slate-700',
                   )}
                 />
               </div>

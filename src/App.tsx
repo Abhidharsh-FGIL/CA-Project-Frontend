@@ -14,6 +14,9 @@ import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { AIContextProvider } from "@/contexts/AIContextProvider";
 import { EvaluationHubPage } from "@/pages/org/EvaluationHubPage";
 import AdminLoginPage from "@/pages/org/AdminLoginPage";
+import LandingPage from "@/pages/landing/LandingPage";
+import TermsPage from "@/pages/landing/TermsPage";
+import PrivacyPage from "@/pages/landing/PrivacyPage";
 import AdminDashboardPage from "@/pages/org/AdminDashboardPage";
 import AdminPaymentsPage from "@/pages/org/AdminPaymentsPage";
 import AdminCoursesPage from "@/pages/org/AdminCoursesPage";
@@ -82,9 +85,9 @@ function UserGuard() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-[100dvh] bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-100 dark:from-slate-950 dark:via-indigo-950/60 dark:to-purple-950/60">
+      <div className="flex items-center justify-center h-[100dvh] bg-gradient-to-br from-slate-50 via-blue-50 to-purple-100 dark:from-slate-950 dark:via-blue-950/60 dark:to-purple-950/60">
         <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent" />
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-brand-600 border-t-transparent" />
           <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
         </div>
       </div>
@@ -102,7 +105,7 @@ function ScrollToTop() {
 
 function HomePage() {
   return (
-    <div className="h-[100dvh] overflow-y-auto flex items-start sm:items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-rose-100 dark:from-stone-950 dark:via-orange-950/50 dark:to-rose-950/40 p-4 sm:p-6 lg:p-8 py-6 sm:py-8 relative">
+    <div className="h-[100dvh] overflow-y-auto overflow-x-hidden flex items-start sm:items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-rose-100 dark:from-stone-950 dark:via-orange-950/50 dark:to-rose-950/40 p-4 sm:p-6 lg:p-8 py-6 sm:py-8 relative">
       <div className="absolute top-1/4 -left-20 w-80 h-80 bg-amber-300/30 dark:bg-amber-700/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-orange-300/30 dark:bg-orange-700/20 rounded-full blur-3xl pointer-events-none" />
 
@@ -112,7 +115,7 @@ function HomePage() {
             ✨ AI-Powered · Govt Exam Prep
           </span>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mt-3 text-gray-900 dark:text-gray-100 animate-slideUp stagger-1">
-            BrightLearn <span className="gradient-text-animated">Academy</span>
+            MyGov<span className="gradient-text-animated">Exams</span>
           </h1>
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-3 animate-slideUp stagger-2">
             UPSC · SSC · Banking · Railways · State PSC — mock tests, practice papers & smart performance reports.
@@ -205,7 +208,11 @@ function UserPortalRoutes() {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
+      {/* The public landing page. The old two-door chooser (aspirant / admin) is kept at /portals. */}
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/portals" element={<HomePage />} />
       <Route path="/adminlogin" element={<AdminLoginPage />} />
       <Route element={<AdminGuard />}>
         <Route path="/org/dashboard" element={<AdminDashboardPage />} />

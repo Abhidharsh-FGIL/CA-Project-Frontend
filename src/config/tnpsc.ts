@@ -20,6 +20,8 @@
  * renders from these constants so the hierarchy is always navigable.
  */
 
+import { G4_SUBJECT_ALIASES, splitTag } from './g4-tag-aliases';
+
 // ─── Ids & levels ──────────────────────────────────────────────────────────────
 
 export type TnpscGroupId = 'group-1' | 'group-4' | 'gat-b';
@@ -27,7 +29,6 @@ export type TnpscStageId =
   | 'group-1-prelims'
   | 'group-1-mains'
   | 'group-4-written'
-  | 'group-4-interview'
   | 'gat-b-exam';
 export type TnpscLevel = 'simple' | 'medium' | 'complex';
 export type TnpscTestType = 'mock' | 'practice';
@@ -42,7 +43,10 @@ export const TNPSC_LEVELS: TnpscLevel[] = ['simple', 'medium', 'complex'];
  * and three headings where only one has tests reads as two broken sections
  * rather than as a roadmap.
  *
- * Only the student portal reads this. `TNPSC_LEVELS` still carries all three, so
+ * The student portal reads this, and so does the admin placement form: while the
+ * portal shows one level, a full mock is not asked which level it is — it is
+ * composed to the 20/30/50 blend and filed under the one group that exists. A
+ * mock that already carries another level keeps it. `TNPSC_LEVELS` still carries all three, so
  * question tagging and the coverage panel keep every level available to staff —
  * a paper can be written and tagged Medium today and appear the day this list
  * grows. Restoring a level is one entry here.
@@ -137,6 +141,16 @@ export const LEVEL_META: Record<
     ring: 'border-rose-200 dark:border-rose-900',
   },
 };
+
+/**
+ * What the fourth unit button is called: the paper that spans every difficulty.
+ *
+ * It was "Full Unit"; "Mixed" says what is in it — Simple, Medium and Complex together —
+ * where "Full Unit" read as a length. One constant so the portal button, the admin's
+ * placement card, generated titles and the report chip cannot disagree. Titles written
+ * before the rename still say "Full Unit"; `unitLevelFromTitle` reads both.
+ */
+export const MIXED_LABEL = 'Mixed';
 
 /** Difficulty values used by the existing test/assessment APIs → TNPSC level. */
 export const DIFFICULTY_TO_LEVEL: Record<string, TnpscLevel> = {
@@ -546,7 +560,10 @@ const ENGLISH_SUBJECT: TnpscSubject = {
 };
 
 // ─── GAT-B syllabus ─────────────────────────────────────────────────────────────
-// Section A is 10+2 level across four sciences; Section B is graduate-level
+// Section A is 10+2 level across four sciences; Section B is graduate-level.
+// The level is stated once, on the section — carrying "(10+2)" on every subject
+// name repeated it on every row for no gain. The old spellings stay in `aliases`
+// so a paper tagged "Physics (10+2)" still resolves to this subject.
 // biology/biotechnology. Kept as one flat subject list because the portal's
 // practice track is per subject — the section split lives in `pattern.sections`
 // and the per-subject question counts in src/data/examSyllabus.ts.
@@ -554,10 +571,8 @@ const ENGLISH_SUBJECT: TnpscSubject = {
 const GATB_SECTION_A_SUBJECTS: TnpscSubject[] = [
   {
     id: 'physics-12',
-    name: 'Physics (10+2)',
-    aliases: [
-      'Physics',
-      'Physics', 'Physics', 'Physics 10+2', 'General Physics'],
+    name: 'Physics',
+    aliases: ['Physics (10+2)', 'Physics 10+2', 'General Physics'],
     topics: [
       { id: 'mechanics', name: 'Mechanics' },
       { id: 'thermodynamics-and-kinetic-theory', name: 'Thermodynamics & Kinetic Theory' },
@@ -568,10 +583,8 @@ const GATB_SECTION_A_SUBJECTS: TnpscSubject[] = [
   },
   {
     id: 'chemistry-12',
-    name: 'Chemistry (10+2)',
-    aliases: [
-      'Chemistry',
-      'Chemistry', 'Chemistry', 'Chemistry 10+2', 'General Chemistry'],
+    name: 'Chemistry',
+    aliases: ['Chemistry (10+2)', 'Chemistry 10+2', 'General Chemistry'],
     topics: [
       { id: 'atomic-structure-and-bonding', name: 'Atomic Structure & Chemical Bonding' },
       { id: 'physical-chemistry', name: 'Physical Chemistry' },
@@ -582,10 +595,8 @@ const GATB_SECTION_A_SUBJECTS: TnpscSubject[] = [
   },
   {
     id: 'mathematics-12',
-    name: 'Mathematics (10+2)',
-    aliases: [
-      'Mathematics',
-      'Mathematics', 'Mathematics', 'Maths', 'Math', 'Quantitative Aptitude', 'Mathematics 10+2'],
+    name: 'Mathematics',
+    aliases: ['Mathematics (10+2)', 'Mathematics 10+2', 'Maths', 'Math', 'Quantitative Aptitude'],
     topics: [
       { id: 'algebra', name: 'Algebra' },
       { id: 'calculus', name: 'Calculus' },
@@ -596,10 +607,8 @@ const GATB_SECTION_A_SUBJECTS: TnpscSubject[] = [
   },
   {
     id: 'biology-12',
-    name: 'Biology (10+2)',
-    aliases: [
-      'Biology',
-      'Biology', 'Biology', 'Biology 10+2', 'General Biology', 'Basic Biology'],
+    name: 'Biology',
+    aliases: ['Biology (10+2)', 'Biology 10+2', 'General Biology', 'Basic Biology'],
     topics: [
       { id: 'cell-structure-and-function', name: 'Cell Structure & Function' },
       { id: 'plant-physiology', name: 'Plant Physiology' },
@@ -1273,7 +1282,7 @@ export const TNPSC_GROUPS: TnpscGroup[] = [
     tagline: 'Combined Civil Services Examination — I',
     description:
       'Deputy Collector, Deputy Superintendent of Police, Assistant Commissioner and other Group 1 services.',
-    accent: 'from-indigo-500 via-violet-500 to-purple-600',
+    accent: 'from-brand-500 via-brand-400 to-brand-400',
     posts: ['Deputy Collector', 'DSP (Category-1)', 'Assistant Commissioner (Commercial Taxes)', 'District Revenue Officer'],
     stages: [
       {
@@ -1329,7 +1338,7 @@ export const TNPSC_GROUPS: TnpscGroup[] = [
     exam_type: 'TNPSC Group 4',
     tagline: 'Combined Civil Services Examination — IV (incl. VAO)',
     description:
-      'Village Administrative Officer, Junior Assistant, Bill Collector, Typist and Steno-Typist posts.',
+      'Village Administrative Officer, Junior Assistant, Bill Collector, Typist, Steno-Typist and more.',
     accent: 'from-emerald-500 via-teal-500 to-cyan-600',
     posts: ['Village Administrative Officer', 'Junior Assistant', 'Bill Collector', 'Typist'],
     stages: [
@@ -1396,20 +1405,6 @@ export const TNPSC_GROUPS: TnpscGroup[] = [
         },
         subjects: [TAMIL_SUBJECT, ENGLISH_SUBJECT, ...GENERAL_STUDIES_SUBJECTS, APTITUDE_SUBJECT],
       },
-      {
-        id: 'group-4-interview',
-        group_id: 'group-4',
-        name: 'Interview',
-        short_name: 'Interview',
-        description: 'Oral test round. Coming soon on the portal.',
-        status: 'coming_soon',
-        // No pattern or subjects: nothing about the round is published yet, and an
-        // invented question count would render on the card as though it were real.
-        paper_type: 'descriptive',
-        bilingual: false,
-        secondary_language: null,
-        subjects: [],
-      },
     ],
   },
   {
@@ -1435,7 +1430,7 @@ export const TNPSC_GROUPS: TnpscGroup[] = [
         name: 'Graduate Aptitude Test — Biotechnology',
         short_name: 'GAT-B',
         description:
-          'Single objective paper. Section A is 60 compulsory 10+2-level questions; Section B prints 100 graduate-level questions of which any 60 are answered.',
+          'Single objective paper. Section A is 60 compulsory school-level science questions; Section B prints 100 graduate-level questions of which any 60 are answered.',
         status: 'active',
         paper_type: 'objective',
         // English-only paper — no second language, unlike both TNPSC stages.
@@ -1452,7 +1447,7 @@ export const TNPSC_GROUPS: TnpscGroup[] = [
           negative_marking: true,
           sections: [
             {
-              name: 'Section A — 10+2 Level',
+              name: 'Section A — Basic Sciences',
               questions: 60,
               marks: 60,
               marks_per_question: 1,
@@ -1460,7 +1455,7 @@ export const TNPSC_GROUPS: TnpscGroup[] = [
               subject_ids: GATB_SECTION_A_SUBJECTS.map(s => s.id),
             },
             {
-              name: 'Section B — Graduate Level',
+              name: 'Section B — Biotechnology',
               questions: 100,
               attempt: 60,
               marks: 180,
@@ -1581,8 +1576,30 @@ function coreSubjectKey(s: string): string {
     .trim();
 }
 
+/**
+ * `resolveSubjectId` answers, per stage and per spelling.
+ *
+ * It normalises every candidate name of every subject on each call, which is cheap
+ * once and ruinous across a question bank: a filter over 20,000 questions called it
+ * 40,000 times and froze the page. The answer depends only on the stage and the
+ * string, and a bank carries a few hundred distinct spellings, so it is remembered.
+ */
+const SUBJECT_ID_CACHE = new WeakMap<TnpscStage, Map<string, string | undefined>>();
+
 export function resolveSubjectId(stage: TnpscStage | undefined, subject?: string | null): string | undefined {
   if (!stage || !subject) return undefined;
+  let cache = SUBJECT_ID_CACHE.get(stage);
+  if (!cache) {
+    cache = new Map();
+    SUBJECT_ID_CACHE.set(stage, cache);
+  }
+  if (cache.has(subject)) return cache.get(subject);
+  const id = resolveSubjectIdUncached(stage, subject);
+  cache.set(subject, id);
+  return id;
+}
+
+function resolveSubjectIdUncached(stage: TnpscStage, subject: string): string | undefined {
   const needle = subjectKey(subject);
   if (!needle) return undefined;
   const core = coreSubjectKey(subject);
@@ -1592,10 +1609,79 @@ export function resolveSubjectId(stage: TnpscStage | undefined, subject?: string
     // language it was printed in, so a Group 4 booklet names every subject in
     // Tamil. Without it such a subject resolves to nothing and loses its section,
     // its per-question marks and its English label.
-    const candidates = [s.id, s.name, s.name_ta, ...(s.aliases ?? [])].filter(Boolean) as string[];
+    //
+    // The sheet spellings (`G4_SUBJECT_ALIASES`) are tried per stage subject, so they
+    // only ever apply to a stage that has the subject — a bare "English" cannot pull
+    // a GAT-B paper into Group 4.
+    const candidates = [s.id, s.name, s.name_ta, ...(s.aliases ?? []), ...(G4_SUBJECT_ALIASES[s.id] ?? [])].filter(
+      Boolean,
+    ) as string[];
     if (candidates.some(c => subjectKey(c) === needle || subjectKey(c) === core)) return s.id;
   }
+
+  const fromUnit = subjectFromUnitLabel(stage, needle, core);
+  if (fromUnit) return fromUnit;
+
+  // "பொதுத்தமிழ் - பகுதி அ - இலக்கணம்", "Part A – Unit V: Indian Economy…": the subject (or
+  // the unit's own name) is one of the pieces. The first that resolves wins.
+  const parts = splitTag(subject);
+  if (parts.length > 1 || (parts.length === 1 && parts[0] !== subject.trim())) {
+    for (const part of parts) {
+      const id = resolveSubjectIdUncached(stage, part);
+      if (id) return id;
+    }
+  }
+
+  // "English Grammar": a language word leading a label that says what it is about.
+  for (const s of stage.subjects) {
+    for (const a of G4_SUBJECT_ALIASES[s.id] ?? []) {
+      const lead = subjectKey(a);
+      if (lead && needle.startsWith(lead + ' ')) return s.id;
+    }
+  }
   return undefined;
+}
+
+/**
+ * The subject a label belongs to when it names a published *unit* instead.
+ *
+ * The syllabus is written in units and the catalog's subjects are finer or coarser
+ * than them: Group 4's Unit V, "Indian Economy and Development Administration in
+ * Tamil Nadu", is two subjects, and Aptitude and Reasoning are two units of one.
+ * A sheet that copies the unit names off the printed syllabus — which is the
+ * obvious thing to do — therefore named nothing the catalog knew, and every such
+ * question fell out of its section.
+ *
+ * A unit stands for its first subject here. That keeps the question inside the
+ * unit's own pool, which draws on all of the unit's subjects; it can only blur
+ * which of a two-subject unit's halves a question is counted under.
+ *
+ * Two cases are left unresolved on purpose, because guessing would be worse than
+ * not matching:
+ *  - A label claimed by units of different subjects.
+ *  - An English unit name inside a language paper. Tamil and English repeat each
+ *    other's names ("Grammar", "Writing Skills"), so the word alone does not say
+ *    which language the question is in. The Tamil printed name does.
+ */
+function subjectFromUnitLabel(stage: TnpscStage, needle: string, core: string): string | undefined {
+  const hits = new Set<string>();
+  for (const section of stage.pattern?.sections ?? []) {
+    for (const unit of section.units ?? []) {
+      const labels = section.alternative_to ? [unit.name_ta] : [unit.name, unit.name_ta];
+      const named = labels.some(l => {
+        if (!l) return false;
+        const key = subjectKey(l);
+        // Tamil names are written with and without their internal spaces ("கலைச் சொற்கள்" /
+        // "கலைச்சொற்கள்"), and the two are the same word, so spacing is not compared.
+        const squash = (k: string) => k.replace(/ /g, '');
+        return key === needle || key === core || (squash(key).length >= 4 && squash(key) === squash(needle));
+      });
+      if (!named) continue;
+      const id = subjectForUnit(stage, unit);
+      if (id) hits.add(id);
+    }
+  }
+  return hits.size === 1 ? [...hits][0] : undefined;
 }
 
 /**
@@ -1802,6 +1888,92 @@ export function sectionSyllabus(
   if (!ids?.length) return (stage?.pattern?.sections.length ?? 0) <= 1 ? subjects : [];
   const wanted = new Set(ids);
   return subjects.filter(sub => wanted.has(sub.id));
+}
+
+/**
+ * Every published unit of a stage, in printed order, with the section it sits under.
+ *
+ * The unit is the level the commission publishes question counts against, so it is
+ * what a paper should be tagged to. Sections are flattened because an admin picking
+ * "Unit IV: Indian Polity" does not need to pick "Part A" first.
+ */
+export function stageUnits(
+  stage: TnpscStage | undefined,
+): Array<{ unit: TnpscSyllabusUnit; sectionName: string }> {
+  return (stage?.pattern?.sections ?? []).flatMap(section =>
+    (section.units ?? []).map(unit => ({ unit, sectionName: section.name })),
+  );
+}
+
+/**
+ * The catalog subject a unit belongs to.
+ *
+ * A unit states its own `subject_ids` where the mapping is interesting — Unit V
+ * covers two — but most do not need to, and the General Tamil units carry none
+ * at all: all seven sit under the single subject `general-tamil`, which the
+ * *section* already names. Reading only the unit therefore found nothing and
+ * left the admin unable to satisfy a required field from the form.
+ *
+ * So the unit is asked first, then the section that prints it.
+ */
+export function subjectForUnit(
+  stage: TnpscStage | undefined,
+  unit: TnpscSyllabusUnit | undefined,
+): string | undefined {
+  if (!stage || !unit) return undefined;
+  if (unit.subject_ids?.length) return unit.subject_ids[0];
+
+  const section = (stage.pattern?.sections ?? []).find(sec =>
+    (sec.units ?? []).some(u => u.id === unit.id),
+  );
+  return section?.syllabus_subject_ids?.[0] ?? section?.subject_ids?.[0];
+}
+
+/**
+ * Whether a section is the Tamil language paper — printed in Tamil only.
+ *
+ * A section that still carries both language subjects (an un-split server payload)
+ * is not Tamil-only: it names no single paper.
+ */
+export function isTamilOnlySection(section: {
+  syllabus_subject_ids?: string[];
+  subject_ids?: string[];
+}): boolean {
+  const ids = section.syllabus_subject_ids ?? section.subject_ids ?? [];
+  return ids.includes('general-tamil') && !ids.includes('general-english');
+}
+
+/**
+ * The name a unit is shown under.
+ *
+ * The commission prints the Tamil paper's units in Tamil only — "இலக்கணம்", not
+ * "Grammar" — so that is their name, and an English rendering beside it is a gloss
+ * the syllabus does not have. It also keeps the two language papers apart: both have
+ * a "Grammar" and a "Writing Skills", and a list of papers titled by those words
+ * could not say which language each was.
+ *
+ * Every other unit keeps its printed English name; its `name_ta` is a translation
+ * supplied for display, not the commission's wording.
+ */
+export function unitDisplayName(
+  stage: TnpscStage | undefined,
+  unit: TnpscSyllabusUnit | undefined,
+): string {
+  if (!unit) return '';
+  if (!unit.name_ta) return unit.name;
+  const section = (stage?.pattern?.sections ?? []).find(sec =>
+    (sec.units ?? []).some(u => u.id === unit.id),
+  );
+  return section && isTamilOnlySection(section) ? unit.name_ta : unit.name;
+}
+
+/** One unit of a stage by id, wherever it sits. */
+export function findUnit(
+  stage: TnpscStage | undefined,
+  unitId: string | null | undefined,
+): TnpscSyllabusUnit | undefined {
+  if (!unitId) return undefined;
+  return stageUnits(stage).find(u => u.unit.id === unitId)?.unit;
 }
 
 /**

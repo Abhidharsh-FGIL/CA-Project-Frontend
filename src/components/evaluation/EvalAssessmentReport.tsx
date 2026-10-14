@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { MathText } from '@/components/ui/MathText';
 import { normaliseLineBreaks } from '@/lib/question-text';
 import { AttemptReport } from '@/components/user/ReportBody';
+import { difficultyLabel } from '@/lib/eval-difficulty';
 
 interface Props {
   assessmentId: string;
@@ -261,7 +262,7 @@ function AttemptDetailViewLegacy({ assessmentId, attemptId, onBack }: {
                         <span className="text-[10px] text-muted-foreground">{q.marks} mark{q.marks !== 1 ? 's' : ''}</span>
                         {q.subject && <span className="text-[10px] text-muted-foreground">{q.subject}</span>}
                         {q.chapter && <span className="text-[10px] text-muted-foreground">• {q.chapter}</span>}
-                        {q.difficulty && <Badge variant="outline" className="text-[10px]">{q.difficulty}</Badge>}
+                        {q.difficulty && <Badge variant="outline" className="text-[10px]">{difficultyLabel(q.difficulty)}</Badge>}
                       </div>
                     </div>
                   </div>

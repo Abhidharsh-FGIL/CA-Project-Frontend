@@ -1,0 +1,381 @@
+/**
+ * Tagging a paper to a published syllabus unit.
+ *
+ * The aspirant portal lists practice by unit, so the unit is what decides where a
+ * paper appears. These lock the admin side's half of that contract: the unit list
+ * an admin picks from, what a valid practice tag looks like, and that the subject
+ * the backend still filters on is derived rather than asked for twice.
+ */
+import { describe, it, expect } from 'vitest';
+import { TNPSC_GROUPS, findStage, findUnit, stageUnits, subjectForUnit } from '@/config/tnpsc';
+import { EMPTY_TAG, describeTag, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
+
+const stage = findStage('group-4', 'group-4-written', TNPSC_GROUPS)!.stage;
+
+/** A complete, valid practice tag — each test spoils one field of it. */
+const practiceTag = (over: Partial<TnpscTagValue> = {}): TnpscTagValue => ({
+  ...EMPTY_TAG,
+  group_id: 'group-4',
+  stage_id: 'group-4-written',
+  track: 'practice',
+  scope: 'unit',
+  unit_id: 'g4-gs-indian-polity',
+  subject_id: 'indian-polity',
+  ...over,
+});
+
+describe('stageUnits', () => {
+  it('flattens every published unit across the stage, in printed order', () => {
+    const units = stageUnits(stage);
+    // Group 4: Tamil 7 + English 7 + General Studies 6 + Aptitude 2.
+    expect(units).toHaveLength(22);
+    expect(units[0].unit.label).toBe('I');
+    // Each unit knows the section it was printed under, for the picker's hint.
+    expect(new Set(units.map(u => u.sectionName))).toEqual(
+      new Set(['General Tamil', 'General English', 'General Studies', 'Aptitude & Mental Ability']),
+    );
+  });
+
+  it('is empty for a stage with no published pattern', () => {
+    expect(stageUnits(undefined)).toEqual([]);
+  });
+});
+
+describe('findUnit', () => {
+  it('finds a unit wherever in the stage it sits', () => {
+    expect(findUnit(stage, 'g4-ta-grammar')?.name).toBe('Grammar');
+    expect(findUnit(stage, 'g4-gs-indian-polity')?.questions).toBe(15);
+  });
+
+  it('returns undefined for an unknown or absent id', () => {
+    expect(findUnit(stage, 'not-a-unit')).toBeUndefined();
+    expect(findUnit(stage, null)).toBeUndefined();
+  });
+});
+
+describe('validateTnpscTag — practice', () => {
+  it('accepts a unit-tagged practice paper', () => {
+    expect(validateTnpscTag(practiceTag()).ok).toBe(true);
+  });
+
+  it('requires a unit', () => {
+    const { ok, errors } = validateTnpscTag(practiceTag({ unit_id: null }));
+    expect(ok).toBe(false);
+    expect(errors.join(' ')).toMatch(/must be assigned a syllabus unit/i);
+  });
+
+  it('rejects a unit from another stage', () => {
+    const { ok, errors } = validateTnpscTag(practiceTag({ unit_id: 'g1-something-else' }));
+    expect(ok).toBe(false);
+    expect(errors.join(' ')).toMatch(/does not belong to the selected stage/i);
+  });
+
+  it('warns when the set is smaller than the unit carries in the real paper', () => {
+    // Indian Polity is 15 questions; a 5-question set is worth flagging, not blocking.
+    const { ok, warnings } = validateTnpscTag(practiceTag(), 5);
+    expect(ok).toBe(true);
+    expect(warnings.join(' ')).toMatch(/carries 15 questions/);
+  });
+});
+
+describe('validateTnpscTag — exam (mock)', () => {
+  const mockTag = (over: Partial<TnpscTagValue> = {}): TnpscTagValue => ({
+    ...EMPTY_TAG,
+    group_id: 'group-4',
+    stage_id: 'group-4-written',
+    track: 'mock',
+    level: 'simple',
+    // Group 4 is sat in one language or the other, so a full mock must say which.
+    language: 'tamil',
+    ...over,
+  });
+
+  it('accepts a levelled mock with no unit — a mock is the whole paper', () => {
+    expect(validateTnpscTag(mockTag()).ok).toBe(true);
+  });
+
+  // The form no longer asks a mock for a level while the portal shows one level
+  // (LEVELS_HIDDEN): the paper is composed to the 20/30/50 blend, so there is nothing
+  // for an admin to choose. The server still requires one — see the payload test below.
+  it('does not ask for a level while the portal shows a single level', () => {
+    const { ok, errors } = validateTnpscTag(mockTag({ level: null }));
+    expect(ok).toBe(true);
+    expect(errors.join(' ')).not.toMatch(/level/i);
+  });
+
+  it('does not ask a mock for a unit', () => {
+    expect(validateTnpscTag(mockTag()).errors.join(' ')).not.toMatch(/unit/i);
+  });
+});
+
+describe('a practice paper carries a difficulty level', () => {
+  // The portal gives every unit four buttons — Simple, Medium, Complex, Full Unit
+  // — and reads the paper's level to decide which one opens it. Practice papers
+  // used to be forbidden a level, so three of the four could never be filled.
+  it('accepts each of the three levels', () => {
+    for (const level of ['simple', 'medium', 'complex'] as const) {
+      expect(validateTnpscTag(practiceTag({ level })).ok).toBe(true);
+    }
+  });
+
+  it('accepts no level — a set covering the whole unit', () => {
+    expect(validateTnpscTag(practiceTag({ level: null })).ok).toBe(true);
+  });
+
+  it('names the unit and the button in the placement badge', () => {
+    expect(describeTag(practiceTag({ level: 'simple' }))).toBe(
+      'Group 4 Written · Practice · Indian Polity · Simple',
+    );
+    expect(describeTag(practiceTag({ level: null }))).toBe(
+      'Group 4 Written · Practice · Indian Polity · Mixed',
+    );
+  });
+
+  it('does not name a level on an exam — it is built across all three', () => {
+    const exam: TnpscTagValue = {
+      ...EMPTY_TAG,
+      group_id: 'group-4',
+      stage_id: 'group-4-written',
+      track: 'mock',
+      level: null,
+      language: 'tamil',
+    };
+    expect(validateTnpscTag(exam).ok).toBe(true);
+    expect(describeTag({ ...exam, level: 'complex' })).toBe('Group 4 Written · Exam');
+  });
+});
+
+describe('what goes on the wire', () => {
+  /**
+   * The tagging endpoint distinguishes "leave the level alone" from "clear it":
+   * an omitted `level` keeps whatever is stored, an explicit `null` clears it.
+   *
+   * This admin always makes a deliberate choice — one of the three levels, or
+   * "Full Unit" — so it must always send the key. Dropping it when null would
+   * silently leave an old level behind and file the paper under the wrong button.
+   */
+  it('sends level explicitly, including when it is null', async () => {
+    const calls: Array<{ path: string; body: any }> = [];
+    const api = await import('@/lib/api');
+    const original = api.api.patch;
+    (api.api as any).patch = (path: string, body: any) => {
+      calls.push({ path, body });
+      return Promise.resolve({});
+    };
+
+    try {
+      const { tagAssessment } = await import('@/lib/tnpscAdminApi');
+      await tagAssessment('a1', practiceTag({ level: null }));
+      expect(Object.prototype.hasOwnProperty.call(calls[0].body, 'level')).toBe(true);
+      expect(calls[0].body.level).toBeNull();
+
+      await tagAssessment('a2', practiceTag({ level: 'medium' }));
+      expect(calls[1].body.level).toBe('medium');
+      expect(calls[1].body.unit_id).toBe('g4-gs-indian-polity');
+    } finally {
+      (api.api as any).patch = original;
+    }
+  });
+
+  /**
+   * The server answers a mock with no level 422 LEVEL_REQUIRED, and the form no longer
+   * asks for one, so the edge supplies it. A level the paper already has is kept — a
+   * Medium mock tagged earlier must not be quietly refiled by opening and saving it.
+   */
+  it('fills in a mock’s level for the server, and keeps one it already has', async () => {
+    const calls: any[] = [];
+    const api = await import('@/lib/api');
+    const original = api.api.patch;
+    (api.api as any).patch = (_p: string, body: any) => {
+      calls.push(body);
+      return Promise.resolve({});
+    };
+    try {
+      const { tagAssessment } = await import('@/lib/tnpscAdminApi');
+      const exam = { ...EMPTY_TAG, group_id: 'group-4', stage_id: 'group-4-written', track: 'mock', language: 'tamil' } as TnpscTagValue;
+      await tagAssessment('m1', { ...exam, level: null });
+      await tagAssessment('m2', { ...exam, level: 'medium' });
+      expect(calls[0].level).toBe('simple');
+      expect(calls[1].level).toBe('medium');
+    } finally {
+      (api.api as any).patch = original;
+    }
+  });
+
+  it('never sends a unit on an exam — a mock is the whole paper', async () => {
+    const calls: any[] = [];
+    const api = await import('@/lib/api');
+    const original = api.api.patch;
+    (api.api as any).patch = (_p: string, body: any) => {
+      calls.push(body);
+      return Promise.resolve({});
+    };
+    try {
+      const { tagAssessment } = await import('@/lib/tnpscAdminApi');
+      await tagAssessment('m1', {
+        ...EMPTY_TAG,
+        group_id: 'group-4',
+        stage_id: 'group-4-written',
+        track: 'mock',
+        level: 'complex',
+        language: 'tamil',
+        unit_id: 'g4-gs-indian-polity',
+        scope: 'unit',
+      });
+      expect(calls[0].unit_id).toBeNull();
+      expect(calls[0].level).toBe('complex');
+    } finally {
+      (api.api as any).patch = original;
+    }
+  });
+});
+
+describe('the placement cascade', () => {
+  it('asks practice what it covers before anything else', () => {
+    const { ok, errors } = validateTnpscTag(practiceTag({ scope: null }));
+    expect(ok).toBe(false);
+    expect(errors.join(' ')).toMatch(/one unit or a whole section/i);
+  });
+
+  it('accepts a section-wise paper with no unit', () => {
+    const tag = practiceTag({
+      scope: 'section',
+      section_name: 'General Studies',
+      unit_id: null,
+      subject_id: 'general-science',
+      level: null,
+    });
+    expect(validateTnpscTag(tag).ok).toBe(true);
+  });
+
+  it('wants to know which section', () => {
+    const { ok, errors } = validateTnpscTag(
+      practiceTag({ scope: 'section', section_name: null, unit_id: null }),
+    );
+    expect(ok).toBe(false);
+    expect(errors.join(' ')).toMatch(/select the section/i);
+  });
+
+  it('rejects a section from another stage', () => {
+    const { ok, errors } = validateTnpscTag(
+      practiceTag({ scope: 'section', section_name: 'Botany', unit_id: null }),
+    );
+    expect(ok).toBe(false);
+    expect(errors.join(' ')).toMatch(/does not belong to the selected stage/i);
+  });
+
+  it('makes a Group 4 exam say which language it is sat in', () => {
+    const exam: TnpscTagValue = {
+      ...EMPTY_TAG,
+      group_id: 'group-4',
+      stage_id: 'group-4-written',
+      track: 'mock',
+      level: 'simple',
+    };
+    expect(validateTnpscTag(exam).ok).toBe(false);
+    expect(validateTnpscTag(exam).errors.join(' ')).toMatch(/language/i);
+    expect(validateTnpscTag({ ...exam, language: 'english' }).ok).toBe(true);
+  });
+
+  it('keeps a unit off a section paper on the wire', async () => {
+    const calls: any[] = [];
+    const api = await import('@/lib/api');
+    const original = api.api.patch;
+    (api.api as any).patch = (_p: string, body: any) => {
+      calls.push(body);
+      return Promise.resolve({});
+    };
+    try {
+      const { tagAssessment } = await import('@/lib/tnpscAdminApi');
+      // A stale unit id left over from switching scope must not travel — the
+      // portal would file the paper under a unit *and* as a section set.
+      await tagAssessment('s1', practiceTag({ scope: 'section', section_name: 'General Studies' }));
+      expect(calls[0].unit_id).toBeNull();
+      expect(calls[0].section_name).toBe('General Studies');
+      expect(calls[0].scope).toBe('section');
+    } finally {
+      (api.api as any).patch = original;
+    }
+  });
+});
+
+describe('a unit that names no subject of its own', () => {
+  // All seven General Tamil units sit under the single subject `general-tamil`,
+  // which only the *section* names. Reading the unit alone found nothing, left
+  // the required subject unset, and produced an error the form could not clear.
+  it('falls back to the section that prints it', () => {
+    expect(subjectForUnit(stage, findUnit(stage, 'g4-ta-grammar'))).toBe('general-tamil');
+    expect(subjectForUnit(stage, findUnit(stage, 'g4-ta-literature'))).toBe('general-tamil');
+    expect(subjectForUnit(stage, findUnit(stage, 'g4-en-grammar'))).toBe('general-english');
+  });
+
+  it('still prefers a subject the unit names itself', () => {
+    expect(subjectForUnit(stage, findUnit(stage, 'g4-gs-indian-polity'))).toBe('indian-polity');
+    // Unit V spans two; the first is the one the backend filters on.
+    expect(subjectForUnit(stage, findUnit(stage, 'g4-gs-economy-and-dev-admin'))).toBe(
+      'indian-economy',
+    );
+  });
+
+  it('has no answer for a unit that is not in the stage', () => {
+    expect(subjectForUnit(stage, undefined)).toBeUndefined();
+    expect(subjectForUnit(undefined, findUnit(stage, 'g4-ta-grammar'))).toBeUndefined();
+  });
+
+  it('validates a Tamil unit paper that carries no subject of its own', () => {
+    // The exact form in the screenshot: Grammar picked, subject never set.
+    const tag: TnpscTagValue = {
+      ...EMPTY_TAG,
+      group_id: 'group-4',
+      stage_id: 'group-4-written',
+      track: 'practice',
+      scope: 'unit',
+      unit_id: 'g4-ta-grammar',
+      level: 'medium',
+      subject_id: null,
+    };
+    const { ok, errors } = validateTnpscTag(tag);
+    expect(errors.join(' ')).not.toMatch(/must be assigned a syllabus subject/i);
+    expect(ok).toBe(true);
+  });
+
+  it('sends the derived subject even when the tag never held one', async () => {
+    const calls: any[] = [];
+    const api = await import('@/lib/api');
+    const original = api.api.patch;
+    (api.api as any).patch = (_p: string, body: any) => {
+      calls.push(body);
+      return Promise.resolve({});
+    };
+    try {
+      const { tagAssessment } = await import('@/lib/tnpscAdminApi');
+      await tagAssessment('t1', {
+        ...EMPTY_TAG,
+        group_id: 'group-4',
+        stage_id: 'group-4-written',
+        track: 'practice',
+        scope: 'unit',
+        unit_id: 'g4-ta-grammar',
+        subject_id: null,
+      });
+      expect(calls[0].subject_id).toBe('general-tamil');
+    } finally {
+      (api.api as any).patch = original;
+    }
+  });
+});
+
+describe('listReportsPlacement', () => {
+  it('is false for a list whose rows carry no placement — the case that made every paper read Not placed', async () => {
+    const { listReportsPlacement } = await import('@/lib/tnpscAdminApi');
+    expect(listReportsPlacement([{ id: 'a', title: 'x' }, { id: 'b', title: 'y' }])).toBe(false);
+    expect(listReportsPlacement([])).toBe(false);
+    expect(listReportsPlacement(undefined)).toBe(false);
+  });
+
+  it('is true as soon as any row says where it is placed', async () => {
+    const { listReportsPlacement } = await import('@/lib/tnpscAdminApi');
+    expect(listReportsPlacement([{ id: 'a' }, { id: 'b', tnpsc_stage_id: 'group-4-written' }])).toBe(true);
+    expect(listReportsPlacement([{ id: 'a', track: 'practice' }])).toBe(true);
+  });
+});

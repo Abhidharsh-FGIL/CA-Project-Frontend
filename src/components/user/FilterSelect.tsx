@@ -57,10 +57,10 @@ export function FilterSelect<T extends string>({
           aria-label={ariaLabel}
           className={cn(
             'inline-flex items-center gap-1.5 rounded-xl border font-semibold transition-colors',
-            'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 dark:focus-visible:ring-indigo-700',
+            'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:focus-visible:ring-brand-700',
             size === 'sm' ? 'h-8 px-2.5 text-[11px]' : 'h-9 px-3 text-xs',
             filtered
-              ? 'border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-500/20'
+              ? 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-brand-500/10 text-blue-700 dark:text-brand-300 hover:bg-blue-100 dark:hover:bg-brand-500/20'
               : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800',
             className,
           )}
@@ -78,7 +78,7 @@ export function FilterSelect<T extends string>({
             onSelect={() => onChange(o.value)}
             className={cn(
               'rounded-lg text-xs cursor-pointer gap-2 py-2',
-              o.value === value && 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
+              o.value === value && 'bg-blue-50 dark:bg-brand-500/10 text-blue-700 dark:text-brand-300',
             )}
           >
             <span className="flex-1 min-w-0">

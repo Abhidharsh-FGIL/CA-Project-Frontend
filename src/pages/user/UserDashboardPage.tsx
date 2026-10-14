@@ -6,6 +6,7 @@ import {
   AreaChart,
   Bar,
   BarChart,
+  CartesianGrid,
   Cell,
   Pie,
   PieChart,
@@ -31,8 +32,9 @@ import {
   Timer,
   TrendingUp,
 } from 'lucide-react';
-import { UserShell } from '@/components/user/UserShell';
+import { REPORT_NAVY, UserShell } from '@/components/user/UserShell';
 import { StudyPlanCard } from '@/components/user/study-plan/StudyPlanCard';
+import { SHOW_STUDY_PLAN } from '@/config/features';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { FilterSelect } from '@/components/user/FilterSelect';
@@ -62,7 +64,7 @@ import { cn } from '@/lib/utils';
 // Validated for colour-blind separation (see dataviz validator). Do not extend past
 // seven: a 14-hue version failed deutan separation, which is why more than seven
 // subjects are shown as bars rather than ring slices.
-const SUBJECT_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899'];
+const SUBJECT_COLORS = ['#ff6c24', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899'];
 
 /** Subjects the ring shows; beyond this the card switches to a ranked bar list. */
 const SUBJECT_PREVIEW_COUNT = 6;
@@ -254,7 +256,7 @@ export default function UserDashboardPage() {
     return (
       <UserShell>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
       </UserShell>
     );
@@ -266,7 +268,7 @@ export default function UserDashboardPage() {
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4 sm:mb-5">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Welcome back, <span className="text-indigo-600 dark:text-indigo-400">{user.name.split(' ')[0]}</span>! 👋
+            Welcome back, <span className="text-blue-600 dark:text-blue-400">{user.name.split(' ')[0]}</span>! 👋
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">
             Let's continue your preparation and achieve success.
@@ -281,466 +283,378 @@ export default function UserDashboardPage() {
         </div>
       </div>
 
-      {/* ── Stats ────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 mb-3 sm:mb-4">
-        <StatCard
-          icon={<ClipboardList className="w-5 h-5" />}
-          tone="indigo"
-          value={scopedAssessments.length}
-          label={`${trackNoun}s Assigned`}
-          delta={null}
-        />
-        <StatCard
-          icon={<Timer className="w-5 h-5" />}
-          tone="emerald"
-          value={stats.attempted}
-          label={`${trackNoun}s Attempted`}
-          delta={stats.attemptedDelta}
-        />
-        <StatCard
-          icon={<TrendingUp className="w-5 h-5" />}
-          tone="amber"
-          value={`${stats.average}%`}
-          label="Average Score"
-          hint={averageMarks}
-          delta={stats.averageDelta}
-        />
-        <StatCard
-          icon={<LineChartIcon className="w-5 h-5" />}
-          tone="rose"
-          value={stats.thisMonth}
-          label={`${trackNoun}s Taken This Month`}
-          delta={null}
-        />
-      </div>
-
+      {/* Two columns: the numbers and charts on the left, what has been happening on the
+          right. Below them the page turns to full-width panels — what to do next. */}
       <div className="grid lg:grid-cols-3 gap-3 sm:gap-4">
-        {/* ── Left: progress + strengths ─────────────────────────────────── */}
-        <div className="lg:col-span-2 space-y-3 sm:space-y-4">
-          <Card>
-            <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Overall Preparation Progress</p>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{trendCaption}</p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Link
-                  to="/user/performance"
-                  className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline whitespace-nowrap"
-                >
-                  View detailed report
-                </Link>
-              </div>
-            </div>
-            {groupIndexLoading ? (
-              <div className="h-44 sm:h-56 flex items-center justify-center">
-                <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
-              </div>
-            ) : chartTrend.length > 0 ? (
-              <div className="-ml-1">
-                <div className="h-44 sm:h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartTrend} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-                    <defs>
-                      <linearGradient id="progressFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#6366f1" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis
-                      dataKey="label"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fontSize: 10, fill: '#9ca3af' }}
-                      minTickGap={28}
-                    />
-                    <YAxis
-                      domain={[0, trendMax]}
-                      tickFormatter={(v: number) => `${v}%`}
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fontSize: 10, fill: '#9ca3af' }}
-                      width={40}
-                    />
-                    <Tooltip
-                      contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
-                      formatter={(v: any) => [`${v}%`, 'Rolling average']}
-                      labelFormatter={formatTrendLabel}
-                    />
-                    <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2.5} fill="url(#progressFill)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-                </div>
-                {trendNote && (
-                  <p className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
-                    {trendNote}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <Empty
-                icon={<TrendingUp className="w-5 h-5" />}
-                text={
-                  range.key === 'all'
-                    ? `Your ${groupLabel} curve starts after your first submitted ${trackNoun.toLowerCase()}.`
-                    : `No ${trackNoun.toLowerCase()}s in ${groupLabel} over this period.`
-                }
-                action={
-                  range.key === 'all' ? (
-                    <Link to={trackHref(track)} className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
-                      Take a {trackNoun.toLowerCase()}
-                    </Link>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setRange(ALL_TIME)}
-                      className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+        {/* ── Left: headline numbers, progress, strengths ────────────────── */}
+        <div className="lg:col-span-2 min-w-0 space-y-3 sm:space-y-4">
+          {/* Stats */}
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3">
+            <StatCard
+              icon={<ClipboardList className="w-5 h-5" />}
+              tone="indigo"
+              value={scopedAssessments.length}
+              label={`${trackNoun}s Assigned`}
+              delta={null}
+            />
+            <StatCard
+              icon={<Timer className="w-5 h-5" />}
+              tone="emerald"
+              value={stats.attempted}
+              label={`${trackNoun}s Attempted`}
+              delta={stats.attemptedDelta}
+            />
+            <StatCard
+              icon={<TrendingUp className="w-5 h-5" />}
+              tone="amber"
+              value={`${stats.average}%`}
+              label="Average Score"
+              hint={averageMarks}
+              delta={stats.averageDelta}
+            />
+            <StatCard
+              icon={<LineChartIcon className="w-5 h-5" />}
+              tone="rose"
+              value={stats.thisMonth}
+              label={`${trackNoun}s Taken This Month`}
+              delta={null}
+            />
+          </div>
+
+          {/* Progress beside today's plan. Flex, not a fixed grid: the plan card renders
+              nothing while the backend has no study plans, and the chart should then
+              take the whole row rather than leave a hole beside it. */}
+          <div className="flex flex-col xl:flex-row gap-3 sm:gap-4">
+            <div className="min-w-0 xl:flex-[3]">
+              <Card className="h-full">
+                <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Overall Preparation Progress</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{trendCaption}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Link
+                      to="/user/performance"
+                      className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap"
                     >
-                      Show all time
-                    </button>
-                  )
+                      View detailed report
+                    </Link>
+                  </div>
+                </div>
+                {groupIndexLoading ? (
+                  <div className="h-44 sm:h-56 flex items-center justify-center">
+                    <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+                  </div>
+                ) : chartTrend.length > 0 ? (
+                  <div className="-ml-1">
+                    <div className="h-44 sm:h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartTrend} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                        <defs>
+                          <linearGradient id="progressFill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#2f7fe0" stopOpacity={0.35} />
+                            <stop offset="100%" stopColor="#2f7fe0" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis
+                          dataKey="label"
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fontSize: 10, fill: '#9ca3af' }}
+                          minTickGap={28}
+                        />
+                        <YAxis
+                          domain={[0, trendMax]}
+                          tickFormatter={(v: number) => `${v}%`}
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fontSize: 10, fill: '#9ca3af' }}
+                          width={40}
+                        />
+                        <Tooltip
+                          contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
+                          formatter={(v: any) => [`${v}%`, 'Rolling average']}
+                          labelFormatter={formatTrendLabel}
+                        />
+                        <Area type="monotone" dataKey="value" stroke="#2f7fe0" strokeWidth={2.5} fill="url(#progressFill)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                    </div>
+                    {trendNote && (
+                      <p className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
+                        {trendNote}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <Empty
+                    icon={<TrendingUp className="w-5 h-5" />}
+                    text={
+                      range.key === 'all'
+                        ? `Your ${groupLabel} curve starts after your first submitted ${trackNoun.toLowerCase()}.`
+                        : `No ${trackNoun.toLowerCase()}s in ${groupLabel} over this period.`
+                    }
+                    action={
+                      range.key === 'all' ? (
+                        <Link to={trackHref(track)} className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                          Take a {trackNoun.toLowerCase()}
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setRange(ALL_TIME)}
+                          className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          Show all time
+                        </button>
+                      )
+                    }
+                  />
+                )}
+              </Card>
+            </div>
+            {/* The one card here that asks for an action today rather than reporting on
+                what already happened. */}
+            {SHOW_STUDY_PLAN && (
+              <div className="min-w-0 xl:flex-[2] empty:hidden [&>*]:h-full">
+                <StudyPlanCard />
+              </div>
+            )}
+          </div>
+
+          <div className="grid xl:grid-cols-2 gap-3 sm:gap-4">
+            <TestScoreCard
+              className="h-full min-w-0"
+              attempts={filteredAttempts}
+              scopeLabel={`${groupLabel} · ${trackNoun.toLowerCase()}s`}
+              trackNoun={trackNoun}
+              takeHref={trackHref(track)}
+              isLoading={groupIndexLoading}
+            />
+
+            <Card className="h-full min-w-0">
+              <CardHead
+                title="Strengths by Subject"
+                subtitle={
+                  allSubjects.length === 0
+                    ? undefined
+                    : showAllSubjects || hiddenSubjects === 0
+                      ? `Accuracy on the questions you answered · all ${allSubjects.length} subjects`
+                      : `Accuracy on the questions you answered · your ${topSubjects.length} strongest`
                 }
               />
-            )}
-          </Card>
-
-          <TestScoreCard
-            attempts={filteredAttempts}
-            scopeLabel={`${groupLabel} · ${trackNoun.toLowerCase()}s`}
-            trackNoun={trackNoun}
-            takeHref={trackHref(track)}
-            isLoading={groupIndexLoading}
-          />
-
-          {/* Continue your preparation */}
-          <div>
-            <SectionHead title="Continue Your Preparation" href="/user/exams" />
-            <div className={cn('grid gap-3', visibleGroups.length > 1 && 'sm:grid-cols-2')}>
-              {visibleGroups.map(g => {
-                const open = g.stages.filter(s => s.status === 'active').length;
-                return (
-                  <Link
-                    key={g.id}
-                    to={`/user/exams/${g.id}`}
-                    className="group relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:shadow-lg hover:border-indigo-200 dark:hover:border-indigo-800 transition-all"
+              {subjectsLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+                </div>
+              ) : allSubjects.length > 0 ? (
+                <>
+                  <div className="flex items-center gap-3">
+                  <div
+                    className="relative w-[120px] h-[120px] flex-shrink-0"
+                    onMouseLeave={() => setActiveSubject(null)}
                   >
-                    <div className={cn('absolute inset-x-0 top-0 h-1 bg-gradient-to-r', g.accent)} />
-                    <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-indigo-500">
-                      {g.authority}
-                    </p>
-                    <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mt-1">{g.name}</h3>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{g.tagline}</p>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">{g.description}</p>
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      {g.stages.map(s => (
-                        <span
-                          key={s.id}
-                          className={cn(
-                            'text-[10px] font-semibold px-2 py-0.5 rounded-md border',
-                            s.status === 'active'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-                              : 'bg-gray-50 text-gray-400 border-gray-200 dark:bg-gray-800 dark:border-gray-700',
-                          )}
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={topSubjects}
+                          dataKey="accuracy"
+                          nameKey="subject"
+                          innerRadius={38}
+                          outerRadius={56}
+                          paddingAngle={2}
+                          stroke="none"
+                          onMouseEnter={(_, i) => setActiveSubject(i)}
                         >
-                          {s.short_name}{s.status !== 'active' && ' · soon'}
+                          {topSubjects.map((_, i) => (
+                            <Cell
+                              key={i}
+                              fill={SUBJECT_COLORS[i % SUBJECT_COLORS.length]}
+                              // Dim the rest rather than move the slice — the ring keeps
+                              // its shape, so nothing appears to change value on hover.
+                              opacity={activeSubject == null || activeSubject === i ? 1 : 0.28}
+                              style={{ transition: 'opacity 120ms', cursor: 'pointer' }}
+                            />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-4">
+                      <span className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-none">
+                        {activeSubject != null
+                          ? `${Math.round(topSubjects[activeSubject].accuracy)}%`
+                          : overallAccuracy != null
+                            ? `${overallAccuracy}%`
+                            : '—'}
+                      </span>
+                      <span className="text-[9px] text-gray-400 text-center leading-tight mt-0.5">
+                        Accuracy
+                      </span>
+                    </div>
+                  </div>
+                  <ul className="flex-1 space-y-1.5 min-w-0" onMouseLeave={() => setActiveSubject(null)}>
+                    {topSubjects.map((sub, i) => (
+                      <li
+                        key={sub.subject}
+                        onMouseEnter={() => setActiveSubject(i)}
+                        title={
+                          sub.correct != null && sub.attempted != null
+                            ? `${sub.subject} — ${sub.correct} of ${sub.attempted} answered correctly`
+                            : sub.subject
+                        }
+                        className={cn(
+                          'flex items-center gap-2 text-[11px] rounded-md px-1 -mx-1 py-0.5 cursor-default transition-colors',
+                          activeSubject === i && 'bg-gray-50 dark:bg-gray-800',
+                        )}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ background: SUBJECT_COLORS[i % SUBJECT_COLORS.length] }}
+                        />
+                        <span className="truncate text-gray-600 dark:text-gray-300">{sub.subject}</span>
+                        <span className="ml-auto font-bold text-gray-900 dark:text-gray-100">
+                          {Math.round(sub.accuracy)}%
                         </span>
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-                      <span className="text-[11px] text-gray-500">
-                        {g.stages.length} stage{g.stages.length !== 1 ? 's' : ''} · {open} open now
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                        Continue <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
+                      </li>
+                    ))}
+                    {(hiddenSubjects > 0 || showAllSubjects) && (
+                      <li className="pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAllSubjects(v => !v);
+                            setActiveSubject(null);
+                          }}
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          {showAllSubjects ? (
+                            <>Show top {SUBJECT_PREVIEW_COUNT} <ChevronUp className="w-3 h-3" /></>
+                          ) : (
+                            <>Show all {allSubjects.length} subjects <ChevronDown className="w-3 h-3" /></>
+                          )}
+                        </button>
+                      </li>
+                    )}
+                  </ul>
+                  </div>
 
-          {/* Assigned assessments */}
-          <div>
-            <SectionHead title={`Assigned ${trackNoun}s`} href="/user/exams" />
-            {scopedAssessments.length === 0 ? (
-              <Card>
-                <Empty
-                  text={
-                    assessments.length === 0
-                      ? 'Nothing assigned right now — pick an exam above to start a mock or practice test.'
-                      : `Nothing assigned under ${trackNoun.toLowerCase()}s. Switch the test dropdown to see the rest.`
-                  }
-                />
-              </Card>
-            ) : (
-              <div className="grid xs:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
-                {scopedAssessments.slice(0, 4).map(x => (
-                  <Link
-                    key={x.assessment_id}
-                    to={`/user/assessment/${x.assessment_id}`}
-                    className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800 transition-all"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-xs font-bold text-gray-900 dark:text-gray-100 line-clamp-2">{x.title}</p>
-                      <span className={cn(
-                        'text-[8px] font-bold px-1.5 py-0.5 rounded flex-shrink-0',
-                        x.mode === 'mock'
-                          ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-                          : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
-                      )}>
-                        {x.mode === 'mock' ? 'MOCK' : 'PRACTICE'}
-                      </span>
+                  {showAllSubjects && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                        All {allSubjects.length} subjects · focus areas first
+                      </p>
+                      <div className="max-h-[220px] overflow-y-auto scrollbar-thin pr-1">
+                        <SubjectBreakdown subjects={allSubjects} sort="weakest" />
+                      </div>
                     </div>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1.5">
-                      {x.question_count} questions
+                  )}
+                  {/* Fixed detail row — reserved height, so hovering never reflows the card. */}
+                  <p className="mt-3 pt-2.5 border-t border-gray-100 dark:border-gray-800 text-[10px] leading-snug text-gray-500 dark:text-gray-400 min-h-[2rem]">
+                    {activeSubject != null ? (
+                      <>
+                        <span
+                          className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle"
+                          style={{ background: SUBJECT_COLORS[activeSubject % SUBJECT_COLORS.length] }}
+                        />
+                        <span className="font-semibold text-gray-700 dark:text-gray-200">
+                          {topSubjects[activeSubject].subject}
+                        </span>
+                        {topSubjects[activeSubject].correct != null &&
+                          topSubjects[activeSubject].attempted != null && (
+                            <>
+                              {' — '}
+                              {topSubjects[activeSubject].correct} of {topSubjects[activeSubject].attempted} answered
+                              correctly
+                              {topSubjects[activeSubject].total_questions != null &&
+                                topSubjects[activeSubject].attempted! < topSubjects[activeSubject].total_questions! && (
+                                  <>
+                                    {' · '}
+                                    {topSubjects[activeSubject].total_questions! -
+                                      topSubjects[activeSubject].attempted!}{' '}
+                                    left blank
+                                  </>
+                                )}
+                            </>
+                          )}
+                      </>
+                    ) : (
+                      <>
+                        {answeredTotals && (
+                          <>
+                            {answeredTotals.correct} of {answeredTotals.attempted} answered correctly across{' '}
+                            {allSubjects.length} subjects
+                            {` in ${groupLabel}`}.{' '}
+                            {subjectsTruncated && 'Based on your 25 most recent attempts. '}
+                          </>
+                        )}
+                        {/* The list is sorted strongest-first, so the subject that most needs
+                            work is the one furthest from view. Call it out regardless. */}
+                        {weakestSubject && (
+                          <>
+                            Weakest:{' '}
+                            <span className="font-semibold text-gray-700 dark:text-gray-200">
+                              {weakestSubject.subject}
+                            </span>{' '}
+                            ({Math.round(weakestSubject.accuracy)}%) —{' '}
+                            <Link to="/user/practice" className="text-blue-600 dark:text-blue-400 hover:underline">
+                              practise it
+                            </Link>
+                            .
+                          </>
+                        )}
+                      </>
+                    )}
+                  </p>
+                </>
+              ) : (
+                <div className="flex items-center gap-3 py-1">
+                  <div className="w-[76px] h-[76px] rounded-full border-[10px] border-gray-100 dark:border-gray-800 flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    {[0, 1, 2].map(i => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-gray-100 dark:bg-gray-800" />
+                        <span className="h-2 rounded bg-gray-100 dark:bg-gray-800" style={{ width: `${70 - i * 14}%` }} />
+                      </div>
+                    ))}
+                    <p className="text-[10px] text-gray-400 pt-0.5 leading-snug">
+                      Appears once your attempts have been analysed.
                     </p>
-                    <p className="text-[10px] text-gray-400 capitalize">
-                      {x.difficulty ?? '—'} · {x.time_limit_minutes ? `${x.time_limit_minutes} min` : 'Untimed'}
-                    </p>
-                    <p className="text-[10px] text-gray-400 mt-1">
-                      {x.due_date
-                        ? `Due ${new Date(x.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`
-                        : 'No deadline'}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Quick actions */}
-          <div>
-            <SectionHead title="Quick Actions" />
-            <div className="grid grid-cols-4 gap-2 sm:gap-3">
-              <QuickAction to={trackHref('mock')} icon={<Timer className="w-4 h-4" />} label="Take Mock Test" tone="indigo" />
-              <QuickAction to={trackHref('practice')} icon={<BookOpen className="w-4 h-4" />} label="Practice Now" tone="emerald" />
-              <QuickAction to="/user/performance" icon={<LineChartIcon className="w-4 h-4" />} label="View Performance" tone="amber" />
-              <QuickAction to="/user/history" icon={<Receipt className="w-4 h-4" />} label="Test History" tone="rose" />
-            </div>
+                  </div>
+                </div>
+              )}
+            </Card>
           </div>
         </div>
 
         {/* ── Right rail ─────────────────────────────────────────────────── */}
-        <div className="space-y-3 sm:space-y-4">
-          {/* Today's study plan, or a prompt to build one. Leads the rail because
-              it is the only card here that asks for an action today rather than
-              reporting on what already happened. Renders nothing while the
-              backend has no study-plan endpoints. */}
-          <StudyPlanCard />
-
-          {/* Strengths */}
-          <Card>
-            <CardHead
-              title="Strengths by Subject"
-              subtitle={
-                allSubjects.length === 0
-                  ? undefined
-                  : showAllSubjects || hiddenSubjects === 0
-                    ? `Accuracy on the questions you answered · all ${allSubjects.length} subjects`
-                    : `Accuracy on the questions you answered · your ${topSubjects.length} strongest`
-              }
-            />
-            {subjectsLoading ? (
-              <div className="flex items-center justify-center py-10">
-                <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
-              </div>
-            ) : allSubjects.length > 0 ? (
-              <>
-                <div className="flex items-center gap-3">
-                <div
-                  className="relative w-[120px] h-[120px] flex-shrink-0"
-                  onMouseLeave={() => setActiveSubject(null)}
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={topSubjects}
-                        dataKey="accuracy"
-                        nameKey="subject"
-                        innerRadius={38}
-                        outerRadius={56}
-                        paddingAngle={2}
-                        stroke="none"
-                        onMouseEnter={(_, i) => setActiveSubject(i)}
-                      >
-                        {topSubjects.map((_, i) => (
-                          <Cell
-                            key={i}
-                            fill={SUBJECT_COLORS[i % SUBJECT_COLORS.length]}
-                            // Dim the rest rather than move the slice — the ring keeps
-                            // its shape, so nothing appears to change value on hover.
-                            opacity={activeSubject == null || activeSubject === i ? 1 : 0.28}
-                            style={{ transition: 'opacity 120ms', cursor: 'pointer' }}
-                          />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-4">
-                    <span className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-none">
-                      {activeSubject != null
-                        ? `${Math.round(topSubjects[activeSubject].accuracy)}%`
-                        : overallAccuracy != null
-                          ? `${overallAccuracy}%`
-                          : '—'}
-                    </span>
-                    <span className="text-[9px] text-gray-400 text-center leading-tight mt-0.5">
-                      Accuracy
-                    </span>
-                  </div>
-                </div>
-                <ul className="flex-1 space-y-1.5 min-w-0" onMouseLeave={() => setActiveSubject(null)}>
-                  {topSubjects.map((sub, i) => (
-                    <li
-                      key={sub.subject}
-                      onMouseEnter={() => setActiveSubject(i)}
-                      title={
-                        sub.correct != null && sub.attempted != null
-                          ? `${sub.subject} — ${sub.correct} of ${sub.attempted} answered correctly`
-                          : sub.subject
-                      }
-                      className={cn(
-                        'flex items-center gap-2 text-[11px] rounded-md px-1 -mx-1 py-0.5 cursor-default transition-colors',
-                        activeSubject === i && 'bg-gray-50 dark:bg-gray-800',
-                      )}
-                    >
-                      <span
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ background: SUBJECT_COLORS[i % SUBJECT_COLORS.length] }}
-                      />
-                      <span className="truncate text-gray-600 dark:text-gray-300">{sub.subject}</span>
-                      <span className="ml-auto font-bold text-gray-900 dark:text-gray-100">
-                        {Math.round(sub.accuracy)}%
-                      </span>
-                    </li>
-                  ))}
-                  {(hiddenSubjects > 0 || showAllSubjects) && (
-                    <li className="pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAllSubjects(v => !v);
-                          setActiveSubject(null);
-                        }}
-                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
-                      >
-                        {showAllSubjects ? (
-                          <>Show top {SUBJECT_PREVIEW_COUNT} <ChevronUp className="w-3 h-3" /></>
-                        ) : (
-                          <>Show all {allSubjects.length} subjects <ChevronDown className="w-3 h-3" /></>
-                        )}
-                      </button>
-                    </li>
-                  )}
-                </ul>
-                </div>
-
-                {showAllSubjects && (
-                  <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
-                      All {allSubjects.length} subjects · focus areas first
-                    </p>
-                    <div className="max-h-[220px] overflow-y-auto scrollbar-thin pr-1">
-                      <SubjectBreakdown subjects={allSubjects} sort="weakest" />
-                    </div>
-                  </div>
-                )}
-                {/* Fixed detail row — reserved height, so hovering never reflows the card. */}
-                <p className="mt-3 pt-2.5 border-t border-gray-100 dark:border-gray-800 text-[10px] leading-snug text-gray-500 dark:text-gray-400 min-h-[2rem]">
-                  {activeSubject != null ? (
-                    <>
-                      <span
-                        className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle"
-                        style={{ background: SUBJECT_COLORS[activeSubject % SUBJECT_COLORS.length] }}
-                      />
-                      <span className="font-semibold text-gray-700 dark:text-gray-200">
-                        {topSubjects[activeSubject].subject}
-                      </span>
-                      {topSubjects[activeSubject].correct != null &&
-                        topSubjects[activeSubject].attempted != null && (
-                          <>
-                            {' — '}
-                            {topSubjects[activeSubject].correct} of {topSubjects[activeSubject].attempted} answered
-                            correctly
-                            {topSubjects[activeSubject].total_questions != null &&
-                              topSubjects[activeSubject].attempted! < topSubjects[activeSubject].total_questions! && (
-                                <>
-                                  {' · '}
-                                  {topSubjects[activeSubject].total_questions! -
-                                    topSubjects[activeSubject].attempted!}{' '}
-                                  left blank
-                                </>
-                              )}
-                          </>
-                        )}
-                    </>
-                  ) : (
-                    <>
-                      {answeredTotals && (
-                        <>
-                          {answeredTotals.correct} of {answeredTotals.attempted} answered correctly across{' '}
-                          {allSubjects.length} subjects
-                          {` in ${groupLabel}`}.{' '}
-                          {subjectsTruncated && 'Based on your 25 most recent attempts. '}
-                        </>
-                      )}
-                      {/* The list is sorted strongest-first, so the subject that most needs
-                          work is the one furthest from view. Call it out regardless. */}
-                      {weakestSubject && (
-                        <>
-                          Weakest:{' '}
-                          <span className="font-semibold text-gray-700 dark:text-gray-200">
-                            {weakestSubject.subject}
-                          </span>{' '}
-                          ({Math.round(weakestSubject.accuracy)}%) —{' '}
-                          <Link to="/user/practice" className="text-indigo-600 dark:text-indigo-400 hover:underline">
-                            practise it
-                          </Link>
-                          .
-                        </>
-                      )}
-                    </>
-                  )}
-                </p>
-              </>
-            ) : (
-              <div className="flex items-center gap-3 py-1">
-                <div className="w-[76px] h-[76px] rounded-full border-[10px] border-gray-100 dark:border-gray-800 flex-shrink-0" />
-                <div className="flex-1 space-y-2">
-                  {[0, 1, 2].map(i => (
-                    <div key={i} className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-gray-100 dark:bg-gray-800" />
-                      <span className="h-2 rounded bg-gray-100 dark:bg-gray-800" style={{ width: `${70 - i * 14}%` }} />
-                    </div>
-                  ))}
-                  <p className="text-[10px] text-gray-400 pt-0.5 leading-snug">
-                    Appears once your attempts have been analysed.
-                  </p>
-                </div>
-              </div>
-            )}
-          </Card>
-
+        <div className="flex flex-col gap-3 sm:gap-4 min-w-0 lg:self-start xl:self-stretch">
           {/* Recent activity */}
-          <Card>
-            <CardHead
-              title="Recent Activity"
-              subtitle={`${groupLabel} · ${trackNoun.toLowerCase()}s`}
-              action={<Link to="/user/history" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">View all</Link>}
-            />
+          <div className="rounded-2xl p-4 text-white" style={{ background: REPORT_NAVY }}>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="min-w-0">
+                <p className="text-sm font-bold">Recent Activity</p>
+                <p className="text-[11px] text-blue-200/70 mt-0.5">
+                  {groupLabel} · {trackNoun.toLowerCase()}s
+                </p>
+              </div>
+              <Link to="/user/history" className="text-xs font-semibold text-sky-300 hover:underline whitespace-nowrap">
+                View all
+              </Link>
+            </div>
             {recent.length === 0 ? (
-              <Empty text={`No ${trackNoun.toLowerCase()}s taken under this selection yet.`} />
+              <p className="py-5 text-center text-xs text-blue-200/60 leading-relaxed">
+                No {trackNoun.toLowerCase()}s taken under this selection yet.
+              </p>
             ) : (
               <ul className="space-y-2">
                 {recent.map(r => (
                   <li key={r.attempt_id}>
                     <Link
                       to={`/user/report/${r.attempt_id}`}
-                      className="flex items-center gap-2.5 rounded-xl px-2 py-2 -mx-2 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
+                      className="flex items-center gap-2.5 rounded-xl bg-white dark:bg-gray-900 px-3 py-2.5 hover:bg-blue-50 dark:hover:bg-gray-800 transition-colors"
                     >
-                      <span className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center flex-shrink-0">
-                        <ClipboardList className="w-4 h-4 text-indigo-500" />
+                      <span className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center flex-shrink-0">
+                        <ClipboardList className="w-4 h-4 text-blue-500" />
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
@@ -750,7 +664,7 @@ export default function UserDashboardPage() {
                           {new Date(r.start_time).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                         </span>
                       </span>
-                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
                         {r.percentage != null ? `${Math.round(r.percentage)}%` : '—'}
                       </span>
                     </Link>
@@ -758,20 +672,20 @@ export default function UserDashboardPage() {
                 ))}
               </ul>
             )}
-          </Card>
+          </div>
 
-          {/* Weekly performance — dark card */}
-          <div className="rounded-2xl bg-gray-900 dark:bg-gray-800 p-4 text-white">
+          {/* Weekly performance */}
+          <div className="rounded-2xl p-4 text-white" style={{ background: REPORT_NAVY }}>
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold">Weekly Performance</p>
-              <Link to="/user/performance" className="text-[11px] font-semibold text-indigo-300 hover:underline">
+              <Link to="/user/performance" className="text-xs font-semibold text-sky-300 hover:underline">
                 View report
               </Link>
             </div>
             <div className="flex items-center gap-4 mb-3">
               <div>
-                <p className="text-xl font-bold">{a?.weekly_performance?.average ?? 0}%</p>
-                <p className="text-[10px] text-gray-400">Average Score (%)</p>
+                <p className="text-2xl font-bold leading-none">{a?.weekly_performance?.average ?? 0}%</p>
+                <p className="text-[10px] text-blue-200/70 mt-1">Average Score (%)</p>
               </div>
               {a?.weekly_performance?.improvement != null && (
                 <div className="flex items-center gap-1 text-emerald-400 text-xs font-semibold">
@@ -781,33 +695,35 @@ export default function UserDashboardPage() {
                 </div>
               )}
             </div>
-            <div className="h-20 sm:h-24">
+            <div className="h-24 sm:h-28">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={a?.weekly_performance?.days ?? []} barCategoryGap="28%">
-                  <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} />
+                  <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#93a4c8' }} />
                   <Tooltip
                     cursor={{ fill: 'rgba(255,255,255,0.06)' }}
-                    contentStyle={{ borderRadius: 10, border: 'none', fontSize: 11, background: '#111827', color: '#fff' }}
+                    contentStyle={{ borderRadius: 10, border: 'none', fontSize: 11, background: '#0b1630', color: '#fff' }}
                     formatter={(v: any) => [`${v}%`, 'Average']}
                   />
-                  <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#818cf8" />
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#4d8ef7" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
             {weeklyNote && (
-              <p className="mt-2 pt-2 border-t border-white/10 text-[10px] leading-relaxed text-gray-400">
+              <p className="mt-2 pt-2 border-t border-white/10 text-[10px] leading-relaxed text-blue-200/70">
                 {weeklyNote}
               </p>
             )}
           </div>
 
-          {/* Study streak */}
-          <Card>
+          {/* Study streak — from `xl`, where the columns beside it are balanced, it takes whatever
+              height they leave so everything ends together; narrower, it keeps its own height. */}
+          <Card className="xl:flex-1">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Study Streak</p>
                 <p className="mt-1 flex items-center gap-1.5 text-lg font-bold text-amber-500">
-                  <Flame className="w-5 h-5" /> {a?.streak?.days ?? 0} Days
+                  <Flame className="w-5 h-5" /> {a?.streak?.days ?? 0} {a?.streak?.days === 1 ? 'Day' : 'Days'}
                 </p>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
                   Keep it up! Consistency is the key.
@@ -846,19 +762,124 @@ export default function UserDashboardPage() {
           </Card>
 
           {user.subscription_tier === 'free' && (
-            <div className="rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 p-4 text-white">
+            <div className="rounded-2xl bg-gradient-to-br from-brand-500 to-brand-400 p-4 text-white">
               <Sparkles className="w-5 h-5 mb-2" />
               <p className="text-sm font-bold">Unlock unlimited mocks, detailed analytics &amp; more</p>
               <p className="text-[11px] text-white/80 mt-1">Upgrade to browse and attempt every mock test.</p>
               <Link
                 to="/user/subscription"
-                className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-white text-indigo-700 text-xs font-bold px-3.5 py-2 hover:bg-white/90 transition-colors"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-white text-blue-700 text-xs font-bold px-3.5 py-2 hover:bg-white/90 transition-colors"
               >
                 Upgrade Now <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           )}
         </div>
+      </div>
+
+      {/* ── What to do next ───────────────────────────────────────────────── */}
+      <div className="mt-3 sm:mt-4 space-y-3 sm:space-y-4">
+        {/* Continue your preparation */}
+        <div className="rounded-2xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/20 p-4">
+          <SectionHead title="Continue Your Preparation" href="/user/exams" />
+          <div className={cn('grid gap-3', visibleGroups.length > 1 && 'lg:grid-cols-2')}>
+            {visibleGroups.map(g => {
+              const open = g.stages.filter(s => s.status === 'active').length;
+              return (
+                <Link
+                  key={g.id}
+                  to={`/user/exams/${g.id}`}
+                  className="group flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-blue-500">{g.authority}</p>
+                    <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mt-1">{g.name}</h3>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{g.tagline}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">{g.description}</p>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                      {g.stages.map(s => (
+                        <span
+                          key={s.id}
+                          className={cn(
+                            'text-[10px] font-semibold px-2 py-0.5 rounded-md border',
+                            s.status === 'active'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                              : 'bg-gray-50 text-gray-400 border-gray-200 dark:bg-gray-800 dark:border-gray-700',
+                          )}
+                        >
+                          {s.short_name}{s.status !== 'active' && ' · soon'}
+                        </span>
+                      ))}
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400 ml-1">
+                        {g.stages.length} stage{g.stages.length !== 1 ? 's' : ''} · {open} open now
+                      </span>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-xl bg-blue-100 dark:bg-blue-500/15 text-sm font-bold text-blue-700 dark:text-blue-300 group-hover:bg-blue-200/70 dark:group-hover:bg-blue-500/25 transition-colors flex-shrink-0">
+                    Continue <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Assigned assessments */}
+        <Card>
+          <SectionHead title={`Assigned ${trackNoun}s`} href="/user/exams" />
+          {scopedAssessments.length === 0 ? (
+            <Empty
+              compact
+              text={
+                assessments.length === 0
+                  ? 'Nothing assigned right now — pick an exam above to start a mock or practice test.'
+                  : `Nothing assigned under ${trackNoun.toLowerCase()}s. Switch the test dropdown to see the rest.`
+              }
+            />
+          ) : (
+            <div className="grid xs:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+              {scopedAssessments.slice(0, 4).map(x => (
+                <Link
+                  key={x.assessment_id}
+                  to={`/user/assessment/${x.assessment_id}`}
+                  className="rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs font-bold text-gray-900 dark:text-gray-100 line-clamp-2">{x.title}</p>
+                    <span className={cn(
+                      'text-[8px] font-bold px-1.5 py-0.5 rounded flex-shrink-0',
+                      x.mode === 'mock'
+                        ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-brand-300',
+                    )}>
+                      {x.mode === 'mock' ? 'MOCK' : 'PRACTICE'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2">{x.question_count} questions</p>
+                  <p className="text-[11px] text-gray-400">
+                    {x.time_limit_minutes ? `Max: ${x.time_limit_minutes} Min` : 'Untimed'}
+                  </p>
+                  <p className="text-[11px] text-gray-400">
+                    {x.due_date
+                      ? `Due ${new Date(x.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`
+                      : 'No deadline'}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Quick actions */}
+        <Card>
+          <SectionHead title="Quick Actions" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+            <QuickAction to={trackHref('mock')} icon={<Timer className="w-5 h-5" />} label="Take Mock Test" tone="indigo" />
+            <QuickAction to={trackHref('practice')} icon={<BookOpen className="w-5 h-5" />} label="Practice Now" tone="emerald" />
+            <QuickAction to="/user/performance" icon={<LineChartIcon className="w-5 h-5" />} label="View Performance" tone="amber" />
+            <QuickAction to="/user/history" icon={<Receipt className="w-5 h-5" />} label="Test History" tone="rose" />
+          </div>
+        </Card>
       </div>
     </UserShell>
   );
@@ -891,7 +912,7 @@ function SectionHead({ title, href }: { title: string; href?: string }) {
     <div className="flex items-center justify-between mb-2.5">
       <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100">{title}</h2>
       {href && (
-        <Link to={href} className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+        <Link to={href} className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
           View all
         </Link>
       )}
@@ -924,7 +945,7 @@ function Empty({
 }
 
 const TONE: Record<string, string> = {
-  indigo: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400',
+  indigo: 'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400',
   emerald: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400',
   amber: 'bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400',
   rose: 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400',
@@ -965,6 +986,14 @@ function StatCard({
   );
 }
 
+/** Each action keeps the tint of its stat tile, so the page reads in one palette. */
+const ACTION_TONE: Record<keyof typeof TONE, string> = {
+  indigo: 'border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100/70 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70',
+  emerald: 'border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/70 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/70',
+  amber: 'border-orange-100 bg-orange-50 text-orange-700 hover:bg-orange-100/70 dark:border-orange-900/50 dark:bg-orange-950/40 dark:text-orange-300 dark:hover:bg-orange-950/70',
+  rose: 'border-pink-100 bg-pink-50 text-pink-700 hover:bg-pink-100/70 dark:border-pink-900/50 dark:bg-pink-950/40 dark:text-pink-300 dark:hover:bg-pink-950/70',
+};
+
 function QuickAction({
   to,
   icon,
@@ -979,10 +1008,13 @@ function QuickAction({
   return (
     <Link
       to={to}
-      className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-2.5 sm:p-3 flex flex-col items-center gap-1.5 sm:gap-2 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800 transition-all"
+      className={cn(
+        'flex items-center justify-center gap-2.5 rounded-xl border px-3 py-3.5 text-xs sm:text-sm font-semibold text-center leading-tight transition-colors',
+        ACTION_TONE[tone],
+      )}
     >
-      <span className={cn('w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center', TONE[tone])}>{icon}</span>
-      <span className="text-[10px] sm:text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center leading-tight">{label}</span>
+      <span className="flex-shrink-0">{icon}</span>
+      {label}
     </Link>
   );
 }

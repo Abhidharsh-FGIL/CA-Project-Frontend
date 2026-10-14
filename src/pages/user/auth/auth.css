@@ -1,0 +1,542 @@
+/*
+ * Login and sign-up — the same scoped design as the landing page (`landing/landing.css`), so
+ * every rule sits under `.mge` and every class is prefixed `mge-`. The tokens (`--mge-navy`,
+ * `--mge-muted`, …) come from there.
+ */
+
+.mge .mge-auth-main {
+  padding: 34px 0 64px;
+  background:
+    radial-gradient(ellipse 42% 60% at 92% 30%, #e6f2fd 0%, transparent 70%),
+    radial-gradient(ellipse 40% 55% at 4% 92%, #fff1e4 0%, transparent 70%);
+  min-height: calc(100dvh - 77px);
+  /* On a tall screen the form sits in the middle rather than hugging the header. */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.mge .mge-auth-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 480px) 1fr;
+  align-items: center;
+  gap: clamp(28px, 5vw, 80px);
+}
+
+/*
+ * Sign-up: the card and its side column sit together in the middle of the page, not pinned to
+ * opposite edges, and the side column stays in view as the long form scrolls past it.
+ */
+.mge .mge-auth-grid-tight {
+  grid-template-columns: minmax(360px, 480px) minmax(0, 420px);
+  justify-content: center;
+  align-items: start;
+  gap: clamp(32px, 5vw, 76px);
+}
+
+.mge .mge-auth-grid-tight .mge-auth-side {
+  position: sticky;
+  top: 100px;
+}
+
+.mge .mge-auth-grid-single {
+  grid-template-columns: minmax(0, 520px);
+  justify-content: center;
+}
+
+/* ── the form card ── */
+
+.mge .mge-auth-card {
+  background: #fff;
+  border: 1px solid var(--mge-panel);
+  border-radius: 26px;
+  box-shadow: 0 22px 70px rgba(24, 45, 90, 0.11);
+  padding: 36px 34px 30px;
+}
+
+.mge .mge-auth-card h1 {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(27px, 2.4vw, 33px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  color: var(--mge-navy);
+  max-width: none;
+}
+
+.mge .mge-auth-sub {
+  margin: 9px 0 26px;
+  text-align: center;
+  font-size: 15px;
+  color: var(--mge-muted);
+}
+
+.mge .mge-auth-form {
+  display: grid;
+  gap: 14px;
+}
+
+.mge .mge-auth-alert {
+  margin: -8px 0 18px;
+  padding: 11px 14px;
+  border: 1px solid #f6c7c4;
+  border-radius: 12px;
+  background: #fff3f2;
+  color: #b42318;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* ── fields ── */
+
+.mge .mge-field {
+  min-width: 0;
+}
+
+.mge .mge-input {
+  position: relative;
+  display: block;
+}
+
+.mge .mge-input input,
+.mge .mge-input select {
+  display: block;
+  width: 100%;
+  height: 52px;
+  padding: 0 46px 0 48px;
+  border: 1px solid #dde4ef;
+  border-radius: 13px;
+  background: #fff;
+  color: var(--mge-navy);
+  font: inherit;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  appearance: none;
+}
+
+.mge .mge-input input::placeholder {
+  color: #8b97ad;
+}
+
+.mge .mge-input input:focus,
+.mge .mge-input select:focus {
+  border-color: #ff8a3d;
+  box-shadow: 0 0 0 3px rgba(255, 122, 47, 0.16);
+}
+
+.mge .mge-input-error input,
+.mge .mge-input-error select {
+  border-color: #e5484d;
+}
+
+.mge .mge-input-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translateY(-50%);
+  color: #6f7e9c;
+  pointer-events: none;
+}
+
+/* A small caption inside the box, over the value — Date of Birth, Gender and the like. */
+.mge .mge-input-labelled input,
+.mge .mge-input-labelled select {
+  height: 60px;
+  padding-top: 21px;
+}
+
+.mge .mge-input-label {
+  position: absolute;
+  left: 48px;
+  top: 10px;
+  z-index: 1;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--mge-muted);
+  pointer-events: none;
+}
+
+.mge .mge-input-empty select {
+  color: #8b97ad;
+}
+
+.mge .mge-input-chevron {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translateY(-50%);
+  color: #6f7e9c;
+  pointer-events: none;
+}
+
+.mge .mge-input-trailing {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+}
+
+.mge .mge-eye {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: #6f7e9c;
+  cursor: pointer;
+}
+
+.mge .mge-eye:hover {
+  color: var(--mge-navy);
+}
+
+.mge .mge-eye svg {
+  width: 20px;
+  height: 20px;
+}
+
+.mge .mge-field-error {
+  margin: 6px 4px 0;
+  font-size: 12.5px;
+  color: #d92d20;
+}
+
+.mge .mge-field-hint {
+  margin: 6px 4px 0;
+  font-size: 12px;
+  color: var(--mge-muted);
+}
+
+.mge .mge-auth-note {
+  margin: 4px 0 -2px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b97ad;
+}
+
+.mge .mge-link-btn {
+  justify-self: end;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #2a6fd6;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mge .mge-link-btn:hover,
+.mge .mge-auth-switch a:hover {
+  text-decoration: underline;
+}
+
+.mge .mge-auth-submit {
+  width: 100%;
+  height: 54px;
+  margin-top: 6px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 16px;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.mge .mge-auth-terms {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--mge-muted);
+}
+
+.mge .mge-auth-terms a {
+  color: #2a6fd6;
+  font-weight: 600;
+}
+
+.mge .mge-auth-terms a:hover {
+  text-decoration: underline;
+}
+
+.mge .mge-auth-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.mge .mge-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: mge-spin 0.7s linear infinite;
+}
+
+@keyframes mge-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mge .mge-auth-rule {
+  height: 1px;
+  margin: 24px 0 18px;
+  background: var(--mge-line);
+}
+
+.mge .mge-auth-switch {
+  margin: 0;
+  text-align: center;
+  font-size: 14.5px;
+  color: var(--mge-text);
+}
+
+.mge .mge-auth-switch a {
+  margin-left: 4px;
+  color: #2a6fd6;
+  font-weight: 700;
+}
+
+/* ── the right-hand column ── */
+
+.mge .mge-auth-side {
+  display: grid;
+  justify-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+
+.mge .mge-auth-art {
+  display: block;
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  /* The artwork is a crop with its own pale backdrop; fading its edges lets it sit on the page. */
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent 0, #000 10%, #000 93%, transparent 100%),
+    linear-gradient(180deg, transparent 0, #000 9%, #000 90%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent 0, #000 10%, #000 93%, transparent 100%),
+    linear-gradient(180deg, transparent 0, #000 9%, #000 90%, transparent 100%);
+  mask-composite: intersect;
+}
+
+.mge .mge-benefits {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+  justify-self: end;
+  padding: 6px 22px;
+  background: #fff;
+  border: 1px solid var(--mge-panel);
+  border-radius: 22px;
+  box-shadow: var(--mge-shadow);
+}
+
+.mge .mge-benefit {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--mge-navy);
+  border-top: 1px solid #f0f3f8;
+}
+
+/* Sign-up: the picture tucks in under the benefits card, so the column is no taller than the form. */
+.mge .mge-benefits + .mge-auth-art {
+  max-width: 360px;
+  margin-top: -52px;
+  justify-self: end;
+}
+
+.mge .mge-benefit:first-child {
+  border-top: 0;
+}
+
+.mge .mge-tile {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+}
+
+.mge .mge-tile svg {
+  width: 23px;
+  height: 23px;
+}
+
+.mge .mge-tile-blue { background: #e5f0fd; color: #2f7fe0; }
+.mge .mge-tile-orange { background: #fff0e1; color: #f58a2f; }
+.mge .mge-tile-purple { background: #f0eafd; color: #7b4de0; }
+.mge .mge-tile-green { background: #e3f6ec; color: #1fae71; }
+
+/* ── the row under the login card ── */
+
+.mge .mge-auth-points {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px clamp(28px, 6vw, 84px);
+  margin-top: 44px;
+}
+
+.mge .mge-auth-point {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--mge-navy);
+}
+
+/* ── dialogs (OTP, reset password) ── */
+
+.mge .mge-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(3px);
+}
+
+.mge .mge-modal {
+  width: 100%;
+  max-width: 400px;
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
+  padding: 30px 28px 24px;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.3);
+  text-align: center;
+}
+
+.mge .mge-modal-icon {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+}
+
+.mge .mge-modal h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--mge-navy);
+}
+
+.mge .mge-modal p {
+  margin: 8px 0 18px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--mge-muted);
+}
+
+.mge .mge-modal .mge-field {
+  text-align: left;
+}
+
+.mge .mge-modal-text-btn {
+  margin-top: 8px;
+  padding: 10px;
+  border: 0;
+  background: none;
+  color: var(--mge-muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.mge .mge-modal-text-btn:hover {
+  color: var(--mge-navy);
+}
+
+.mge .mge-otp {
+  width: 100%;
+  height: 62px;
+  border: 1px solid #dde4ef;
+  border-radius: 14px;
+  text-align: center;
+  font: inherit;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.5em;
+  padding-left: 0.5em;
+  color: var(--mge-navy);
+  outline: none;
+}
+
+.mge .mge-otp:focus {
+  border-color: #ff8a3d;
+  box-shadow: 0 0 0 3px rgba(255, 122, 47, 0.16);
+}
+
+.mge .mge-otp-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--mge-muted);
+}
+
+.mge .mge-otp-row .mge-link-btn {
+  font-size: 13px;
+}
+
+.mge .mge-otp-row .mge-link-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mge .mge-expired {
+  color: #d92d20;
+}
+
+/* ── smaller screens ── */
+
+@media (max-width: 980px) {
+  .mge .mge-auth-grid {
+    grid-template-columns: minmax(0, 520px);
+    justify-content: center;
+  }
+  .mge .mge-auth-side {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .mge .mge-auth-main {
+    padding: 22px 0 48px;
+  }
+  .mge .mge-auth-card {
+    padding: 28px 20px 24px;
+    border-radius: 22px;
+  }
+  .mge .mge-auth-points {
+    gap: 16px 28px;
+    justify-content: flex-start;
+  }
+}

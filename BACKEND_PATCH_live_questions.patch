@@ -1,0 +1,1027 @@
+diff --git a/app/models/assessment.py b/app/models/assessment.py
+index 36f9b36..8f20b2d 100644
+--- a/app/models/assessment.py
++++ b/app/models/assessment.py
+@@ -42,6 +42,11 @@ class Assessment(Base):
+     negative_mark_sections: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+     max_attempts: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+     shuffle_questions: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
++    # 'live': each attempt is drawn from the question bank as it is when the attempt starts, by the
++    # rule in `pool_filter`, so questions added later reach the paper. 'fixed': only the stored
++    # `question_ids`. See app/services/attempt_questions.py. Needs scripts/add_pool_columns.sql.
++    pool_mode: Mapped[str] = mapped_column(String(10), nullable=False, default="fixed", server_default="fixed")
++    pool_filter: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+     subject_weights: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+     paper_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+     paper_weights: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+diff --git a/app/routers/evaluation/assessments.py b/app/routers/evaluation/assessments.py
+index 589e723..01df93b 100644
+--- a/app/routers/evaluation/assessments.py
++++ b/app/routers/evaluation/assessments.py
+@@ -65,6 +65,12 @@ from app.schemas.assessment import (
+ from app.services.email_service import send_assessment_invitation_email
+ from app.routers.evaluation.papers import CUSTOM_PAPER_ID
+ from app.services.paper_weighting import compose_by_weight
++from app.services.attempt_questions import (
++    live_question_ids,
++    pool_ids_for,
++    pool_report,
++    refreshed_attempt_questions,
++)
+ 
+ logger = logging.getLogger(__name__)
+ 
+@@ -473,6 +479,8 @@ async def create_assessment(
+         ),
+         max_attempts=payload.max_attempts,
+         shuffle_questions=payload.shuffle_questions,
++        pool_mode=payload.pool_mode,
++        pool_filter=payload.pool_filter if payload.pool_mode == "live" else None,
+         subject_weights=payload.subject_weights,
+         paper_ids=payload.paper_ids,
+         paper_weights=payload.paper_weights,
+@@ -1295,9 +1303,11 @@ async def public_start_assessment(
+             await db.flush()
+             existing = None
+ 
++    pool = await pool_ids_for(db, a)
++
+     if existing:
+         attempt = existing
+-        ordered_ids = [str(qid) for qid in attempt.question_ids]
++        ordered_ids = await refreshed_attempt_questions(db, a, attempt, pool)
+     else:
+         used: int = await db.scalar(
+             select(sa_func.count(EvalAttempt.attempt_id)).where(
+@@ -1309,7 +1319,8 @@ async def public_start_assessment(
+                 status_code=400,
+                 detail=f"Maximum attempts ({a.max_attempts}) reached for this assessment",
+             )
+-        ordered_ids = _build_attempt_question_ids(a)
++        live = await live_question_ids(db, pool)
++        ordered_ids = _build_attempt_question_ids(a, live, pool)
+         if not ordered_ids:
+             raise HTTPException(status_code=400, detail="No questions available for this assessment")
+         attempt = EvalAttempt(
+@@ -1346,12 +1357,14 @@ async def public_start_assessment(
+             qd["options"] = qd["options_map"]
+ 
+     await db.flush()
++    report = await pool_report(db, pool)
+     return {
+         "attempt_id": str(attempt.attempt_id),
+         "start_time": attempt.start_time.isoformat() + "Z",
+         "time_limit_seconds": a.time_limit_seconds,
+         "questions": questions,
+         "responses": attempt.responses or [],
++        **report,
+     }
+ 
+ 
+diff --git a/app/routers/user/eval_assessments.py b/app/routers/user/eval_assessments.py
+index b2711e3..e4fff3f 100644
+--- a/app/routers/user/eval_assessments.py
++++ b/app/routers/user/eval_assessments.py
+@@ -21,6 +21,13 @@ from app.models.assessment_invitation import AssessmentInvitation
+ from app.models.eval_attempt import EvalAttempt, EvalAttemptStatus
+ from app.models.eval_question import EvalQuestion
+ from app.models.user import User
++from app.services.attempt_questions import (
++    draw_question_ids,
++    live_question_ids,
++    pool_ids_for,
++    pool_report,
++    refreshed_attempt_questions,
++)
+ from app.services.tnpsc_gate import assert_paper_unlocked
+ from app.services.tnpsc_marks import (
+     mark_per_question_for,
+@@ -152,22 +159,29 @@ def _serialize_question(q: EvalQuestion) -> dict:
+     }
+ 
+ 
+-def _build_attempt_question_ids(assessment: Assessment) -> list[str]:
++def _build_attempt_question_ids(
++    assessment: Assessment,
++    live_ids: Optional[set[str]] = None,
++    pool: Optional[list[str]] = None,
++) -> list[str]:
+     """
+     Apply shuffle / constant logic to produce the ordered question list for one attempt.
+     - shuffle=True  : random sample of question_count from all question_ids, random order
+     - shuffle=False : first question_count IDs (predefined set), shuffled order
+-    """
+-    all_ids: list[str] = [str(qid) for qid in (assessment.question_ids or [])]
+-    count = min(assessment.question_count or len(all_ids), len(all_ids))
+ 
+-    if assessment.shuffle_questions:
+-        selected = random.sample(all_ids, count)
+-    else:
+-        selected = list(all_ids[:count])
+-        random.shuffle(selected)
++    `live_ids` is the subset of the assessment's questions a student may be dealt — see
++    `app.services.attempt_questions`. A question outside it (its collection was deleted) is
++    never dealt. Left out, nothing is filtered.
+ 
+-    return selected
++    `pool` is what to draw from: for a live pool, the stored questions plus the bank's new matches
++    (`pool_ids_for`). Left out, it is the stored `question_ids`.
++    """
++    return draw_question_ids(
++        pool if pool is not None else assessment.question_ids,
++        assessment.question_count,
++        bool(assessment.shuffle_questions),
++        live_ids,
++    )
+ 
+ 
+ def _extract_options(q: EvalQuestion) -> list[str]:
+@@ -514,9 +528,15 @@ async def start_assessment(
+             await db.flush()
+             existing = None  # fall through to create a new attempt
+ 
++    # Everything this paper can draw from: its stored questions, and — for a live pool — whatever the
++    # bank holds now that matches the rule it was made by.
++    pool = await pool_ids_for(db, a)
++
+     if existing:
+         attempt = existing
+-        ordered_ids = [str(qid) for qid in attempt.question_ids]
++        # Questions whose collection was deleted since this attempt was dealt are replaced, so
++        # the student is neither shown them nor marked on them.
++        ordered_ids = await refreshed_attempt_questions(db, a, attempt, pool)
+     else:
+         # Check max attempts when creating a new attempt (after potentially finalizing an expired one).
+         # Incomplete (in_progress) attempts count toward the limit.
+@@ -531,7 +551,12 @@ async def start_assessment(
+                 status_code=400,
+                 detail=f"Maximum attempts ({a.max_attempts}) reached for this assessment",
+             )
+-        ordered_ids = _build_attempt_question_ids(a)
++        # Only questions that are still live — one from a deleted collection is never dealt.
++        live = await live_question_ids(db, pool)
++        ordered_ids = _build_attempt_question_ids(a, live, pool)
++        if not ordered_ids:
++            # Before the attempt exists: an empty one would still count against the limit.
++            raise HTTPException(status_code=400, detail="No questions available for this assessment")
+         attempt = EvalAttempt(
+             assessment_id=assessment_id,
+             user_id=current_user.user_id,
+@@ -559,12 +584,17 @@ async def start_assessment(
+         if qid in qs_map
+     ]
+ 
++    # Not needed to take the test; it is what tells "the server is running this rule" from "it is
++    # not": how many questions the paper can draw from, and how many were skipped as deleted.
++    report = await pool_report(db, pool)
++
+     return {
+         "attempt_id": str(attempt.attempt_id),
+         "start_time": attempt.start_time.isoformat() + "Z",
+         "time_limit_seconds": a.time_limit_seconds,
+         "questions": ordered_questions,
+         "responses": attempt.responses or [],
++        **report,
+     }
+ 
+ 
+diff --git a/app/schemas/assessment.py b/app/schemas/assessment.py
+index 4710fcf..5e116be 100644
+--- a/app/schemas/assessment.py
++++ b/app/schemas/assessment.py
+@@ -1,5 +1,5 @@
+ from datetime import datetime, date
+-from typing import Any, Dict, List, Optional
++from typing import Any, Dict, List, Literal, Optional
+ 
+ from pydantic import BaseModel, EmailStr, Field
+ 
+@@ -116,6 +116,9 @@ class AssessmentOut(BaseModel):
+     paper_breakdown: Optional[List[Dict[str, Any]]] = None
+     max_attempts: Optional[int] = None
+     shuffle_questions: bool
++    # 'live' papers draw each attempt from the question bank as it is then; see pool_filter.
++    pool_mode: str = "fixed"
++    pool_filter: Optional[Dict[str, Any]] = None
+     questions: Optional[List[dict]] = None
+     subject_weights: Optional[Dict[str, Any]] = None
+     paper_ids: Optional[list] = None
+@@ -159,6 +162,8 @@ class AssessmentOut(BaseModel):
+             negative_mark_sections=a.negative_mark_sections,
+             max_attempts=a.max_attempts,
+             shuffle_questions=a.shuffle_questions,
++            pool_mode=getattr(a, "pool_mode", None) or "fixed",
++            pool_filter=getattr(a, "pool_filter", None),
+             questions=questions,
+             subject_weights=a.subject_weights,
+             paper_ids=a.paper_ids,
+@@ -237,6 +242,10 @@ class CreateAssessmentRequest(BaseModel):
+     negative_mark_sections: Optional[List[NegativeMarkSection]] = None
+     max_attempts: Optional[int] = None
+     shuffle_questions: bool = True
++    # A paper made as a pool says so, and states the rule it was made by. The panel sends
++    # `question_ids` as well, so a server that ignores these keeps working from the list.
++    pool_mode: Literal["fixed", "live"] = "fixed"
++    pool_filter: Optional[Dict[str, Any]] = None
+     subject_weights: Optional[Dict[str, Any]] = None
+     paper_ids: Optional[List[str]] = None
+     paper_weights: Optional[Dict[str, Any]] = None
+diff --git a/app/services/attempt_questions.py b/app/services/attempt_questions.py
+new file mode 100644
+index 0000000..c0b204b
+--- /dev/null
++++ b/app/services/attempt_questions.py
+@@ -0,0 +1,291 @@
++"""Which questions a student may be dealt — and the ones they must not be.
++
++An assessment keeps a list of question ids, taken when it was created. Two things go wrong with a
++list that is a photograph of the bank:
++
++* A collection that is deleted later is only *retired* (`EvalPaper.is_active = False`): its questions
++  stay in `eval_questions`, and so does every assessment's reference to them. The question bank hides
++  them (its list joins the paper and keeps the active ones); this module applies the same rule to
++  what a student is dealt, so a collection that looks gone in the bank is gone from the tests too.
++
++* A question uploaded later is not in the list, so no attempt can ever draw it. A paper made as a
++  *pool* — "any 30 of the Medium Aptitude questions" — says so (`pool_mode = 'live'`) and states the
++  rule it was made by (`pool_filter`); each attempt is then drawn from the stored list **plus**
++  whatever in the bank matches the rule now.
++
++Both are rules applied when questions are *read*, and nothing is rewritten:
++
++* the assessment's own `question_ids` are left alone, so restoring a collection brings its
++  questions straight back into every paper that held them;
++* an attempt that is finished keeps its questions, so its report still reads as it was sat.
++
++Only two moments change: dealing a **new** attempt, and **resuming** one that is still open.
++"""
++from __future__ import annotations
++
++import logging
++import random
++import uuid
++from typing import Any, Iterable, Optional
++
++log = logging.getLogger(__name__)
++
++LIVE = "live"
++DIFFICULTIES = ("easy", "medium", "hard")
++# A pool is a paper's worth of questions, not a bank. Anything past this is a mis-made filter.
++MAX_POOL = 5000
++
++
++# ── which questions are live ─────────────────────────────────────────────────
++
++async def live_question_ids(db, ids: Iterable[Any]) -> set[str]:
++    """The ids, out of `ids`, a student may be dealt.
++
++    A question is live when it exists and either belongs to no collection (a custom question) or
++    belongs to one that has not been deleted. The same test as the question bank's list.
++    """
++    uuids: list[uuid.UUID] = []
++    for raw in ids:
++        try:
++            uuids.append(uuid.UUID(str(raw)))
++        except ValueError:
++            continue  # not an id at all — never live
++    if not uuids:
++        return set()
++
++    # Imported here, not at the top: the models read settings as they load, and the pure helpers
++    # below (the part with the rules in it) should be usable — and testable — without any of that.
++    from sqlalchemy import or_, select
++
++    from app.models.eval_paper import EvalPaper
++    from app.models.eval_question import EvalQuestion
++
++    rows = await db.execute(
++        select(EvalQuestion.question_id)
++        .outerjoin(EvalPaper, EvalQuestion.paper_id == EvalPaper.paper_id)
++        .where(
++            EvalQuestion.question_id.in_(set(uuids)),
++            or_(EvalQuestion.paper_id.is_(None), EvalPaper.is_active.is_(True)),
++        )
++    )
++    return {str(qid) for qid in rows.scalars().all()}
++
++
++# ── live pools ───────────────────────────────────────────────────────────────
++
++def _strings(value: Any) -> list[str]:
++    if not isinstance(value, (list, tuple)):
++        return []
++    return [str(v).strip() for v in value if v is not None and str(v).strip()]
++
++
++def pool_rule(assessment) -> Optional[dict]:
++    """The rule a live pool is drawn by, or None for a fixed paper.
++
++    None as well when a live paper's rule says nothing a question could match — a pool with no
++    rule has nothing to add, and quietly stays what it was.
++    """
++    if str(getattr(assessment, "pool_mode", None) or "fixed") != LIVE:
++        return None
++    raw = getattr(assessment, "pool_filter", None)
++    if not isinstance(raw, dict):
++        return None
++
++    difficulty = str(raw.get("difficulty") or "").strip().lower()
++    rule = {
++        "unit_ids": _strings(raw.get("unit_ids")),
++        # Compared case-insensitively: "Aptitude" and "aptitude" are the same subject.
++        "subjects": [s.lower() for s in _strings(raw.get("subjects"))],
++        "chapters": [s.lower() for s in _strings(raw.get("chapters"))],
++        "paper_ids": _strings(raw.get("paper_ids")),
++        "difficulty": difficulty if difficulty in DIFFICULTIES else None,
++        "question_types": [s.lower() for s in _strings(raw.get("question_types"))],
++        "source_type": (str(raw.get("source_type")).strip() or None) if raw.get("source_type") else None,
++    }
++    has_membership = bool(rule["unit_ids"] or rule["paper_ids"] or (rule["subjects"] and rule["chapters"]))
++    return rule if has_membership else None
++
++
++def matching_statement(org_id: str, rule: dict, Q, P):
++    """The SELECT of question ids that match a pool rule, or None when the rule cannot select any.
++
++    A question joins the pool when it is live, belongs to the same organisation, is at the paper's
++    difficulty, and is **any** of:
++
++    * tagged to one of the paper's units (`unit_id`) — exact, and what a sheet with a Unit column gets;
++    * not tagged to any unit, but of a subject *and* chapter the paper already holds — the questions
++      an admin adds by hand carry a subject and a topic and no unit, and they are the ones that
++      should look like their neighbours;
++    * in one of the collections the paper was built from.
++
++    `Q` and `P` are the question and collection models (parameters so the rule can be tested against
++    a stand-in). A deployment whose questions have no `unit_id` column simply has no unit clause.
++    """
++    from sqlalchemy import and_, func, or_, select
++
++    unit_col = getattr(Q, "unit_id", None)
++    member: list = []
++
++    if rule["unit_ids"] and unit_col is not None:
++        member.append(unit_col.in_(rule["unit_ids"]))
++
++    if rule["subjects"] and rule["chapters"]:
++        resembles = and_(
++            func.lower(Q.subject).in_(rule["subjects"]),
++            func.lower(Q.chapter).in_(rule["chapters"]),
++        )
++        member.append(and_(unit_col.is_(None), resembles) if unit_col is not None else resembles)
++
++    paper_uuids: list[uuid.UUID] = []
++    for raw in rule["paper_ids"]:
++        try:
++            paper_uuids.append(uuid.UUID(raw))
++        except ValueError:
++            continue
++    if paper_uuids:
++        member.append(Q.paper_id.in_(paper_uuids))
++
++    if not member:
++        return None
++
++    where = [Q.org_id == org_id, or_(Q.paper_id.is_(None), P.is_active.is_(True)), or_(*member)]
++    if rule["difficulty"]:
++        where.append(Q.difficulty == rule["difficulty"])
++    if rule["question_types"]:
++        where.append(Q.question_type.in_(rule["question_types"]))
++    if rule["source_type"]:
++        where.append(Q.source_type == rule["source_type"])
++
++    return select(Q.question_id).outerjoin(P, Q.paper_id == P.paper_id).where(*where)
++
++
++async def matching_question_ids(db, assessment) -> list[str]:
++    """The live bank questions that match this paper's pool rule right now.
++
++    Empty — never an error — for a fixed paper, a rule that selects nothing, or a lookup that
++    fails: a bad rule must leave the paper as it was, not turn it into an empty test.
++    """
++    rule = pool_rule(assessment)
++    if rule is None:
++        return []
++
++    from app.models.eval_paper import EvalPaper
++    from app.models.eval_question import EvalQuestion
++
++    stmt = matching_statement(assessment.org_id, rule, EvalQuestion, EvalPaper)
++    if stmt is None:
++        return []
++    try:
++        # A savepoint, so a failed statement cannot poison the transaction the attempt is made in.
++        async with db.begin_nested():
++            rows = await db.execute(stmt.limit(MAX_POOL))
++        return [str(q) for q in rows.scalars().all()]
++    except Exception:  # noqa: BLE001 — see above
++        log.exception("live pool lookup failed for assessment %s; using its stored questions", assessment.assessment_id)
++        return []
++
++
++async def pool_ids_for(db, assessment) -> list[str]:
++    """Every id this paper can draw from: its stored questions, then the bank's new matches.
++
++    The stored list comes first and keeps its order. For a fixed paper that is all there is.
++    """
++    stored = [str(q) for q in (assessment.question_ids or [])]
++    extra = await matching_question_ids(db, assessment)
++    if not extra:
++        return stored
++    seen = set(stored)
++    return stored + [q for q in extra if q not in seen]
++
++
++# ── dealing ──────────────────────────────────────────────────────────────────
++
++def draw_question_ids(
++    pool: Optional[Iterable[Any]],
++    count: Optional[int],
++    shuffle: bool,
++    live_ids: Optional[set[str]] = None,
++) -> list[str]:
++    """The ordered questions for one new attempt.
++
++    * shuffle: a random sample of `count` from the pool, in random order
++    * otherwise: the first `count` ids (the paper's fixed set), in shuffled order
++
++    With `live_ids`, a question that is not in it is never dealt. A pool that has run short is dealt
++    whole rather than refused — the caller decides what an empty deal means.
++    """
++    ids = [str(q) for q in (pool or [])]
++    if live_ids is not None:
++        ids = [q for q in ids if q in live_ids]
++    n = min(count or len(ids), len(ids))
++
++    if shuffle:
++        return random.sample(ids, n)
++    selected = list(ids[:n])
++    random.shuffle(selected)
++    return selected
++
++
++def prune_dead_questions(
++    dealt: list[str],
++    responses: Optional[list[Any]],
++    live_ids: set[str],
++) -> list[str]:
++    """An open attempt's questions, less the dead ones the student never answered.
++
++    A dead question they *did* answer stays: the answer is theirs, and removing it would change a
++    score they have already earned. One they only looked at goes — they should never have been
++    shown it, and must not be marked down for it.
++    """
++    answered = {
++        str(r.get("question_id"))
++        for r in (responses or [])
++        if isinstance(r, dict) and r.get("answer") not in (None, "", [])
++    }
++    return [q for q in dealt if q in live_ids or q in answered]
++
++
++def top_up_questions(
++    kept: list[str],
++    pool: Optional[Iterable[Any]],
++    live_ids: set[str],
++    target: int,
++) -> list[str]:
++    """`kept`, topped back up to `target` from the pool's live questions it does not already hold.
++
++    So a 30-question paper that lost 5 questions to a deleted collection is still 30 questions —
++    when the pool has the spare — rather than quietly becoming 25.
++    """
++    missing = target - len(kept)
++    if missing <= 0:
++        return list(kept)
++
++    taken = set(kept)
++    spare = [q for q in (str(x) for x in (pool or [])) if q in live_ids and q not in taken]
++    random.shuffle(spare)
++    return list(kept) + spare[:missing]
++
++
++async def refreshed_attempt_questions(db, assessment, attempt, pool: Optional[list[str]] = None) -> list[str]:
++    """The questions a resumed attempt should show now, saved onto the attempt.
++
++    Dead questions the student never answered are dropped and replaced from the paper's pool; the
++    rest keep their place. Nothing changes when nothing is dead.
++    """
++    dealt = [str(q) for q in (attempt.question_ids or [])]
++    pool = pool if pool is not None else await pool_ids_for(db, assessment)
++
++    live = await live_question_ids(db, dealt + pool)
++    kept = prune_dead_questions(dealt, attempt.responses, live)
++    kept = top_up_questions(kept, pool, live, len(dealt))
++
++    if kept != dealt:
++        attempt.question_ids = kept
++        await db.flush()
++    return kept
++
++
++async def pool_report(db, pool: list[str]) -> dict:
++    """What the start response says about the pool — how big it is, how much was skipped as deleted."""
++    live = await live_question_ids(db, pool)
++    return {"pool_size": len(live), "skipped_deleted": len(set(pool) - live)}
+diff --git a/scripts/add_pool_columns.sql b/scripts/add_pool_columns.sql
+new file mode 100644
+index 0000000..a9b3219
+--- /dev/null
++++ b/scripts/add_pool_columns.sql
+@@ -0,0 +1,81 @@
++-- Live question pools — two columns on assessments, and (optionally) turning existing papers live.
++--
++-- The schema is created with Base.metadata.create_all, which creates missing TABLES and never
++-- adds a column to one that exists, so this is run by hand, once. Safe to re-run.
++--
++--   psql "$DATABASE_URL" -f scripts/add_pool_columns.sql
++--
++-- Part 1 is required. Part 2 is optional and is written to be read before it is run.
++
++-- ── Part 1 — the columns ─────────────────────────────────────────────────────
++
++ALTER TABLE assessments ADD COLUMN IF NOT EXISTS pool_mode   VARCHAR(10) NOT NULL DEFAULT 'fixed';
++ALTER TABLE assessments ADD COLUMN IF NOT EXISTS pool_filter JSON;
++
++
++-- ── Part 2 — papers that already exist (optional) ────────────────────────────
++--
++-- A paper made before this change has no rule, so it stays 'fixed' — only the questions it was
++-- made with, minus any whose collection was deleted. These statements give the single-level unit
++-- papers a rule, so questions added to the bank later reach them.
++--
++-- Which papers: practice papers, shuffled, placed on one or more units, whose title ends in
++-- " · Simple", " · Medium" or " · Complex" (the wizard writes that suffix). NOT touched, because
++-- they are composed sets and not pools: " · Mixed" papers (a 20 / 30 / 50 blend), a section's
++-- " · Full Set", and every mock.
++--
++-- Written for the deployed schema, where assessments has `unit_ids`. The older code base in
++-- D:\GKR\New TNPSC\ca-project has no such column; this does not apply there.
++-- NOT RUN against a real database when it was written — run the preview first, and run the UPDATE
++-- inside BEGIN; ... then ROLLBACK; to look before COMMIT;.
++
++-- 2a. Preview: the papers that would become live.
++SELECT assessment_id,
++       title,
++       question_count                                   AS per_attempt,
++       jsonb_array_length(question_ids::jsonb)          AS stored_questions
++FROM assessments
++WHERE is_active
++  AND mode = 'practice'
++  AND shuffle_questions
++  AND pool_mode = 'fixed'
++  AND unit_ids IS NOT NULL
++  AND jsonb_array_length(unit_ids::jsonb) > 0
++  AND title ~ ' · (Simple|Medium|Complex)$'
++ORDER BY title;
++
++-- 2b. The change.
++-- BEGIN;
++UPDATE assessments a
++SET pool_mode = 'live',
++    pool_filter = json_build_object(
++        'unit_ids', a.unit_ids,
++        'difficulty', CASE
++            WHEN a.title LIKE '% · Simple'  THEN 'easy'
++            WHEN a.title LIKE '% · Complex' THEN 'hard'
++            ELSE 'medium'
++        END,
++        -- What the paper's questions carry today: how a question added by hand, which has no unit,
++        -- recognises the paper it belongs to. Read from the stored questions, so a paper whose
++        -- collection was deleted keeps the rule its questions had.
++        'subjects', (
++            SELECT json_agg(DISTINCT btrim(q.subject))
++            FROM eval_questions q
++            WHERE q.question_id::text IN (SELECT jsonb_array_elements_text(a.question_ids::jsonb))
++              AND q.subject IS NOT NULL AND btrim(q.subject) <> ''
++        ),
++        'chapters', (
++            SELECT json_agg(DISTINCT btrim(q.chapter))
++            FROM eval_questions q
++            WHERE q.question_id::text IN (SELECT jsonb_array_elements_text(a.question_ids::jsonb))
++              AND q.chapter IS NOT NULL AND btrim(q.chapter) <> ''
++        )
++    )
++WHERE a.is_active
++  AND a.mode = 'practice'
++  AND a.shuffle_questions
++  AND a.pool_mode = 'fixed'
++  AND a.unit_ids IS NOT NULL
++  AND jsonb_array_length(a.unit_ids::jsonb) > 0
++  AND a.title ~ ' · (Simple|Medium|Complex)$';
++-- COMMIT;   -- or ROLLBACK; if the preview was not what you expected
+diff --git a/tests/test_attempt_questions.py b/tests/test_attempt_questions.py
+new file mode 100644
+index 0000000..22356b4
+--- /dev/null
++++ b/tests/test_attempt_questions.py
+@@ -0,0 +1,409 @@
++"""A deleted collection's questions must not be dealt to a student.
++
++Deleting a collection only retires the collection; its questions stay in the table, and every
++assessment still holds their ids. These tests pin the rule that keeps them from being dealt — for a
++new attempt, and for one that is already open.
++"""
++
++import asyncio
++import uuid
++
++from sqlalchemy.dialects import postgresql
++
++from app.services.attempt_questions import (
++    draw_question_ids,
++    live_question_ids,
++    prune_dead_questions,
++    top_up_questions,
++)
++
++
++def ids(prefix: str, n: int) -> list[str]:
++    return [f"{prefix}-{i}" for i in range(n)]
++
++
++POOL = ids("keep", 60) + ids("gone", 40)  # 100 ids; the last 40 came from a deleted collection
++LIVE = set(ids("keep", 60))
++
++
++# ── dealing a new attempt ────────────────────────────────────────────────────
++
++def test_a_deleted_collections_questions_are_never_dealt():
++    for _ in range(200):  # random sampling — one lucky draw proves nothing
++        dealt = draw_question_ids(POOL, 30, shuffle=True, live_ids=LIVE)
++        assert len(dealt) == 30
++        assert not any(q.startswith("gone") for q in dealt)
++
++
++def test_without_a_live_set_nothing_is_filtered():
++    """The old behaviour, for callers that have not been given one."""
++    seen = set()
++    for _ in range(200):
++        seen.update(draw_question_ids(POOL, 30, shuffle=True))
++    assert any(q.startswith("gone") for q in seen)
++
++
++def test_a_pool_that_ran_short_is_dealt_whole():
++    dealt = draw_question_ids(POOL, 80, shuffle=True, live_ids=LIVE)
++    assert sorted(dealt) == sorted(LIVE)  # 60 live questions, 80 asked for
++
++
++def test_a_pool_with_nothing_live_deals_nothing():
++    assert draw_question_ids(POOL, 30, shuffle=True, live_ids=set()) == []
++
++
++def test_a_fixed_paper_takes_its_first_live_questions_in_shuffled_order():
++    dealt = draw_question_ids(["gone-0", "keep-0", "keep-1", "keep-2"], 2, shuffle=False, live_ids=LIVE)
++    assert sorted(dealt) == ["keep-0", "keep-1"]
++
++
++def test_the_count_defaults_to_the_whole_pool():
++    assert len(draw_question_ids(ids("keep", 7), None, shuffle=True, live_ids=LIVE | set(ids("keep", 7)))) == 7
++
++
++def test_an_empty_or_missing_pool_deals_nothing():
++    assert draw_question_ids(None, 10, shuffle=True) == []
++    assert draw_question_ids([], 10, shuffle=False) == []
++
++
++# ── resuming an attempt that is already open ─────────────────────────────────
++
++def test_dead_questions_the_student_never_answered_are_dropped():
++    dealt = ["keep-0", "gone-0", "keep-1", "gone-1"]
++    assert prune_dead_questions(dealt, [], LIVE) == ["keep-0", "keep-1"]
++
++
++def test_a_dead_question_the_student_answered_stays():
++    dealt = ["keep-0", "gone-0", "gone-1"]
++    responses = [{"question_id": "gone-0", "answer": "B"}]
++    assert prune_dead_questions(dealt, responses, LIVE) == ["keep-0", "gone-0"]
++
++
++def test_a_dead_question_only_looked_at_is_dropped():
++    """A saved response with no answer — visited, or marked for review — is not an answer."""
++    dealt = ["keep-0", "gone-0"]
++    for blank in (None, "", []):
++        responses = [{"question_id": "gone-0", "answer": blank, "marked_for_review": True}]
++        assert prune_dead_questions(dealt, responses, LIVE) == ["keep-0"]
++
++
++def test_nothing_changes_when_nothing_is_dead():
++    dealt = ["keep-0", "keep-1", "keep-2"]
++    assert prune_dead_questions(dealt, [{"question_id": "keep-0", "answer": "A"}], LIVE) == dealt
++
++
++def test_responses_that_are_not_dicts_are_ignored():
++    assert prune_dead_questions(["keep-0", "gone-0"], ["junk", None, 3], LIVE) == ["keep-0"]
++
++
++def test_a_shrunk_attempt_is_topped_back_up_from_the_pool():
++    kept = ["keep-0", "keep-1"]
++    filled = top_up_questions(kept, POOL, LIVE, 5)
++    assert len(filled) == 5
++    assert filled[:2] == kept
++    assert len(set(filled)) == 5  # no question twice
++    assert not any(q.startswith("gone") for q in filled)
++
++
++def test_the_top_up_runs_out_when_the_pool_does():
++    live = {"keep-0", "keep-1", "keep-2"}
++    filled = top_up_questions(["keep-0"], ["keep-0", "keep-1", "keep-2", "gone-0"], live, 10)
++    assert sorted(filled) == ["keep-0", "keep-1", "keep-2"]
++
++
++def test_no_top_up_when_the_attempt_is_already_full():
++    kept = ["keep-0", "keep-1"]
++    assert top_up_questions(kept, POOL, LIVE, 2) == kept
++    assert top_up_questions(kept, POOL, LIVE, 1) == kept
++
++
++# ── the lookup that says which questions are live ───────────────────────────
++
++class _Result:
++    def __init__(self, rows):
++        self.rows = rows
++
++    def scalars(self):
++        return self
++
++    def all(self):
++        return self.rows
++
++
++class _FakeDb:
++    """Stands in for the session: records the statement it is asked to run."""
++
++    def __init__(self, rows):
++        self.rows = rows
++        self.statements = []
++
++    async def execute(self, stmt):
++        self.statements.append(stmt)
++        return _Result(self.rows)
++
++
++def test_ids_that_are_not_ids_never_reach_the_database():
++    db = _FakeDb([])
++    assert asyncio.run(live_question_ids(db, ["nope", "", None, "12345"])) == set()
++    assert db.statements == []
++
++
++def test_live_means_no_collection_or_an_active_one():
++    """The same test as the question bank's list: a question with no paper, or one whose paper is active."""
++    try:
++        import os
++
++        os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
++        os.environ.setdefault("OPENAI_API_KEY", "x")
++        os.environ.setdefault("SECRET_KEY", "x")
++        import app.models.eval_paper  # noqa: F401  (the lookup imports these itself)
++        import app.models.eval_question  # noqa: F401
++    except ModuleNotFoundError:
++        return  # the database driver is not installed here; the rules above are what matter
++
++    live = uuid.uuid4()
++    db = _FakeDb([live])
++    got = asyncio.run(live_question_ids(db, [str(live), str(uuid.uuid4()), "junk"]))
++
++    assert got == {str(live)}  # returned as strings, the form the rest of the code compares
++    sql = str(db.statements[0].compile(dialect=postgresql.dialect()))
++    assert "LEFT OUTER JOIN eval_papers" in sql
++    assert "eval_questions.paper_id IS NULL" in sql
++    assert "eval_papers.is_active IS true" in sql
++
++
++# ═════════════════════════════════════════════════════════════════════════════
++# Live pools — questions added after the paper was made reach it
++# ═════════════════════════════════════════════════════════════════════════════
++
++import types
++
++from sqlalchemy import Boolean, Column, String
++from sqlalchemy.dialects.postgresql import UUID
++from sqlalchemy.orm import declarative_base
++
++from app.services.attempt_questions import (
++    matching_question_ids,
++    matching_statement,
++    pool_ids_for,
++    pool_rule,
++)
++
++_Base = declarative_base()
++
++
++class _Paper(_Base):
++    __tablename__ = "stand_in_papers"
++    paper_id = Column(UUID(as_uuid=True), primary_key=True)
++    is_active = Column(Boolean)
++
++
++def _question_model(name: str, with_unit: bool):
++    cols = {
++        "__tablename__": name,
++        "question_id": Column(UUID(as_uuid=True), primary_key=True),
++        "org_id": Column(String),
++        "paper_id": Column(UUID(as_uuid=True)),
++        "subject": Column(String),
++        "chapter": Column(String),
++        "difficulty": Column(String),
++        "question_type": Column(String),
++        "source_type": Column(String),
++    }
++    if with_unit:
++        cols["unit_id"] = Column(String)
++    return type(name.title().replace("_", ""), (_Base,), cols)
++
++
++_QWithUnit = _question_model("stand_in_q_unit", True)
++_QNoUnit = _question_model("stand_in_q_plain", False)
++
++
++def _live(**over):
++    base = {
++        "unit_ids": ["g4-apt-aptitude"],
++        "subjects": ["Aptitude & Mental Ability"],
++        "chapters": ["Percentage"],
++        "difficulty": "medium",
++    }
++    return types.SimpleNamespace(
++        assessment_id="a1",
++        org_id="demo-org",
++        question_ids=ids("keep", 60) + ids("gone", 40),
++        question_count=30,
++        shuffle_questions=True,
++        pool_mode="live",
++        pool_filter={**base, **over},
++    )
++
++
++def _sql(stmt):
++    return str(stmt.compile(dialect=postgresql.dialect()))
++
++
++# ── the rule ─────────────────────────────────────────────────────────────────
++
++def test_a_fixed_paper_has_no_pool_rule():
++    a = _live()
++    a.pool_mode = "fixed"
++    assert pool_rule(a) is None
++    a.pool_mode = None
++    assert pool_rule(a) is None
++
++
++def test_a_live_paper_with_unit_ids_has_a_rule():
++    rule = pool_rule(_live(subjects=None, chapters=None))
++    assert rule["unit_ids"] == ["g4-apt-aptitude"]
++    assert rule["difficulty"] == "medium"
++
++
++def test_subjects_and_chapters_are_compared_in_lower_case():
++    rule = pool_rule(_live(unit_ids=None))
++    assert rule["subjects"] == ["aptitude & mental ability"]
++    assert rule["chapters"] == ["percentage"]
++
++
++def test_a_subject_without_a_chapter_is_too_loose_to_be_a_rule():
++    """Aptitude and Reasoning share a subject, so a subject alone would pull in the wrong unit."""
++    assert pool_rule(_live(unit_ids=None, chapters=None)) is None
++    assert pool_rule(_live(unit_ids=None, subjects=None)) is None
++
++
++def test_a_rule_that_names_nothing_is_no_rule():
++    assert pool_rule(_live(unit_ids=[], subjects=[], chapters=[], paper_ids=None)) is None
++    a = _live()
++    a.pool_filter = "not a dict"
++    assert pool_rule(a) is None
++    a.pool_filter = None
++    assert pool_rule(a) is None
++
++
++def test_an_unknown_difficulty_is_ignored_not_trusted():
++    assert pool_rule(_live(difficulty="medium-ish"))["difficulty"] is None
++    assert pool_rule(_live(difficulty="HARD"))["difficulty"] == "hard"
++
++
++# ── the query ────────────────────────────────────────────────────────────────
++
++def test_a_unit_tagged_question_matches_by_unit_and_an_untagged_one_by_what_it_looks_like():
++    sql = _sql(matching_statement("demo-org", pool_rule(_live()), _QWithUnit, _Paper))
++    assert "stand_in_q_unit.unit_id IN" in sql  # the exact route
++    assert "stand_in_q_unit.unit_id IS NULL" in sql  # untagged questions only get the looks-alike route
++    assert "lower(stand_in_q_unit.subject) IN" in sql
++    assert "lower(stand_in_q_unit.chapter) IN" in sql
++    assert "stand_in_q_unit.org_id =" in sql
++    assert "stand_in_q_unit.difficulty =" in sql
++    assert "LEFT OUTER JOIN stand_in_papers" in sql
++    assert "stand_in_q_unit.paper_id IS NULL" in sql and "stand_in_papers.is_active IS true" in sql
++
++
++def test_the_paper_difficulty_is_part_of_the_match():
++    params = matching_statement("demo-org", pool_rule(_live(difficulty="hard")), _QWithUnit, _Paper).compile(
++        dialect=postgresql.dialect()
++    ).params
++    assert "hard" in params.values()
++    assert "demo-org" in params.values()
++
++    sql = _sql(matching_statement("demo-org", pool_rule(_live(difficulty=None)), _QWithUnit, _Paper))
++    assert "difficulty" not in sql  # any difficulty
++
++
++def test_without_a_unit_column_only_the_looks_alike_route_remains():
++    sql = _sql(matching_statement("demo-org", pool_rule(_live()), _QNoUnit, _Paper))
++    assert "unit_id" not in sql
++    assert "lower(stand_in_q_plain.subject) IN" in sql
++
++
++def test_a_unit_only_rule_selects_nothing_when_questions_carry_no_unit():
++    rule = pool_rule(_live(subjects=None, chapters=None))
++    assert matching_statement("demo-org", rule, _QNoUnit, _Paper) is None
++    assert matching_statement("demo-org", rule, _QWithUnit, _Paper) is not None
++
++
++def test_a_pool_made_of_whole_collections_matches_by_collection():
++    rule = pool_rule(
++        _live(unit_ids=None, subjects=None, chapters=None, difficulty=None, paper_ids=[str(uuid.uuid4())])
++    )
++    sql = _sql(matching_statement("demo-org", rule, _QNoUnit, _Paper))
++    assert "stand_in_q_plain.paper_id IN" in sql
++
++
++# ── resolving a pool ─────────────────────────────────────────────────────────
++
++class _Nested:
++    async def __aenter__(self):
++        return self
++
++    async def __aexit__(self, *exc):
++        return False
++
++
++class _PoolDb(_FakeDb):
++    def __init__(self, rows, fail=False):
++        super().__init__(rows)
++        self.fail = fail
++
++    def begin_nested(self):
++        return _Nested()
++
++    async def execute(self, stmt):
++        if self.fail:
++            raise RuntimeError("column does not exist")
++        return await super().execute(stmt)
++
++
++def test_a_fixed_paper_is_not_asked_of_the_database_at_all():
++    a = _live()
++    a.pool_mode = "fixed"
++    db = _PoolDb([uuid.uuid4()])
++    assert asyncio.run(pool_ids_for(db, a)) == a.question_ids
++    assert db.statements == []
++
++
++def test_new_matches_join_the_stored_questions_after_them():
++    new = [uuid.uuid4() for _ in range(3)]
++    a = _live()
++    got = asyncio.run(pool_ids_for(_PoolDb(new), a))
++    assert got[: len(a.question_ids)] == a.question_ids
++    assert got[len(a.question_ids):] == [str(n) for n in new]
++
++
++def test_a_question_the_paper_already_holds_is_not_added_twice():
++    a = _live()
++    holds = uuid.UUID("00000000-0000-0000-0000-000000000001")
++    a.question_ids = [str(holds), "keep-1"]
++    got = asyncio.run(pool_ids_for(_PoolDb([holds, uuid.uuid4()]), a))
++    assert got.count(str(holds)) == 1
++    assert len(got) == 3
++
++
++def test_a_failing_lookup_leaves_the_paper_as_it_was():
++    a = _live()
++    assert asyncio.run(matching_question_ids(_PoolDb([], fail=True), a)) == []
++    assert asyncio.run(pool_ids_for(_PoolDb([], fail=True), a)) == a.question_ids
++
++
++def test_the_whole_story_a_deleted_collection_and_fifty_new_questions():
++    """A paper of 100 questions, 40 of them from a collection that was then deleted, then 50 uploaded."""
++    a = _live()
++    new = [str(uuid.uuid4()) for _ in range(50)]
++    pool = asyncio.run(pool_ids_for(_PoolDb([uuid.UUID(n) for n in new]), a))
++    assert len(pool) == 150
++
++    live = set(ids("keep", 60)) | set(new)  # the deleted 40 are not live
++    seen_new = set()
++    for _ in range(300):
++        dealt = draw_question_ids(pool, a.question_count, a.shuffle_questions, live)
++        assert len(dealt) == 30
++        assert not any(q.startswith("gone") for q in dealt)  # never a deleted question
++        seen_new.update(q for q in dealt if q in new)
++    assert len(seen_new) > 30  # and the uploaded ones really do get dealt
++
++
++def test_a_paper_whose_questions_all_died_is_usable_again_once_new_ones_arrive():
++    a = _live()
++    a.question_ids = ids("gone", 40)
++    new = [str(uuid.uuid4()) for _ in range(8)]
++    pool = asyncio.run(pool_ids_for(_PoolDb([uuid.UUID(n) for n in new]), a))
++    dealt = draw_question_ids(pool, a.question_count, a.shuffle_questions, set(new))
++    assert sorted(dealt) == sorted(new)

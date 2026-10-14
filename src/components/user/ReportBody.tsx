@@ -20,6 +20,13 @@ import {
 } from '@/lib/userPortalApi';
 import { MathText } from '@/components/ui/MathText';
 import { normaliseLineBreaks, parseOptionRepr } from '@/lib/question-text';
+import {
+  OPTION_LABELS,
+  OPTION_LETTERS,
+  allOptions,
+  isImageUrl,
+  resolveAnswerLabel,
+} from '@/lib/question-options';
 import { orderBySection, stageForSubjects, stageForTitle } from '@/config/tnpsc';
 import { MarkdownText } from '@/components/ui/MarkdownText';
 import { buildUrl } from '@/lib/api';
@@ -36,7 +43,11 @@ import { ReportLanguageProvider, type ReportLanguage } from '@/components/user/r
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { buildAttemptReport, factsFromModel } from '@/lib/attempt-report';
+import { DEPTH_NOTE, reportDepth, showsPanel } from '@/lib/report-depth';
+import { UnitPracticeReport } from '@/components/user/UnitPracticeReport';
+import { getPlan, includesAiInsights } from '@/data/userPortalSampleData';
 import { StudyPlanReportCta } from '@/components/user/study-plan/StudyPlanCard';
+import { SHOW_STUDY_PLAN } from '@/config/features';
 
 /** Rows per page in the question table — a full 200-question paper needs paging. */
 const QUESTIONS_PER_PAGE = 25;
@@ -60,83 +71,6 @@ interface ReportBodyProps {
 }
 
 // ── Option display helpers ─────────────────────────────────────────────────────
-
-const OPTION_LETTERS = ['a', 'b', 'c', 'd', 'e', 'f'];
-const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
-
-/** True if the string is an image path/URL (so an image option renders as a picture, not text). */
-function isImageUrl(s: string): boolean {
-  return /^\/static\//i.test(s) ||
-    /\.(png|jpe?g|webp|gif|svg)(\?|#|$)/i.test(s) ||
-    (/^https?:\/\//i.test(s) && /\.(png|jpe?g|webp|gif|svg)/i.test(s));
-}
-
-/** Look up an option by letter — supports an array (indexed) or a {A: …} map. */
-function optionAt(options: any, key: string, idx: number): any {
-  if (Array.isArray(options)) return idx >= 0 ? options[idx] : undefined;
-  if (options && typeof options === 'object') return options[key?.toUpperCase()] ?? options[key] ?? undefined;
-  return undefined;
-}
-
-function resolveAnswerLabel(key: string | null, options: any): { label: string; text: string | null; image_url: string | null } {
-  if (!key) return { label: '—', text: null, image_url: null };
-  const idx = OPTION_LETTERS.indexOf(key.toLowerCase());
-  const label = idx >= 0 ? OPTION_LABELS[idx] : key.toUpperCase();
-  const opt = optionAt(options, key, idx);
-  if (opt && typeof opt === 'object') {
-    return { label, text: opt.text ?? null, image_url: opt.image_url ?? opt.imageUrl ?? null };
-  }
-  // An image option serialised by Python's str() rather than as JSON — the URL is
-  // in there, so recover it instead of printing the dict.
-  const rich = parseOptionRepr(opt);
-  if (rich) return { label, text: rich.text, image_url: rich.image_url };
-
-  if (opt != null && opt !== '') {
-    const raw = String(opt);
-    if (isImageUrl(raw)) return { label, text: null, image_url: raw };
-    return { label, text: raw.replace(/^[A-Fa-f][.)]\s*/, '').trim() || raw, image_url: null };
-  }
-  return { label, text: null, image_url: null };
-}
-
-/**
- * Every option a question offered, in order.
- *
- * The review card used to show only the two answers — the one chosen and the
- * right one — which is enough to mark a question but not enough to learn from
- * it. Seeing the three you *didn't* pick is how you work out what the trap was.
- *
- * Handles all three shapes the payload uses: an array of strings, an array of
- * `{text, image_url}`, and the legacy `{A: "..."}` map.
- */
-function allOptions(
-  options: any,
-  translated?: string[] | null,
-): Array<{ label: string; text: string | null; image_url: string | null; translated: string | null }> {
-  const keys = Array.isArray(options)
-    ? options.map((_, i) => i)
-    : options && typeof options === 'object'
-      ? OPTION_LETTERS.map((_, i) => i).filter(i => optionAt(options, OPTION_LETTERS[i], i) != null)
-      : [];
-
-  return keys.map(i => {
-    const raw = optionAt(options, OPTION_LETTERS[i], i);
-    const label = OPTION_LABELS[i] ?? String(i + 1);
-    // The translation rides alongside rather than replacing the text: the stored
-    // answer is matched against the primary language.
-    let tr = translated?.[i] ?? null;
-    if (tr != null && String(tr).trim() === String(raw ?? '').trim()) tr = null;
-
-    if (raw && typeof raw === 'object') {
-      return { label, text: raw.text ?? null, image_url: raw.image_url ?? raw.imageUrl ?? null, translated: tr };
-    }
-    const rich = parseOptionRepr(raw);
-    if (rich) return { label, text: rich.text, image_url: rich.image_url, translated: tr };
-    const str = raw == null ? '' : String(raw);
-    if (isImageUrl(str)) return { label, text: null, image_url: str, translated: tr };
-    return { label, text: str.replace(/^[A-Fa-f][.)]\s*/, '').trim() || str || null, image_url: null, translated: tr };
-  });
-}
 
 function reasonLabel(reason: string): string {
   switch (reason) {
@@ -195,7 +129,7 @@ function BadgesPanel({ badges }: { badges: AttemptBadge[] }) {
 
       {/* Earned level highlight */}
       {earnedLevel && (
-        <div className="flex items-center gap-3 mb-4 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-900/40 p-3">
+        <div className="flex items-center gap-3 mb-4 rounded-xl bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/40 dark:to-purple-950/30 border border-blue-100 dark:border-blue-900/40 p-3">
           <span className="text-3xl leading-none">{earnedLevel.icon}</span>
           <div className="min-w-0">
             <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{earnedLevel.title}</p>
@@ -358,7 +292,7 @@ function QuestionCard({
           {/* Shared passage / context (reading-comprehension groups) */}
           {(q as any).passage && (
             <div className="bg-white border border-gray-200 rounded-lg px-3 py-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-1">Passage</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-1">Passage</p>
               <MarkdownText text={(q as any).passage} className="text-gray-700" />
             </div>
           )}
@@ -496,17 +430,17 @@ function QuestionCard({
               explanation was written with, which HTML would otherwise collapse
               into one unbroken block. */}
           {shown.explanation && (
-            <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-1">Explanation</p>
+            <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-1">Explanation</p>
               <MathText
                 as="p"
-                className="text-sm text-indigo-900 leading-relaxed whitespace-pre-line"
+                className="text-sm text-blue-900 leading-relaxed whitespace-pre-line"
                 text={normaliseLineBreaks(shown.explanation)}
               />
               {showPrimary && tr?.explanation && tr.explanation.trim() && (
                 <MathText
                   as="p"
-                  className="text-sm leading-relaxed whitespace-pre-line text-indigo-700/80 mt-1.5"
+                  className="text-sm leading-relaxed whitespace-pre-line text-blue-700/80 mt-1.5"
                   text={normaliseLineBreaks(tr.explanation)}
                 />
               )}
@@ -713,10 +647,31 @@ export function AttemptReport({
    * detail payload only — without it there is nothing to diagnose, and the report
    * says so rather than rendering empty charts.
    */
-  const model = useMemo(
-    () => (detail ? buildAttemptReport(detail, {}, examContext) : null),
-    [detail, examContext],
+  const placement = useMemo(
+    () => ({
+      track: attempt.test_mode ?? detail?.attempt?.test_mode ?? null,
+      // Placement is not on an attempt yet (BACKEND_WORK.md item 4); when it is,
+      // these stop the subject-spread fallback from having to guess.
+      scope: (detail?.attempt as any)?.tnpsc_scope ?? null,
+      unitId: (detail?.attempt as any)?.tnpsc_unit_id ?? null,
+      sectionName: (detail?.attempt as any)?.tnpsc_section_name ?? null,
+    }),
+    [attempt.test_mode, detail],
   );
+
+  const model = useMemo(() => {
+    if (!detail) return null;
+    const built = buildAttemptReport(detail, {}, examContext);
+    if (!examContext || reportDepth(placement, built) === 'full') return built;
+
+    /*
+     * A unit or section set is a slice of the exam, not the exam. The context's
+     * question count and duration describe the whole paper — 200 questions, three
+     * hours — so leaving them in made a 20-question set read as "200 questions,
+     * 180 skipped". Without them the totals come from the attempt itself.
+     */
+    return buildAttemptReport(detail, {}, { ...examContext, totalQuestions: null, durationSec: null });
+  }, [detail, examContext, placement]);
 
   /**
    * The report the user sees right now is already complete — every section
@@ -727,12 +682,25 @@ export function AttemptReport({
    * Fire-and-forget: the endpoint is idempotent, so a duplicate call from a
    * remount or a second tab just returns the existing row.
    */
+  /*
+   * AI-written insights are the one report feature with a per-use cost — each is
+   * an LLM generation — so they follow the plan. Free and Standard readers get the
+   * full deterministic report, which is what the page already renders; only the
+   * background request that primes the AI wording is withheld.
+   *
+   * A client-side check: the endpoint itself will still answer anyone who calls it
+   * directly, so the real boundary belongs server-side (see PLANS.md).
+   */
+  const { user: planUser } = useUserPortal();
+  const planInfo = planUser ? getPlan(planUser.subscription_tier) : undefined;
+  const wantsAiInsights = !!planInfo && includesAiInsights(planInfo);
+
   useEffect(() => {
-    if (!model || model.reportSource !== 'deterministic') return;
+    if (!model || model.reportSource !== 'deterministic' || !wantsAiInsights) return;
     requestReportInsights(model.meta.attemptId, factsFromModel(model)).catch(() => {
       // Best-effort — the deterministic report already rendered in full.
     });
-  }, [model]);
+  }, [model, wantsAiInsights]);
 
   /**
    * The counts on the result pills, narrowed to the chosen subject.
@@ -908,6 +876,36 @@ export function AttemptReport({
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  /**
+   * How much report this paper can carry.
+   *
+   * A 30-question unit set cannot support a subject breakdown or a coverage
+   * matrix — those panels degenerate into a single bar and imply a comparison
+   * that is not there. See `report-depth.ts` for the rule.
+   */
+  const depth = reportDepth(placement, model);
+
+  /**
+   * A unit set gets its own report, not this one with panels switched off.
+   *
+   * Thirty questions on one unit at one difficulty support a recap — score,
+   * what you missed, what to do next — and nothing the diagnostic report is
+   * built to do. See `UnitPracticeReport`.
+   */
+  if (depth === 'brief' && model) {
+    return (
+      <ReportLanguageProvider language={language}>
+        <UnitPracticeReport
+          model={model}
+          retryHref={attempt.test_id ? `/user/test/${attempt.test_id}/start` : undefined}
+          unitHref={examContext?.examId && examContext?.stageId
+            ? `/user/exams/${examContext.examId}/${examContext.stageId}`
+            : '/user/exams'}
+        />
+      </ReportLanguageProvider>
+    );
+  }
+
   const attemptContent = (
     <div className="space-y-5">
       {model && (
@@ -925,34 +923,55 @@ export function AttemptReport({
           question list below. */}
       {model ? (
         <div className="space-y-3 sm:space-y-4">
-          <ReportCover
-            model={model}
-            studentName={studentName}
-            examName={examContext?.examName ?? null}
-            exam={examContext}
-          />
-          <AttemptSummary model={model} />
-          <PerformanceSnapshot
-            model={model}
-            onSelectSubject={id => {
-              setOpenSubject(id);
-              document.getElementById('subject-performance')?.scrollIntoView({ behavior: 'smooth' });
-            }}
-          />
-          <div id="subject-performance">
-            <SubjectPerformance
+          {/* The cover sheet introduces a full diagnostic; a practice set opens
+              on its score instead. */}
+          {showsPanel(depth, 'diagnostics') && (
+            <ReportCover
               model={model}
-              expanded={openSubject}
-              onToggle={id => setOpenSubject(cur => (cur === id ? null : id))}
-              onViewQuestions={id => {
-                setQuestionSubject(id);
-                document.getElementById('question-insights')?.scrollIntoView({ behavior: 'smooth' });
-              }}
+              studentName={studentName}
+              examName={examContext?.examName ?? null}
+              exam={examContext}
             />
-          </div>
-          <CoverageAnalysis model={model} />
-          <QuestionErrorAnalysis model={model} />
-          <StrengthsAndGaps model={model} />
+          )}
+
+          <AttemptSummary model={model} />
+
+          {depth !== 'full' && (
+            <p className="px-1 text-[11px] text-gray-400 dark:text-gray-500">
+              {DEPTH_NOTE[depth]}
+            </p>
+          )}
+
+          {showsPanel(depth, 'subjectPerformance') && (
+            <>
+              <PerformanceSnapshot
+                model={model}
+                onSelectSubject={id => {
+                  setOpenSubject(id);
+                  document.getElementById('subject-performance')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              />
+              <div id="subject-performance">
+                <SubjectPerformance
+                  model={model}
+                  expanded={openSubject}
+                  onToggle={id => setOpenSubject(cur => (cur === id ? null : id))}
+                  onViewQuestions={id => {
+                    setQuestionSubject(id);
+                    document.getElementById('question-insights')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Coverage compares what was tested against the whole syllabus — only
+              a full-length paper is measured against that. */}
+          {showsPanel(depth, 'diagnostics') && <CoverageAnalysis model={model} />}
+
+          {showsPanel(depth, 'errorAnalysis') && <QuestionErrorAnalysis model={model} />}
+
+          {showsPanel(depth, 'diagnostics') && <StrengthsAndGaps model={model} />}
         </div>
       ) : (
         !loading && (
@@ -976,7 +995,7 @@ export function AttemptReport({
           className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4"
         >
           <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <Brain className="w-4 h-4 text-indigo-500" />
+            <Brain className="w-4 h-4 text-blue-500" />
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">Question Insights</h3>
             <span className="text-xs text-gray-400">
               {visibleQuestions.length} of {questions.length}
@@ -1013,7 +1032,7 @@ export function AttemptReport({
             <button
               onClick={() => setExpandAll(v => !v)}
               className={cn(
-                'text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400',
+                'text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400',
                 !model && 'ml-auto',
               )}
             >
@@ -1093,7 +1112,7 @@ export function AttemptReport({
           they have just read into a dated plan. This is the moment of maximum
           intent — they have the diagnosis on screen. Renders nothing when the
           study-plan endpoints are absent. */}
-      <StudyPlanReportCta attemptId={attempt.attempt_id} />
+      {SHOW_STUDY_PLAN && <StudyPlanReportCta attemptId={attempt.attempt_id} />}
     </div>
   );
 

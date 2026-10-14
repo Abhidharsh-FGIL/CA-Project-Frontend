@@ -46,7 +46,7 @@ export default function UserProfilePage() {
     <UserShell>
       {/* Hero profile cover */}
       <div className="mb-6 animate-fadeIn">
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 bg-[length:200%_auto] animate-gradient-x h-24 sm:h-32 md:h-40">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-400 to-pink-500 bg-[length:200%_auto] animate-gradient-x h-24 sm:h-32 md:h-40">
           <div className="absolute inset-0 bg-soft-dots opacity-20" />
           <div className="absolute -top-16 -right-16 w-48 h-48 bg-white/15 rounded-full blur-3xl" />
           <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-black/10 rounded-full blur-3xl" />
@@ -54,7 +54,7 @@ export default function UserProfilePage() {
         <div className="relative px-3 sm:px-6 -mt-10 sm:-mt-14 pb-2">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 sm:gap-4 min-w-0">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white text-3xl sm:text-4xl md:text-5xl font-bold shadow-xl ring-4 ring-white dark:ring-gray-950 flex-shrink-0">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-2xl bg-gradient-to-br from-brand-500 via-brand-400 to-pink-500 flex items-center justify-center text-white text-3xl sm:text-4xl md:text-5xl font-bold shadow-xl ring-4 ring-white dark:ring-gray-950 flex-shrink-0">
                 {user.name[0].toUpperCase()}
               </div>
               <div className="sm:pb-2 min-w-0">
@@ -73,7 +73,7 @@ export default function UserProfilePage() {
                   user.subscription_tier === 'premium'
                     ? 'bg-gradient-to-r from-amber-200 via-yellow-100 to-amber-200 bg-[length:200%_auto] animate-gradient-x text-amber-900 border border-amber-300 dark:border-amber-700'
                     : user.subscription_tier === 'ultimate'
-                    ? 'bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                    ? 'bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/40 dark:to-purple-900/40 text-blue-700 dark:text-brand-300 border border-blue-200 dark:border-blue-800'
                     : user.subscription_tier === 'standard'
                     ? 'bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/40 dark:to-cyan-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700',
@@ -91,7 +91,7 @@ export default function UserProfilePage() {
           {/* Quick info pills */}
           <div className="flex flex-wrap gap-x-4 sm:gap-x-5 gap-y-2 mt-4 text-xs text-gray-600 dark:text-gray-400">
             <span className="inline-flex items-center gap-1.5 min-w-0">
-              <Mail className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+              <Mail className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
               <span className="truncate">{user.email}</span>
             </span>
             <span className="inline-flex items-center gap-1.5">
@@ -145,7 +145,7 @@ function TabBtn({
       className={cn(
         'flex-shrink-0 lg:w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
         active
-          ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300'
+          ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-brand-300'
           : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 bg-white dark:bg-gray-900 lg:bg-transparent dark:lg:bg-transparent border border-gray-200 dark:border-gray-700 lg:border-0 dark:lg:border-0',
       )}
     >
@@ -213,7 +213,7 @@ function ProfileSection({
         {!editing && (
           <button
             onClick={() => setEditing(true)}
-            className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+            className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline"
           >
             Edit
           </button>
@@ -221,7 +221,7 @@ function ProfileSection({
       </div>
 
       <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100 dark:border-gray-800">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center text-white text-2xl font-bold">
           {user!.name[0].toUpperCase()}
         </div>
         <div>
@@ -326,7 +326,7 @@ function ProfileSection({
           <button
             onClick={save}
             disabled={saving}
-            className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60"
+            className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-60"
           >
             {saving ? 'Saving…' : 'Save Changes'}
           </button>
@@ -360,7 +360,7 @@ function FormRow({
   display?: string;
 }) {
   const field = cn(
-    'w-full px-3 py-2 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400',
+    'w-full px-3 py-2 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-brand-500 dark:focus:border-blue-400',
   );
 
   return (
@@ -432,26 +432,26 @@ function SecuritySection({
             value={form.old}
             onChange={e => setForm(f => ({ ...f, old: e.target.value }))}
             placeholder="Current password"
-            className="w-full px-3 py-2.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-lg text-sm focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400"
+            className="w-full px-3 py-2.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-lg text-sm focus:outline-none focus:border-brand-500 dark:focus:border-blue-400"
           />
           <input
             type="password"
             value={form.newPwd}
             onChange={e => setForm(f => ({ ...f, newPwd: e.target.value }))}
             placeholder="New password"
-            className="w-full px-3 py-2.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-lg text-sm focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400"
+            className="w-full px-3 py-2.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-lg text-sm focus:outline-none focus:border-brand-500 dark:focus:border-blue-400"
           />
           <input
             type="password"
             value={form.confirm}
             onChange={e => setForm(f => ({ ...f, confirm: e.target.value }))}
             placeholder="Confirm new password"
-            className="w-full px-3 py-2.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-lg text-sm focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400"
+            className="w-full px-3 py-2.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-lg text-sm focus:outline-none focus:border-brand-500 dark:focus:border-blue-400"
           />
           <button
             onClick={submit}
             disabled={submitting}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50"
+            className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
           >
             {submitting ? 'Updating...' : 'Update Password'}
           </button>
@@ -492,7 +492,7 @@ function SettingsSection() {
   return (
     <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4 sm:p-6">
       <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-5 flex items-center gap-2">
-        <Monitor className="w-5 h-5 text-indigo-600 dark:text-indigo-400" /> Preferences
+        <Monitor className="w-5 h-5 text-blue-600 dark:text-blue-400" /> Preferences
       </h2>
       <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Notification preferences</p>
       <div className="space-y-1">
@@ -512,7 +512,7 @@ function ToggleRow({ label, value, onChange }: { label: string; value: boolean; 
         onClick={() => onChange(!value)}
         className={cn(
           'relative inline-flex h-6 w-11 rounded-full transition-colors',
-          value ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700',
+          value ? 'bg-brand-600' : 'bg-gray-200 dark:bg-gray-700',
         )}
       >
         <span

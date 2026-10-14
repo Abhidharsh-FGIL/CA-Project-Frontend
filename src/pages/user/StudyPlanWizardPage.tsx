@@ -12,7 +12,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { UserShell } from '@/components/user/UserShell';
-import { ReportCard, SectionHeader } from '@/components/user/report-ui';
+import { ReadableText, ReportCard, SectionHeader } from '@/components/user/report-ui';
 import { StudyPlanWizard } from '@/components/user/study-plan/StudyPlanWizard';
 import { StudyPlanGenerating } from '@/components/user/study-plan/StudyPlanGenerating';
 import { StudyPlanUnavailable } from '@/components/user/study-plan/plan-ui';
@@ -30,7 +30,7 @@ import { buildAttemptReport, factsFromModel } from '@/lib/attempt-report';
 import { resolveExamContext } from '@/lib/exam-report-config';
 import { getAttemptDetail } from '@/lib/userPortalApi';
 
-export default function StudyPlanWizardPage() {
+function StudyPlanWizardPageBody() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const qc = useQueryClient();
@@ -137,14 +137,14 @@ export default function StudyPlanWizardPage() {
             title="We don't know which exam to plan for"
             accent="amber"
           />
-          <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+          <p className="text-[12px] leading-relaxed text-gray-500 dark:text-gray-400">
             Set your target exam on your profile, then come back — the plan is built from that
             exam's syllabus, so it cannot be made without one.
           </p>
           <button
             type="button"
             onClick={() => navigate('/user/profile?tab=profile&edit=1')}
-            className="mt-3 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-indigo-700"
+            className="mt-3 rounded-xl bg-brand-600 px-3.5 py-2 text-[13px] font-bold text-white hover:bg-brand-700"
           >
             Choose my exam
           </button>
@@ -157,7 +157,7 @@ export default function StudyPlanWizardPage() {
     return (
       <UserShell>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
       </UserShell>
     );
@@ -186,5 +186,13 @@ export default function StudyPlanWizardPage() {
         onCancel={() => navigate('/user/study-plan')}
       />
     </UserShell>
+  );
+}
+
+export default function StudyPlanWizardPage() {
+  return (
+    <ReadableText>
+      <StudyPlanWizardPageBody />
+    </ReadableText>
   );
 }

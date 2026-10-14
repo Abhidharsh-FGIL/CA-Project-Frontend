@@ -11,6 +11,8 @@ import { toast } from 'sonner';
 import { downloadPaperAsDocx } from '@/lib/eval-docx-export';
 import { exportAssessment, type ExportFormat, type QuestionData } from '@/lib/eval-export-utils';
 import { GenVerseShell } from '@/components/layout/GenVerseShell';
+import { difficultyLabel } from '@/lib/eval-difficulty';
+import { translationCopy } from '@/lib/question-language';
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',
@@ -61,12 +63,17 @@ export function EvalPaperDetailPage() {
           text: q.question_text || q.text || '', type: q.question_type || q.type || '',
           points: q.marks || q.points || 1, subject: q.subject, difficulty: q.difficulty,
           options: q.options, correct_answer: q.correct_answer, explanation: q.explanation,
-          pairs: q.pairs,
+          pairs: q.pairs, translations: q.translations,
         }));
         // Collections are pure question sets — no assessment metadata (status, time limit, max score, etc.)
         await exportAssessment([], qs, paper.title || 'Paper', fmt);
       }
-      toast.success('Paper downloaded');
+      const withTamil = (questions || []).filter((q: any) => translationCopy(q)).length;
+      if (withTamil > 0) {
+        toast.success(`Paper downloaded — English + தமிழ் (${withTamil} of ${questions.length} questions)`);
+      } else {
+        toast.warning('Downloaded in English only — this collection has no Tamil translations saved on its questions.');
+      }
     } catch {
       toast.error('Failed to generate download');
     }
@@ -105,7 +112,7 @@ export function EvalPaperDetailPage() {
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 {paper.difficulty && (
                   <Badge className={`text-xs ${DIFF_COLORS[paper.difficulty] || ''}`}>
-                    {paper.difficulty}
+                    {difficultyLabel(paper.difficulty)}
                   </Badge>
                 )}
                 <Badge className={`text-xs ${STATUS_COLORS[paper.status] || STATUS_COLORS.draft}`}>

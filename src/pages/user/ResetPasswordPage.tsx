@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { GraduationCap, Eye, EyeOff, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { LogoMark, Wordmark } from '@/components/brand/Brand';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { toast } from 'sonner';
 
@@ -47,19 +48,19 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="h-[100dvh] overflow-y-auto bg-gradient-to-br from-orange-50 via-amber-50 to-rose-100 dark:from-stone-950 dark:via-orange-950/50 dark:to-rose-950/40 flex justify-center p-4 py-8 relative">
+    <div className="h-[100dvh] overflow-y-auto overflow-x-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-rose-100 dark:from-stone-950 dark:via-orange-950/50 dark:to-rose-950/40 flex justify-center p-4 py-8 relative">
       <div className="absolute top-1/4 -left-20 w-80 h-80 bg-amber-300/30 dark:bg-amber-700/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-orange-300/30 dark:bg-orange-700/20 rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-md w-full relative z-10 animate-fadeIn my-auto">
         <Link to="/" className="flex items-center justify-center gap-2 mb-8 group">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center shadow-lg shadow-orange-200 dark:shadow-orange-900/50">
-            <GraduationCap className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-lg font-bold gradient-text">BrightLearn Academy</span>
+          <span className="rounded-2xl bg-white p-1.5 shadow-lg shadow-blue-200/60 dark:shadow-black/40">
+            <LogoMark className="h-9 w-auto" />
+          </span>
+          <Wordmark className="text-xl" />
         </Link>
 
-        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur rounded-2xl shadow-xl shadow-indigo-100/50 dark:shadow-black/40 border border-white dark:border-gray-800 p-5 sm:p-7 animate-scaleIn">
+        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur rounded-2xl shadow-xl shadow-blue-100/50 dark:shadow-black/40 border border-white dark:border-gray-800 p-5 sm:p-7 animate-scaleIn">
           {done ? (
             <div className="text-center">
               <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center">
@@ -71,7 +72,7 @@ export default function ResetPasswordPage() {
               </p>
               <button
                 onClick={() => navigate('/user/login')}
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2.5 rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700"
+                className="w-full bg-gradient-to-r from-brand-600 to-brand-400 text-white py-2.5 rounded-xl font-semibold hover:from-brand-700 hover:to-brand-500"
               >
                 Go to login
               </button>
@@ -102,7 +103,7 @@ export default function ResetPasswordPage() {
                       onChange={e => setPassword(e.target.value)}
                       placeholder="••••••••"
                       required
-                      className="w-full px-4 py-2.5 pr-11 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-xl focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/40 outline-none transition-all text-sm"
+                      className="w-full px-4 py-2.5 pr-11 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-xl focus:border-brand-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 outline-none transition-all text-sm"
                     />
                     <button
                       type="button"
@@ -124,14 +125,14 @@ export default function ResetPasswordPage() {
                     onChange={e => setConfirm(e.target.value)}
                     placeholder="••••••••"
                     required
-                    className="w-full px-4 py-2.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-xl focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/40 outline-none transition-all text-sm"
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-xl focus:border-brand-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 outline-none transition-all text-sm"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={submitting || !token}
-                  className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-[length:200%_auto] text-white py-3 rounded-xl font-semibold hover:bg-right-bottom transition-all duration-500 shadow-lg shadow-indigo-200 hover:shadow-xl hover:shadow-indigo-300 disabled:opacity-60 press"
+                  className="w-full bg-gradient-to-r from-brand-600 via-brand-400 to-brand-600 bg-[length:200%_auto] text-white py-3 rounded-xl font-semibold hover:bg-right-bottom transition-all duration-500 shadow-lg shadow-blue-200 hover:shadow-xl hover:shadow-blue-300 disabled:opacity-60 press"
                 >
                   {submitting ? 'Updating…' : 'Reset password'}
                 </button>
@@ -139,7 +140,7 @@ export default function ResetPasswordPage() {
 
               <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
                 Remembered it?{' '}
-                <Link to="/user/login" className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">
+                <Link to="/user/login" className="text-blue-600 dark:text-blue-400 font-semibold hover:underline">
                   Back to login
                 </Link>
               </p>

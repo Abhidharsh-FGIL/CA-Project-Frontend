@@ -32,7 +32,7 @@ function mapClassResponse(cls: any): Class {
     teacherId: cls.teacher_id,
     teacherName: cls.teacher_name || 'Teacher',
     studentCount: cls.student_count || 0,
-    color: cls.color || '#6366f1',
+    color: cls.color || '#ff6c24',
     createdAt: cls.created_at || new Date().toISOString(),
     orgId: cls.org_id || undefined,
     isActive: cls.is_active !== false,

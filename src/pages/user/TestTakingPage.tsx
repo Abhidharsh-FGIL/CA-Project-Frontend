@@ -69,7 +69,7 @@ function CircularTimer({
         <circle
           cx="26" cy="26" r={r}
           fill="none"
-          stroke={urgent ? '#f87171' : '#818cf8'}
+          stroke={urgent ? '#f87171' : '#ff8f4a'}
           strokeWidth="3"
           strokeDasharray={circ}
           strokeDashoffset={offset}
@@ -342,7 +342,7 @@ export default function TestTakingPage() {
       {/* User info */}
       {user && (
         <div className="flex items-center gap-2.5 mb-4 p-3 bg-white rounded-xl border border-gray-200">
-          <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
             {(user.name?.[0] ?? 'U').toUpperCase()}
           </div>
           <p className="text-xs text-gray-600 truncate">{user.email}</p>
@@ -395,7 +395,7 @@ export default function TestTakingPage() {
                 key={q.question_id}
                 onClick={() => goToQuestion(idx)}
                 className={`w-full aspect-square rounded-lg text-[11px] font-bold flex items-center justify-center transition-all ${STATUS_STYLE[st]} ${
-                  isCurrent ? 'ring-2 ring-offset-1 ring-indigo-500' : 'hover:scale-110'
+                  isCurrent ? 'ring-2 ring-offset-1 ring-brand-500' : 'hover:scale-110'
                 }`}
               >
                 {idx + 1}
@@ -416,7 +416,7 @@ export default function TestTakingPage() {
         <div className="max-w-screen-xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
             {subject && (
-              <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.2em] leading-none mb-0.5">
+              <p className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em] leading-none mb-0.5">
                 {subject}
               </p>
             )}
@@ -466,7 +466,7 @@ export default function TestTakingPage() {
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-6">
               {/* Question with number badge */}
               <div className="flex items-start gap-4 mb-5">
-                <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                   {currentIdx + 1}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -516,14 +516,14 @@ export default function TestTakingPage() {
                           onClick={() => selectAnswer(currentQ.question_id, key)}
                           className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all duration-150 ${
                             isSelected
-                              ? 'border-indigo-500 bg-indigo-50'
+                              ? 'border-brand-500 bg-blue-50'
                               : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                           }`}
                         >
                           <span
                             className={`flex-shrink-0 w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center transition-colors ${
                               isSelected
-                                ? 'bg-indigo-600 text-white'
+                                ? 'bg-brand-600 text-white'
                                 : 'bg-gray-100 text-gray-600'
                             }`}
                           >
@@ -532,7 +532,7 @@ export default function TestTakingPage() {
                           <span
                             className={`text-sm ${
                               isSelected
-                                ? 'text-indigo-900 font-medium'
+                                ? 'text-blue-900 font-medium'
                                 : 'text-gray-700'
                             }`}
                           >
@@ -551,7 +551,7 @@ export default function TestTakingPage() {
                   value={answers[currentQ.question_id] ?? ''}
                   onChange={e => selectAnswer(currentQ.question_id, e.target.value)}
                   placeholder="Type your answer here..."
-                  className="w-full ml-[52px] px-4 py-3 border-2 border-gray-200 bg-white text-gray-900 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                  className="w-full ml-[52px] px-4 py-3 border-2 border-gray-200 bg-white text-gray-900 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none text-sm"
                 />
               )}
 
@@ -562,7 +562,7 @@ export default function TestTakingPage() {
                   onChange={e => selectAnswer(currentQ.question_id, e.target.value)}
                   placeholder="Type your detailed answer here..."
                   rows={5}
-                  className="w-full ml-[52px] px-4 py-3 border-2 border-gray-200 bg-white text-gray-900 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-y text-sm"
+                  className="w-full ml-[52px] px-4 py-3 border-2 border-gray-200 bg-white text-gray-900 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-y text-sm"
                 />
               )}
 
@@ -600,7 +600,7 @@ export default function TestTakingPage() {
                 <button
                   onClick={() => goToQuestion(currentIdx + 1)}
                   disabled={currentIdx === questions.length - 1}
-                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   Save & Next
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -14,7 +14,7 @@ import type { ThemePreset } from '@/types';
 
 const presets: { id: ThemePreset; name: string; color: string }[] = [
   { id: 'classic', name: 'Classic', color: 'bg-slate-800' },
-  { id: 'indigo', name: 'Indigo', color: 'bg-indigo-500' },
+  { id: 'indigo', name: 'Indigo', color: 'bg-[#6366f1]' },
   { id: 'teal', name: 'Teal', color: 'bg-teal-500' },
   { id: 'sunset', name: 'Sunset', color: 'bg-orange-500' },
   { id: 'emerald', name: 'Emerald', color: 'bg-emerald-500' },

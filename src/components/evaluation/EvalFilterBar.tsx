@@ -2,6 +2,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, X } from 'lucide-react';
+import { DIFFICULTY_OPTIONS } from '@/lib/eval-difficulty';
 
 interface EvalFilterBarProps {
   search: string;
@@ -57,9 +58,9 @@ export function EvalFilterBar({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All</SelectItem>
-          <SelectItem value="easy">Easy</SelectItem>
-          <SelectItem value="medium">Medium</SelectItem>
-          <SelectItem value="hard">Hard</SelectItem>
+          {DIFFICULTY_OPTIONS.map(o => (
+            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+          ))}
         </SelectContent>
       </Select>
 

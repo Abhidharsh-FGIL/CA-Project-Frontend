@@ -122,6 +122,13 @@ interface QuestionReviewPanelProps {
   mcqOnly?: boolean;
   /** Show each question's level (Simple / Medium / Hard), editable, plus a count summary. */
   showDifficulty?: boolean;
+  /**
+   * Offer to level every question that has none in one step.
+   *
+   * Only the unlevelled ones: a sheet that came back with some levels set has had them
+   * chosen by whoever wrote it, and one click must not overwrite those.
+   */
+  bulkDifficulty?: boolean;
 }
 
 export function QuestionReviewPanel({
@@ -137,6 +144,7 @@ export function QuestionReviewPanel({
   hideQuizButton,
   mcqOnly,
   showDifficulty,
+  bulkDifficulty,
 }: QuestionReviewPanelProps) {
   const [questions, setQuestions] = useState<ReviewQuestion[]>(initialQuestions);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -354,6 +362,28 @@ export function QuestionReviewPanel({
               <p className="text-xs font-medium text-muted-foreground mt-0.5" data-testid="difficulty-summary">
                 {formatDifficultySummary(questions)}
               </p>
+            )}
+            {showDifficulty && bulkDifficulty && questions.some(q => !asQuestionDifficulty(q.difficulty)) && (
+              <div className="mt-1.5 flex items-center gap-2">
+                <span className="text-xs text-amber-700 dark:text-amber-400">
+                  {questions.filter(q => !asQuestionDifficulty(q.difficulty)).length} without a level
+                </span>
+                <Select
+                  value=""
+                  onValueChange={v =>
+                    setQuestions(qs => qs.map(q => (asQuestionDifficulty(q.difficulty) ? q : { ...q, difficulty: v })))
+                  }
+                >
+                  <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs" aria-label="Set a level for every unlevelled question">
+                    <SelectValue placeholder="Set them all to…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {QUESTION_DIFFICULTIES.map(d => (
+                      <SelectItem key={d} value={d}>{DIFFICULTY_LABELS[d]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
           </div>
         </div>
@@ -788,9 +818,9 @@ export function TranslationPreview({ question }: { question: ReviewQuestion }) {
       {entries.map(([lang, tr]) => (
         <div
           key={lang}
-          className="rounded-lg border border-dashed border-indigo-200 dark:border-indigo-900 bg-indigo-50/40 dark:bg-indigo-950/20 p-3"
+          className="rounded-lg border border-dashed border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20 p-3"
         >
-          <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1.5">
             {TRANSLATION_LABELS[lang] ?? lang}
           </p>
           {tr.passage && (

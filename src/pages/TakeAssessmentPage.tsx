@@ -133,7 +133,7 @@ function normalizeStart(raw: any): AttemptData {
 
 // ── Icons ──
 const ClipboardIcon = () => (
-  <svg className="w-10 h-10 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+  <svg className="w-10 h-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
   </svg>
 );
@@ -191,7 +191,7 @@ function DetailInput({
         placeholder={placeholder}
         className={`w-full px-3 py-2 border rounded-lg text-sm outline-none transition-colors focus:ring-2 ${
           readOnly ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'bg-white text-gray-900'
-        } ${error ? 'border-red-300 focus:ring-red-100 focus:border-red-400' : 'border-gray-200 focus:ring-indigo-100 focus:border-indigo-400'}`}
+        } ${error ? 'border-red-300 focus:ring-red-100 focus:border-red-400' : 'border-gray-200 focus:ring-blue-100 focus:border-blue-400'}`}
       />
       {error && <p className="text-[11px] text-red-600 mt-0.5">{error}</p>}
     </div>
@@ -211,7 +211,7 @@ function DetailSelect({
         onChange={e => onChange(e.target.value)}
         className={`w-full px-3 py-2 border rounded-lg text-sm outline-none transition-colors focus:ring-2 ${
           value ? 'text-gray-900' : 'text-gray-400'
-        } ${error ? 'border-red-300 focus:ring-red-100 focus:border-red-400' : 'border-gray-200 focus:ring-indigo-100 focus:border-indigo-400'}`}
+        } ${error ? 'border-red-300 focus:ring-red-100 focus:border-red-400' : 'border-gray-200 focus:ring-blue-100 focus:border-blue-400'}`}
       >
         <option value="" disabled>Select…</option>
         {options.map(o => <option key={o} value={o} className="text-gray-900">{o}</option>)}
@@ -245,7 +245,7 @@ function CircularTimer({ timeLeft, totalTime }: { timeLeft: number; totalTime: n
   const isUrgent = timeLeft < 60 && !isCritical;
   const isWarning = timeLeft < 300 && !isUrgent && !isCritical;
 
-  const strokeColor = isCritical ? '#dc2626' : isUrgent ? '#ef4444' : isWarning ? '#f59e0b' : '#6366f1';
+  const strokeColor = isCritical ? '#dc2626' : isUrgent ? '#ef4444' : isWarning ? '#f59e0b' : '#ff6c24';
   const textColor = isCritical ? 'text-red-700' : isUrgent ? 'text-red-600' : isWarning ? 'text-amber-600' : 'text-gray-900';
 
   return (
@@ -351,7 +351,7 @@ export default function TakeAssessmentPage() {
         can_attempt: true,
         invitation_status: 'pending',
         email: 'demo@brightlearn.academy',
-        organization_name: course?.name || 'BrightLearn Academy',
+        organization_name: course?.name || 'MyGovExams',
       });
       setPageState('landing');
       return;
@@ -897,7 +897,7 @@ export default function TakeAssessmentPage() {
     not_answered: { bg: 'bg-rose-50', border: 'border-rose-300', text: 'text-rose-600', label: 'Not Answered' },
     answered: { bg: 'bg-emerald-500', border: 'border-emerald-600', text: 'text-white', label: 'Answered' },
     marked_review: { bg: 'bg-amber-400', border: 'border-amber-500', text: 'text-white', label: 'Marked for Review' },
-    answered_marked: { bg: 'bg-indigo-500', border: 'border-indigo-600', text: 'text-white', label: 'Answered & Marked' },
+    answered_marked: { bg: 'bg-brand-500', border: 'border-brand-600', text: 'text-white', label: 'Answered & Marked' },
   };
 
   const getStatusCounts = () => {
@@ -918,7 +918,7 @@ export default function TakeAssessmentPage() {
       <div key={q.id} className="animate-fadeIn">
         {/* Question header */}
         <div className="flex items-start gap-4 mb-6">
-          <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center text-sm font-bold shadow-md">
+          <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-400 text-white flex items-center justify-center text-sm font-bold shadow-md">
             {currentQ + 1}
           </div>
           <div className="flex-1">
@@ -926,7 +926,7 @@ export default function TakeAssessmentPage() {
               <MathText text={q.question_text} />
             </p>
             <div className="flex items-center gap-3 mt-2">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-medium">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs font-medium">
                 {q.marks} mark{q.marks !== 1 ? 's' : ''}
               </span>
               {q.negative_marks > 0 && (
@@ -981,18 +981,18 @@ export default function TakeAssessmentPage() {
                   onClick={() => setAnswer(q.id, key)}
                   className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all duration-200 group ${
                     isSelected
-                      ? 'border-indigo-500 bg-indigo-50 shadow-sm shadow-indigo-100'
-                      : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                      ? 'border-brand-500 bg-blue-50 shadow-sm shadow-blue-100'
+                      : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
                   }`}
                 >
                   <span className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-all duration-200 ${
                     isSelected
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-600 group-hover:bg-indigo-100 group-hover:text-indigo-600'
+                      ? 'bg-brand-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 group-hover:bg-blue-100 group-hover:text-blue-600'
                   }`}>
                     {optionLabel}
                   </span>
-                  <span className={`text-sm flex-1 ${isSelected ? 'text-indigo-900 font-medium' : 'text-gray-700'}`}>
+                  <span className={`text-sm flex-1 ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
                     {(() => {
                       const v = val && typeof val === 'object' ? ((val as any).image_url ?? (val as any).text ?? '') : String(val);
                       return isImageUrl(v)
@@ -1014,7 +1014,7 @@ export default function TakeAssessmentPage() {
               value={answer}
               onChange={e => setAnswer(q.id, e.target.value)}
               placeholder="Type your answer here..."
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all text-sm"
             />
           </div>
         )}
@@ -1027,7 +1027,7 @@ export default function TakeAssessmentPage() {
               onChange={e => setAnswer(q.id, e.target.value)}
               placeholder="Type your detailed answer here..."
               rows={6}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-y transition-all text-sm"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-y transition-all text-sm"
             />
           </div>
         )}
@@ -1051,7 +1051,7 @@ export default function TakeAssessmentPage() {
                     setAnswer(q.id, parts.join(','));
                   }}
                   placeholder={`Match for ${pair.left || pair.a}`}
-                  className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all"
                 />
               </div>
             ))}
@@ -1086,11 +1086,11 @@ export default function TakeAssessmentPage() {
   // ── LOADING ──
   if (pageState === 'loading') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
           <div className="relative w-16 h-16 mx-auto mb-4">
-            <div className="absolute inset-0 rounded-full border-4 border-indigo-100" />
-            <div className="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin" />
+            <div className="absolute inset-0 rounded-full border-4 border-blue-100" />
+            <div className="absolute inset-0 rounded-full border-4 border-brand-500 border-t-transparent animate-spin" />
           </div>
           <p className="text-gray-600 font-medium">Loading assessment...</p>
         </div>
@@ -1101,7 +1101,7 @@ export default function TakeAssessmentPage() {
   // ── ERROR ──
   if (pageState === 'error') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-lg border p-8 max-w-md w-full text-center">
           <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-5">
             <XIcon />
@@ -1122,13 +1122,13 @@ export default function TakeAssessmentPage() {
     };
 
     return (
-      <div className="h-screen bg-gradient-to-br from-slate-50 to-indigo-50 overflow-y-auto py-8 px-4 flex items-start justify-center">
+      <div className="h-screen bg-gradient-to-br from-slate-50 to-blue-50 overflow-y-auto py-8 px-4 flex items-start justify-center">
         <div className="bg-white rounded-2xl shadow-lg border p-8 max-w-lg w-full animate-scaleIn">
           <div className="text-center mb-8">
             {info.organization_name && (
-              <p className="text-sm font-semibold text-indigo-600 mb-3 tracking-wide uppercase">{info.organization_name}</p>
+              <p className="text-sm font-semibold text-blue-600 mb-3 tracking-wide uppercase">{info.organization_name}</p>
             )}
-            <div className="w-20 h-20 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-sm">
+            <div className="w-20 h-20 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-sm">
               <ClipboardIcon />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">{info.assessment_title}</h1>
@@ -1188,7 +1188,7 @@ export default function TakeAssessmentPage() {
             <>
               <button
                 onClick={handleStart}
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3.5 rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg shadow-indigo-200 active:scale-[0.98]"
+                className="w-full bg-gradient-to-r from-brand-600 to-brand-400 text-white py-3.5 rounded-xl font-semibold hover:from-brand-700 hover:to-brand-500 transition-all shadow-lg shadow-blue-200 active:scale-[0.98]"
               >
                 Start Assessment
               </button>
@@ -1216,7 +1216,7 @@ export default function TakeAssessmentPage() {
               <button
                 type="submit"
                 disabled={savingDetails}
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3.5 rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg shadow-indigo-200 active:scale-[0.98] disabled:opacity-60"
+                className="w-full bg-gradient-to-r from-brand-600 to-brand-400 text-white py-3.5 rounded-xl font-semibold hover:from-brand-700 hover:to-brand-500 transition-all shadow-lg shadow-blue-200 active:scale-[0.98] disabled:opacity-60"
               >
                 {savingDetails ? 'Saving…' : 'Submit & Start Assessment'}
               </button>
@@ -1250,7 +1250,7 @@ export default function TakeAssessmentPage() {
               </button>
               <div className="min-w-0">
                 {info?.organization_name && (
-                  <p className="text-[10px] font-semibold text-indigo-600 uppercase tracking-wider">{info.organization_name}</p>
+                  <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">{info.organization_name}</p>
                 )}
                 <h2 className="font-bold text-gray-900 text-sm truncate">{info?.assessment_title}</h2>
                 <p className="text-xs text-gray-500">
@@ -1294,7 +1294,7 @@ export default function TakeAssessmentPage() {
               <div className={hasPassage ? 'grid lg:grid-cols-2 gap-4 sm:gap-5 items-start' : ''}>
                 {hasPassage && (
                   <div className="bg-white rounded-2xl border shadow-sm p-4 sm:p-6 lg:p-7 lg:sticky lg:top-2 lg:max-h-[calc(100vh-150px)] overflow-y-auto order-first">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600 mb-2">Passage</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 mb-2">Passage</p>
                     {q.passage && <MarkdownText text={q.passage} />}
                     {q.passage_image_url && (
                       <img
@@ -1325,7 +1325,7 @@ export default function TakeAssessmentPage() {
                 <button
                   onClick={saveAndNext}
                   disabled={currentQ >= questions.length - 1}
-                  className="flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-indigo-600 text-white text-xs sm:text-sm font-medium hover:bg-indigo-700 disabled:opacity-30 transition-all shadow-sm active:scale-[0.98]"
+                  className="flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-brand-600 text-white text-xs sm:text-sm font-medium hover:bg-brand-700 disabled:opacity-30 transition-all shadow-sm active:scale-[0.98]"
                 >
                   Save & Next
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1352,7 +1352,7 @@ export default function TakeAssessmentPage() {
             <div className="p-4 space-y-4">
               {/* Profile section */}
               <div className="flex items-center gap-2 pb-3 border-b">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center text-white text-xs font-bold">
                   {(info?.email || '?')[0].toUpperCase()}
                 </div>
                 <div className="min-w-0">
@@ -1405,7 +1405,7 @@ export default function TakeAssessmentPage() {
                         onClick={() => navigateQuestion(i)}
                         className={`w-full aspect-square rounded-lg text-[11px] font-bold transition-all duration-150 border ${
                           isCurrent
-                            ? 'ring-2 ring-indigo-500 ring-offset-1 scale-110 shadow-sm'
+                            ? 'ring-2 ring-brand-500 ring-offset-1 scale-110 shadow-sm'
                             : 'hover:scale-105'
                         } ${cfg.bg} ${cfg.border} ${cfg.text}`}
                       >
@@ -1480,7 +1480,7 @@ export default function TakeAssessmentPage() {
             </p>
             <button
               onClick={() => setShowTabWarning(false)}
-              className="w-full px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-all"
+              className="w-full px-4 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-all"
             >
               I Understand, Continue Exam
             </button>
@@ -1550,7 +1550,7 @@ export default function TakeAssessmentPage() {
           {canRetake && (
             <button
               onClick={handleRetake}
-              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg shadow-indigo-200 active:scale-[0.98]"
+              className="w-full bg-gradient-to-r from-brand-600 to-brand-400 text-white px-6 py-3 rounded-xl font-semibold hover:from-brand-700 hover:to-brand-500 transition-all shadow-lg shadow-blue-200 active:scale-[0.98]"
             >
               Retake Assessment
             </button>

@@ -85,7 +85,7 @@ export function TestScoreCard({
             </p>
           )}
         </div>
-        <Link to="/user/history" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+        <Link to="/user/history" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
           All attempts
         </Link>
       </div>
@@ -103,7 +103,7 @@ export function TestScoreCard({
             No {noun} attempted in {scopeLabel} yet — each paper appears here with its average once you submit it.
           </p>
           <div className="mt-2">
-            <Link to={takeHref} className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+            <Link to={takeHref} className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
               Take a {noun}
             </Link>
           </div>
@@ -120,7 +120,7 @@ export function TestScoreCard({
                 {' '}Lowest average:{' '}
                 <span className="font-semibold text-gray-700 dark:text-gray-200">{weakest.name}</span> (
                 {weakest.average}%) —{' '}
-                <Link to={takeHref} className="text-indigo-600 dark:text-indigo-400 hover:underline">
+                <Link to={takeHref} className="text-blue-600 dark:text-blue-400 hover:underline">
                   retake it
                 </Link>
                 .
@@ -147,7 +147,7 @@ interface TestRow {
  * A single series, so one hue and no legend — the card title names it. Validated
  * against both the light and dark chart surfaces (dataviz six checks, all pass).
  */
-const TEST_SERIES = '#6366f1';
+const TEST_SERIES = '#ff6c24';
 /** Row pitch and bar thickness: under the 24px cap, with the leftover left as air. */
 const TEST_ROW_PITCH = 38;
 const TEST_BAR_SIZE = 18;

@@ -1,11 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Loader2, Target, TrendingUp } from 'lucide-react';
-import { UserShell } from '@/components/user/UserShell';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  BarChart3,
+  CalendarDays,
+  ChevronRight,
+  FileText,
+  Info,
+  Loader2,
+  Target,
+  TrendingUp,
+  Trophy,
+  type LucideIcon,
+} from 'lucide-react';
+import { REPORT_NAVY, UserShell } from '@/components/user/UserShell';
 import { FilterSelect } from '@/components/user/FilterSelect';
-import { SubjectBreakdown, sortSubjects, type SubjectSort } from '@/components/user/SubjectBreakdown';
+import { SubjectBreakdown, SubjectKey, sortSubjects, type SubjectSort } from '@/components/user/SubjectBreakdown';
 import { TestScoreCard } from '@/components/user/TestScoreCard';
 import { useSubjectStrengths } from '@/hooks/use-subject-strengths';
 import { useUserPortal } from '@/contexts/UserPortalContext';
@@ -134,16 +145,6 @@ export default function UserPerformancePage() {
     };
   }, [subjects]);
 
-  if (isLoading) {
-    return (
-      <UserShell>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-        </div>
-      </UserShell>
-    );
-  }
-
   const best = done.reduce((m, h) => Math.max(m, h.percentage ?? 0), 0);
 
   // The server's all-time average would contradict the scoped "Tests Taken" beside
@@ -212,6 +213,17 @@ export default function UserPerformancePage() {
     return `${rangeBars.length} active days shown. Best ${best.day} at ${best.value}%, lowest ${worst.day} at ${worst.value}%.`;
   }, [rangeBars]);
 
+  // After every hook above: returning earlier changes how many hooks run between renders.
+  if (isLoading) {
+    return (
+      <UserShell>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        </div>
+      </UserShell>
+    );
+  }
+
   return (
     <UserShell>
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4 sm:mb-5">
@@ -230,7 +242,7 @@ export default function UserPerformancePage() {
             <button
               type="button"
               onClick={resetView}
-              className="h-9 px-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline"
+              className="h-9 px-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
             >
               Reset
             </button>
@@ -245,38 +257,44 @@ export default function UserPerformancePage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3 mb-3 sm:mb-4">
         <Tile
+          icon={BarChart3}
+          tone="orange"
           label="Average Score"
           value={`${averageValue}%`}
           hint={marksLabel(averageMarks, paperMax) ?? 'of all marks'}
         />
         <Tile
+          icon={Target}
+          tone="blue"
           label="Accuracy"
           value={totals ? `${totals.accuracy}%` : '—'}
           // Subject data is aggregated server-side across every attempt; it carries no
           // group or date dimension, so this tile can't follow the filters. Say so.
           hint="of questions you answered"
-          accent
         />
         <Tile
+          icon={Trophy}
+          tone="green"
           label="Best Score"
           value={`${Math.round(best)}%`}
           hint={bestAttempt ? marksLabel(bestAttempt.score, maxMarksOf(bestAttempt) ?? paperMax) ?? undefined : undefined}
         />
-        <Tile label={`${trackNoun}s Taken`} value={done.length} />
+        <Tile icon={FileText} tone="purple" label={`${trackNoun}s Taken`} value={done.length} />
         <Tile
+          icon={CalendarDays}
+          tone="amber"
           label="Days Active"
-          value={`${activeDays} days`}
+          value={`${activeDays} ${activeDays === 1 ? 'day' : 'days'}`}
           hint={rangeNarrowed ? 'in this range' : 'in this selection'}
+          className="col-span-2 lg:col-span-1"
         />
       </div>
 
       {/* ── The headline insight, when the data supports one ─────────────────── */}
       {totals && totals.attemptRate < 70 && (
-        <div className="mb-3 sm:mb-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/60 dark:bg-indigo-500/10 p-4">
+        <div className="mb-3 sm:mb-4 rounded-2xl border border-blue-100 dark:border-blue-900/50 bg-blue-50/60 dark:bg-brand-500/10 p-4">
           <div className="flex items-start gap-3">
-            <span className="w-9 h-9 rounded-xl bg-white dark:bg-gray-900 flex items-center justify-center flex-shrink-0">
-              <Target className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            </span>
+            <Info className="w-5 h-5 mt-px text-blue-500 dark:text-blue-400 flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
                 You answered {totals.attempted} of {totals.questions} questions ({totals.attemptRate}%)
@@ -287,10 +305,10 @@ export default function UserPerformancePage() {
                 is worth more marks right now than getting more of them right.
               </p>
 
-              <div className="flex items-center gap-[2px] h-2.5 mt-3">
-                <Bit width={(totals.correct / totals.questions) * 100} color="#10b981" />
+              <div className="flex items-center gap-[2px] h-3 mt-3">
+                <Bit width={(totals.correct / totals.questions) * 100} color="#10b981" first />
                 <Bit width={(totals.wrong / totals.questions) * 100} color="#f43f5e" />
-                <div className="h-full flex-1 rounded-r bg-gray-200 dark:bg-gray-700" />
+                <div className="h-full flex-1 rounded-r-full bg-gray-200 dark:bg-gray-700" />
               </div>
               <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1.5">
                 <Dot color="#10b981" /> {totals.correct} correct
@@ -326,10 +344,11 @@ export default function UserPerformancePage() {
                 <AreaChart data={trend}>
                   <defs>
                     <linearGradient id="perfFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                      <stop offset="0%" stopColor="#2f7fe0" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#2f7fe0" stopOpacity={0} />
                     </linearGradient>
                   </defs>
+                  <CartesianGrid stroke="#eef1f6" />
                   <XAxis
                     dataKey="label"
                     tickLine={false}
@@ -352,7 +371,7 @@ export default function UserPerformancePage() {
                     formatter={(v: any) => [`${v}%`, 'Rolling average']}
                     labelFormatter={formatTrendLabel}
                   />
-                  <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} fill="url(#perfFill)" />
+                  <Area type="monotone" dataKey="value" stroke="#2f7fe0" strokeWidth={2} fill="url(#perfFill)" />
                 </AreaChart>
               </ResponsiveContainer>
               </div>
@@ -374,12 +393,12 @@ export default function UserPerformancePage() {
                 <button
                   type="button"
                   onClick={() => setRange(ALL_TIME)}
-                  className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   Show all time
                 </button>
               ) : (
-                <Link to={trackHref} className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+                <Link to={trackHref} className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
                   Take a {trackNoun.toLowerCase()}
                 </Link>
               )}
@@ -387,37 +406,45 @@ export default function UserPerformancePage() {
           )}
         </div>
 
-        <div className="rounded-2xl bg-gray-900 dark:bg-gray-800 p-4 text-white">
+        <div className="rounded-2xl p-4 text-white" style={{ background: REPORT_NAVY }}>
           <p className="text-sm font-bold mb-3">{rangeNarrowed ? rangeLabel(range) : 'Last 7 active days'}</p>
           <div className="flex items-center gap-4 mb-3">
             <div>
-              <p className="text-xl font-bold">{averageValue}%</p>
-              <p className="text-[10px] text-gray-400">
+              <p className="text-2xl font-bold leading-none">{averageValue}%</p>
+              <p className="text-[10px] text-blue-200/70 mt-1">
                 Average across {done.length} {done.length === 1 ? 'attempt' : 'attempts'}
               </p>
             </div>
           </div>
           <div className="h-40">
             {rangeBars.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-[11px] text-gray-500">
+              <div className="h-full flex items-center justify-center text-[11px] text-blue-200/60">
                 No attempts in this range.
               </div>
             ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={rangeBars} barCategoryGap="28%">
-                <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} />
+                <CartesianGrid stroke="rgba(255,255,255,0.08)" />
+                <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#93a4c8' }} />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 9, fill: '#93a4c8' }}
+                  tickFormatter={(v: number) => `${v}%`}
+                  width={30}
+                />
                 <Tooltip
                   cursor={{ fill: 'rgba(255,255,255,0.06)' }}
-                  contentStyle={{ borderRadius: 10, border: 'none', fontSize: 11, background: '#111827' }}
+                  contentStyle={{ borderRadius: 10, border: 'none', fontSize: 11, background: '#0b1630', color: '#fff' }}
                   formatter={(v: any) => [`${v}%`, 'Average']}
                 />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#818cf8" />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#4d8ef7" maxBarSize={44} />
               </BarChart>
             </ResponsiveContainer>
             )}
           </div>
           {rangeNote && (
-            <p className="mt-2 pt-2 border-t border-white/10 text-[11px] leading-relaxed text-gray-400">
+            <p className="mt-2 pt-2 border-t border-white/10 text-[11px] leading-relaxed text-blue-200/70">
               {rangeNote}
             </p>
           )}
@@ -446,14 +473,19 @@ export default function UserPerformancePage() {
                   (subjectsTruncated ? ' Based on the 25 most recent.' : '')}
             </p>
           </div>
-          {subjects.length > 1 && (
-            <FilterSelect
-              value={subjectSort}
-              options={SORT_OPTIONS}
-              onChange={v => setSubjectSort(v)}
-              size="sm"
-              ariaLabel="Sort subjects"
-            />
+          {subjects.length > 0 && (
+            <div className="flex items-center gap-4 flex-wrap">
+              <SubjectKey />
+              {subjects.length > 1 && (
+                <FilterSelect
+                  value={subjectSort}
+                  options={SORT_OPTIONS}
+                  onChange={v => setSubjectSort(v)}
+                  size="sm"
+                  ariaLabel="Sort subjects"
+                />
+              )}
+            </div>
           )}
         </div>
 
@@ -472,15 +504,17 @@ export default function UserPerformancePage() {
             {/* Two columns so thirteen subjects don't become a very long scroll; the
                 chosen order reads down the left column, then the right. */}
             <div className="grid sm:grid-cols-2 gap-x-6">
-              <SubjectBreakdown subjects={subjectColumns[0]} composition sort={subjectSort} />
+              <SubjectBreakdown subjects={subjectColumns[0]} composition showKey={false} sort={subjectSort} />
               <SubjectBreakdown
                 subjects={subjectColumns[1]}
                 composition
+                showKey={false}
                 sort={subjectSort}
                 className="mt-2.5 sm:mt-0"
               />
             </div>
-            <p className="text-[10px] text-gray-400 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+            <p className="mt-4 flex items-start gap-2 rounded-xl border border-blue-100 dark:border-blue-900/50 bg-blue-50/60 dark:bg-brand-500/10 px-3 py-2.5 text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">
+              <Info className="w-3.5 h-3.5 mt-0.5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
               Accuracy counts only the questions you answered. A subject with a handful answered can show a
               high percentage on very little evidence — the counts under each bar say how much.
             </p>
@@ -489,38 +523,41 @@ export default function UserPerformancePage() {
       </div>
 
       {/* ── Attempts ─────────────────────────────────────────────────────────── */}
-      <div className="mt-3 sm:mt-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+      <div className="mt-3 sm:mt-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+        <div className="flex items-center justify-between mb-3">
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
             All attempts{' '}
             <span className="font-normal text-gray-400">
               ({attempts.length} of {done.length})
             </span>
           </p>
-          <Link to="/user/history" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+          <Link to="/user/history" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
             Full history
           </Link>
         </div>
         {done.length === 0 ? (
-          <p className="py-10 text-center text-xs text-gray-400">
+          <p className="py-8 text-center text-xs text-gray-400">
             No {trackNoun.toLowerCase()}s attempted in {groupLabel} over this period.
           </p>
         ) : (
           <>
-            <ul className="divide-y divide-gray-50 dark:divide-gray-800">
+            <ul className="space-y-2">
               {attempts.map(h => {
                 const pct = Math.round(h.percentage ?? 0);
                 return (
                   <li key={h.attempt_id}>
                     <Link
                       to={`/user/report/${h.attempt_id}`}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                      className="group flex items-center gap-3 rounded-xl border border-gray-100 dark:border-gray-800 px-3 py-2.5 hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-50/30 dark:hover:bg-gray-800/40 transition-colors"
                     >
+                      <span className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center flex-shrink-0">
+                        <FileText className="w-4 h-4 text-blue-500" />
+                      </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
                           {h.test_name ?? 'Test attempt'}
                         </span>
-                        <span className="block text-[10px] text-gray-400">
+                        <span className="block text-[10px] text-gray-400 capitalize">
                           {new Date(h.start_time).toLocaleDateString('en-IN', {
                             day: '2-digit',
                             month: 'short',
@@ -533,7 +570,7 @@ export default function UserPerformancePage() {
                           comparison you can scan. */}
                       <span className="hidden sm:block w-24 h-1.5 rounded bg-gray-100 dark:bg-gray-800 overflow-hidden flex-shrink-0">
                         <span
-                          className={cn('block h-full rounded', pct >= 50 ? 'bg-emerald-500' : 'bg-indigo-400')}
+                          className={cn('block h-full rounded', pct >= 50 ? 'bg-emerald-500' : 'bg-blue-400')}
                           style={{ width: `${Math.max(2, pct)}%` }}
                         />
                       </span>
@@ -542,14 +579,13 @@ export default function UserPerformancePage() {
                       </span>
                       <span
                         className={cn(
-                          'text-xs font-bold px-2 py-0.5 rounded tabular-nums flex-shrink-0',
-                          pct >= 50
-                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                            : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+                          'text-sm font-bold tabular-nums flex-shrink-0 w-10 text-right',
+                          pct >= 50 ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-900 dark:text-gray-100',
                         )}
                       >
                         {pct}%
                       </span>
+                      <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-blue-500 flex-shrink-0" />
                     </Link>
                   </li>
                 );
@@ -559,7 +595,7 @@ export default function UserPerformancePage() {
               <button
                 type="button"
                 onClick={() => setShowAllAttempts(v => !v)}
-                className="w-full py-2.5 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 border-t border-gray-100 dark:border-gray-800"
+                className="mt-3 w-full py-2 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
               >
                 {showAllAttempts ? 'Show fewer' : `Show all ${done.length} attempts`}
               </button>
@@ -571,9 +607,14 @@ export default function UserPerformancePage() {
   );
 }
 
-function Bit({ width, color }: { width: number; color: string }) {
+function Bit({ width, color, first }: { width: number; color: string; first?: boolean }) {
   if (width <= 0) return null;
-  return <span className="h-full rounded" style={{ width: `${width}%`, background: color, minWidth: 2 }} />;
+  return (
+    <span
+      className={cn('h-full', first ? 'rounded-l-full rounded-r' : 'rounded')}
+      style={{ width: `${width}%`, background: color, minWidth: 2 }}
+    />
+  );
 }
 
 function Dot({ color, className }: { color?: string; className?: string }) {
@@ -585,29 +626,58 @@ function Dot({ color, className }: { color?: string; className?: string }) {
   );
 }
 
+type TileTone = 'orange' | 'blue' | 'green' | 'purple' | 'amber';
+
+/** Each tile is tinted to its icon, so the row reads as five distinct figures at a glance. */
+const TILE_TONES: Record<TileTone, { card: string; icon: string }> = {
+  orange: {
+    card: 'border-orange-100 bg-orange-50/60 dark:border-orange-900/40 dark:bg-orange-950/20',
+    icon: 'bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-300',
+  },
+  blue: {
+    card: 'border-blue-100 bg-blue-50/60 dark:border-blue-900/40 dark:bg-blue-950/20',
+    icon: 'bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300',
+  },
+  green: {
+    card: 'border-emerald-100 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/20',
+    icon: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300',
+  },
+  purple: {
+    card: 'border-violet-100 bg-violet-50/60 dark:border-violet-900/40 dark:bg-violet-950/20',
+    icon: 'bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300',
+  },
+  amber: {
+    card: 'border-amber-100 bg-amber-50/60 dark:border-amber-900/40 dark:bg-amber-950/20',
+    icon: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300',
+  },
+};
+
 function Tile({
+  icon: Icon,
+  tone,
   label,
   value,
   hint,
-  accent,
+  className,
 }: {
+  icon: LucideIcon;
+  tone: TileTone;
   label: string;
   value: string | number;
   hint?: string;
-  accent?: boolean;
+  className?: string;
 }) {
+  const t = TILE_TONES[tone];
   return (
-    <div
-      className={cn(
-        'rounded-2xl border p-3 sm:p-3.5',
-        accent
-          ? 'border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-500/10'
-          : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900',
-      )}
-    >
-      <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 leading-none">{value}</p>
-      <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-1.5 font-medium">{label}</p>
-      {hint && <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{hint}</p>}
+    <div className={cn('flex items-center gap-3 rounded-2xl border p-3 sm:p-3.5', t.card, className)}>
+      <span className={cn('w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0', t.icon)}>
+        <Icon className="w-5 h-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 leading-none">{value}</p>
+        <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-1.5 font-medium">{label}</p>
+        {hint && <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{hint}</p>}
+      </div>
     </div>
   );
 }

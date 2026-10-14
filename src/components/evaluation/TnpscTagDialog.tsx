@@ -16,6 +16,7 @@ import {
   EMPTY_TAG,
   readTnpscTag,
   tagAssessment,
+  describeTagError,
   validateTnpscTag,
   type TnpscTagValue,
 } from '@/lib/tnpscAdminApi';
@@ -48,11 +49,7 @@ export function TnpscTagDialog({ open, onOpenChange, assessment }: Props) {
       qc.invalidateQueries({ queryKey: ['eval-assessments'] });
       onOpenChange(false);
     } catch (err: any) {
-      toast.error(
-        err?.message?.includes('404')
-          ? 'Tagging endpoint not deployed yet (PATCH /evaluation/assessments/{id}/tnpsc).'
-          : err?.message || 'Could not save the tags',
-      );
+      toast.error(describeTagError(err, tag), { duration: 15_000 });
     } finally {
       setSaving(false);
     }

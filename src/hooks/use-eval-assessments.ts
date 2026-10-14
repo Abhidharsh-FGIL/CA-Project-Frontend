@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { toast } from 'sonner';
+import type { PoolFilter, PoolMode } from '@/lib/assessment-pool';
 
 export interface EvalAssessmentConfig {
   title: string;
@@ -37,8 +38,22 @@ export interface EvalAssessmentConfig {
   maxAttempts?: number;
   shuffleQuestions?: boolean;
   subjectWeights?: Record<string, number>;
+  /**
+   * Published syllabus units the questions are drawn from, and their weights (percent,
+   * summing to 100). Sent alongside `subjectWeights`, which a server that only knows
+   * subjects reads instead — BACKEND_WORK.md item 14.
+   */
+  unitIds?: string[];
+  unitWeights?: Record<string, number>;
   paperIds?: string[];
   paperWeights?: Record<string, number>;
+  /**
+   * Whether the paper is a fixed set of questions or a pool each attempt is drawn from, and the
+   * rule the pool was made by. Sent so the server can draw from the bank as it is when a student
+   * starts — see `assessment-pool.ts` and BACKEND_LIVE_POOL.md.
+   */
+  poolMode?: PoolMode;
+  poolFilter?: PoolFilter | null;
   pricingType?: 'free' | 'paid';
   price?: number;
   promoCode?: string;
@@ -49,6 +64,14 @@ export interface EvalAssessmentConfig {
   tnpscLevel?: 'simple' | 'medium' | 'complex';
   tnpscSubjectId?: string;
   tnpscTopicId?: string;
+  /** The published syllabus unit a unit-wise practice paper is filed under. */
+  tnpscUnitId?: string;
+  /** Whether a practice paper covers one unit or a whole printed section. */
+  tnpscScope?: 'unit' | 'section';
+  /** The section a section-wise practice paper covers, by its printed name. */
+  tnpscSectionName?: string;
+  /** Which language paper a full mock is sat in, where the stage offers a choice. */
+  tnpscLanguage?: 'tamil' | 'english';
 }
 
 export function useEvalAssessments(filters?: { status?: string; search?: string }) {
@@ -106,8 +129,12 @@ export function useCreateEvalAssessment() {
         max_attempts: config.maxAttempts || null,
         shuffle_questions: config.shuffleQuestions ?? true,
         subject_weights: config.subjectWeights,
+        unit_ids: config.unitIds,
+        unit_weights: config.unitWeights,
         paper_ids: config.paperIds,
         paper_weights: config.paperWeights,
+        pool_mode: config.poolMode ?? 'fixed',
+        pool_filter: config.poolFilter ?? null,
         pricing_type: config.pricingType,
         price: config.price,
         promo_code: config.promoCode || null,
@@ -118,6 +145,10 @@ export function useCreateEvalAssessment() {
         tnpsc_level: config.tnpscLevel ?? null,
         tnpsc_subject_id: config.tnpscSubjectId ?? null,
         tnpsc_topic_id: config.tnpscTopicId ?? null,
+        tnpsc_unit_id: config.tnpscUnitId ?? null,
+        tnpsc_scope: config.tnpscScope ?? null,
+        tnpsc_section_name: config.tnpscSectionName ?? null,
+        tnpsc_language: config.tnpscLanguage ?? null,
       };
       return api.post<any>(`/api/v1/evaluation/assessments?org_id=${orgId}`, payload);
     },

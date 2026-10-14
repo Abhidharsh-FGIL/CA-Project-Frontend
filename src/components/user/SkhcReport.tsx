@@ -137,7 +137,7 @@ function SectionCard({ title, icon, children, accent }: { title: string; icon: R
   return (
     <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-indigo-500">{icon}</span>
+        <span className="text-blue-500">{icon}</span>
         <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{title}</h3>
         {accent && <span className="ml-auto">{accent}</span>}
       </div>
@@ -163,7 +163,7 @@ function ExamOverview({ exams }: { exams: SkhcExamRow[] }) {
                 </span>
               )}
             </div>
-            {e.type && <p className="text-[11px] text-indigo-500 font-medium mb-1.5">{e.type}</p>}
+            {e.type && <p className="text-[11px] text-blue-500 font-medium mb-1.5">{e.type}</p>}
             <div className="flex items-end justify-between">
               <div>
                 <p className="text-lg font-bold text-gray-900 dark:text-gray-100 tabular-nums leading-none">
@@ -208,9 +208,9 @@ function ScoreTrendChart({ points }: { points: { label: string; percentage: numb
         <Line
           type="monotone"
           dataKey="percentage"
-          stroke="#6366f1"
+          stroke="#ff6c24"
           strokeWidth={2.5}
-          dot={{ r: 4, fill: '#6366f1' }}
+          dot={{ r: 4, fill: '#ff6c24' }}
           activeDot={{ r: 6 }}
         />
       </LineChart>
@@ -325,7 +325,7 @@ function ImprovementPlanRow({ item }: { item: SkhcImprovementPlanItem }) {
         <span className="font-semibold text-gray-600 dark:text-gray-300">Gap:</span> {item.gap_identified}
       </p>
       <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-        <span className="font-semibold text-indigo-600 dark:text-indigo-400">Action:</span> {item.recommended_action}
+        <span className="font-semibold text-blue-600 dark:text-blue-400">Action:</span> {item.recommended_action}
       </p>
     </div>
   );
@@ -452,7 +452,7 @@ function Certification({ data }: { data: SkhcCertification }) {
         <tbody>
           {rows.map((r, i) => (
             <tr key={i} className="border-t border-gray-100 dark:border-gray-800 even:bg-gray-50/60 dark:even:bg-gray-800/30 align-top">
-              <td className="px-3 py-2.5 font-semibold text-indigo-700 dark:text-indigo-300 w-44 sm:w-52 whitespace-nowrap">{r.label}</td>
+              <td className="px-3 py-2.5 font-semibold text-blue-700 dark:text-brand-300 w-44 sm:w-52 whitespace-nowrap">{r.label}</td>
               <td className="px-3 py-2.5 text-gray-700 dark:text-gray-300">{r.value}</td>
             </tr>
           ))}
@@ -466,9 +466,9 @@ function Certification({ data }: { data: SkhcCertification }) {
 
 function CohortStat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className={cn('rounded-xl border p-2.5 text-center', highlight ? 'border-indigo-200 dark:border-indigo-900 bg-indigo-50/60 dark:bg-indigo-950/30' : 'border-gray-200 dark:border-gray-800')}>
+    <div className={cn('rounded-xl border p-2.5 text-center', highlight ? 'border-blue-200 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/30' : 'border-gray-200 dark:border-gray-800')}>
       <p className="text-[9px] uppercase tracking-wide text-gray-400">{label}</p>
-      <p className={cn('text-base font-bold tabular-nums', highlight ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-gray-100')}>{value}</p>
+      <p className={cn('text-base font-bold tabular-nums', highlight ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100')}>{value}</p>
     </div>
   );
 }
@@ -478,9 +478,9 @@ function CohortComparison({ c }: { c: SkhcCohortComparison }) {
   return (
     <div className="space-y-3">
       {/* Rank highlight */}
-      <div className="flex items-center gap-4 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-900/40 p-3">
-        <div className="flex flex-col items-center justify-center w-14 h-14 rounded-xl bg-white dark:bg-gray-900 border border-indigo-100 dark:border-indigo-900 shrink-0">
-          <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400 leading-none">#{c.rank}</span>
+      <div className="flex items-center gap-4 rounded-xl bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/40 dark:to-purple-950/30 border border-blue-100 dark:border-blue-900/40 p-3">
+        <div className="flex flex-col items-center justify-center w-14 h-14 rounded-xl bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900 shrink-0">
+          <span className="text-xl font-bold text-blue-600 dark:text-blue-400 leading-none">#{c.rank}</span>
           <span className="text-[9px] uppercase tracking-wide text-gray-400 mt-0.5">Rank</span>
         </div>
         <div className="min-w-0">
@@ -586,7 +586,7 @@ function GrowthSegmentRow({ s }: { s: SkhcTrendSegment }) {
 
 function waterfallColor(kind: string, value: number): string {
   if (kind === 'growth') return value >= 0 ? '#10b981' : '#ef4444';
-  if (kind === 'baseline') return '#6366f1';
+  if (kind === 'baseline') return '#ff6c24';
   if (kind === 'final') return '#8b5cf6';
   return '#3b82f6'; // intermediate exam score
 }
@@ -664,7 +664,7 @@ function GrowthWaterfall({ wf }: { wf: SkhcGrowthWaterfall }) {
 
 // ── Subject-wise performance (grouped bars: each subject across all exams) ──────
 
-const SUBJECT_EXAM_COLORS = ['#cbd5e1', '#a5b4fc', '#6366f1', '#8b5cf6', '#ec4899', '#14b8a6'];
+const SUBJECT_EXAM_COLORS = ['#cbd5e1', '#ffb07d', '#ff6c24', '#8b5cf6', '#ec4899', '#14b8a6'];
 
 /**
  * Tooltip for the subject chart.
@@ -803,7 +803,7 @@ function PercentileChart({ chart }: { chart: SkhcPercentileChart }) {
           strokeDasharray="4 4"
           label={{ value: `Median ${chart.median_line}th`, position: 'insideTopRight', fontSize: 9, fill: '#94a3b8' }}
         />
-        <Line type="monotone" dataKey="percentile" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 4, fill: '#6366f1' }} activeDot={{ r: 6 }} />
+        <Line type="monotone" dataKey="percentile" stroke="#ff6c24" strokeWidth={2.5} dot={{ r: 4, fill: '#ff6c24' }} activeDot={{ r: 6 }} />
       </LineChart>
     </ResponsiveContainer>
   );
@@ -834,14 +834,14 @@ function ClassDistribution({ dist }: { dist: SkhcClassDistribution }) {
           />
           <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={40}>
             {data.map((d, i) => (
-              <Cell key={i} fill={d.isStudent ? '#6366f1' : '#cbd5e1'} />
+              <Cell key={i} fill={d.isStudent ? '#ff6c24' : '#cbd5e1'} />
             ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-indigo-500" /> Your range</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-brand-500" /> Your range</span>
         <span>
           Ahead of <span className="font-semibold text-gray-700 dark:text-gray-300">{dist.student_above_n_students}</span> of {dist.class_size} students
         </span>
@@ -917,7 +917,7 @@ export function SkhcReport({ report }: { report: SkhcReportData }) {
   return (
     <div className="space-y-5">
       {/* ── Header / profile ── */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-5 text-white shadow-md">
+      <div className="bg-gradient-to-r from-brand-600 to-brand-400 rounded-2xl p-5 text-white shadow-md">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -985,7 +985,7 @@ export function SkhcReport({ report }: { report: SkhcReportData }) {
       {overall_assessment && (
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Activity className="w-4 h-4 text-indigo-500" />
+            <Activity className="w-4 h-4 text-blue-500" />
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">Overall Assessment</h3>
             <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold" style={{ color: deltaColor(overall_assessment.growth_points) }}>
               {overall_assessment.growth_points >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}

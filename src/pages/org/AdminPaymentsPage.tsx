@@ -69,7 +69,7 @@ const METHOD_ICON: Record<string, typeof CreditCard> = {
 };
 
 const METHOD_COLOR: Record<string, string> = {
-  card: 'bg-indigo-500',
+  card: 'bg-brand-500',
   upi: 'bg-emerald-500',
   netbanking: 'bg-purple-500',
   wallet: 'bg-amber-500',
@@ -77,7 +77,7 @@ const METHOD_COLOR: Record<string, string> = {
 
 const TIER_META: Record<string, { label: string; icon: typeof Sparkles; color: string }> = {
   standard: { label: 'Standard', icon: Sparkles, color: 'from-blue-500 to-cyan-500' },
-  ultimate: { label: 'Ultimate', icon: Sparkles, color: 'from-indigo-500 to-purple-500' },
+  ultimate: { label: 'Ultimate', icon: Sparkles, color: 'from-brand-500 to-brand-400' },
   premium: { label: 'Premium', icon: Crown, color: 'from-amber-500 to-orange-500' },
   free: { label: 'Free', icon: Star, color: 'from-gray-400 to-gray-500' },
 };
@@ -247,7 +247,7 @@ export default function AdminPaymentsPage() {
 
       <div className="space-y-5 pb-6">
         {/* ───── Hero header ───── */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 bg-[length:200%_auto] animate-gradient-x text-white shadow-xl shadow-indigo-200/40 dark:shadow-indigo-950/40 animate-fadeIn">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 via-brand-400 to-pink-600 bg-[length:200%_auto] animate-gradient-x text-white shadow-xl shadow-blue-200/40 dark:shadow-blue-950/40 animate-fadeIn">
           <div className="absolute inset-0 bg-soft-dots opacity-15 pointer-events-none" />
           <div className="absolute -top-20 -right-20 w-72 h-72 bg-white/15 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-black/15 rounded-full blur-3xl pointer-events-none" />
@@ -302,7 +302,7 @@ export default function AdminPaymentsPage() {
                 className={cn(
                   'px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition-all',
                   rangeFilter === r
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm'
+                    ? 'bg-gradient-to-r from-brand-600 to-brand-400 text-white shadow-sm'
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100',
                 )}
               >
@@ -319,7 +319,7 @@ export default function AdminPaymentsPage() {
             <div className="flex items-start justify-between mb-4 gap-2 flex-wrap">
               <div>
                 <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <BarChart3 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   Daily Revenue
                 </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Last 14 days</p>
@@ -330,7 +330,7 @@ export default function AdminPaymentsPage() {
                   <span className="text-gray-600 dark:text-gray-400">Tests</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-sm bg-indigo-500" />
+                  <span className="w-2.5 h-2.5 rounded-sm bg-brand-500" />
                   <span className="text-gray-600 dark:text-gray-400">Subscriptions</span>
                 </span>
               </div>
@@ -356,7 +356,7 @@ export default function AdminPaymentsPage() {
                         title={`₹${b.tests.toLocaleString('en-IN')} in tests`}
                       />
                       <div
-                        className="absolute left-0 right-0 bg-gradient-to-t from-indigo-500 to-indigo-400 group-hover:from-indigo-600 group-hover:to-indigo-500 transition-all duration-500"
+                        className="absolute left-0 right-0 bg-gradient-to-t from-brand-500 to-blue-400 group-hover:from-brand-600 group-hover:to-brand-500 transition-all duration-500"
                         style={{ height: `${subShare}%`, bottom: `${testShare}%` }}
                         title={`₹${b.subs.toLocaleString('en-IN')} in subscriptions`}
                       />
@@ -397,7 +397,7 @@ export default function AdminPaymentsPage() {
                       fill="none"
                       strokeWidth="14"
                       strokeDasharray={subDash}
-                      className="stroke-indigo-500 dark:stroke-indigo-400 transition-all"
+                      className="stroke-brand-500 dark:stroke-blue-400 transition-all"
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -520,7 +520,7 @@ export default function AdminPaymentsPage() {
             style={{ animationDelay: '0.1s' }}
           >
             <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-1">
-              <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               Subscription Tiers
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Revenue by plan</p>
@@ -607,7 +607,7 @@ export default function AdminPaymentsPage() {
             <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
               <div>
                 <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  <Receipt className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <Receipt className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   Transaction Ledger
                 </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 inline-flex items-center gap-1.5">
@@ -617,7 +617,7 @@ export default function AdminPaymentsPage() {
               </div>
               <button
                 onClick={exportCSV}
-                className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-3 py-2 rounded-lg transition-colors shadow-md shadow-indigo-200/40 dark:shadow-indigo-950/40 press"
+                className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold bg-gradient-to-r from-brand-600 to-brand-400 hover:from-brand-700 hover:to-brand-500 text-white px-3 py-2 rounded-lg transition-colors shadow-md shadow-blue-200/40 dark:shadow-blue-950/40 press"
               >
                 <Download className="w-3.5 h-3.5" /> Export CSV
               </button>
@@ -631,7 +631,7 @@ export default function AdminPaymentsPage() {
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder="Search by user, email, invoice, item, or promo…"
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-brand-700"
                 />
               </div>
             </div>
@@ -654,7 +654,7 @@ export default function AdminPaymentsPage() {
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gradient-to-r from-gray-50 to-indigo-50/30 dark:from-gray-800/60 dark:to-indigo-950/30 border-b border-gray-100 dark:border-gray-800">
+              <thead className="bg-gradient-to-r from-gray-50 to-blue-50/30 dark:from-gray-800/60 dark:to-blue-950/30 border-b border-gray-100 dark:border-gray-800">
                 <tr className="text-left text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold">
                   <th className="px-4 py-3">Invoice</th>
                   <th className="px-4 py-3">Date</th>
@@ -670,7 +670,7 @@ export default function AdminPaymentsPage() {
                 {txnLoading ? (
                   <tr>
                     <td colSpan={8} className="px-4 py-16 text-center">
-                      <Loader2 className="w-8 h-8 mx-auto animate-spin text-indigo-400" />
+                      <Loader2 className="w-8 h-8 mx-auto animate-spin text-blue-400" />
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Loading transactions…</p>
                     </td>
                   </tr>
@@ -695,12 +695,12 @@ export default function AdminPaymentsPage() {
                         key={t.txn_id}
                         onClick={() => setSelected(t)}
                         className={cn(
-                          'border-b border-gray-50 dark:border-gray-800 hover:bg-gradient-to-r hover:from-indigo-50/40 hover:to-purple-50/40 dark:hover:from-indigo-950/20 dark:hover:to-purple-950/20 cursor-pointer transition-all animate-fadeIn group',
+                          'border-b border-gray-50 dark:border-gray-800 hover:bg-gradient-to-r hover:from-blue-50/40 hover:to-purple-50/40 dark:hover:from-blue-950/20 dark:hover:to-purple-950/20 cursor-pointer transition-all animate-fadeIn group',
                         )}
                         style={{ animationDelay: `${Math.min(i * 0.02, 0.5)}s` }}
                       >
                         <td className="px-4 py-3">
-                          <span className="font-mono text-xs text-gray-700 dark:text-gray-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                          <span className="font-mono text-xs text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                             {t.invoice_no ?? '—'}
                           </span>
                         </td>
@@ -712,7 +712,7 @@ export default function AdminPaymentsPage() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
                               {t.user_id[0]?.toUpperCase() ?? '?'}
                             </div>
                             <div className="min-w-0">
@@ -727,7 +727,7 @@ export default function AdminPaymentsPage() {
                               className={cn(
                                 'inline-flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 text-white shadow-sm',
                                 t.payment_type === 'subscription'
-                                  ? 'bg-gradient-to-br from-indigo-500 to-purple-500'
+                                  ? 'bg-gradient-to-br from-brand-500 to-brand-400'
                                   : 'bg-gradient-to-br from-emerald-500 to-teal-500',
                               )}
                             >
@@ -793,13 +793,13 @@ export default function AdminPaymentsPage() {
             </table>
           </div>
           {filtered.length > 0 && (
-            <div className="hidden md:flex border-t border-gray-100 dark:border-gray-800 px-4 py-2.5 items-center justify-between bg-gradient-to-r from-gray-50/50 to-indigo-50/30 dark:from-gray-800/30 dark:to-indigo-950/20">
+            <div className="hidden md:flex border-t border-gray-100 dark:border-gray-800 px-4 py-2.5 items-center justify-between bg-gradient-to-r from-gray-50/50 to-blue-50/30 dark:from-gray-800/30 dark:to-blue-950/20">
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Showing <strong className="text-gray-700 dark:text-gray-300">{filtered.length}</strong> of {transactions.length} transactions
               </p>
               <p className="text-xs font-bold text-gray-700 dark:text-gray-300 inline-flex items-center gap-1">
                 Filtered total:
-                <span className="text-indigo-600 dark:text-indigo-400 tabular-nums">
+                <span className="text-blue-600 dark:text-blue-400 tabular-nums">
                   ₹
                   {filtered
                     .filter(t => t.payment_status === 'success')
@@ -814,7 +814,7 @@ export default function AdminPaymentsPage() {
           <div className="md:hidden space-y-2 p-3">
             {txnLoading ? (
               <div className="bg-gray-50 dark:bg-gray-800/40 rounded-xl p-8 text-center">
-                <Loader2 className="w-8 h-8 mx-auto animate-spin text-indigo-400" />
+                <Loader2 className="w-8 h-8 mx-auto animate-spin text-blue-400" />
               </div>
             ) : filtered.length === 0 ? (
               <div className="bg-gray-50 dark:bg-gray-800/40 rounded-xl p-8 text-center">
@@ -829,11 +829,11 @@ export default function AdminPaymentsPage() {
                   <button
                     key={t.txn_id}
                     onClick={() => setSelected(t)}
-                    className="w-full bg-gray-50/60 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800 p-3 text-left hover:border-indigo-300 dark:hover:border-indigo-800 transition-colors"
+                    className="w-full bg-gray-50/60 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800 p-3 text-left hover:border-blue-300 dark:hover:border-blue-800 transition-colors"
                   >
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                           {t.user_id[0]?.toUpperCase() ?? '?'}
                         </div>
                         <div className="min-w-0">
@@ -905,7 +905,7 @@ function DonutLegend({
   value: number;
   pct: number;
 }) {
-  const cls = color === 'indigo' ? 'bg-indigo-500' : 'bg-emerald-500';
+  const cls = color === 'indigo' ? 'bg-brand-500' : 'bg-emerald-500';
   return (
     <div className="flex items-center gap-2">
       <span className={cn('w-2.5 h-2.5 rounded-sm flex-shrink-0', cls)} />
@@ -934,7 +934,7 @@ function MiniKpi({
   tone: 'indigo' | 'emerald' | 'red' | 'amber';
 }) {
   const TONE: Record<typeof tone, string> = {
-    indigo: 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400',
+    indigo: 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400',
     emerald: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400',
     red: 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400',
     amber: 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
@@ -967,8 +967,8 @@ function Chip({
       className={cn(
         'px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border',
         active
-          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-transparent shadow-sm shadow-indigo-200/40'
-          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700',
+          ? 'bg-gradient-to-r from-brand-600 to-brand-400 text-white border-transparent shadow-sm shadow-blue-200/40'
+          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-brand-700',
       )}
     >
       {children}
@@ -990,7 +990,7 @@ function TxnDetailModal({ txn, onClose, onRefund }: { txn: PaymentTxnOut; onClos
         className="relative w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden animate-scaleIn max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
-        <div className="relative p-5 bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 bg-[length:200%_auto] animate-gradient-x text-white">
+        <div className="relative p-5 bg-gradient-to-br from-brand-500 via-brand-400 to-pink-500 bg-[length:200%_auto] animate-gradient-x text-white">
           <div className="absolute inset-0 bg-soft-dots opacity-15" />
           <div className="absolute -top-12 -right-12 w-40 h-40 bg-white/15 rounded-full blur-3xl pointer-events-none" />
           <button
@@ -1024,7 +1024,7 @@ function TxnDetailModal({ txn, onClose, onRefund }: { txn: PaymentTxnOut; onClos
         <div className="p-5 space-y-4">
           <DetailGroup label="Customer">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold shadow-sm">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center text-white font-bold shadow-sm">
                 {txn.user_id[0]?.toUpperCase() ?? '?'}
               </div>
               <div>
@@ -1042,7 +1042,7 @@ function TxnDetailModal({ txn, onClose, onRefund }: { txn: PaymentTxnOut; onClos
                   className={cn(
                     'inline-flex items-center justify-center w-7 h-7 rounded-lg text-white shadow-sm',
                     txn.payment_type === 'subscription'
-                      ? 'bg-gradient-to-br from-indigo-500 to-purple-500'
+                      ? 'bg-gradient-to-br from-brand-500 to-brand-400'
                       : 'bg-gradient-to-br from-emerald-500 to-teal-500',
                   )}
                 >

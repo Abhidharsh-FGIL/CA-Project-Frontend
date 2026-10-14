@@ -30,26 +30,55 @@ import {
   Target,
   BookOpen,
   AlertCircle,
+  AlertTriangle,
   IndianRupee,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEvalSubjectSuggestions, useEvalChapterSuggestions, useEvalPapers, useEvalQuestions } from '@/hooks/use-evaluation';
+import { useEvalSubjectSuggestions, useEvalPapers, useEvalQuestions } from '@/hooks/use-evaluation';
+import { describePool } from '@/lib/assessment-pool';
 import { useCreateEvalAssessment, type EvalAssessmentConfig } from '@/hooks/use-eval-assessments';
 import { WeightageEditor } from '@/components/personal-assessments/WeightageEditor';
 import { distributeEvenly, distributeQuestions, validateWeightage } from '@/lib/distribution-utils';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { toast } from 'sonner';
+import { FULL_PAPER_BLEND, blendTargets, describeBlend, explainBlendShortfall, pickByBlend } from '@/lib/difficulty-blend';
+import { composeByGroups, planGroups } from '@/lib/compose-pool';
+import {
+  difficultySpread,
+  inSelectedSubjects,
+  matchesDifficulty,
+  poolDifficulty,
+  sameSubject,
+} from '@/lib/question-pool';
+import type { QuestionDifficulty } from '@/lib/eval-difficulty';
+import { difficultyLabel, toStored } from '@/lib/eval-difficulty';
 import { format } from 'date-fns';
 import { api } from '@/lib/api';
 import { TnpscTagFields } from '@/components/evaluation/TnpscTagFields';
-import { EMPTY_TAG, describeTag, examTypeLabel, tagAssessment, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
+import { UnitPoolDiagnosis, UnitPoolPicker } from '@/components/evaluation/UnitPoolPicker';
+import { UnitMappingDialog } from '@/components/evaluation/UnitMappingDialog';
+import { EMPTY_TAG, describeTag, describeTagError, examTypeLabel, suggestAssessmentTitle, tagAssessment, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
 import {
   hasPerSectionNegative,
   leastNegative,
   stageForExamType,
+  stageUnits,
+  unitDisplayName,
+  unitTopics,
   type TnpscPatternSection,
+  type TnpscSyllabusUnit,
 } from '@/config/tnpsc';
 import { findStage } from '@/config/tnpsc';
+import {
+  inSelectedUnits,
+  questionInUnit,
+  subjectWeightsFromUnits,
+  unitBankCounts,
+  unitIdsOf,
+  unitSubjectIds,
+  unitWeightsFromSyllabus,
+} from '@/lib/unit-pool';
+import { getSyllabusChapters, getSyllabusSubjects } from '@/data/examSyllabus';
 
 interface Props {
   onCreated: (assessmentId: string) => void;
@@ -66,12 +95,93 @@ const STEPS = [
 
 type StepKey = (typeof STEPS)[number]['key'];
 
+/**
+ * Why a pool is empty, when the subject itself is not.
+ *
+ * "0 questions" reads as "the bank has none", which sent an admin hunting for
+ * questions they could see in the Question Bank. When the subject has questions
+ * and the *difficulty* is what emptied the pool, say so, show what is there, and
+ * offer the way past it.
+ */
+function PoolExplainer({
+  pool,
+  wanted,
+  onUseAny,
+  noun = 'subject',
+  onShowMapping,
+}: {
+  pool: Array<{ difficulty?: string | null }>;
+  wanted: QuestionDifficulty;
+  onUseAny: () => void;
+  /** Where the unit picker is in use: shows which collection each question came from. */
+  onShowMapping?: () => void;
+  /** What the pool is drawn from — "unit" where the paper picks units, so it does not say "subject". */
+  noun?: string;
+}) {
+  const spread = difficultySpread(pool);
+  const parts = (['easy', 'medium', 'hard'] as QuestionDifficulty[])
+    .filter(d => spread[d] > 0)
+    .map(d => `${spread[d]} ${difficultyLabel(d)}`);
+  if (spread.untagged > 0) parts.push(`${spread.untagged} ungraded`);
+
+  return (
+    <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-xs dark:border-amber-900 dark:bg-amber-950/30">
+      <p className="font-semibold text-amber-900 dark:text-amber-200">
+        0 {difficultyLabel(wanted)} questions — but this {noun} has {pool.length}.
+      </p>
+      <p className="mt-1 leading-relaxed text-amber-800/90 dark:text-amber-300/90">
+        In the bank: {parts.join(' · ')}. The paper is set to {difficultyLabel(wanted)}, so only
+        those are drawn. Grade them in the Question Bank, or use every difficulty here.
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={onUseAny}>
+          Use all {pool.length} questions
+        </Button>
+        {onShowMapping && (
+          <button
+            type="button"
+            onClick={onShowMapping}
+            className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+          >
+            Expected more? See where each collection’s questions went →
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The difficulty an assessment actually has, read off the questions going into it.
+ *
+ * The picker beside it is a *default*: it seeds generation and filters the bank,
+ * and it keeps its value whatever you then select. So a collection of 100 hard
+ * questions was being saved as "medium" — the default nobody had touched — and the
+ * paper then misreported itself everywhere downstream: the portal's difficulty
+ * chips, the report's difficulty analysis, and the study plan's weighting all read
+ * this field rather than the questions.
+ *
+ * Unanimous questions decide it. A genuine mix is recorded as such rather than
+ * flattened to one of its parts. Questions that declare nothing leave the default
+ * standing, which is the one case where the picker is the best answer available.
+ */
+function difficultyOf(questions: Array<{ difficulty?: string | null }>, fallback: string): string {
+  const seen = new Set(
+    questions.map(q => (q?.difficulty ?? '').trim().toLowerCase()).filter(Boolean),
+  );
+  if (seen.size === 0) return fallback;
+  if (seen.size === 1) return [...seen][0];
+  return 'mixed';
+}
+
 export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
   const { profileContext } = useWorkspaceContext();
   const createAssessment = useCreateEvalAssessment();
 
   // ── Form state ──
   const [title, setTitle] = useState('');
+  /** Set once the admin edits the title, after which it is never overwritten. */
+  const [titleEdited, setTitleEdited] = useState(false);
   // TNPSC placement — decides where this paper appears in the aspirant portal.
   // `track` is driven by the assessment mode below, so it is not editable here.
   const [tnpscTag, setTnpscTag] = useState<TnpscTagValue>({ ...EMPTY_TAG, track: 'mock' });
@@ -83,7 +193,12 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
   // Test type is no longer picked by hand — it follows the TNPSC placement below
   // (e.g. "TNPSC Group 1 Prelims"), which keeps it aligned with the syllabus keys
   // used by the question generator.
-  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  /** Subjects ticked by hand. Where the stage has published units, they come from `selectedUnitIds` instead. */
+  const [pickedSubjects, setPickedSubjects] = useState<string[]>([]);
+  /** Published syllabus units chosen as the pool — the way a Group 4 paper is actually specified. */
+  const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
+  /** The per-collection view of where the bank's questions landed. */
+  const [mappingOpen, setMappingOpen] = useState(false);
   const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
   const [questionCount, setQuestionCount] = useState(20);
   const [selectedTypes] = useState<string[]>(['mcq']);
@@ -169,6 +284,85 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
   const tnpscStage = findStage(tnpscTag.group_id ?? undefined, tnpscTag.stage_id ?? undefined)?.stage;
   const testType = examTypeLabel(tnpscTag) ?? '';
 
+  // ── The pool, by published syllabus unit ──
+  //
+  // Group 4 is specified in units ("15 from Unit IV, 20 from Unit V"), not in the
+  // catalog's subjects — and General Tamil's seven units are one subject, so a
+  // subject picker cannot say which of them a paper draws on. Where the placed stage
+  // publishes units, the picker offers those, and the subjects the rest of the
+  // panel works in are *derived* from them.
+  const stageUnitList = useMemo(() => stageUnits(tnpscStage), [tnpscStage]);
+  const unitMode = source === 'bank' && stageUnitList.length > 0;
+  const selectedUnits = useMemo(
+    () => (unitMode ? stageUnitList.filter(x => selectedUnitIds.includes(x.unit.id)).map(x => x.unit) : []),
+    [unitMode, stageUnitList, selectedUnitIds],
+  );
+  const selectedSubjects = useMemo(() => {
+    if (!unitMode) return pickedSubjects;
+    const names: string[] = [];
+    for (const u of selectedUnits) {
+      for (const id of unitSubjectIds(tnpscStage, u)) {
+        const name = tnpscStage?.subjects.find(s => s.id === id)?.name;
+        if (name && !names.includes(name)) names.push(name);
+      }
+    }
+    return names;
+  }, [unitMode, pickedSubjects, selectedUnits, tnpscStage]);
+
+  /** What a paper is split across — units where there are units, subjects otherwise. */
+  const groups = useMemo(
+    () =>
+      unitMode
+        ? selectedUnits.map(u => ({
+            key: u.id,
+            label: `${u.label ? `${u.label}. ` : ''}${unitDisplayName(tnpscStage, u)}`,
+            cluster: stageUnitList.find(x => x.unit.id === u.id)?.sectionName,
+            test: (q: any) => questionInUnit(tnpscStage, q, u),
+          }))
+        : selectedSubjects.map(name => ({
+            key: name,
+            label: name,
+            cluster: undefined as string | undefined,
+            test: (q: any) => sameSubject(tnpscStage, q?.subject, name),
+          })),
+    [unitMode, selectedUnits, selectedSubjects, tnpscStage, stageUnitList],
+  );
+
+  const applyUnits = (ids: string[]) => {
+    setSelectedUnitIds(ids);
+    // Weights follow the published split by default — Units IV and V open at 15 : 20.
+    setSubjectWeights(unitWeightsFromSyllabus(stageUnitList.filter(x => ids.includes(x.unit.id)).map(x => x.unit)));
+    setSelectedChapters([]);
+  };
+  const toggleUnit = (id: string) =>
+    applyUnits(selectedUnitIds.includes(id) ? selectedUnitIds.filter(x => x !== id) : [...selectedUnitIds, id]);
+
+  // Units the new stage does not publish are dropped, as off-exam subjects are.
+  useEffect(() => {
+    const valid = new Set(stageUnitList.map(x => x.unit.id));
+    setSelectedUnitIds(prev => {
+      const kept = prev.filter(id => valid.has(id));
+      return kept.length === prev.length ? prev : kept;
+    });
+  }, [stageUnitList]);
+
+  // A practice paper's placement already names what it covers: a unit paper draws
+  // that unit, a section paper draws the section's units. Follow it, so the pool and
+  // where the paper appears in the portal cannot quietly disagree. The admin can still
+  // change the selection afterwards.
+  useEffect(() => {
+    if (!unitMode || tnpscTag.track !== 'practice') return;
+    const ids =
+      tnpscTag.scope === 'unit' && tnpscTag.unit_id
+        ? [tnpscTag.unit_id]
+        : tnpscTag.scope === 'section' && tnpscTag.section_name
+          ? stageUnitList.filter(x => x.sectionName === tnpscTag.section_name).map(x => x.unit.id)
+          : null;
+    if (ids && ids.length > 0) applyUnits(ids);
+    // Keyed on the placement, so the admin's own edits are not overwritten on re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unitMode, tnpscTag.track, tnpscTag.scope, tnpscTag.unit_id, tnpscTag.section_name, stageUnitList]);
+
   const applyTnpscPattern = () => {
     const p = tnpscStage?.pattern;
     if (!p) return;
@@ -177,6 +371,9 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
     setNegativeMarking(p.negative_marking);
     toast.success(`Applied ${tnpscStage!.short_name} pattern — ${p.total_questions} questions, ${p.duration_minutes} min.`);
   };
+
+  /** Off by default: the picker shows the selected exam's subjects only. */
+  const [showAllSubjects, setShowAllSubjects] = useState(false);
 
   // 'all' means no source filter
   const effectiveSourceFilter = sourceType && sourceType !== 'all' ? sourceType : undefined;
@@ -192,14 +389,58 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
   const { data: allSubjectSuggestions = [] } = useEvalSubjectSuggestions();
 
   const activeSubject = selectedSubjects[0];
-  const { data: chapterSuggestions = [] } = useEvalChapterSuggestions(activeSubject, effectiveSourceFilter);
 
+  /**
+   * Chapters for the chosen subject, from the exam's syllabus where it has them.
+   *
+   * Same reason as the subjects: the syllabus knows the chapters before the bank
+   * holds a question from any of them. Falls back to whatever the bank has seen
+   * for an exam the syllabus does not cover.
+   */
+
+  /**
+   * Only the source is filtered server-side.
+   *
+   * Subject and difficulty used to be sent as query parameters, and both were
+   * exact matches against the wrong thing: the picker offers the syllabus's
+   * "Geography of India" while the bank holds whatever the import tagged
+   * ("Geography"), and the Default Difficulty picker — meant as a fallback — was
+   * quietly a filter. Either one returned an empty pool with no explanation. The
+   * bank is fetched once and narrowed here, where the match can be made on what
+   * the subject *is* (see `question-pool.ts`). It is the same unfiltered request
+   * the Question Bank page makes, so the two share a cache.
+   */
   const bankFilters = useMemo(() => ({
-    subject: selectedSubjects.length === 1 ? selectedSubjects[0] : undefined,
-    difficulty: difficulty !== 'all' ? difficulty : undefined,
     source: effectiveSourceFilter,
-  }), [selectedSubjects, difficulty, effectiveSourceFilter]);
-  const { data: bankQuestions = [] } = useEvalQuestions(source === 'bank' && sourceType ? bankFilters : undefined);
+  }), [effectiveSourceFilter]);
+  const {
+    data: rawBankQuestions = [],
+    isLoading: bankLoading,
+    isError: bankError,
+    error: bankErr,
+    refetch: refetchBank,
+  } = useEvalQuestions(source === 'bank' && sourceType ? bankFilters : undefined);
+
+  /**
+   * Each bank question with the name of the collection it came from.
+   *
+   * A question lists only its `paper_id`. The collection's name is where an author said
+   * which unit a sheet was for, and unit placement falls back on it (`collection-unit.ts`)
+   * when a question's own tags do not say.
+   */
+  const bankQuestions = useMemo(() => {
+    const titleById = new Map<string, string>((papers as any[]).map(p => [p.id, p.title]));
+    return (rawBankQuestions as any[]).map(q => {
+      const title = q?.paper_id ? titleById.get(q.paper_id) : undefined;
+      return title ? { ...q, paper_title: title } : q;
+    });
+  }, [rawBankQuestions, papers]);
+
+  /** What the bank can supply to each unit, shown beside the unit's published count. */
+  const unitCounts = useMemo(
+    () => (unitMode ? unitBankCounts(tnpscStage, bankQuestions as any[]) : null),
+    [unitMode, tnpscStage, bankQuestions],
+  );
 
   /**
    * Every subject the question bank actually holds: the unfiltered suggestion list,
@@ -222,12 +463,121 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
     return Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
   }, [allSubjectSuggestions, subjectSuggestions, bankQuestions, selectedSubjects]);
 
+  /**
+   * The subjects of the selected exam, and only those.
+   *
+   * Sourced from the exam's own syllabus (`EXAM_SYLLABUS`, keyed "TNPSC Group 1" /
+   * "TNPSC Group 4" / "GAT-B") rather than from the question bank. The bank holds
+   * every subject the organisation has ever ingested, so a Group 4 paper was being
+   * offered "English Language" and "Numerical Ability" — IBPS sections that stage
+   * does not examine. The syllabus is also the right source when the bank is still
+   * empty for an exam: the admin can pick General Science before a single General
+   * Science question exists.
+   *
+   * Subjects already chosen are kept, so switching the source filter cannot
+   * silently drop a selection.
+   */
+  const examSubjects = useMemo(() => getSyllabusSubjects(testType), [testType]);
+
+  const examSubjectOptions = useMemo(() => {
+    if (examSubjects.length === 0 || showAllSubjects) return subjectOptions;
+    const seen = new Map<string, string>();
+    [...examSubjects, ...selectedSubjects].forEach(name => {
+      const label = (name ?? '').trim();
+      if (label && !seen.has(label.toLowerCase())) seen.set(label.toLowerCase(), label);
+    });
+    return Array.from(seen.values());
+  }, [examSubjects, subjectOptions, selectedSubjects, showAllSubjects]);
+
+  /** How many bank subjects this exam does not examine — counted, not listed. */
+  const offExamCount = useMemo(() => {
+    if (examSubjects.length === 0) return 0;
+    const inExam = new Set(examSubjects.map(x => x.toLowerCase()));
+    return subjectOptions.filter(x => !inExam.has(x.toLowerCase())).length;
+  }, [examSubjects, subjectOptions]);
+
+  /**
+   * Changing the exam drops subjects the new one does not examine.
+   *
+   * Keeping them would quietly generate a Group 4 paper out of Reasoning Ability
+   * questions, which is the mix this picker exists to prevent.
+   */
+  useEffect(() => {
+    if (examSubjects.length === 0) return;
+    const inExam = new Set(examSubjects.map(x => x.toLowerCase()));
+    setPickedSubjects(prev => {
+      const kept = prev.filter(x => inExam.has(x.toLowerCase()));
+      return kept.length === prev.length ? prev : kept;
+    });
+    // Only when the exam changes — not on every edit elsewhere on the step.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testType]);
+
+  /**
+   * Every bank question in the chosen subjects, at any difficulty.
+   *
+   * Kept apart from `matchingQuestions` so that when the difficulty empties the
+   * pool the screen can say *what is there instead* — "0 Complex, but 58 Medium"
+   * — rather than a bare zero that reads as "no such questions exist".
+   */
+  const subjectPool = useMemo(() => {
+    if (source === 'paper') return [] as any[];
+    if (unitMode) return (bankQuestions as any[]).filter((q: any) => inSelectedUnits(tnpscStage, q, selectedUnits));
+    return (bankQuestions as any[]).filter((q: any) =>
+      inSelectedSubjects(tnpscStage, q?.subject, selectedSubjects),
+    );
+  }, [bankQuestions, selectedSubjects, selectedUnits, unitMode, tnpscStage, source]);
+
+  /**
+   * Chapters to choose from: what the bank holds, then what the syllabus expects.
+   *
+   * Both lists matter and they are not the same thing. The bank's chapters are
+   * the only ones that can actually select a question — a chapter with nothing
+   * behind it yields an empty paper. The syllabus's are what *should* exist, so
+   * they are still offered, marked, and listed second.
+   *
+   * Preferring the syllabus outright (as this did) hid the real names entirely:
+   * General Tamil's questions are tagged with whatever their import used, so the
+   * only selectable chapters were invisible and every pick returned nothing.
+   */
+  const chapterSuggestions = useMemo(() => {
+    // Read off the questions that actually matched the subject, rather than asked
+    // of `/evaluation/chapters` by exact name — which returned nothing for
+    // "Geography of India" while the bank held the chapters under "Geography".
+    const inBank = Array.from(
+      new Set(subjectPool.map((q: any) => (q?.chapter ?? '').trim()).filter(Boolean)),
+    ).sort((a, b) => a.localeCompare(b));
+    const seen = new Set(inBank.map(c => c.trim().toLowerCase()));
+    const expectedNames = unitMode
+      ? selectedUnits.flatMap(u => unitTopics(tnpscStage, u).map(t => t.name))
+      : getSyllabusChapters(testType, activeSubject);
+    const expected = expectedNames.filter(
+      c => c?.trim() && !seen.has(c.trim().toLowerCase()),
+    );
+    return [
+      ...inBank.map(name => ({ name, inBank: true })),
+      ...expected.map(name => ({ name, inBank: false })),
+    ];
+  }, [testType, activeSubject, subjectPool, unitMode, selectedUnits, tnpscStage]);
+
+  const emptyChapterCount = chapterSuggestions.filter(c => !c.inBank).length;
+
+  /**
+   * The one difficulty the pool is held to, or null.
+   *
+   * Set by what the paper is — a unit pitched at Complex draws Complex — and not
+   * by the Default Difficulty picker. `anyDifficulty` is the admin's way past it
+   * when the bank has not been graded yet.
+   */
+  const [anyDifficulty, setAnyDifficulty] = useState(false);
+  const wantedDifficulty = anyDifficulty ? null : poolDifficulty(tnpscTag, difficulty);
+  useEffect(() => {
+    setAnyDifficulty(false);
+  }, [tnpscTag.level, tnpscTag.unit_id, tnpscTag.scope, tnpscTag.track, selectedSubjects.join('|')]);
+
   const matchingQuestions = useMemo(() => {
     if (source === 'paper') return [];
-    let qs = bankQuestions as any[];
-    if (selectedSubjects.length > 1) {
-      qs = qs.filter((q: any) => selectedSubjects.includes(q.subject));
-    }
+    let qs = subjectPool.filter((q: any) => matchesDifficulty(q, wantedDifficulty));
     if (selectedChapters.length > 0) {
       qs = qs.filter((q: any) => selectedChapters.includes(q.chapter));
     }
@@ -235,10 +585,10 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
       qs = qs.filter((q: any) => selectedTypes.includes(q.type));
     }
     return qs;
-  }, [bankQuestions, selectedSubjects, selectedChapters, selectedTypes, source]);
+  }, [subjectPool, wantedDifficulty, selectedChapters, selectedTypes, source]);
 
   const toggleSubject = (s: string) => {
-    setSelectedSubjects(prev => {
+    setPickedSubjects(prev => {
       const next = prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s];
       setSubjectWeights(next.length > 0 ? distributeEvenly(next) : {});
       return next;
@@ -251,9 +601,9 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
   };
 
   const subjectWeightsValid = useMemo(() => {
-    if (selectedSubjects.length < 2) return true;
+    if (groups.length < 2) return true;
     return validateWeightage(subjectWeights).valid;
-  }, [selectedSubjects, subjectWeights]);
+  }, [groups, subjectWeights]);
 
   const togglePaper = (id: string) => {
     setPaperIds(prev => {
@@ -311,10 +661,90 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
     if (stepIndex > 0) setStep(STEPS[stepIndex - 1].key);
   };
 
+  /**
+   * The title the placement implies — "TNPSC Group 4 — Indian Polity · Simple".
+   *
+   * The cascade already says what the paper is, so naming it by hand means
+   * restating that choice, and two hundred hand-named papers do not sort or scan.
+   * It fills in as the placement is answered and stops the moment it is typed in.
+   */
+  const suggestedTitle = useMemo(() => suggestAssessmentTitle(tnpscTag), [tnpscTag]);
+
+  useEffect(() => {
+    if (titleEdited || !suggestedTitle) return;
+    setTitle(prev => (prev === suggestedTitle ? prev : suggestedTitle));
+  }, [suggestedTitle, titleEdited]);
+
+  /**
+   * True when the placement says this paper stands for the whole of something.
+   *
+   * Mirrors the same rule in `TnpscTagFields`, which shows the admin the blend
+   * before they create it — the panel's promise and this selection have to agree.
+   */
+  const wantsBlend =
+    tnpscTag.track === 'mock' ||
+    (tnpscTag.track === 'practice' && tnpscTag.scope === 'section') ||
+    (tnpscTag.track === 'practice' && tnpscTag.scope === 'unit' && !tnpscTag.level);
+
+  // The fallback difficulty is no longer asked for, so it follows the placement: a unit
+  // pitched at one level saves as that level. Whole papers take their difficulty from
+  // the questions they are composed of (`difficultyOf`), so there is nothing to follow.
+  useEffect(() => {
+    if (tnpscTag.track === 'practice' && tnpscTag.scope === 'unit' && tnpscTag.level) {
+      setDifficulty(toStored(tnpscTag.level));
+    }
+  }, [tnpscTag.track, tnpscTag.scope, tnpscTag.level]);
+
+  /**
+   * Whether the bank can actually supply the blend, checked on the pool as it stands.
+   *
+   * The summary promised "Auto blend 20 / 30 / 50" whatever the bank held, so a Mixed
+   * paper over a bank graded entirely Complex was created, labelled Mixed, and opened as
+   * fifty Complex questions. Null where there is nothing to check yet.
+   */
+  const blendCheck = useMemo(
+    () =>
+      wantsBlend && source === 'bank' && effectiveCount > 0 && matchingQuestions.length > 0
+        ? pickByBlend(matchingQuestions as any[], effectiveCount)
+        : null,
+    [wantsBlend, source, effectiveCount, matchingQuestions],
+  );
+  const blendNotice = blendCheck && !blendCheck.exact ? explainBlendShortfall(blendCheck, effectiveCount) : null;
+
+  /** What the summaries say the paper's difficulty is. */
+  const summaryDifficulty = wantsBlend
+    ? blendNotice && blendCheck
+      ? describeBlend(blendCheck.taken)
+      : `Auto blend ${FULL_PAPER_BLEND.easy} / ${FULL_PAPER_BLEND.medium} / ${FULL_PAPER_BLEND.hard}`
+    : difficulty;
+
+  /** Which of the chosen groups a bank question falls in. One pass per question, not one per group. */
+  const classifyGroups = (q: any): string[] =>
+    unitMode ? unitIdsOf(tnpscStage, q) : groups.filter(g => g.test(q)).map(g => g.key);
+
+  /**
+   * What the weights ask of each group against what the bank holds for it, for a paper that is
+   * built to the exam's split. Cheap, so it can be shown while the weights are being edited:
+   * a unit the bank cannot fill is better seen here than found in the finished paper.
+   */
+  const compositionPlan = useMemo(
+    () =>
+      wantsBlend && source === 'bank' && groups.length > 1 && effectiveCount > 0
+        ? planGroups(matchingQuestions as any[], groups, classifyGroups, subjectWeights, effectiveCount)
+        : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [wantsBlend, source, groups, matchingQuestions, subjectWeights, effectiveCount, unitMode, tnpscStage],
+  );
+  const shortGroups = compositionPlan.filter(p => p.available < p.wanted);
+
   // ── Submit ──
   const handleCreate = async () => {
     let qIds: string[] = [];
     let maxScore = 0;
+    /** The question objects behind `qIds` — their own difficulty is authoritative. */
+    let chosen: any[] = [];
+    /** True once a bank paper has been built to the exam's split and blend in one step. */
+    let composed = false;
 
     if (source === 'paper' && paperIds.length > 0) {
       if (shuffleQuestions) {
@@ -325,6 +755,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
           allPaperQs.push(...(paperQs || []));
         }
         qIds = allPaperQs.map((q: any) => q.id);
+        chosen = allPaperQs;
         const totalMarks = allPaperQs.reduce((s: number, q: any) => s + (q.points || 1), 0);
         maxScore = qIds.length > 0 ? Math.round((totalMarks / qIds.length) * effectiveCount * 100) / 100 : effectiveCount;
       } else {
@@ -340,37 +771,87 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
           picked.push(...(paperQs || []).slice(0, wanted));
         }
         qIds = picked.map((q: any) => q.id);
+        chosen = picked;
         maxScore = picked.reduce((s: number, q: any) => s + (q.points || 1), 0);
       }
-    } else if (selectedSubjects.length > 1) {
+    } else if (wantsBlend && groups.length >= 1) {
+      /*
+       * A whole paper — a mock, a section, a Full Unit — is built to the exam's split first
+       * (each unit gets its published share) and to the 20/30/50 blend *inside* each unit.
+       * Applying the blend to the whole pool at once ignored the units: a Group 4 mock came
+       * out as 172 Aptitude and 28 Tamil, with no General Studies. See `compose-pool.ts`.
+       */
+      const built = composeByGroups(
+        matchingQuestions as any[],
+        groups.map(g => ({ key: g.key, label: g.label, cluster: g.cluster })),
+        classifyGroups,
+        subjectWeights,
+        effectiveCount,
+        { blend: true },
+      );
+      chosen = built.picked;
+      qIds = built.picked.map((q: any) => q.id);
+      maxScore = built.picked.reduce((sum: number, q: any) => sum + (q.points || 1), 0);
+      composed = true;
+
+      if (built.short.length > 0) {
+        toast.warning(
+          `The bank is short in ${built.short.map(p => `${p.label} (${p.available} of ${p.wanted})`).join(', ')}. ` +
+            `The gap was made up from the rest of the same section where it could be.`,
+          { duration: 15_000 },
+        );
+      }
+      if (built.unfilled > 0) {
+        toast.warning(`Only ${built.picked.length} of ${effectiveCount} questions could be placed — every pool ran out.`);
+      }
+      const spread = difficultySpread(built.picked);
+      const target = blendTargets(built.picked.length);
+      const slack = groups.length + 1; // rounding inside each group can move a band by a question
+      if ((['easy', 'medium', 'hard'] as QuestionDifficulty[]).some(b => Math.abs(spread[b] - target[b]) > slack)) {
+        toast.warning(
+          `The mix came out ${describeBlend({ easy: spread.easy, medium: spread.medium, hard: spread.hard })}, ` +
+            `not the ${describeBlend(target)} asked for — the bank is short at some difficulty.`,
+          { duration: 15_000 },
+        );
+      }
+    } else if (groups.length > 1) {
       if (shuffleQuestions) {
         // Shuffle: send ALL matching questions as the pool
         qIds = (matchingQuestions as any[]).map((q: any) => q.id);
+        chosen = matchingQuestions as any[];
         const totalMarks = (matchingQuestions as any[]).reduce((s: number, q: any) => s + (q.points || 1), 0);
         maxScore = qIds.length > 0 ? Math.round((totalMarks / qIds.length) * effectiveCount * 100) / 100 : effectiveCount;
       } else {
-        // Constant: fixed questions per subject according to weights
+        // Constant: fixed questions per unit (or subject) according to weights.
+        // A question that fits two groups is taken once.
         const allocation = distributeQuestions(effectiveCount, subjectWeights);
         const picked: any[] = [];
-        for (const subj of selectedSubjects) {
-          const wanted = allocation[subj] || 0;
+        const taken = new Set<string>();
+        for (const g of groups) {
+          const wanted = allocation[g.key] || 0;
           if (wanted === 0) continue;
-          const subjPool = (matchingQuestions as any[]).filter((q: any) => q.subject === subj);
-          picked.push(...subjPool.slice(0, wanted));
+          const groupPool = (matchingQuestions as any[]).filter((q: any) => g.test(q) && !taken.has(q.id));
+          for (const q of groupPool.slice(0, wanted)) {
+            taken.add(q.id);
+            picked.push(q);
+          }
         }
         qIds = picked.map((q: any) => q.id);
+        chosen = picked;
         maxScore = picked.reduce((s: number, q: any) => s + (q.points || 1), 0);
       }
     } else {
       if (shuffleQuestions) {
         // Shuffle: send ALL matching questions as the pool
         qIds = (matchingQuestions as any[]).map((q: any) => q.id);
+        chosen = matchingQuestions as any[];
         const totalMarks = (matchingQuestions as any[]).reduce((s: number, q: any) => s + (q.points || 1), 0);
         maxScore = qIds.length > 0 ? Math.round((totalMarks / qIds.length) * effectiveCount * 100) / 100 : effectiveCount;
       } else {
         // Constant: fixed set of effectiveCount questions
         const picked = matchingQuestions.slice(0, effectiveCount);
         qIds = picked.map((q: any) => q.id);
+        chosen = picked;
         maxScore = picked.reduce((s: number, q: any) => s + (q.points || 1), 0);
       }
     }
@@ -378,6 +859,32 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
     if (qIds.length === 0) {
       toast.error('No questions available to create assessment');
       return;
+    }
+
+    /**
+     * A paper standing for the whole of something is composed, not sliced.
+     *
+     * A Full Unit set, a section set and every mock have to span the difficulty
+     * range the real exam spans — taking the first N questions off a pool gives
+     * whatever the pool happened to be ordered by, which for an imported paper is
+     * usually one difficulty throughout. A paper pitched at a single level is
+     * left alone: that one *should* be all Simple.
+     */
+    if (wantsBlend && chosen.length > 0 && !composed) {
+      const blended = pickByBlend(chosen, effectiveCount);
+      chosen = blended.picked;
+      qIds = blended.picked.map((q: any) => q.id);
+      maxScore = blended.picked.reduce((sum: number, q: any) => sum + (q.points || 1), 0);
+
+      if (!blended.exact) {
+        // The bank could not supply the mix: a gap in the question bank, and the paper
+        // about to be built is skewed by it. Say so before it exists, not in a toast
+        // after — and let the admin walk away from it.
+        const go = window.confirm(`${explainBlendShortfall(blended, blended.picked.length)}
+
+Create it anyway?`);
+        if (!go) return;
+      }
     }
 
     // A paper that offers a choice cannot be scored by summing every question's
@@ -393,6 +900,23 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
       maxScore = examPattern.total_marks;
     }
 
+    // A paper made as a pool says so, and states the rule — so the server can draw each attempt
+    // from the bank as it is then, not from the list of ids as they were today.
+    const pool = describePool({
+      source,
+      shuffle: shuffleQuestions,
+      composed: wantsBlend,
+      stageId: tnpscTag.stage_id,
+      unitIds: unitMode ? selectedUnits.map(u => u.id) : undefined,
+      paperIds,
+      difficulty: wantedDifficulty,
+      questionTypes: selectedTypes,
+      sourceType: effectiveSourceFilter,
+      // The subjects and topics the paper holds — how a question added by hand, which has no unit,
+      // finds the paper its neighbours are in.
+      questions: chosen,
+    });
+
     const result = await createAssessment.mutateAsync({
       title,
       testType: testType || undefined,
@@ -403,10 +927,14 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
       tnpscLevel: tnpscTag.track === 'mock' ? tnpscTag.level ?? undefined : undefined,
       tnpscSubjectId: tnpscTag.track === 'practice' ? tnpscTag.subject_id ?? undefined : undefined,
       tnpscTopicId: tnpscTag.track === 'practice' ? tnpscTag.topic_id ?? undefined : undefined,
+      tnpscUnitId: tnpscTag.scope === 'unit' ? tnpscTag.unit_id ?? undefined : undefined,
+      tnpscScope: tnpscTag.scope ?? undefined,
+      tnpscSectionName: tnpscTag.scope === 'section' ? tnpscTag.section_name ?? undefined : undefined,
+      tnpscLanguage: tnpscTag.track === 'mock' ? tnpscTag.language ?? undefined : undefined,
       paperId: source === 'paper' && paperIds.length === 1 ? paperIds[0] : undefined,
       paperIds: source === 'paper' && paperIds.length > 1 ? paperIds : undefined,
       paperWeights: source === 'paper' && paperIds.length > 1 ? paperWeights : undefined,
-      difficulty,
+      difficulty: difficultyOf(chosen, difficulty),
       questionIds: qIds,
       questionCount: effectiveCount,
       maxScore,
@@ -436,7 +964,22 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
         : undefined,
       maxAttempts,
       shuffleQuestions,
-      subjectWeights: source !== 'paper' && selectedSubjects.length > 1 ? subjectWeights : undefined,
+      poolMode: pool.mode,
+      poolFilter: pool.filter,
+      // The server draws a shuffled paper by subject, so unit weights are folded down to
+      // subjects for it — and sent as they are too, for the day it can use them
+      // (BACKEND_WORK.md item 14).
+      subjectWeights:
+        source === 'paper' || groups.length < 2
+          ? undefined
+          : unitMode
+            ? subjectWeightsFromUnits(
+                subjectWeights,
+                Object.fromEntries(groups.map(g => [g.key, (matchingQuestions as any[]).filter(g.test)])),
+              )
+            : subjectWeights,
+      unitIds: unitMode && selectedUnits.length > 0 ? selectedUnits.map(u => u.id) : undefined,
+      unitWeights: unitMode && selectedUnits.length > 1 ? subjectWeights : undefined,
       pricingType,
       price: pricingType === 'paid' ? price : undefined,
       promoCode: pricingType === 'paid' && promoCode.trim() ? promoCode.trim().toUpperCase() : undefined,
@@ -448,9 +991,12 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
     try {
       await tagAssessment(result.id, tnpscTag);
     } catch (err: any) {
+      // The old message always blamed a missing endpoint, whatever had actually
+      // failed. Say what the server said.
       toast.warning(
-        `Assessment created, but the TNPSC placement (${describeTag(tnpscTag)}) could not be saved — ` +
-          `tag it from the Assessments tab once PATCH /evaluation/assessments/{id}/tnpsc is available.`,
+        `Assessment created, but the TNPSC placement (${describeTag(tnpscTag)}) could not be saved. ` +
+          describeTagError(err, tnpscTag),
+        { duration: 20_000 },
       );
     }
 
@@ -493,13 +1039,36 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
         {step === 'basics' && (
           <StepShell number={1} title="Basic information" description="Give your assessment a clear name and choose the mode students will sit it in.">
-            <Field label="Assessment Title" required>
+            <Field
+              label="Assessment Title"
+              required
+              hint={
+                suggestedTitle
+                  ? 'Named from the placement below. Edit it and it stays as you leave it.'
+                  : 'Fills in once you set the TNPSC placement below.'
+              }
+            >
               <Input
                 value={title}
-                onChange={e => setTitle(e.target.value)}
-                placeholder="e.g. SSC CGL — Tier 1 Full Mock"
+                onChange={e => {
+                  setTitle(e.target.value);
+                  setTitleEdited(true);
+                }}
+                placeholder={suggestedTitle ?? 'Set the placement below, or type a name'}
                 className="h-10"
               />
+              {titleEdited && suggestedTitle && title !== suggestedTitle && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTitle(suggestedTitle);
+                    setTitleEdited(false);
+                  }}
+                  className="mt-1.5 text-[11px] font-semibold text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  Use the suggested name — {suggestedTitle}
+                </button>
+              )}
             </Field>
 
             <Field label="Assessment Mode">
@@ -519,16 +1088,10 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
               </div>
             </Field>
 
-            <Field label="Default Difficulty">
-              <Select value={difficulty} onValueChange={setDifficulty}>
-                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="easy">Easy</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="hard">Hard</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
+            {/* No difficulty picker. The placement below already says what the paper is: a
+                unit pitched at one level takes that level from its difficulty button, and a
+                full mock, a section or a Full Unit is composed to the 20/30/50 blend. A
+                second "default" here could only disagree with it. */}
 
             {/* TNPSC placement — required, decides where aspirants see this paper */}
             <Field
@@ -579,13 +1142,15 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
                       setSourceType(opt.value);
                       setSource('bank');
                       setPaperIds([]);
-                      setSelectedSubjects([]);
+                      // Units are kept: they are the exam's, not the source's, and the
+                      // placement may already have chosen one for this paper.
+                      setPickedSubjects([]);
                       setSelectedChapters([]);
                     }}
                     className={cn(
                       'flex flex-col items-center justify-center gap-1.5 rounded-lg border px-3 py-3 text-xs font-medium transition-all',
                       sourceType === opt.value
-                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 ring-1 ring-indigo-500/30'
+                        ? 'border-brand-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-brand-300 ring-1 ring-brand-500/30'
                         : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
                     )}
                   >
@@ -680,6 +1245,30 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
                   </>
                 ) : (
                   <>
+                    {unitMode ? (
+                      <Field
+                        label="Units"
+                        required
+                        hint="The published syllabus units. Questions are drawn from the bank by each unit’s subject and topic."
+                      >
+                        <UnitPoolPicker
+                          stage={tnpscStage}
+                          units={stageUnitList}
+                          selectedIds={selectedUnitIds}
+                          onToggle={toggleUnit}
+                          onSet={applyUnits}
+                          // While the bank loads every unit would read "none in bank", which is false.
+                          counts={bankLoading ? null : unitCounts}
+                          onShowMapping={() => setMappingOpen(true)}
+                        />
+                        {bankLoading && (
+                          <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Loading the question bank — it is large, so this can take a minute.
+                          </p>
+                        )}
+                      </Field>
+                    ) : (
                     <Field label="Subjects" required>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -696,12 +1285,25 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
                               No subjects in the question bank yet — generate or import a paper first.
                             </p>
                           ) : (
-                            subjectOptions.map((s: string) => (
-                              <label key={s} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer text-sm">
-                                <Checkbox checked={selectedSubjects.includes(s)} onCheckedChange={() => toggleSubject(s)} />
-                                {s}
-                              </label>
-                            ))
+                            <>
+                              {examSubjectOptions.map((s: string) => (
+                                <label key={s} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer text-sm">
+                                  <Checkbox checked={selectedSubjects.includes(s)} onCheckedChange={() => toggleSubject(s)} />
+                                  {s}
+                                </label>
+                              ))}
+                              {examSubjects.length > 0 && offExamCount > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAllSubjects(v => !v)}
+                                  className="mt-1 w-full rounded px-2 py-1.5 text-left text-[11px] text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                >
+                                  {showAllSubjects
+                                    ? `Show only ${testType} subjects`
+                                    : `${offExamCount} more in the bank, not examined by ${testType} — show anyway`}
+                                </button>
+                              )}
+                            </>
                           )}
                         </PopoverContent>
                       </Popover>
@@ -713,9 +1315,17 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
                         </div>
                       )}
                     </Field>
+                    )}
 
                     {chapterSuggestions.length > 0 && (
-                      <Field label="Chapters" hint="Optional — leave empty to pull from all chapters.">
+                      <Field
+                        label="Chapters"
+                        hint={
+                          emptyChapterCount > 0
+                            ? `Optional — leave empty to pull from all. ${emptyChapterCount} in the syllabus have no questions in the bank yet.`
+                            : 'Optional — leave empty to pull from all chapters.'
+                        }
+                      >
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button variant="outline" className="w-full h-10 justify-between font-normal">
@@ -726,10 +1336,25 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-[--radix-popover-trigger-width] p-2 max-h-60 overflow-y-auto" align="start">
-                            {chapterSuggestions.filter((c: string) => c?.trim()).map((c: string) => (
-                              <label key={c} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer text-sm">
-                                <Checkbox checked={selectedChapters.includes(c)} onCheckedChange={() => toggleChapter(c)} />
-                                {c}
+                            {chapterSuggestions.map(c => (
+                              <label
+                                key={c.name}
+                                className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+                              >
+                                <Checkbox
+                                  checked={selectedChapters.includes(c.name)}
+                                  onCheckedChange={() => toggleChapter(c.name)}
+                                />
+                                <span className={cn('flex-1 truncate', !c.inBank && 'text-muted-foreground')}>
+                                  {c.name}
+                                </span>
+                                {/* Selecting one of these returns nothing — the
+                                    syllabus names it, the bank has none of it. */}
+                                {!c.inBank && (
+                                  <span className="shrink-0 text-[10px] text-muted-foreground">
+                                    none yet
+                                  </span>
+                                )}
                               </label>
                             ))}
                           </PopoverContent>
@@ -746,8 +1371,42 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
 
                     <Field
                       label={`Questions in this assessment — ${effectiveCount}`}
-                      hint={availableCount > 0 ? `${availableCount} question${availableCount === 1 ? '' : 's'} available in the bank with this combination` : 'No matching questions yet — pick subjects first'}
+                      hint={
+                        availableCount > 0
+                          ? `${availableCount} question${availableCount === 1 ? '' : 's'} available in the bank with this combination`
+                          : selectedSubjects.length === 0
+                            ? `No matching questions yet — pick ${unitMode ? 'units' : 'subjects'} first`
+                            : subjectPool.length === 0
+                              ? unitMode
+                                ? 'The bank has no questions in the selected units.'
+                                : `The bank has no questions tagged ${selectedSubjects.join(', ')}.`
+                              : 'Nothing matches this combination — see below.'
+                      }
                     >
+                      {unitMode && selectedUnits.length > 0 && subjectPool.length === 0 && (
+                        <UnitPoolDiagnosis
+                          loading={bankLoading}
+                          error={bankError ? ((bankErr as Error)?.message || 'The request failed.') : null}
+                          onRetry={() => refetchBank()}
+                          bank={bankQuestions as any[]}
+                          sourceType={sourceType}
+                        />
+                      )}
+                      {blendNotice && (
+                        <p className="mb-2 flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                          <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
+                          {blendNotice}
+                        </p>
+                      )}
+                      {availableCount === 0 && subjectPool.length > 0 && wantedDifficulty && (
+                        <PoolExplainer
+                          pool={subjectPool}
+                          wanted={wantedDifficulty}
+                          noun={unitMode ? (selectedUnits.length > 1 ? 'selection' : 'unit') : 'subject'}
+                          onShowMapping={unitMode ? () => setMappingOpen(true) : undefined}
+                          onUseAny={() => setAnyDifficulty(true)}
+                        />
+                      )}
                       <Slider
                         value={[questionCount]}
                         onValueChange={([v]) => setQuestionCount(v)}
@@ -758,13 +1417,44 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
                       />
                     </Field>
 
-                    {selectedSubjects.length >= 2 && (
-                      <Field label="Subject Weightage" hint="How questions are distributed across the chosen subjects. Must total 100%.">
+                    {groups.length >= 2 && (
+                      <Field
+                        label={unitMode ? 'Unit Weightage' : 'Subject Weightage'}
+                        hint={
+                          unitMode
+                            ? 'How questions are distributed across the chosen units — set to the published split. Must total 100%.'
+                            : 'How questions are distributed across the chosen subjects. Must total 100%.'
+                        }
+                      >
                         <WeightageEditor
-                          items={selectedSubjects.map(s => ({ key: s, label: s }))}
+                          items={groups.map(g => ({ key: g.key, label: g.label }))}
                           weights={subjectWeights}
                           onChange={setSubjectWeights}
                         />
+                        {shortGroups.length > 0 && (
+                          <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/70 p-2.5 text-[11px] leading-relaxed text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                            <p className="font-semibold">The bank cannot fill every share of a {effectiveCount}-question paper:</p>
+                            <ul className="mt-1 space-y-0.5">
+                              {shortGroups.map(p => (
+                                <li key={p.key}>
+                                  {p.label} — asked for {p.wanted}, the bank has {p.available}
+                                </li>
+                              ))}
+                            </ul>
+                            <p className="mt-1 opacity-90">
+                              The gap is made up from the other units of the same section, so the section totals hold.
+                            </p>
+                          </div>
+                        )}
+                        {unitMode && (
+                          <button
+                            type="button"
+                            onClick={() => setSubjectWeights(unitWeightsFromSyllabus(selectedUnits))}
+                            className="mt-2 text-xs text-blue-600 hover:underline dark:text-blue-400"
+                          >
+                            Reset to the published split
+                          </button>
+                        )}
                       </Field>
                     )}
                   </>
@@ -1094,7 +1784,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
               title={title}
               mode={mode}
               testType={testType}
-              difficulty={difficulty}
+              difficulty={summaryDifficulty}
               source={source}
               sourceType={sourceType}
               papers={paperIds.map(id => {
@@ -1102,8 +1792,9 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
                 return { id, title: p?.title || id };
               })}
               paperWeights={paperWeights}
-              subjects={selectedSubjects}
-              subjectWeights={subjectWeights}
+              subjects={groups.map(g => g.label)}
+              subjectWeights={Object.fromEntries(groups.map(g => [g.label, subjectWeights[g.key]]))}
+              subjectsLabel={unitMode ? 'Units' : 'Subjects'}
               chapters={selectedChapters}
               questionCount={effectiveCount}
               shuffleQuestions={shuffleQuestions}
@@ -1151,6 +1842,14 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
         </div>
       </div>
 
+      <UnitMappingDialog
+        open={mappingOpen}
+        onOpenChange={setMappingOpen}
+        stage={tnpscStage}
+        questions={bankQuestions as any[]}
+        papers={papers as any[]}
+      />
+
       {/* Live summary sidebar */}
       <aside className="hidden lg:block">
         <div className="sticky top-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-5">
@@ -1161,7 +1860,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
             title={title}
             mode={mode}
             testType={testType}
-            difficulty={difficulty}
+            difficulty={summaryDifficulty}
             source={source}
             sourceType={sourceType}
             papers={paperIds.map(id => {
@@ -1169,8 +1868,9 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
               return { id, title: p?.title || id };
             })}
             paperWeights={paperWeights}
-            subjects={selectedSubjects}
-            subjectWeights={subjectWeights}
+            subjects={groups.map(g => g.label)}
+            subjectWeights={Object.fromEntries(groups.map(g => [g.label, subjectWeights[g.key]]))}
+            subjectsLabel={unitMode ? 'Units' : 'Subjects'}
             chapters={selectedChapters}
             questionCount={effectiveCount}
             shuffleQuestions={shuffleQuestions}
@@ -1227,8 +1927,8 @@ function Stepper({
               <span
                 className={cn(
                   'flex items-center justify-center w-9 h-9 rounded-full border-2 transition-all',
-                  isCurrent && 'border-indigo-600 bg-indigo-600 text-white ring-4 ring-indigo-100 dark:ring-indigo-950/60',
-                  isPast && 'border-indigo-600 bg-indigo-600 text-white',
+                  isCurrent && 'border-brand-600 bg-brand-600 text-white ring-4 ring-blue-100 dark:ring-blue-950/60',
+                  isPast && 'border-brand-600 bg-brand-600 text-white',
                   !isCurrent && !isPast && 'border-slate-300 dark:border-slate-700 text-slate-400 dark:text-slate-500'
                 )}
               >
@@ -1237,7 +1937,7 @@ function Stepper({
               <span
                 className={cn(
                   'text-[11px] font-medium uppercase tracking-wider',
-                  isCurrent ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'
+                  isCurrent ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
                 )}
               >
                 {s.label}
@@ -1248,7 +1948,7 @@ function Stepper({
                 <div
                   className={cn(
                     'h-px w-full transition-colors',
-                    i < currentIndex ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700'
+                    i < currentIndex ? 'bg-brand-600' : 'bg-slate-200 dark:bg-slate-700'
                   )}
                 />
               </div>
@@ -1333,15 +2033,15 @@ function ModeCard({
       className={cn(
         'text-left rounded-lg border p-3 transition-all',
         active
-          ? 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/30 ring-1 ring-indigo-500/30'
+          ? 'border-brand-500 bg-blue-50/60 dark:bg-blue-950/30 ring-1 ring-brand-500/30'
           : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
       )}
     >
       <div className={cn('flex items-center gap-2', description && 'mb-1')}>
-        <span className={cn('flex items-center justify-center w-6 h-6 rounded-md', active ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500')}>
+        <span className={cn('flex items-center justify-center w-6 h-6 rounded-md', active ? 'bg-brand-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500')}>
           {icon}
         </span>
-        <p className={cn('text-sm font-semibold', active ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-800 dark:text-slate-200')}>
+        <p className={cn('text-sm font-semibold', active ? 'text-blue-700 dark:text-brand-300' : 'text-slate-800 dark:text-slate-200')}>
           {title}
         </p>
       </div>
@@ -1368,7 +2068,7 @@ function PoolButton({
       className={cn(
         'rounded-lg border px-3 py-2 text-sm font-medium transition-all',
         active
-          ? 'border-indigo-500 bg-indigo-50/60 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300 ring-1 ring-indigo-500/30'
+          ? 'border-brand-500 bg-blue-50/60 text-blue-700 dark:bg-blue-950/30 dark:text-brand-300 ring-1 ring-brand-500/30'
           : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
       )}
     >
@@ -1390,6 +2090,8 @@ function ReviewSummary(props: {
   paperWeights: Record<string, number>;
   subjects: string[];
   subjectWeights: Record<string, number>;
+  /** What `subjects` are called — "Units" where the pool is drawn by syllabus unit. */
+  subjectsLabel?: string;
   chapters: string[];
   questionCount: number;
   shuffleQuestions: boolean;
@@ -1438,7 +2140,7 @@ function ReviewSummary(props: {
       )}
       {props.source !== 'paper' && props.subjects.length > 0 && (
         <SummaryRow
-          label="Subjects"
+          label={props.subjectsLabel ?? 'Subjects'}
           value={
             <div className="flex flex-wrap gap-1">
               {props.subjects.map(s => (
@@ -1531,7 +2233,7 @@ function LiveSummary(props: LiveSummaryProps) {
           ? `${props.papers.length} paper${props.papers.length === 1 ? '' : 's'}`
           : null
         : props.sourceType
-          ? `${props.sourceType === 'all' ? 'Any' : props.sourceType.charAt(0).toUpperCase() + props.sourceType.slice(1)}${props.subjects.length > 0 ? ' · ' + props.subjects.length + ' subj' : ''}`
+          ? `${props.sourceType === 'all' ? 'Any' : props.sourceType.charAt(0).toUpperCase() + props.sourceType.slice(1)}${props.subjects.length > 0 ? ' · ' + props.subjects.length + (props.subjectsLabel === 'Units' ? ' units' : ' subj') : ''}`
           : null,
       placeholder: 'Not selected',
     },

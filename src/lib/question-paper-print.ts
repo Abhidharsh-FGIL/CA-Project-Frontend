@@ -161,16 +161,16 @@ function buildHtml(
     font-family: "Segoe UI", "Nirmala UI", "Latha", system-ui, -apple-system, sans-serif;
     color: #111827; margin: 0; font-size: 11pt; line-height: 1.45;
   }
-  .paper-head { border-bottom: 2px solid #4f46e5; padding-bottom: 8px; margin-bottom: 14px; }
+  .paper-head { border-bottom: 2px solid #f05418; padding-bottom: 8px; margin-bottom: 14px; }
   .paper-head h1 { font-size: 16pt; margin: 0 0 2px; }
-  .paper-head .sub { font-size: 9pt; color: #4f46e5; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+  .paper-head .sub { font-size: 9pt; color: #f05418; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
   .paper-head .meta { font-size: 9pt; color: #6b7280; margin-top: 4px; }
   .paper-head .meta span:not(:last-child)::after { content: "   |   "; white-space: pre; }
 
   .q { break-inside: avoid; page-break-inside: avoid; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid #f3f4f6; }
   .q-head { display: flex; gap: 8px; align-items: flex-start; }
   .q-num {
-    flex: 0 0 auto; width: 20px; height: 20px; border-radius: 4px; background: #4f46e5; color: #fff;
+    flex: 0 0 auto; width: 20px; height: 20px; border-radius: 4px; background: #f05418; color: #fff;
     font-size: 9pt; font-weight: 700; text-align: center; line-height: 20px;
   }
   .q-text { flex: 1 1 auto; }
@@ -201,7 +201,7 @@ function buildHtml(
            background: #eef2ff; border: 1px solid #c7d2fe; color: #3730a3;
            padding: 8px 12px; border-radius: 8px; font-size: 10pt; margin-bottom: 16px; }
     .bar button { font: inherit; font-weight: 600; cursor: pointer; border: 0; border-radius: 6px;
-                  background: #4f46e5; color: #fff; padding: 6px 14px; }
+                  background: #f05418; color: #fff; padding: 6px 14px; }
     .bar button:hover { background: #4338ca; }
   }
   @media print { .bar { display: none !important; } }

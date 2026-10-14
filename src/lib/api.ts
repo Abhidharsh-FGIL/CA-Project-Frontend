@@ -7,12 +7,14 @@ import { toast } from 'sonner';
 // Backend root URL — read from VITE_API_BASE_URL in .env, no trailing slash.
 export const BASE_URL: string =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ??
-  'https://futuregenautomation.com/school_assessment/api';
+
+  // 'https://futuregenautomation.com/school_assessment/api';
+  'https://mygovexams.com/school_assessment';
 
 // Loud, unmistakable log so it's obvious in DevTools Console what URL is live
 console.log(
   `%c[API] BASE_URL = %c${BASE_URL}`,
-  'font-weight:bold;color:#6366f1;font-size:13px',
+  'font-weight:bold;color:#ff6c24;font-size:13px',
   'background:#dcfce7;color:#166534;padding:3px 8px;border-radius:4px;font-family:monospace;font-size:13px',
 );
 console.log(
@@ -66,7 +68,10 @@ export function toRequestError(body: any, status: number): Error {
   const detail = body?.detail ?? body;
   if (detail && typeof detail === 'object' && typeof detail.message === 'string') {
     const error = new Error(detail.message);
-    (error as any).code = detail.code;
+    // FastAPI errors say `code`; the evaluation endpoints say `error_code`. Reading
+    // only the first left `err.code` undefined for the second, and anything that
+    // branched on a code quietly never matched.
+    (error as any).code = detail.code ?? detail.error_code;
     (error as any).detail = detail;
     (error as any).status = status;
     return error;
@@ -140,6 +145,8 @@ async function publicApiRequest<T>(path: string, options: RequestInit = {}): Pro
 }
 
 export const publicApi = {
+  /** For public reads such as the plan list, where a visitor has no session to refresh or lose. */
+  get: <T>(path: string) => publicApiRequest<T>(path, { method: 'GET' }),
   post: <T>(path: string, body?: unknown) =>
     publicApiRequest<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}) }),
 };
@@ -355,7 +362,7 @@ export async function apiRequest<T>(
   if (import.meta.env.DEV) {
     console.log(
       `%c[API] ${options.method || 'GET'} %c${url}%c  ${token ? '🔑 with token' : '🔓 no token'}`,
-      'font-weight:bold;color:#6366f1',
+      'font-weight:bold;color:#ff6c24',
       'color:#0ea5e9;font-family:monospace',
       token ? 'color:#16a34a' : 'color:#dc2626',
     );

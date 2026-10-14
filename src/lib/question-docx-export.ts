@@ -246,7 +246,7 @@ function buildDoc(model: AttemptReportModel, studentName: string): Document {
   children.push(
     new Paragraph({
       spacing: { after: 40 },
-      children: [run('BrightLearn Academy', { bold: true, size: 18, color: '7C3AED' })],
+      children: [run('MyGovExams', { bold: true, size: 18, color: '7C3AED' })],
     }),
     new Paragraph({
       heading: HeadingLevel.HEADING_1,
@@ -381,7 +381,7 @@ function buildDoc(model: AttemptReportModel, studentName: string): Document {
   );
 
   return new Document({
-    creator: 'BrightLearn Academy',
+    creator: 'MyGovExams',
     title: `Answer Review — ${model.meta.testName ?? 'Attempt'}`,
     styles: { default: { document: { run: { font: FONT, size: 20 } } } },
     sections: [{ children }],

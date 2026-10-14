@@ -28,7 +28,7 @@ export function AchievementBadge({ achievement, size = 'md', className }: Achiev
       case 'certificates':
         return 'bg-gradient-to-br from-emerald-400 to-emerald-600 border-2 border-emerald-700 shadow-lg';
       case 'honors':
-        return 'bg-gradient-to-br from-purple-400 to-purple-600 border-2 border-purple-700 shadow-lg';
+        return 'bg-gradient-to-br from-purple-400 to-brand-400 border-2 border-purple-700 shadow-lg';
       default:
         return 'bg-gradient-to-br from-primary/80 to-primary border-2 border-primary shadow-lg';
     }

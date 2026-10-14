@@ -26,6 +26,9 @@ import type {
   SubjectBreakdown,
 } from './userPortalApi';
 import { negativeMarkLoss, type ExamContext, type ExamTaxonomyNode } from './exam-report-config';
+import { difficultyLabel } from '@/lib/eval-difficulty';
+import { findStage, resolveSubjectId } from '@/config/tnpsc';
+import { subjectIdForQuestion } from '@/lib/unit-pool';
 
 // ─── Configuration (§13) ───────────────────────────────────────────────────────
 
@@ -636,6 +639,8 @@ function matchTaxonomy(
   exam: ExamContext | null,
   subjectId: string | null | undefined,
   name: string,
+  /** The question itself, where there is one — its Topic can name the subject when the Subject does not. */
+  question?: { topic?: string | null; chapter?: string | null; subtopic?: string | null; body?: string | null } | null,
 ): ExamTaxonomyNode | null {
   const nodes = exam?.taxonomy ?? [];
   if (nodes.length === 0) return null;
@@ -648,14 +653,56 @@ function matchTaxonomy(
 
   const key = slug(name);
   if (!key || key === 'untagged') return null;
-  return (
+  const byName =
     nodes.find(
       n =>
         slug(n.name) === key ||
         (n.nameLocal != null && slug(n.nameLocal) === key) ||
         (n.aliases ?? []).some(a => slug(a) === key),
-    ) ?? null
-  );
+    ) ?? null;
+  if (byName) return byName;
+
+  /*
+   * The same resolver the test screen uses, so the two cannot disagree about what a tag is.
+   * A paper tagged "தமிழ்" or "கலைச்சொற்கள்" is General Tamil; reading it as its own subject
+   * made one subject several rows in the report, each with a share of the questions and a
+   * percentage of its own.
+   */
+  const stage = exam ? findStage(exam.examId, exam.stageId)?.stage : undefined;
+  if (!stage) return null;
+  const resolved = question
+    ? subjectIdForQuestion(stage, {
+        subject: name,
+        chapter: question.chapter ?? question.topic,
+        subtopic: question.subtopic,
+        text: question.body,
+      })
+    : resolveSubjectId(stage, name);
+  return resolved ? (nodes.find(n => n.id === resolved) ?? null) : null;
+}
+
+/**
+ * One marks row from several that describe the same subject.
+ *
+ * Sums what adds (questions, answers, marks) and recomputes the one thing that does
+ * not, accuracy, from the totals — averaging two rows' percentages would weight a
+ * 10-question row the same as a 90-question one.
+ */
+function mergeMarkRows(primary: SubjectBreakdown | null, extras: SubjectBreakdown[]): SubjectBreakdown {
+  const rows = primary ? [primary, ...extras] : extras;
+  const sum = (pick: (r: SubjectBreakdown) => number) => rows.reduce((n, r) => n + (pick(r) || 0), 0);
+  const correct = sum(r => r.correct);
+  const incorrect = sum(r => r.incorrect);
+  return {
+    subject: rows[0].subject,
+    total_questions: sum(r => r.total_questions),
+    correct,
+    incorrect,
+    unattempted: sum(r => r.unattempted),
+    accuracy_percentage: correct + incorrect > 0 ? (correct / (correct + incorrect)) * 100 : 0,
+    estimated_marks: sum(r => r.estimated_marks),
+    max_marks: sum(r => r.max_marks),
+  };
 }
 
 /**
@@ -672,7 +719,7 @@ function subjectLabels(
   q: QuestionReviewItem | undefined,
   paperName: string,
 ): { name: string; nameLocal: string | null } {
-  const node = matchTaxonomy(exam, q?.subject_id, paperName);
+  const node = matchTaxonomy(exam, q?.subject_id, paperName, q as any);
   // The backend resolves some subjects itself and sends the canonical name; that
   // is a better English label than the paper's wording where it differs.
   const fromPayload = (q?.subject_name ?? '').trim();
@@ -925,7 +972,7 @@ export function buildAttemptReport(
   const bySubject = new Map<string, { name: string; items: QuestionReviewItem[] }>();
   for (const q of questions) {
     const name = (q.subject ?? '').trim() || 'Untagged';
-    const node = matchTaxonomy(exam, q.subject_id, name);
+    const node = matchTaxonomy(exam, q.subject_id, name, q as any);
     const id = node?.id ?? taxonomyKey(q.subject_id, name);
     const entry = bySubject.get(id) ?? { name, items: [] };
     entry.items.push(q);
@@ -950,10 +997,45 @@ export function buildAttemptReport(
     const row = marksRowFor(subjectId, name);
     if (row) claimedRows.add(row.subject);
   }
+
+  /**
+   * Which group each raw tag's questions landed in.
+   *
+   * The server groups its marks table by the subject *as tagged*, so one subject can
+   * arrive as several rows — "General Tamil" and "தகவல் தொழில்நுட்பம்" (a technical-terms
+   * question tagged by the discipline it is about). The questions resolve to one group,
+   * but a group claims only one marks row above. Each remaining row has to be matched
+   * to the group its own questions are in, not treated as a subject nobody answered.
+   */
+  const groupOfRaw = new Map<string, string>();
+  for (const [key, { items }] of bySubject.entries()) {
+    for (const item of items) {
+      const raw = (item.subject ?? '').trim();
+      if (!raw) continue;
+      groupOfRaw.set(slug(raw), key);
+      if (!groupOfRaw.has(matchKey(raw))) groupOfRaw.set(matchKey(raw), key);
+    }
+  }
+  /** Marks rows that describe a group already holding questions, beyond the one it claimed. */
+  const extraRows = new Map<string, SubjectBreakdown[]>();
+
   for (const row of breakdown?.subject_breakdown ?? []) {
     if (claimedRows.has(row.subject)) continue;
     const node = matchTaxonomy(exam, null, row.subject);
-    bySubject.set(node?.id ?? slug(row.subject), { name: row.subject, items: [] });
+    const key = node?.id ?? slug(row.subject);
+    const owner =
+      (bySubject.has(key) ? key : undefined) ??
+      groupOfRaw.get(slug(row.subject)) ??
+      groupOfRaw.get(matchKey(row.subject));
+
+    if (owner) {
+      // Fold it into the group that has the questions. This used to `set` the key
+      // straight over an existing group — replacing a subject's questions with an
+      // empty list — which is how a whole Tamil paper dropped out of the rows.
+      extraRows.set(owner, [...(extraRows.get(owner) ?? []), row]);
+    } else {
+      bySubject.set(key, { name: row.subject, items: [] });
+    }
     claimedRows.add(row.subject);
   }
 
@@ -984,7 +1066,14 @@ export function buildAttemptReport(
 
   const subjects: SubjectNode[] = [...bySubject.entries()].map(([subjectId, { name, items }]) => {
     const m = metricsFor(items);
-    const marks = marksRowFor(subjectId, name);
+    const primary = marksRowFor(subjectId, name);
+    const extras = extraRows.get(subjectId) ?? [];
+    // A row shared with another group is split by question share below, and adding
+    // rows on top of a split would be arithmetic on a number already divided.
+    const marks =
+      extras.length > 0 && (!primary || (marksRowClaims.get(primary.subject) ?? 1) === 1)
+        ? mergeMarkRows(primary, extras)
+        : primary;
     const labels = subjectLabels(exam, items[0], name);
 
     if (marks) {
@@ -1787,7 +1876,9 @@ function difficultyRows(questions: QuestionReviewItem[]): DifficultyRow[] {
     .map(([key, items]) => {
       const m = metricsFor(items);
       return {
-        label: key.charAt(0).toUpperCase() + key.slice(1),
+        // One vocabulary across the product: a question tagged `hard` is shown
+        // as Complex, the same word the portal files its papers under.
+        label: difficultyLabel(key),
         questions: m.questions,
         attempted: m.attempted,
         correct: m.correct,

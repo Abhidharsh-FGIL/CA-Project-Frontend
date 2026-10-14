@@ -16,6 +16,7 @@
  */
 import { isAttempted, metricsFor, type NodeMetrics } from './attempt-report';
 import type { AttemptDetailResponse, ApiAttempt, QuestionReviewItem } from './userPortalApi';
+import { difficultyLabel } from '@/lib/eval-difficulty';
 
 // ─── Configuration (§10, §13, §14 — all thresholds are config, not truth) ──────
 
@@ -924,7 +925,9 @@ function buildDifficulty(questions: QuestionReviewItem[]): ProgressReportModel['
     .map(([key, items]) => {
       const m = metricsFor(items);
       return {
-        label: key.charAt(0).toUpperCase() + key.slice(1),
+        // One vocabulary across the product: a question tagged `hard` is shown
+        // as Complex, the same word the portal files its papers under.
+        label: difficultyLabel(key),
         questions: m.questions,
         attempted: m.attempted,
         correct: m.correct,

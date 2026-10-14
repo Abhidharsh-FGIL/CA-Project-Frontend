@@ -21,14 +21,14 @@ function Breadcrumbs({ items, className }: { items?: BreadcrumbItem[]; className
             {item.href && !isLast ? (
               <Link
                 to={item.href}
-                className="text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition-colors px-1.5 py-0.5 rounded hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30"
+                className="text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors px-1.5 py-0.5 rounded hover:bg-blue-50/60 dark:hover:bg-blue-950/30"
               >
                 {item.label}
               </Link>
             ) : item.onClick && !isLast ? (
               <button
                 onClick={item.onClick}
-                className="text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition-colors px-1.5 py-0.5 rounded hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30"
+                className="text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors px-1.5 py-0.5 rounded hover:bg-blue-50/60 dark:hover:bg-blue-950/30"
               >
                 {item.label}
               </button>

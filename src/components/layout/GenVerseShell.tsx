@@ -1,10 +1,10 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { LogoMark, Wordmark } from '@/components/brand/Brand';
 import { logoutAdmin } from '@/lib/adminAuthApi';
 import { toast } from 'sonner';
 import {
-  ClipboardCheck,
   ArrowLeft,
   LayoutDashboard,
   Database,
@@ -124,10 +124,13 @@ export function GenVerseShell({ children, noScroll = false }: GenVerseShellProps
 
           {/* Logo */}
           <Link to={logoTarget} className="flex items-center gap-2 font-semibold min-w-0 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 via-rose-400 to-amber-500 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform flex-shrink-0">
-              <ClipboardCheck className="h-4 w-4 text-white" />
-            </div>
-            <span className="hidden sm:inline truncate">BrightLearn Admin</span>
+            {/* The tile is white in dark mode only — on a light bar the mark needs none. */}
+            <span className="flex-shrink-0 rounded-lg transition-transform group-hover:scale-105 dark:bg-white dark:p-0.5">
+              <LogoMark className="h-8 w-auto dark:h-7" />
+            </span>
+            <span className="hidden sm:inline truncate">
+              <Wordmark /> <span className="font-medium text-muted-foreground">Admin</span>
+            </span>
           </Link>
 
           {/* Section switcher — desktop */}
@@ -249,13 +252,13 @@ function SwitcherGroup({
             className={cn(
               'flex items-center gap-2.5 px-4 py-2 text-sm transition-colors',
               active
-                ? 'bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/60 dark:to-purple-950/60 text-indigo-700 dark:text-indigo-300 font-semibold border-l-2 border-indigo-500'
+                ? 'bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/60 dark:to-purple-950/60 text-blue-700 dark:text-brand-300 font-semibold border-l-2 border-brand-500'
                 : 'text-foreground hover:bg-muted',
             )}
           >
-            <Icon className={cn('w-4 h-4 flex-shrink-0', active ? 'text-indigo-600 dark:text-indigo-400' : 'text-muted-foreground')} />
+            <Icon className={cn('w-4 h-4 flex-shrink-0', active ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground')} />
             <span className="flex-1">{item.label}</span>
-            {active && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+            {active && <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />}
           </Link>
         );
       })}

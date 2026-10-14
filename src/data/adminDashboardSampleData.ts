@@ -302,6 +302,6 @@ export const TIER_LABEL: Record<SubscriptionDistribution['tier'], string> = {
 export const TIER_COLOR: Record<SubscriptionDistribution['tier'], string> = {
   free: 'bg-gray-400',
   standard: 'bg-blue-500',
-  ultimate: 'bg-indigo-500',
+  ultimate: 'bg-brand-500',
   premium: 'bg-gradient-to-r from-amber-400 to-orange-500',
 };

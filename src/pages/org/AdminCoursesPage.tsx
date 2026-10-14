@@ -124,7 +124,7 @@ export default function AdminCoursesPage() {
         actions={
           <button
             onClick={() => setEditing('new')}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-3 py-2 rounded-lg shadow-md shadow-indigo-200/40 dark:shadow-indigo-950/40 press"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-gradient-to-r from-brand-600 to-brand-400 hover:from-brand-700 hover:to-brand-500 text-white px-3 py-2 rounded-lg shadow-md shadow-blue-200/40 dark:shadow-blue-950/40 press"
           >
             <Plus className="w-3.5 h-3.5" /> New Course
           </button>
@@ -134,7 +134,7 @@ export default function AdminCoursesPage() {
       <div className="space-y-5 pb-6">
         {coursesLoading && (
           <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-4 border-indigo-200 dark:border-indigo-900 border-t-indigo-600 dark:border-t-indigo-400 rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-blue-200 dark:border-blue-900 border-t-brand-600 dark:border-t-blue-400 rounded-full animate-spin" />
           </div>
         )}
 
@@ -161,7 +161,7 @@ export default function AdminCoursesPage() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search by name or subject…"
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-brand-700"
               />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -252,7 +252,7 @@ function CourseCard({
   return (
     <div
       className={cn(
-        'bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden transition-all hover:shadow-lg hover:shadow-indigo-100/40 dark:hover:shadow-indigo-950/40 hover:border-indigo-200 dark:hover:border-indigo-800 hover-lift',
+        'bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden transition-all hover:shadow-lg hover:shadow-blue-100/40 dark:hover:shadow-blue-950/40 hover:border-blue-200 dark:hover:border-blue-800 hover-lift',
         course.status === 'archived' && 'opacity-75',
       )}
     >
@@ -271,7 +271,7 @@ function CourseCard({
         </div>
 
         {/* Subject + exam body */}
-        <p className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold mb-1">
+        <p className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold mb-1">
           {[course.subject, course.exam_body].filter(Boolean).join(' · ')}
         </p>
 
@@ -297,7 +297,7 @@ function CourseCard({
         <div className="flex items-center gap-1.5 pt-3 border-t border-gray-100 dark:border-gray-800">
           <button
             onClick={onEdit}
-            className="flex-1 inline-flex items-center justify-center gap-1 text-xs font-semibold bg-gray-50 dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-gray-700 dark:text-gray-300 hover:text-indigo-700 dark:hover:text-indigo-300 px-2 py-1.5 rounded-lg transition-colors"
+            className="flex-1 inline-flex items-center justify-center gap-1 text-xs font-semibold bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-brand-300 px-2 py-1.5 rounded-lg transition-colors"
           >
             <Edit2 className="w-3 h-3" /> Edit
           </button>
@@ -351,7 +351,7 @@ function CourseEditor({
       is_active: true,
       enrolled_users: 0,
       total_tests: 0,
-      thumbnail_color: 'from-indigo-500 to-purple-500',
+      thumbnail_color: 'from-brand-500 to-brand-400',
       exam_body: 'UPSC',
     },
   );
@@ -374,7 +374,7 @@ function CourseEditor({
         className="relative w-full max-w-xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden animate-scaleIn max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
-        <div className="relative p-4 bg-gradient-to-br from-indigo-500 to-purple-500 text-white bg-[length:200%_auto] animate-gradient-x">
+        <div className="relative p-4 bg-gradient-to-br from-brand-500 to-brand-400 text-white bg-[length:200%_auto] animate-gradient-x">
           <div className="absolute inset-0 bg-soft-dots opacity-15" />
           <button
             onClick={onClose}
@@ -401,7 +401,7 @@ function CourseEditor({
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               maxLength={200}
               placeholder="e.g. Grade 10 Mathematics"
-              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700"
+              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-brand-700"
             />
           </FormField>
 
@@ -412,14 +412,14 @@ function CourseEditor({
                 value={form.subject ?? ''}
                 onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
                 placeholder="e.g. Mathematics"
-                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700"
+                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-brand-700"
               />
             </FormField>
             <FormField label="Exam">
               <select
                 value={form.exam_body || 'UPSC'}
                 onChange={e => setForm(f => ({ ...f, exam_body: e.target.value }))}
-                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700"
+                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-brand-700"
               >
                 {EXAM_BODIES.map(b => (
                   <option key={b} value={b}>{b}</option>
@@ -434,7 +434,7 @@ function CourseEditor({
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               rows={3}
               placeholder="Brief description of what this course covers…"
-              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700 resize-none"
+              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-brand-700 resize-none"
             />
           </FormField>
 
@@ -449,7 +449,7 @@ function CourseEditor({
                     'flex-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider border transition-all',
                     form.status === s
                       ? STATUS_META[s].cls
-                      : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-indigo-300',
+                      : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-blue-300',
                   )}
                 >
                   {STATUS_META[s].label}
@@ -468,7 +468,7 @@ function CourseEditor({
             </button>
             <button
               type="submit"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg shadow-md press"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-gradient-to-r from-brand-600 to-brand-400 hover:from-brand-700 hover:to-brand-500 text-white px-4 py-2 rounded-lg shadow-md press"
             >
               {isNew ? 'Create Course' : 'Save Changes'}
             </button>
@@ -505,7 +505,7 @@ function StatChip({
     emerald: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400',
     amber: 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
     gray: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400',
-    indigo: 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400',
+    indigo: 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400',
   };
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover-lift">
@@ -535,8 +535,8 @@ function Chip({
       className={cn(
         'px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border',
         active
-          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-transparent shadow-sm'
-          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700',
+          ? 'bg-gradient-to-r from-brand-600 to-brand-400 text-white border-transparent shadow-sm'
+          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-brand-700',
       )}
     >
       {children}

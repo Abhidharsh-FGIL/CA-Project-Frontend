@@ -8,8 +8,27 @@
  * looks, which is also what keeps the report exam-agnostic: nothing downstream
  * names a subject or an exam to get its colour.
  */
-import React from 'react';
+import React, { createContext, useContext } from 'react';
 import { cn } from '@/lib/utils';
+
+// ─── Reading scale ─────────────────────────────────────────────────────────────
+
+/**
+ * The report surfaces are dense by design: 10–11px captions under 14px titles. That
+ * suits a dashboard glanced at beside a chart and does not suit a page someone reads
+ * every day, like the study plan.
+ *
+ * Rather than raise the size everywhere — which would reflow reports that are
+ * already laid out — a surface opts in by wrapping itself in `ReadableText`, and the
+ * primitives below step up by two pixels. Everything else is unchanged.
+ */
+const ReadableContext = createContext(false);
+
+export function ReadableText({ children }: { children: React.ReactNode }) {
+  return <ReadableContext.Provider value={true}>{children}</ReadableContext.Provider>;
+}
+
+const useReadable = () => useContext(ReadableContext);
 
 // ─── Palette ───────────────────────────────────────────────────────────────────
 
@@ -25,12 +44,12 @@ export const ACCENT: Record<
   { chip: string; text: string; bar: string; ring: string; wash: string; hex: string }
 > = {
   indigo: {
-    chip: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400',
-    text: 'text-indigo-700 dark:text-indigo-300',
-    bar: 'bg-indigo-500',
-    ring: 'border-indigo-200 dark:border-indigo-800',
-    wash: 'bg-indigo-50/70 dark:bg-indigo-950/30',
-    hex: '#6366f1',
+    chip: 'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400',
+    text: 'text-blue-700 dark:text-brand-300',
+    bar: 'bg-brand-500',
+    ring: 'border-blue-200 dark:border-blue-800',
+    wash: 'bg-blue-50/70 dark:bg-blue-950/30',
+    hex: '#ff6c24',
   },
   emerald: {
     chip: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400',
@@ -143,6 +162,7 @@ export function SectionHeader({
   accent?: Accent;
   className?: string;
 }) {
+  const r = useReadable();
   return (
     <div className={cn('flex items-start justify-between gap-3 mb-3', className)}>
       <div className="min-w-0 flex items-start gap-2.5">
@@ -157,8 +177,10 @@ export function SectionHeader({
           </span>
         )}
         <div className="min-w-0">
-          <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-snug">{title}</p>
-          {subtitle && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{subtitle}</p>}
+          <p className={cn('font-bold text-gray-900 dark:text-gray-100 leading-snug', r ? 'text-base' : 'text-sm')}>{title}</p>
+          {subtitle && (
+            <p className={cn('text-gray-500 dark:text-gray-400 mt-0.5', r ? 'text-[13px]' : 'text-[11px]')}>{subtitle}</p>
+          )}
         </div>
       </div>
       {action && <div className="flex-shrink-0">{action}</div>}
@@ -183,10 +205,12 @@ const STATUS_STYLE: Record<StatusTone, string> = {
 };
 
 export function StatusPill({ tone, children, className }: { tone: StatusTone; children: React.ReactNode; className?: string }) {
+  const r = useReadable();
   return (
     <span
       className={cn(
-        'inline-block whitespace-nowrap text-[10px] font-bold px-2 py-0.5 rounded-md border',
+        'inline-block whitespace-nowrap font-bold px-2 py-0.5 rounded-md border',
+        r ? 'text-xs' : 'text-[10px]',
         STATUS_STYLE[tone],
         className,
       )}
@@ -218,6 +242,7 @@ export function StatTile({
   align?: 'center' | 'left';
 }) {
   const centred = align === 'center';
+  const r = useReadable();
   return (
     <div
       className={cn(
@@ -239,9 +264,13 @@ export function StatTile({
         </span>
       )}
       {/* The value carries the tile's colour — that is what makes the row scannable. */}
-      <p className={cn('text-xl font-bold leading-tight', ACCENT[accent].text)}>{value}</p>
-      <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 mt-1 leading-tight">{label}</p>
-      {hint && <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">{hint}</p>}
+      <p className={cn('font-bold leading-tight', r ? 'text-2xl' : 'text-xl', ACCENT[accent].text)}>{value}</p>
+      <p className={cn('font-semibold text-gray-700 dark:text-gray-300 mt-1 leading-tight', r ? 'text-[13px]' : 'text-[11px]')}>
+        {label}
+      </p>
+      {hint && (
+        <p className={cn('text-gray-400 dark:text-gray-400 mt-0.5 leading-snug', r ? 'text-xs' : 'text-[10px]')}>{hint}</p>
+      )}
     </div>
   );
 }
@@ -312,6 +341,7 @@ export function PillTabs<T extends string>({
   options: Array<{ value: T; label: string; count?: number; tone?: StatusTone }>;
   className?: string;
 }) {
+  const r = useReadable();
   return (
     <div className={cn('flex flex-wrap gap-1.5', className)}>
       {options.map(o => (
@@ -320,9 +350,10 @@ export function PillTabs<T extends string>({
           type="button"
           onClick={() => onChange(o.value)}
           className={cn(
-            'text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-colors',
+            r ? 'text-[13px]' : 'text-[11px]',
+            'font-semibold px-2.5 py-1 rounded-lg border transition-colors',
             value === o.value
-              ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300'
+              ? 'bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-brand-300'
               : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800',
           )}
         >
@@ -339,11 +370,15 @@ export function UnderlineTabs<T extends string>({
   value,
   onChange,
   options,
+  underline = 'brand',
 }: {
   value: T;
   onChange: (v: T) => void;
   options: Array<{ value: T; label: string }>;
+  /** The colour of the line under the open tab — the product orange, or blue where the page is blue-led. */
+  underline?: 'brand' | 'blue';
 }) {
+  const r = useReadable();
   return (
     <div className="flex border-b border-gray-100 dark:border-gray-800 gap-1 overflow-x-auto scrollbar-thin">
       {options.map(o => (
@@ -352,9 +387,13 @@ export function UnderlineTabs<T extends string>({
           type="button"
           onClick={() => onChange(o.value)}
           className={cn(
-            'text-[11px] font-semibold px-3 py-2 border-b-2 -mb-px whitespace-nowrap transition-colors',
+            r ? 'text-sm' : 'text-[11px]',
+            'font-semibold px-3 py-2 border-b-2 -mb-px whitespace-nowrap transition-colors',
             value === o.value
-              ? 'border-indigo-500 text-indigo-700 dark:text-indigo-300'
+              ? cn(
+                  underline === 'blue' ? 'border-blue-600' : 'border-brand-500',
+                  'text-blue-700 dark:text-brand-300',
+                )
               : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
           )}
         >
@@ -380,9 +419,10 @@ export function MeterRow({
   right?: React.ReactNode;
   accent?: Accent;
 }) {
+  const r = useReadable();
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-3 text-[11px]">
+      <div className={cn('flex items-baseline justify-between gap-3', r ? 'text-[13px]' : 'text-[11px]')}>
         <span className="font-semibold text-gray-700 dark:text-gray-200">{label}</span>
         {right && <span className="tabular-nums text-gray-500 dark:text-gray-400">{right}</span>}
       </div>
@@ -403,20 +443,29 @@ export function InsightLine({
   accent?: Accent;
   children: React.ReactNode;
 }) {
+  const r = useReadable();
   return (
     <li className="flex items-start gap-2.5">
       <span className={cn('flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center mt-px', ACCENT[accent].chip)}>
         {icon}
       </span>
-      <span className="text-[11px] leading-relaxed text-gray-700 dark:text-gray-200">{children}</span>
+      <span className={cn('leading-relaxed text-gray-700 dark:text-gray-200', r ? 'text-[13px]' : 'text-[11px]')}>
+        {children}
+      </span>
     </li>
   );
 }
 
 /** Every interpreted panel carries one of these. */
 export function WhatThisMeans({ children }: { children: React.ReactNode }) {
+  const r = useReadable();
   return (
-    <p className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 text-[11px] leading-relaxed text-gray-600 dark:text-gray-400">
+    <p
+      className={cn(
+        'mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 leading-relaxed text-gray-600 dark:text-gray-400',
+        r ? 'text-[13px]' : 'text-[11px]',
+      )}
+    >
       <span className="font-semibold text-gray-700 dark:text-gray-300">What this means: </span>
       {children}
     </p>
@@ -425,8 +474,9 @@ export function WhatThisMeans({ children }: { children: React.ReactNode }) {
 
 /** Shown in place of an analysis the data cannot support. */
 export function NotAvailable({ reason }: { reason: string }) {
+  const r = useReadable();
   return (
-    <p className="text-[11px] leading-relaxed text-gray-400 dark:text-gray-500 flex items-start gap-1.5">
+    <p className={cn('leading-relaxed text-gray-400 dark:text-gray-500 flex items-start gap-1.5', r ? 'text-[13px]' : 'text-[11px]')}>
       <span className="flex-shrink-0 mt-px">·</span>
       {reason}
     </p>
@@ -505,7 +555,7 @@ export function LanguageToggle({
           className={cn(
             'text-[11px] font-semibold px-2.5 py-1 rounded-md transition-colors',
             value === o.value
-              ? 'bg-white dark:bg-gray-900 text-[#1e2a5a] dark:text-gray-100 shadow-sm'
+              ? 'bg-white dark:bg-gray-900 text-[#122447] dark:text-gray-100 shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
           )}
         >

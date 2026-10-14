@@ -43,7 +43,7 @@ export default function UserSavedPage({ kind }: { kind: 'bookmarks' | 'notes' })
         </p>
         <Link
           to="/user/exams"
-          className="inline-block mt-4 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+          className="inline-block mt-4 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
         >
           Go to Exams
         </Link>

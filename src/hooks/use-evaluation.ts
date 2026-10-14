@@ -97,8 +97,19 @@ export function useEvalQuestions(filters?: {
   paperId?: string;
 }) {
   const { orgId } = useWorkspaceContext();
+  // Filters with nothing in them are the same request as no filters. `undefined` and
+  // `{ source: undefined }` hashed to different keys, so the assessment wizard fetched
+  // the whole bank twice — about 26 MB each — and the Question Bank page a third time.
+  const active = Object.fromEntries(Object.entries(filters ?? {}).filter(([, v]) => v != null && v !== ''));
   return useQuery({
-    queryKey: ['eval-questions', orgId, filters],
+    queryKey: ['eval-questions', orgId, active],
+    // The list is the whole bank, tens of thousands of questions. React Query deep-compares
+    // a refetch against the cached copy to keep references stable, which on a response this
+    // size costs seconds of main-thread time and buys nothing here.
+    structuralSharing: false,
+    // The app default is to refetch on every mount, which would re-download the bank each
+    // time a screen opens. Respect the 5-minute staleTime for this one.
+    refetchOnMount: true,
     queryFn: async () => {
       const params = new URLSearchParams();
       if (orgId) params.set('org_id', orgId);

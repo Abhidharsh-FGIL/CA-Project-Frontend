@@ -72,10 +72,20 @@ describe('mapGeneratedQuestions', () => {
 });
 
 describe('difficulty labels and summary', () => {
-  it('labels easy as Simple', () => {
+  it('labels the stored vocabulary in the product’s own words', () => {
+    // One vocabulary everywhere: Simple · Medium · Complex. The stored values are
+    // still easy|medium|hard, so this is where the two meet.
     expect(difficultyLabel('easy')).toBe('Simple');
-    expect(difficultyLabel('hard')).toBe('Hard');
+    expect(difficultyLabel('medium')).toBe('Medium');
+    expect(difficultyLabel('hard')).toBe('Complex');
     expect(difficultyLabel('mixed')).toBe('Mixed');
+  });
+
+  it('labels the TNPSC spellings the same way, so the two can never disagree', () => {
+    expect(difficultyLabel('simple')).toBe('Simple');
+    expect(difficultyLabel('complex')).toBe('Complex');
+    expect(difficultyLabel('difficult')).toBe('Complex');
+    expect(difficultyLabel('moderate')).toBe('Medium');
   });
 
   it('accepts the portal aliases', () => {
@@ -87,7 +97,9 @@ describe('difficulty labels and summary', () => {
   it('counts and formats the per-level summary', () => {
     const qs = [{ difficulty: 'hard' }, { difficulty: 'hard' }, { difficulty: 'easy' }, {}];
     expect(countByDifficulty(qs)).toEqual({ easy: 1, medium: 0, hard: 2 });
-    expect(formatDifficultySummary(qs)).toBe('Simple 1 · Medium 0 · Hard 2');
-    expect(formatDifficultySummary(Array(50).fill({ difficulty: 'hard' }))).toBe('Simple 0 · Medium 0 · Hard 50');
+    expect(formatDifficultySummary(qs)).toBe('Simple 1 · Medium 0 · Complex 2');
+    expect(formatDifficultySummary(Array(50).fill({ difficulty: 'hard' }))).toBe(
+      'Simple 0 · Medium 0 · Complex 50',
+    );
   });
 });

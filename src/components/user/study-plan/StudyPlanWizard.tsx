@@ -14,7 +14,7 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
-  CheckCircle2,
+  ChevronRight,
   Clock,
   Flag,
   Loader2,
@@ -23,7 +23,7 @@ import {
   Wand2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ACCENT, ReportCard, SectionHeader, StatTile } from '@/components/user/report-ui';
+import { ACCENT, ReportCard, StatTile } from '@/components/user/report-ui';
 import {
   WEEKDAYS,
   WEEKDAY_LABEL,
@@ -37,7 +37,11 @@ import {
   type Weekday,
 } from '@/lib/studyPlanApi';
 import { useFeasibility } from '@/hooks/use-study-plan';
-import { VERDICT, VerdictPill, fmtDate, fmtHours, fmtMinutes, todayISO } from './plan-ui';
+import { PanelHeader, VERDICT, VerdictPill, fmtDate, fmtHours, fmtMinutes, todayISO } from './plan-ui';
+
+/** The selected-state ring shared by the wizard's choice cards. */
+const CHOSEN = 'border-blue-300 bg-blue-50/70 ring-1 ring-blue-100 dark:border-blue-700 dark:bg-blue-950/30 dark:ring-blue-900/50';
+const UNCHOSEN = 'border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900 hover:border-blue-200 dark:hover:border-blue-900';
 
 type Step = 0 | 1 | 2 | 3;
 
@@ -192,25 +196,20 @@ export function StudyPlanWizard({
 
   return (
     <div className="space-y-3 sm:space-y-4">
-      <ReportCard>
-        <SectionHeader
-          icon={<Wand2 className="w-4 h-4" />}
-          title="Build your study plan"
-          subtitle={options?.stage_name ?? 'Answer four questions and we build the rest'}
-          action={
-            onCancel && (
-              <button
-                type="button"
-                onClick={onCancel}
-                className="text-[11px] font-semibold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-              >
-                Cancel
-              </button>
-            )
-          }
-        />
-        <StepRail step={step} onPick={s => (s < step ? goToStep(s) : undefined)} />
-      </ReportCard>
+      <div className="flex items-center gap-3">
+        <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
+          <Wand2 className="h-5 w-5" />
+        </span>
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold leading-tight text-gray-900 dark:text-gray-100 sm:text-2xl">
+            Build your study plan
+          </h1>
+          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+            {options?.stage_name ?? 'Answer four questions and we build the rest'}
+          </p>
+        </div>
+      </div>
+      <StepRail step={step} onPick={s => (s < step ? goToStep(s) : undefined)} />
 
       {step === 0 && (
         <HorizonStep
@@ -266,33 +265,33 @@ export function StudyPlanWizard({
         <button
           type="button"
           onClick={() => (step === 0 ? onCancel?.() : goToStep((step - 1) as Step))}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 px-3.5 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60"
+          className="inline-flex h-11 items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-5 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800/60"
         >
-          <ArrowLeft className="w-3.5 h-3.5" /> {step === 0 ? 'Cancel' : 'Back'}
+          <ArrowLeft className="h-4 w-4" /> {step === 0 ? 'Cancel' : 'Back'}
         </button>
 
         {step < 3 ? (
           <button
             type="button"
             onClick={() => goToStep((step + 1) as Step)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700"
+            className="inline-flex h-11 min-w-[8.5rem] items-center justify-center gap-2 rounded-xl bg-brand-500 px-7 text-sm font-bold text-white shadow-sm hover:bg-brand-600"
           >
-            Next <ArrowRight className="w-3.5 h-3.5" />
+            Next <ArrowRight className="h-4 w-4" />
           </button>
         ) : (
           <button
             type="button"
             disabled={submitting || feas.isChecking}
             onClick={() => onSubmit(intake)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-60"
+            className="inline-flex h-11 min-w-[10rem] items-center justify-center gap-2 rounded-xl bg-brand-500 px-7 text-sm font-bold text-white shadow-sm hover:bg-brand-600 disabled:opacity-60"
           >
             {submitting ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Building…
+                <Loader2 className="h-4 w-4 animate-spin" /> Building…
               </>
             ) : (
               <>
-                <Sparkles className="w-3.5 h-3.5" /> Build my plan
+                <Sparkles className="h-4 w-4" /> Build my plan
               </>
             )}
           </button>
@@ -306,43 +305,51 @@ export function StudyPlanWizard({
 
 function StepRail({ step, onPick }: { step: Step; onPick: (s: Step) => void }) {
   return (
-    <ol className="grid grid-cols-4 gap-1.5">
+    <ol className="grid grid-cols-4 gap-2 sm:gap-3">
       {STEPS.map((s, i) => {
         const state = i === step ? 'current' : i < step ? 'done' : 'todo';
         return (
-          <li key={s.title}>
+          <li key={s.title} className="min-w-0">
             <button
               type="button"
               onClick={() => onPick(i as Step)}
               disabled={state === 'todo'}
+              aria-current={state === 'current' ? 'step' : undefined}
               className={cn(
-                'w-full text-left rounded-xl border px-2.5 py-2 transition-colors',
-                state === 'current' && cn(ACCENT.indigo.ring, ACCENT.indigo.wash),
-                state === 'done' && 'border-emerald-200 dark:border-emerald-900 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20',
-                state === 'todo' && 'border-gray-100 dark:border-gray-800 opacity-60 cursor-default',
+                'flex h-full w-full flex-col gap-2 rounded-xl border p-2.5 text-center shadow-sm transition-colors sm:flex-row sm:items-start sm:gap-3 sm:p-3 sm:text-left',
+                state === 'current' && 'border-blue-200 bg-blue-50/80 dark:border-blue-800 dark:bg-blue-950/30',
+                state === 'done' &&
+                  'border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/20',
+                state === 'todo' && 'cursor-default border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900',
               )}
             >
-              <span className="flex items-center gap-1.5">
-                {state === 'done' ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                ) : (
-                  <span
-                    className={cn(
-                      'w-3.5 h-3.5 rounded-full text-[8px] font-bold flex items-center justify-center flex-shrink-0',
-                      state === 'current'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-500',
-                    )}
-                  >
-                    {i + 1}
-                  </span>
+              <span
+                className={cn(
+                  'mx-auto flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[13px] font-bold sm:mx-0',
+                  state === 'current' && 'bg-blue-600 text-white',
+                  state === 'done' && 'bg-emerald-500 text-white',
+                  state === 'todo' && 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
                 )}
-                <span className="text-[11px] font-bold text-gray-800 dark:text-gray-100 truncate">
+              >
+                {i + 1}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span
+                  className={cn(
+                    'block truncate text-[13px] font-bold sm:text-[14px]',
+                    state === 'current' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-100',
+                  )}
+                >
                   {s.title}
                 </span>
-              </span>
-              <span className="mt-0.5 block text-[9px] leading-snug text-gray-400 line-clamp-2">
-                {s.blurb}
+                {/* A finished step keeps its title and a quiet line; the blurb is for what is ahead. */}
+                {state === 'done' ? (
+                  <span className="mt-2 hidden h-1 rounded-full bg-emerald-200/80 dark:bg-emerald-800/60 sm:block" />
+                ) : (
+                  <span className="mt-0.5 hidden text-[12px] leading-snug text-gray-400 dark:text-gray-500 sm:block">
+                    {s.blurb}
+                  </span>
+                )}
               </span>
             </button>
           </li>
@@ -374,14 +381,14 @@ function HorizonStep({
   const horizons: HorizonChoice[] = options?.suggested_horizons ?? FALLBACK_HORIZONS;
 
   return (
-    <ReportCard>
-      <SectionHeader
+    <ReportCard className="sm:p-6">
+      <PanelHeader
         icon={<CalendarDays className="w-4 h-4" />}
         title="How long do you have?"
         subtitle="Pick a length, or give us the exam date and we work backwards"
       />
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className={cn('grid gap-3', horizons.length === 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4')}>
         {horizons.map(h => {
           const active = mode === h.mode && value === h.value;
           return (
@@ -392,34 +399,30 @@ function HorizonStep({
                 onMode(h.mode);
                 onValue(h.value);
               }}
-              className={cn(
-                'rounded-xl border p-3 text-center transition-colors',
-                active
-                  ? cn(ACCENT.indigo.ring, ACCENT.indigo.wash)
-                  : 'border-gray-100 dark:border-gray-800 hover:border-indigo-200 dark:hover:border-indigo-900',
-              )}
+              className={cn('rounded-xl border px-2 py-5 text-center shadow-sm transition-colors sm:px-3', active ? CHOSEN : UNCHOSEN)}
             >
               <p
                 className={cn(
-                  'text-sm font-bold',
-                  active ? ACCENT.indigo.text : 'text-gray-800 dark:text-gray-100',
+                  'text-base font-bold',
+                  active ? 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-100',
                 )}
               >
                 {h.label}
               </p>
+              {/* The server's verdict, said in words — colour alone never carries it. */}
               {h.verdict && (
-                <span className="mt-1 inline-block">
-                  <VerdictPill verdict={h.verdict} />
-                </span>
+                <p className={cn('mt-2 text-[13px] font-semibold', ACCENT[VERDICT[h.verdict].accent].text)}>
+                  {VERDICT[h.verdict].label}
+                </p>
               )}
             </button>
           );
         })}
       </div>
 
-      <div className="mt-3 grid sm:grid-cols-2 gap-3">
+      <div className="mt-5 grid sm:grid-cols-2 gap-5">
         <label className="block">
-          <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">
+          <span className="text-[14px] font-semibold text-gray-700 dark:text-gray-200">
             Or an exact number of days
           </span>
           <input
@@ -435,21 +438,21 @@ function HorizonStep({
                 onValue(n);
               }
             }}
-            className="mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-xs tabular-nums"
+            className="mt-1.5 h-12 w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 text-sm tabular-nums placeholder:text-gray-400 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40"
           />
         </label>
 
         <label className="block">
-          <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">
+          <span className="text-[14px] font-semibold text-gray-700 dark:text-gray-200">
             Exam date <span className="font-normal text-gray-400">(optional)</span>
           </span>
           <input
             type="date"
             value={examDate}
             onChange={e => onExamDate(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-xs"
+            className="mt-1.5 h-12 w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 text-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40"
           />
-          <span className="mt-1 block text-[10px] text-gray-400 leading-snug">
+          <span className="mt-1 block text-[13px] text-gray-400 leading-snug">
             Given a date, the last phase becomes a final sprint that ends on it — and nothing is
             scheduled after it.
           </span>
@@ -457,7 +460,7 @@ function HorizonStep({
       </div>
 
       {options && (
-        <p className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 text-[10px] text-gray-400 leading-relaxed">
+        <p className="mt-5 pt-4 border-t border-gray-100 dark:border-gray-800 text-[13px] text-gray-400 leading-relaxed">
           {options.stage_name} has {options.subject_count} subjects and {options.topic_count} topics,
           worth {options.total_marks} marks. We estimate{' '}
           {fmtHours(options.estimated_syllabus_minutes)} of study to cover it once.
@@ -496,14 +499,14 @@ function ScheduleStep({
 }) {
   return (
     <div className="space-y-3 sm:space-y-4">
-      <ReportCard>
-        <SectionHeader
+      <ReportCard className="sm:p-6">
+        <PanelHeader
           icon={<CalendarDays className="w-4 h-4" />}
           title="Which days will you study?"
           subtitle="Days you leave out become rest days — the plan never schedules work on them"
         />
 
-        <div className="grid grid-cols-7 gap-1.5">
+        <div className="grid grid-cols-7 gap-2 sm:gap-2.5">
           {WEEKDAYS.map(d => {
             const on = studyDays.includes(d);
             return (
@@ -513,21 +516,21 @@ function ScheduleStep({
                 onClick={() => onToggleDay(d)}
                 aria-pressed={on}
                 className={cn(
-                  'rounded-xl border py-2.5 text-center transition-colors',
+                  'rounded-xl border py-3.5 text-center shadow-sm transition-colors',
                   on
-                    ? cn(ACCENT.indigo.ring, ACCENT.indigo.wash)
-                    : 'border-gray-100 dark:border-gray-800 opacity-60 hover:opacity-100',
+                    ? 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30'
+                    : 'border-gray-100 bg-gray-50 hover:bg-white dark:border-gray-800 dark:bg-gray-900/60',
                 )}
               >
                 <span
                   className={cn(
-                    'block text-[11px] font-bold',
-                    on ? ACCENT.indigo.text : 'text-gray-500',
+                    'block text-[14px] font-bold',
+                    on ? 'text-blue-700 dark:text-blue-300' : 'text-gray-400',
                   )}
                 >
                   {WEEKDAY_SHORT[d]}
                 </span>
-                <span className="block text-[9px] text-gray-400 mt-0.5">
+                <span className={cn('mt-0.5 block text-[12px]', on ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400')}>
                   {on ? fmtMinutes(perDay[d] ?? minutesPerDay) : 'Rest'}
                 </span>
               </button>
@@ -536,8 +539,8 @@ function ScheduleStep({
         </div>
       </ReportCard>
 
-      <ReportCard>
-        <SectionHeader
+      <ReportCard className="sm:p-6">
+        <PanelHeader
           icon={<Clock className="w-4 h-4" />}
           title="How long each day?"
           subtitle="Be honest — a plan you meet beats one you abandon"
@@ -550,29 +553,38 @@ function ScheduleStep({
           step={15}
           value={minutesPerDay}
           onChange={e => onMinutes(Number(e.target.value))}
-          className="w-full accent-indigo-600"
+          // The filled part of the track is drawn from the value, so the slider reads as progress.
+          style={{ background: `linear-gradient(to right, #2f7fe0 ${((minutesPerDay - 30) / 570) * 100}%, var(--track) 0)` }}
+          className={cn(
+            'h-2 w-full cursor-pointer appearance-none rounded-full [--track:#e3eaf6] dark:[--track:#26324a]',
+            '[&::-webkit-slider-thumb]:h-[18px] [&::-webkit-slider-thumb]:w-[18px] [&::-webkit-slider-thumb]:appearance-none',
+            '[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-white',
+            '[&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:shadow-md',
+            '[&::-moz-range-thumb]:h-[18px] [&::-moz-range-thumb]:w-[18px] [&::-moz-range-thumb]:rounded-full',
+            '[&::-moz-range-thumb]:border-[3px] [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-blue-600',
+          )}
           aria-label="Minutes per study day"
         />
-        <div className="mt-1 flex items-center justify-between text-[10px] text-gray-400">
+        <div className="mt-2 flex items-center justify-between text-[13px] text-gray-400">
           <span>30m</span>
-          <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+          <span className="text-[15px] font-bold text-blue-600 dark:text-blue-400">
             {fmtMinutes(minutesPerDay)} a day
           </span>
           <span>10h</span>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatTile
             value={studyDays.length}
             label="Study days a week"
             accent="indigo"
             align="left"
           />
-          <StatTile value={fmtMinutes(weeklyMinutes)} label="Each week" accent="emerald" align="left" />
+          <StatTile value={fmtMinutes(weeklyMinutes)} label="Each week" accent="slate" align="left" />
           <StatTile
             value={fmtHours(weeklyMinutes * 4.33)}
             label="Each month"
-            accent="sky"
+            accent="slate"
             align="left"
           />
           <StatTile
@@ -584,14 +596,15 @@ function ScheduleStep({
         </div>
 
         {/* Weekend-heavy schedules are common — one override per day covers it. */}
-        <details className="mt-3 group">
-          <summary className="cursor-pointer text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
+        <details className="mt-4 group">
+          <summary className="flex cursor-pointer list-none items-center gap-1 text-[14px] font-semibold text-blue-600 dark:text-blue-400 [&::-webkit-details-marker]:hidden">
+            <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" />
             Set a different length for some days
           </summary>
           <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
             {studyDays.map(d => (
               <label key={d} className="block">
-                <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-300">
+                <span className="text-[13px] font-semibold text-gray-600 dark:text-gray-300">
                   {WEEKDAY_LABEL[d]}
                 </span>
                 <input
@@ -608,7 +621,7 @@ function ScheduleStep({
                     else next[d] = n;
                     onPerDay(next);
                   }}
-                  className="mt-0.5 w-full rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 py-1.5 text-[11px] tabular-nums"
+                  className="mt-0.5 w-full rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 py-1.5 text-[14px] tabular-nums"
                 />
               </label>
             ))}
@@ -616,8 +629,8 @@ function ScheduleStep({
         </details>
       </ReportCard>
 
-      <ReportCard>
-        <SectionHeader
+      <ReportCard className="sm:p-6">
+        <PanelHeader
           icon={<Target className="w-4 h-4" />}
           title="How much revision?"
           subtitle="Each topic comes back on a spaced schedule — this sets how often"
@@ -639,13 +652,13 @@ function ScheduleStep({
               >
                 <p
                   className={cn(
-                    'text-xs font-bold',
+                    'text-[13px] font-bold',
                     active ? ACCENT.violet.text : 'text-gray-800 dark:text-gray-100',
                   )}
                 >
                   {o.label}
                 </p>
-                <p className="mt-0.5 text-[10px] text-gray-400 leading-snug">{o.blurb}</p>
+                <p className="mt-0.5 text-[13px] text-gray-400 leading-snug">{o.blurb}</p>
               </button>
             );
           })}
@@ -656,11 +669,11 @@ function ScheduleStep({
             type="checkbox"
             checked={includeMocks}
             onChange={e => onIncludeMocks(e.target.checked)}
-            className="mt-0.5 accent-indigo-600"
+            className="mt-0.5 accent-brand-600"
           />
-          <span className="text-[11px] text-gray-700 dark:text-gray-200">
+          <span className="text-[14px] text-gray-700 dark:text-gray-200">
             Schedule full-length mocks at the end of each phase
-            <span className="block text-[10px] text-gray-400">
+            <span className="block text-[13px] text-gray-400">
               Timed, under exam conditions, with the next day set aside to mark it.
             </span>
           </span>
@@ -723,14 +736,14 @@ function BasisStep({
 
   return (
     <div className="space-y-3 sm:space-y-4">
-      <ReportCard>
-        <SectionHeader
+      <ReportCard className="sm:p-6">
+        <PanelHeader
           icon={<Flag className="w-4 h-4" />}
           title="What should we build the plan around?"
           subtitle="This decides which subjects get the most of your time"
         />
 
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {choices.map(c => {
             const active = basisKind === c.kind;
             return (
@@ -743,30 +756,23 @@ function BasisStep({
                   if (c.kind === 'attempt') onAttempt(latest?.attempt_id ?? null);
                 }}
                 className={cn(
-                  'w-full rounded-xl border p-3 text-left transition-colors',
-                  active
-                    ? cn(ACCENT.indigo.ring, ACCENT.indigo.wash)
-                    : 'border-gray-100 dark:border-gray-800 hover:border-indigo-200 dark:hover:border-indigo-900',
+                  'w-full rounded-xl border p-4 text-left shadow-sm transition-colors',
+                  active ? CHOSEN : UNCHOSEN,
                   c.disabled && 'opacity-50 cursor-not-allowed',
                 )}
               >
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-3">
+                  <Radio on={active} />
                   <span
                     className={cn(
-                      'w-3.5 h-3.5 rounded-full border-2 flex-shrink-0',
-                      active ? 'border-indigo-600 bg-indigo-600' : 'border-gray-300 dark:border-gray-600',
-                    )}
-                  />
-                  <span
-                    className={cn(
-                      'text-xs font-bold',
-                      active ? ACCENT.indigo.text : 'text-gray-800 dark:text-gray-100',
+                      'text-[15px] font-bold',
+                      active ? 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-100',
                     )}
                   >
                     {c.label}
                   </span>
                 </span>
-                <span className="mt-1 block pl-5.5 text-[10px] text-gray-500 dark:text-gray-400 leading-relaxed">
+                <span className="mt-1 block pl-8 text-[13px] text-gray-500 dark:text-gray-400 leading-relaxed">
                   {c.disabled ? 'Available once you have sat a mock test.' : c.blurb}
                 </span>
               </button>
@@ -775,7 +781,7 @@ function BasisStep({
         </div>
 
         {basisKind === 'cold_start' && attempts > 0 && (
-          <p className="mt-2.5 text-[10px] text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+          <p className="mt-2.5 text-[13px] text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
             <AlertTriangle className="w-3 h-3 mt-px flex-shrink-0" />
             You have {attempts} mock{attempts === 1 ? '' : 's'} on record. Using them makes the plan
             noticeably sharper than starting fresh.
@@ -785,8 +791,8 @@ function BasisStep({
 
       {/* Group 4 sits General Tamil *or* General English — never both. */}
       {options && options.optional_subject_groups.length > 0 && (
-        <ReportCard>
-          <SectionHeader
+        <ReportCard className="sm:p-6">
+          <PanelHeader
             icon={<Target className="w-4 h-4" />}
             title="Which optional subject do you sit?"
             subtitle="The one you do not choose is left out of the plan entirely"
@@ -808,12 +814,11 @@ function BasisStep({
                       ])
                     }
                     className={cn(
-                      'rounded-xl border px-3 py-2.5 text-left text-xs font-semibold transition-colors',
-                      active
-                        ? cn(ACCENT.emerald.ring, ACCENT.emerald.wash, ACCENT.emerald.text)
-                        : 'border-gray-100 dark:border-gray-800 text-gray-700 dark:text-gray-200',
+                      'flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left text-[14px] font-semibold shadow-sm transition-colors',
+                      active ? cn(CHOSEN, 'text-blue-700 dark:text-blue-300') : cn(UNCHOSEN, 'text-gray-700 dark:text-gray-200'),
                     )}
                   >
+                    <Radio on={active} />
                     {o.name}
                   </button>
                 );
@@ -841,9 +846,9 @@ function FeasibilityStep({
 }) {
   if (feas.isChecking) {
     return (
-      <ReportCard>
-        <div className="flex items-center justify-center gap-2 py-10 text-xs text-gray-500">
-          <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+      <ReportCard className="sm:p-6">
+        <div className="flex items-center justify-center gap-2 py-10 text-[13px] text-gray-500">
+          <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
           Checking whether this fits the syllabus…
         </div>
       </ReportCard>
@@ -854,14 +859,14 @@ function FeasibilityStep({
   // volume. With the endpoint absent we say so, rather than guessing a verdict.
   if (feas.unavailable) {
     return (
-      <ReportCard>
-        <SectionHeader
+      <ReportCard className="sm:p-6">
+        <PanelHeader
           icon={<AlertTriangle className="w-4 h-4" />}
           title="We can't check the fit yet"
           subtitle="Your answers are complete — go ahead and build"
           accent="amber"
         />
-        <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">
+        <p className="text-[14px] text-gray-500 dark:text-gray-400 leading-relaxed">
           The feasibility check runs on our servers and is not available on this account yet. Your
           plan will still be built from the answers you gave.
         </p>
@@ -872,8 +877,8 @@ function FeasibilityStep({
 
   if (feas.error) {
     return (
-      <ReportCard>
-        <SectionHeader
+      <ReportCard className="sm:p-6">
+        <PanelHeader
           icon={<AlertTriangle className="w-4 h-4" />}
           title="The check failed"
           accent="rose"
@@ -881,13 +886,13 @@ function FeasibilityStep({
             <button
               type="button"
               onClick={onRecheck}
-              className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+              className="text-[14px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
             >
               Try again
             </button>
           }
         />
-        <p className="text-[11px] text-gray-500 dark:text-gray-400">{feas.error.message}</p>
+        <p className="text-[14px] text-gray-500 dark:text-gray-400">{feas.error.message}</p>
         <IntakeRecap intake={intake} />
       </ReportCard>
     );
@@ -896,7 +901,7 @@ function FeasibilityStep({
   const r = feas.result;
   if (!r) {
     return (
-      <ReportCard>
+      <ReportCard className="sm:p-6">
         <IntakeRecap intake={intake} />
       </ReportCard>
     );
@@ -906,8 +911,8 @@ function FeasibilityStep({
 
   return (
     <div className="space-y-3 sm:space-y-4">
-      <ReportCard>
-        <SectionHeader
+      <ReportCard className="sm:p-6">
+        <PanelHeader
           icon={<Target className="w-4 h-4" />}
           title="Does this fit?"
           subtitle={v.blurb}
@@ -915,7 +920,7 @@ function FeasibilityStep({
           action={<VerdictPill verdict={r.verdict} />}
         />
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatTile
             value={fmtHours(r.available_minutes)}
             label="You have"
@@ -942,14 +947,14 @@ function FeasibilityStep({
           />
         </div>
 
-        <p className="mt-3 text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">
+        <p className="mt-5 text-[14px] leading-relaxed text-gray-600 dark:text-gray-300">
           {r.message}
         </p>
       </ReportCard>
 
       {r.suggestions.length > 0 && (
-        <ReportCard>
-          <SectionHeader
+        <ReportCard className="sm:p-6">
+          <PanelHeader
             icon={<Wand2 className="w-4 h-4" />}
             title="Ways to make it fit"
             subtitle="Tap one to apply it and re-check"
@@ -961,7 +966,7 @@ function FeasibilityStep({
                 key={`${s.kind}-${i}`}
                 type="button"
                 onClick={() => onApply(s.patch)}
-                className="rounded-xl border border-gray-100 dark:border-gray-800 px-3 py-2.5 text-left text-[11px] font-semibold text-gray-700 dark:text-gray-200 hover:border-amber-300 dark:hover:border-amber-800 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors"
+                className="rounded-xl border border-gray-100 dark:border-gray-800 px-3 py-2.5 text-left text-[14px] font-semibold text-gray-700 dark:text-gray-200 hover:border-amber-300 dark:hover:border-amber-800 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors"
               >
                 {s.label}
               </button>
@@ -972,10 +977,10 @@ function FeasibilityStep({
 
       {r.verdict === 'not_feasible' && (
         <div className="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50/70 dark:bg-rose-950/30 p-4">
-          <p className="text-[11px] font-bold text-rose-700 dark:text-rose-300 flex items-center gap-1.5">
+          <p className="text-[14px] font-bold text-rose-700 dark:text-rose-300 flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5" /> This plan will not cover the syllabus
           </p>
-          <p className="mt-1 text-[11px] leading-relaxed text-rose-600 dark:text-rose-400">
+          <p className="mt-1 text-[14px] leading-relaxed text-rose-600 dark:text-rose-400">
             You can still build it — we will prioritise the highest-scoring material and say plainly
             what has been left out. Adjusting the time above is the better option if you can.
           </p>
@@ -985,9 +990,24 @@ function FeasibilityStep({
   );
 }
 
+/** A radio mark — the choice cards are buttons, so this is drawn rather than an input. */
+function Radio({ on }: { on: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2',
+        on ? 'border-blue-600' : 'border-gray-300 dark:border-gray-600',
+      )}
+    >
+      {on && <span className="h-2.5 w-2.5 rounded-full bg-blue-600" />}
+    </span>
+  );
+}
+
 function IntakeRecap({ intake }: { intake: StudyPlanIntake }) {
   return (
-    <dl className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 grid grid-cols-2 gap-2 text-[11px]">
+    <dl className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 grid grid-cols-2 gap-2 text-[14px]">
       {[
         ['Length', `${intake.horizon.value} ${intake.horizon.mode.replace('_', ' ')}`],
         ['Study days', intake.study_days.map(d => WEEKDAY_SHORT[d]).join(', ')],

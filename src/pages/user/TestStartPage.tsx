@@ -40,7 +40,7 @@ export default function TestStartPage() {
     return (
       <UserShell>
         <div className="flex items-center justify-center h-64">
-          <div className="w-8 h-8 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
+          <div className="w-8 h-8 rounded-full border-2 border-brand-600 border-t-transparent animate-spin" />
         </div>
       </UserShell>
     );
@@ -53,7 +53,7 @@ export default function TestStartPage() {
           <p className="text-red-600 font-semibold mb-4">{error || 'Test not found.'}</p>
           <button
             onClick={() => navigate('/user/courses')}
-            className="text-indigo-600 hover:underline text-sm"
+            className="text-blue-600 hover:underline text-sm"
           >
             Back to Courses
           </button>
@@ -68,7 +68,7 @@ export default function TestStartPage() {
     <UserShell>
       <button
         onClick={() => navigate(`/user/courses/${test.course_id}`)}
-        className="group inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-4 transition-colors animate-fadeIn"
+        className="group inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 mb-4 transition-colors animate-fadeIn"
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" /> Back to Course
       </button>
@@ -79,7 +79,7 @@ export default function TestStartPage() {
           <div
             className={`relative p-5 sm:p-6 lg:p-8 overflow-hidden ${
               isMock
-                ? 'bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500'
+                ? 'bg-gradient-to-br from-brand-500 via-brand-400 to-pink-500'
                 : 'bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500'
             } text-white`}
           >
@@ -121,7 +121,7 @@ export default function TestStartPage() {
             {/* Info grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <InfoTile
-                icon={<FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
+                icon={<FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
                 label="Questions"
                 value={String(test.question_count)}
               />
@@ -146,7 +146,7 @@ export default function TestStartPage() {
             {/* Instructions */}
             <div className="mt-6 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
               <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Instructions
+                <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" /> Instructions
               </p>
               <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-1.5 list-disc pl-5">
                 <li>Read each question carefully before answering.</li>
@@ -171,7 +171,7 @@ export default function TestStartPage() {
                 type="checkbox"
                 checked={agreed}
                 onChange={e => setAgreed(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+                className="mt-0.5 w-4 h-4 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-blue-600 focus:ring-brand-500 dark:focus:ring-blue-400"
               />
               <span className="text-xs text-gray-700 dark:text-gray-300">
                 I have read and understood the instructions. I agree to abide by the anti-malpractice rules.
@@ -181,7 +181,7 @@ export default function TestStartPage() {
             <button
               onClick={handleBegin}
               disabled={!agreed}
-              className="group w-full mt-5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-[length:200%_auto] hover:bg-right-bottom text-white py-3.5 rounded-xl font-semibold transition-all duration-500 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40 hover:shadow-xl hover:shadow-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none press"
+              className="group w-full mt-5 bg-gradient-to-r from-brand-600 via-brand-400 to-brand-600 bg-[length:200%_auto] hover:bg-right-bottom text-white py-3.5 rounded-xl font-semibold transition-all duration-500 shadow-lg shadow-blue-200 dark:shadow-blue-900/40 hover:shadow-xl hover:shadow-blue-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none press"
             >
               <span className="inline-flex items-center justify-center gap-2">
                 Begin Test
@@ -207,7 +207,7 @@ function InfoTile({
   valueClass?: string;
 }) {
   return (
-    <div className="bg-gradient-to-br from-gray-50 to-gray-100/70 dark:from-gray-800/80 dark:to-gray-800/40 rounded-xl p-3 hover:from-indigo-50 hover:to-purple-50 dark:hover:from-indigo-950/40 dark:hover:to-purple-950/40 transition-colors duration-300">
+    <div className="bg-gradient-to-br from-gray-50 to-gray-100/70 dark:from-gray-800/80 dark:to-gray-800/40 rounded-xl p-3 hover:from-blue-50 hover:to-purple-50 dark:hover:from-blue-950/40 dark:hover:to-purple-950/40 transition-colors duration-300">
       <div className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
         {icon}
         {label}

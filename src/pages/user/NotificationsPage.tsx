@@ -18,7 +18,7 @@ const TYPE_META = {
   },
   report_ready: {
     icon: FileText,
-    color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40',
+    color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40',
     label: 'Report',
   },
   system: {
@@ -83,12 +83,12 @@ export default function NotificationsPage() {
     <UserShell>
       {/* Hero header */}
       <div className="mb-6 animate-fadeIn">
-        <div className="relative overflow-hidden rounded-2xl border border-indigo-100 dark:border-indigo-900 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-indigo-950/50 dark:via-purple-950/50 dark:to-pink-950/50 bg-[length:200%_auto] animate-gradient-x p-5 sm:p-6">
+        <div className="relative overflow-hidden rounded-2xl border border-blue-100 dark:border-blue-900 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-950/50 dark:via-purple-950/50 dark:to-pink-950/50 bg-[length:200%_auto] animate-gradient-x p-5 sm:p-6">
           <div className="absolute -top-16 -right-16 w-48 h-48 bg-purple-300/30 dark:bg-purple-700/20 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-indigo-300/30 dark:bg-indigo-700/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-blue-300/30 dark:bg-brand-700/20 rounded-full blur-3xl pointer-events-none" />
           <div className="relative flex items-end justify-between gap-3 flex-wrap">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.25em] text-indigo-700 dark:text-indigo-300 font-bold mb-2">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-blue-700 dark:text-brand-300 font-bold mb-2">
                 Inbox
               </p>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
@@ -138,8 +138,8 @@ export default function NotificationsPage() {
       {filtered.length === 0 ? (
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden shadow-sm animate-fadeIn">
           <div className="p-16 text-center">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 flex items-center justify-center mx-auto mb-4 animate-bounce-soft">
-              <Inbox className="w-10 h-10 text-indigo-400 dark:text-indigo-500" />
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/40 dark:to-purple-950/40 flex items-center justify-center mx-auto mb-4 animate-bounce-soft">
+              <Inbox className="w-10 h-10 text-blue-400 dark:text-blue-500" />
             </div>
             <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
               {filter === 'all' ? "No notifications yet" : "Nothing here"}
@@ -189,8 +189,8 @@ function FilterChip({
         active
           ? accent
             ? 'bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-sm shadow-red-200 dark:shadow-red-900/40'
-            : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm shadow-indigo-200 dark:shadow-indigo-900/40'
-          : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700',
+            : 'bg-gradient-to-r from-brand-600 to-brand-400 text-white shadow-sm shadow-blue-200 dark:shadow-blue-900/40'
+          : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-brand-700',
       )}
     >
       {label}
@@ -243,8 +243,8 @@ function DateSection({
                   if (n.test_id) navigate(`/user/courses`);
                 }}
                 className={cn(
-                  'group w-full text-left p-4 hover:bg-indigo-50/40 dark:hover:bg-indigo-950/30 transition-colors flex gap-3 items-start animate-slideInLeft',
-                  !n.is_read && 'bg-indigo-50/30 dark:bg-indigo-950/20',
+                  'group w-full text-left p-4 hover:bg-blue-50/40 dark:hover:bg-blue-950/30 transition-colors flex gap-3 items-start animate-slideInLeft',
+                  !n.is_read && 'bg-blue-50/30 dark:bg-blue-950/20',
                 )}
                 style={{ animationDelay: `${i * 0.04}s` }}
               >
@@ -257,7 +257,7 @@ function DateSection({
                       {meta.label}
                     </span>
                     {!n.is_read && (
-                      <span className="text-[9px] font-bold bg-indigo-500 text-white px-1.5 py-0.5 rounded animate-pulse">
+                      <span className="text-[9px] font-bold bg-brand-500 text-white px-1.5 py-0.5 rounded animate-pulse">
                         NEW
                       </span>
                     )}
@@ -269,7 +269,7 @@ function DateSection({
                     <Clock className="w-3 h-3" /> {formatTime(n.created_at)}
                   </p>
                 </div>
-                {!n.is_read && <span className="w-2 h-2 rounded-full bg-indigo-500 mt-2 flex-shrink-0 shadow-[0_0_6px_rgba(99,102,241,0.5)]" />}
+                {!n.is_read && <span className="w-2 h-2 rounded-full bg-brand-500 mt-2 flex-shrink-0 shadow-[0_0_6px_rgba(99,102,241,0.5)]" />}
               </button>
             );
           })}

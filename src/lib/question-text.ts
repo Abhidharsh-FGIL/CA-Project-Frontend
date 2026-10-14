@@ -136,6 +136,76 @@ export function normaliseLineBreaks(text: string | null | undefined): string {
     .trim();
 }
 
+/** One numbered step of a worked explanation. */
+export interface ExplanationStep {
+  n: number;
+  /** "Concept", "Check each option" — the words before the first colon, when there are some. */
+  title: string | null;
+  body: string;
+  /** The "(A) … (B) …" verdicts, when the step walks the options one by one. */
+  options: Array<{ label: string; text: string; verdict: 'correct' | 'wrong' | null }>;
+}
+
+export interface SplitExplanation {
+  /** Anything written before "Step 1". */
+  intro: string;
+  steps: ExplanationStep[];
+}
+
+const STEP_MARK = /(?:^|\s)Step\s+(\d{1,2})\s*[-–—:.)]\s*/gi;
+const OPTION_MARK = /\s+(?=\(\s*[A-Ea-e]\s*\)\s)/;
+
+/**
+ * Break a "Step 1 - … Step 2 - …" explanation into its steps.
+ *
+ * Explanations generated for the Group 4 papers arrive as one run of prose with
+ * the steps inline, which reads as a wall of text however it is styled. Returns
+ * null unless the text really is numbered 1, 2, … — a lone "step" in ordinary
+ * prose ("the first step is…") must not be mistaken for the format.
+ */
+export function splitExplanationSteps(text: string | null | undefined): SplitExplanation | null {
+  const src = normaliseLineBreaks(text);
+  if (!src) return null;
+
+  const marks = [...src.matchAll(STEP_MARK)];
+  if (marks.length < 2 || !marks.every((m, i) => Number(m[1]) === i + 1)) return null;
+
+  const intro = src.slice(0, marks[0].index).trim();
+  const steps = marks.map((m, i) => {
+    const start = (m.index ?? 0) + m[0].length;
+    const end = i + 1 < marks.length ? marks[i + 1].index ?? src.length : src.length;
+    return buildStep(i + 1, src.slice(start, end).trim());
+  });
+  return { intro, steps };
+}
+
+function buildStep(n: number, raw: string): ExplanationStep {
+  // "Concept: AI refers to…" — a short lead-in before the first colon is the title.
+  const colon = raw.indexOf(':');
+  const lead = colon > 0 ? raw.slice(0, colon).trim() : '';
+  const hasTitle = lead.length > 0 && lead.length <= 48 && !/[.!?(]/.test(lead);
+  const title = hasTitle ? lead : null;
+  const rest = hasTitle ? raw.slice(colon + 1).trim() : raw;
+
+  // "(A) Hatti port - wrong because… (B) …" — one line per option, not one blob.
+  const parts = rest.split(OPTION_MARK);
+  const optionParts = parts.filter(p => /^\(\s*[A-Ea-e]\s*\)\s/.test(p));
+  if (optionParts.length < 2) return { n, title, body: rest, options: [] };
+
+  const options = optionParts.map(p => {
+    const label = /^\(\s*([A-Ea-e])\s*\)/.exec(p)![1].toUpperCase();
+    const text = p.replace(/^\(\s*[A-Ea-e]\s*\)\s*/, '').trim();
+    const verdict: 'correct' | 'wrong' | null = /[-–—:]\s*(?:wrong|incorrect)\b/i.test(text)
+      ? 'wrong'
+      : /[-–—:]\s*(?:correct|right)\b/i.test(text)
+        ? 'correct'
+        : null;
+    return { label, text, verdict };
+  });
+  const body = parts.filter(p => !optionParts.includes(p)).join(' ').trim();
+  return { n, title, body, options };
+}
+
 /**
  * Strip a trailing inline list of answer choices from a question stem.
  * Returns the text unchanged when no duplicated run is found.

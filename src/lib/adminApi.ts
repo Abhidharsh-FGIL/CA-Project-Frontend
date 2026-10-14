@@ -342,11 +342,13 @@ export interface PromoCreatePayload {
 }
 
 export interface PromoUpdatePayload {
-  test_id?: string;
+  test_id?: string | null;
   max_uses?: number;
   expiry_date?: string | null;
   scope?: PromoScope;
   discount_pct?: number;
+  applies_to_tiers?: string[] | null;
+  applies_to_billing?: string[] | null;
 }
 
 export const promosApi = {

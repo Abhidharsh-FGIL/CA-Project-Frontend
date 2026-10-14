@@ -12,7 +12,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Loader2, PauseCircle, PlayCircle, RefreshCw, Sparkles, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { UserShell } from '@/components/user/UserShell';
-import { ReportCard, SectionHeader } from '@/components/user/report-ui';
+import { ReadableText, ReportCard, SectionHeader } from '@/components/user/report-ui';
 import { StudyPlanWorkspace } from '@/components/user/study-plan/StudyPlanWorkspace';
 import { StudyPlanGenerating } from '@/components/user/study-plan/StudyPlanGenerating';
 import { StudyPlanUnavailable } from '@/components/user/study-plan/plan-ui';
@@ -25,7 +25,7 @@ import {
   type PlanJobStatus,
 } from '@/lib/studyPlanApi';
 
-export default function UserStudyPlanPage() {
+function UserStudyPlanPageBody() {
   const { planId } = useParams<{ planId: string }>();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -110,7 +110,7 @@ export default function UserStudyPlanPage() {
     return (
       <UserShell>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
       </UserShell>
     );
@@ -149,7 +149,7 @@ export default function UserStudyPlanPage() {
       <UserShell>
         <ReportCard>
           <SectionHeader icon={<RefreshCw className="w-4 h-4" />} title="Your plan could not be loaded" accent="rose" />
-          <p className="text-[11px] text-gray-500 dark:text-gray-400">{error.message}</p>
+          <p className="text-[14px] text-gray-500 dark:text-gray-400">{error.message}</p>
         </ReportCard>
       </UserShell>
     );
@@ -178,28 +178,28 @@ export default function UserStudyPlanPage() {
         plan={plan}
         today={today}
         action={
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={togglePause}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1 text-[10px] font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60"
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 text-[13px] font-semibold text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800/60"
             >
               {plan.status === 'paused' ? (
                 <>
-                  <PlayCircle className="w-3 h-3" /> Resume
+                  <PlayCircle className="w-3.5 h-3.5" /> Resume
                 </>
               ) : (
                 <>
-                  <PauseCircle className="w-3 h-3" /> Pause
+                  <PauseCircle className="w-3.5 h-3.5" /> Pause
                 </>
               )}
             </button>
             <button
               type="button"
               onClick={() => navigate('/user/study-plan/new')}
-              className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2 py-1 text-[10px] font-bold text-white hover:bg-indigo-700"
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-blue-600 px-4 text-[13px] font-bold text-white shadow-sm hover:bg-blue-700"
             >
-              <Wand2 className="w-3 h-3" /> New plan
+              <Wand2 className="w-3.5 h-3.5" /> New plan
             </button>
           </div>
         }
@@ -212,13 +212,13 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <ReportCard>
       <div className="py-10 text-center">
-        <span className="inline-flex w-12 h-12 rounded-full items-center justify-center bg-indigo-50 dark:bg-indigo-950/40 mb-3">
-          <Wand2 className="w-6 h-6 text-indigo-500" />
+        <span className="inline-flex w-12 h-12 rounded-full items-center justify-center bg-blue-50 dark:bg-blue-950/40 mb-3">
+          <Wand2 className="w-6 h-6 text-blue-500" />
         </span>
-        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+        <p className="text-[15px] font-bold text-gray-900 dark:text-gray-100">
           You don't have a study plan yet
         </p>
-        <p className="mx-auto mt-1.5 max-w-md text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+        <p className="mx-auto mt-1.5 max-w-md text-[14px] leading-relaxed text-gray-500 dark:text-gray-400">
           Tell us how long you have before the exam, which days you study and for how long. We'll
           turn the whole syllabus into a dated, day-by-day plan — weighted towards whatever your
           mock tests show you need most, with spaced revision and mocks built in.
@@ -226,11 +226,20 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         <button
           type="button"
           onClick={onCreate}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2.5 text-[13px] font-bold text-white hover:bg-brand-700"
         >
           <Sparkles className="w-4 h-4" /> Build my study plan
         </button>
       </div>
     </ReportCard>
+  );
+}
+
+/** The plan is read every day, so it uses the larger reading scale. */
+export default function UserStudyPlanPage() {
+  return (
+    <ReadableText>
+      <UserStudyPlanPageBody />
+    </ReadableText>
   );
 }

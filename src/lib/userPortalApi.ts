@@ -678,6 +678,16 @@ export function requestReportInsights(
   );
 }
 
+/**
+ * GET /api/v1/user/subscription/plans — what each plan costs and includes.
+ *
+ * Returned as-is; `lib/plans.ts` maps it onto the portal's shape, skipping any
+ * plan name this build does not know.
+ */
+export function getSubscriptionPlans(): Promise<unknown> {
+  return userApi.get<unknown>('/api/v1/user/subscription/plans');
+}
+
 /** GET /api/v1/user/history/?page=&limit= — paginated attempt history */
 export function getAttemptHistory(
   page = 1,
@@ -796,6 +806,13 @@ export interface ApiEvalAssessment {
   pricing_type: 'free' | 'paid';
   shuffle_questions: boolean;
   max_attempts: number | null;
+  /**
+   * Where the admin placed the paper in the exam — present once the backend returns the
+   * placement (BACKEND_WORK.md item 5). `tnpsc_unit_id` marks a unit paper; `tnpsc_section_name`
+   * on a paper without a unit marks a section's Full Set.
+   */
+  tnpsc_unit_id?: string | null;
+  tnpsc_section_name?: string | null;
 }
 
 /**
@@ -870,6 +887,14 @@ export interface StartAttemptResponse {
   time_limit_seconds: number | null;
   questions: EvalAttemptQuestion[];
   responses: Array<{ question_id: string; answer: any }>;
+  /**
+   * How many of the paper's questions the server skipped because their collection was deleted.
+   * Absent on a server that does not apply that rule yet — which is how to tell. See
+   * BACKEND_LIVE_POOL.md.
+   */
+  skipped_deleted?: number;
+  /** How many questions the paper can draw from right now — its stored ones and any the bank has added. */
+  pool_size?: number;
 }
 
 export interface SubmitAttemptResponse {

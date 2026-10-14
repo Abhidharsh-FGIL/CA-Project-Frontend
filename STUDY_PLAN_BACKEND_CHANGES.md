@@ -612,10 +612,12 @@ weight(topic) = mark_share(subject)            # published syllabus counts
               × recency_decay(subject)         # recent evidence counts more
 ```
 
-`mark_share` comes from the published per-unit question counts — the source of truth the
-frontend mirrors in `STAGE_SECTION_QUESTIONS` (`src/data/examSyllabus.ts`) and
-`TnpscSyllabusUnit.questions` (`src/config/tnpsc.ts`). **Do not invent a distribution the
-syllabus does not state.** Where a published unit spans several catalog subjects, keep the
+`mark_share` comes from the published per-unit question counts — `TNPSC_G4_SYLLABUS.json`
+(§S6.8), generated from `TnpscSyllabusUnit.questions` in `src/config/tnpsc.ts`. **Do not read
+`STAGE_SECTION_QUESTIONS` in `src/data/examSyllabus.ts` for Group 4**: its per-subject counts
+are not the printed ones (General Science 12 against 5 printed, Geography 10 against 5, Polity
+10 against 15, Tamil Nadu history 7 against 20). **Do not invent a distribution the syllabus
+does not state.** Where a published unit spans several catalog subjects, keep the
 unit's count on the unit and split time by topic count, not by guessed marks.
 
 On `cold_start`, `weakness_multiplier` and `evidence_multiplier` are both 1.0 — weight is
@@ -703,6 +705,60 @@ land.
 
 Language follows `intake.language` — Group 4's candidate base is largely Tamil-medium, and
 the portal already carries bilingual report text (`src/lib/question-language.ts`).
+
+---
+
+### §S6.8 Plan from the published units, not from the subject list
+
+**The problem.** A plan's work items are today the server's `(subject_id, topic_id)` rows:
+12 subjects and 55 topics for Group 4 — 50 once the other language is dropped, which is the
+"0 of 50 topics" and "cover all 11 subjects" on the plan page. That list is a generic taxonomy
+("Physics", "Botany", "Constitution — Basics & Preamble"). It is not what the commission
+prints: **22 units and 235 topics** (Code 496, dated 12.12.2024).
+
+The portal maps each taxonomy topic to the printed topics it stands for
+(`src/lib/plan-syllabus.ts`). Measured that way, **the plan reaches 175 of the 235 printed
+topics.** What it never schedules:
+
+| Unit | Questions | Not scheduled |
+|---|---|---|
+| Tamil III — Writing Skills | 15 | all 11 topics |
+| Tamil IV — Technical Terms | 10 | all 9 topics |
+| Tamil VI — Simple Translation | 5 | all 5 topics |
+| English III, IV, VI — Writing, Technical Terms, Translation | 25 | all 16 topics |
+| Aptitude I | 15 | HCF, LCM, simple interest, compound interest, area, volume |
+| Indian Polity IV | 15 | anti-corruption, Right to Information, empowerment of women, consumer protection forums, political parties |
+| Economy and Development Administration V | 20 | social justice and harmony, current socio-economic issues |
+| Tamil Nadu history VI | 20 | role of Tamil Nadu in the freedom struggle, role of women in it |
+
+That is **30 of the Tamil paper's 100 questions** and 25 of the English paper's 100 with no
+study time at all. The reverse also happens: the plan schedules things the syllabus does not
+print — five "Current Events" topics (the syllabus puts current affairs *inside* each unit),
+Data Interpretation, and e-Governance in Tamil Nadu.
+
+**What to build.**
+
+1. Load [`TNPSC_G4_SYLLABUS.json`](TNPSC_G4_SYLLABUS.json): 4 sections, 22 units, 235 topics,
+   each with its id, printed name, Tamil name where printed, and question count. It is
+   generated from the catalog and checked against it by a test, so do not edit it by hand;
+   ask for a fresh copy when the syllabus changes.
+2. Work items are every `(unit_id, topic_id)` in it, **excluding the unchosen language
+   paper's units** — Tamil units or English units, never both (`alternative_to` marks the pair).
+3. Every task carries `unit_id` (the unit's id), `topic_id` (the printed topic's id) and
+   `topic_name` (its printed name). **The portal already reads `unit_id`** and shows the unit
+   and the printed topics under each task, so nothing ships on the frontend when this lands.
+4. `mark_share` is the unit's `questions` over the section total. A unit that is two catalog
+   subjects (Unit III, Unit V) keeps its count on the unit; split time by topic count.
+5. `intake-options` and `coverage` count units and printed topics: `subject_count` is the
+   number of units for the chosen language, `topic_count` the printed topics in them.
+6. Do not reintroduce "Current Events" as a subject. The printed current-affairs topics are
+   already inside General Science, Geography, Polity and Economy.
+
+**Acceptance.** §S11's full-coverage test, over these units: every printed topic of the
+chosen language's units appears in `study_plan_coverage` with `planned_sessions ≥ 1`.
+
+Group 1 Prelims has no published unit breakdown in the catalog yet, so it keeps the subject
+list until it does.
 
 ---
 

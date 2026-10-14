@@ -52,7 +52,7 @@ const ACTION_META: Record<string, ActionMeta> = {
   course_archive: { label: 'Course Archived', icon: Archive, cls: 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800' },
   promo_create: { label: 'Promo Created', icon: Tag, cls: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40' },
   promo_pause: { label: 'Promo Paused', icon: PauseCircle, cls: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40' },
-  plan_update: { label: 'Plan Updated', icon: Sparkles, cls: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40' },
+  plan_update: { label: 'Plan Updated', icon: Sparkles, cls: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40' },
   user_lock: { label: 'User Locked', icon: Lock, cls: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40' },
   user_unlock: { label: 'User Unlocked', icon: Unlock, cls: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40' },
   login: { label: 'Sign In', icon: LogIn, cls: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40' },
@@ -151,7 +151,7 @@ export default function AdminAuditPage() {
         actions={
           <button
             onClick={exportCSV}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-3 py-2 rounded-lg shadow-md press"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-gradient-to-r from-brand-600 to-brand-400 hover:from-brand-700 hover:to-brand-500 text-white px-3 py-2 rounded-lg shadow-md press"
           >
             <Download className="w-3.5 h-3.5" /> Export CSV
           </button>
@@ -160,7 +160,7 @@ export default function AdminAuditPage() {
 
       {logsLoading ? (
         <div className="flex items-center justify-center py-24">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
       ) : (
       <div className="space-y-5 pb-6">
@@ -184,7 +184,7 @@ export default function AdminAuditPage() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search by description, actor, or resource…"
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-brand-700"
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -226,11 +226,11 @@ export default function AdminAuditPage() {
             {grouped.map(([day, entries]) => (
               <div key={day}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-950/60 dark:to-purple-950/60 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-full">
+                  <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-950/60 dark:to-purple-950/60 text-blue-700 dark:text-brand-300 px-3 py-1.5 rounded-full">
                     <Calendar className="w-3.5 h-3.5" />
                     <p className="text-xs font-bold">{day}</p>
                   </div>
-                  <div className="flex-1 h-px bg-gradient-to-r from-indigo-200 dark:from-indigo-900 to-transparent" />
+                  <div className="flex-1 h-px bg-gradient-to-r from-blue-200 dark:from-blue-900 to-transparent" />
                   <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 tabular-nums">
                     {entries.length} {entries.length === 1 ? 'event' : 'events'}
                   </p>
@@ -238,7 +238,7 @@ export default function AdminAuditPage() {
 
                 <div className="relative pl-8">
                   {/* Spine */}
-                  <div className="absolute left-3 top-2 bottom-2 w-px bg-gradient-to-b from-indigo-200 dark:from-indigo-900 via-purple-200 dark:via-purple-900 to-transparent" />
+                  <div className="absolute left-3 top-2 bottom-2 w-px bg-gradient-to-b from-blue-200 dark:from-blue-900 via-purple-200 dark:via-purple-900 to-transparent" />
 
                   <div className="space-y-2">
                     {entries.map(entry => {
@@ -248,7 +248,7 @@ export default function AdminAuditPage() {
                       return (
                         <div
                           key={entry.log_id}
-                          className="relative bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800 transition-all"
+                          className="relative bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all"
                         >
                           {/* Spine dot */}
                           <div className={cn('absolute -left-7 top-3 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-gray-950', meta.cls)}>
@@ -318,7 +318,7 @@ function StatChip({
   tone: 'indigo' | 'emerald' | 'amber';
 }) {
   const TONE: Record<typeof tone, string> = {
-    indigo: 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400',
+    indigo: 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400',
     emerald: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400',
     amber: 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
   };
@@ -350,8 +350,8 @@ function Chip({
       className={cn(
         'px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border whitespace-nowrap',
         active
-          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-transparent shadow-sm'
-          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700',
+          ? 'bg-gradient-to-r from-brand-600 to-brand-400 text-white border-transparent shadow-sm'
+          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-brand-700',
       )}
     >
       {children}

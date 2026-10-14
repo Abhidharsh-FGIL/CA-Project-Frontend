@@ -65,8 +65,8 @@ const TIER_META: Record<SubscriptionTier, { icon: typeof Sparkles; color: string
   },
   ultimate: {
     icon: Sparkles,
-    color: 'from-indigo-500 to-purple-500',
-    pill: 'bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300',
+    color: 'from-brand-500 to-brand-400',
+    pill: 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-brand-300',
     label: 'Ultimate',
   },
   premium: {
@@ -150,7 +150,7 @@ export default function AdminUsersPage() {
         actions={
           <button
             onClick={exportCSV}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-3 py-2 rounded-lg shadow-md press"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-gradient-to-r from-brand-600 to-brand-400 hover:from-brand-700 hover:to-brand-500 text-white px-3 py-2 rounded-lg shadow-md press"
           >
             <Download className="w-3.5 h-3.5" /> Export CSV
           </button>
@@ -160,7 +160,7 @@ export default function AdminUsersPage() {
       <div className="space-y-5 pb-6">
         {usersLoading && (
           <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-4 border-indigo-200 dark:border-indigo-900 border-t-indigo-600 dark:border-t-indigo-400 rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-blue-200 dark:border-blue-900 border-t-brand-600 dark:border-t-blue-400 rounded-full animate-spin" />
           </div>
         )}
 
@@ -182,7 +182,7 @@ export default function AdminUsersPage() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search by name, email, or phone…"
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-brand-700"
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -206,7 +206,7 @@ export default function AdminUsersPage() {
         <div className="hidden md:block bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gradient-to-r from-gray-50 to-indigo-50/30 dark:from-gray-800/60 dark:to-indigo-950/30 border-b border-gray-100 dark:border-gray-800">
+              <thead className="bg-gradient-to-r from-gray-50 to-blue-50/30 dark:from-gray-800/60 dark:to-blue-950/30 border-b border-gray-100 dark:border-gray-800">
                 <tr className="text-left text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold">
                   <th className="px-4 py-3">User</th>
                   <th className="px-4 py-3">Tier</th>
@@ -238,11 +238,11 @@ export default function AdminUsersPage() {
                       <tr
                         key={u.user_id}
                         onClick={() => setSelectedId(u.user_id)}
-                        className="border-b border-gray-50 dark:border-gray-800 hover:bg-gradient-to-r hover:from-indigo-50/40 hover:to-purple-50/40 dark:hover:from-indigo-950/20 dark:hover:to-purple-950/20 cursor-pointer transition-colors"
+                        className="border-b border-gray-50 dark:border-gray-800 hover:bg-gradient-to-r hover:from-blue-50/40 hover:to-purple-50/40 dark:hover:from-blue-950/20 dark:hover:to-purple-950/20 cursor-pointer transition-colors"
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm">
                               {u.name[0]}
                             </div>
                             <div className="min-w-0">
@@ -301,7 +301,7 @@ export default function AdminUsersPage() {
                                 e.stopPropagation();
                                 reactivate.mutate(u.user_id);
                               }}
-                              className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded-md"
+                              className="inline-flex items-center gap-1 text-[10px] font-semibold bg-brand-600 hover:bg-brand-700 text-white px-2 py-1 rounded-md"
                             >
                               Unsuspend
                             </button>
@@ -338,10 +338,10 @@ export default function AdminUsersPage() {
               <button
                 key={u.user_id}
                 onClick={() => setSelectedId(u.user_id)}
-                className="w-full bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-3 text-left hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors"
+                className="w-full bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-3 text-left hover:border-blue-200 dark:hover:border-blue-800 transition-colors"
               >
                 <div className="flex items-center gap-2.5 mb-2">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                     {u.name[0]}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -518,7 +518,7 @@ function UserDetailModal({
               className={cn(
                 'flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors',
                 user.account_suspended
-                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                  ? 'bg-brand-600 hover:bg-brand-700 text-white'
                   : 'bg-gray-100 dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-950/40 text-gray-700 dark:text-gray-300 hover:text-red-700 dark:hover:text-red-300',
               )}
             >
@@ -572,7 +572,7 @@ function StatChip({
   sub?: string;
 }) {
   const TONE: Record<typeof tone, string> = {
-    indigo: 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400',
+    indigo: 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400',
     emerald: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400',
     amber: 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
     rose: 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400',
@@ -606,8 +606,8 @@ function Chip({
       className={cn(
         'px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border',
         active
-          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-transparent shadow-sm'
-          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700',
+          ? 'bg-gradient-to-r from-brand-600 to-brand-400 text-white border-transparent shadow-sm'
+          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-brand-700',
       )}
     >
       {children}

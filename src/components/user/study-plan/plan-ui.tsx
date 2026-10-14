@@ -20,6 +20,45 @@ import { cn } from '@/lib/utils';
 import { ACCENT, type Accent } from '@/components/user/report-ui';
 import type { DayStatus, TaskKind, Verdict } from '@/lib/studyPlanApi';
 
+// ─── Panel header ─────────────────────────────────────────────────────────────
+
+/**
+ * A panel's title row: a tinted icon tile, a bold title, a subtitle and an action.
+ *
+ * The shared `SectionHeader` is used by the reports too, so the study plan's larger tile lives
+ * here rather than changing every one of those.
+ */
+export function PanelHeader({
+  icon,
+  title,
+  subtitle,
+  action,
+  accent = 'indigo',
+  className,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  accent?: Accent;
+  className?: string;
+}) {
+  return (
+    <div className={cn('mb-4 flex items-start justify-between gap-3', className)}>
+      <div className="flex min-w-0 items-start gap-3">
+        <span className={cn('flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl', ACCENT[accent].chip)}>
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <p className="text-base font-bold leading-snug text-gray-900 dark:text-gray-100">{title}</p>
+          {subtitle && <p className="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{subtitle}</p>}
+        </div>
+      </div>
+      {action && <div className="flex-shrink-0">{action}</div>}
+    </div>
+  );
+}
+
 // ─── Formatters ───────────────────────────────────────────────────────────────
 
 /** 195 → "3h 15m", 45 → "45m", 120 → "2h". */
@@ -85,7 +124,7 @@ export function TaskKindChip({ kind }: { kind: TaskKind }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold',
+        'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[13px] font-semibold',
         ACCENT[meta.accent].chip,
       )}
     >
@@ -129,7 +168,7 @@ export function VerdictPill({ verdict }: { verdict: Verdict }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold',
+        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[13px] font-bold',
         ACCENT[v.accent].chip,
       )}
     >
@@ -159,10 +198,10 @@ export function StudyPlanUnavailable({ compact }: { compact?: boolean }) {
       <span className="inline-flex w-10 h-10 rounded-full items-center justify-center bg-gray-100 dark:bg-gray-800 mb-3">
         <CalendarOff className="w-5 h-5 text-gray-400" />
       </span>
-      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+      <p className="text-[15px] font-semibold text-gray-700 dark:text-gray-200">
         Study plans are not enabled on this account yet
       </p>
-      <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">
+      <p className="mt-1 text-[14px] text-gray-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">
         Your plan is built on our servers from your syllabus and your mock-test results. The
         feature is on its way — nothing is wrong with your account.
       </p>
@@ -211,10 +250,10 @@ export function MiniRing({
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={cn('text-xs font-bold leading-none', ACCENT[accent].text)}>
+        <span className={cn('text-[13px] font-bold leading-none', ACCENT[accent].text)}>
           {Math.round(clamped)}%
         </span>
-        {label && <span className="text-[8px] text-gray-400 mt-0.5">{label}</span>}
+        {label && <span className="text-[12px] text-gray-400 mt-0.5">{label}</span>}
       </div>
     </div>
   );

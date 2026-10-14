@@ -6,16 +6,17 @@ import {
   LEVELS_HIDDEN,
   LEVEL_GATE_ENABLED,
   LEVEL_META,
+  MIXED_LABEL,
   LEVEL_PASS_PERCENTAGE,
   SINGLE_LEVEL_BLURB,
   SINGLE_LEVEL_HEADING,
   TNPSC_LEVELS,
   VISIBLE_LEVELS,
   findStage,
+  isTamilOnlySection,
   negativeMarkingLabel,
   answeredCount,
   questionCountLabel,
-  sectionCountLabel,
   sectionSyllabus,
   unitTopics,
   type TnpscLevel,
@@ -24,6 +25,9 @@ import {
   type TnpscSyllabusUnit,
   type TnpscTopic,
 } from '@/config/tnpsc';
+import { fullSetFor } from '@/lib/tnpsc-full-set';
+import { unitChipLabel } from '@/lib/unit-chip';
+import { levelStats, type LevelKey, type LevelStat } from '@/lib/unit-levels';
 import { testHref, type TnpscLevelGroup, type TnpscTest } from '@/lib/tnpscApi';
 import {
   AlertCircle,
@@ -68,9 +72,6 @@ import { cn } from '@/lib/utils';
  */
 
 type Tab = 'practice' | 'exam';
-
-/** The buttons a unit offers. `all` is every paper it holds, in one sitting. */
-type LevelKey = TnpscLevel | 'all';
 
 // ─── Unit presentation ────────────────────────────────────────────────────────
 
@@ -165,7 +166,13 @@ function testsForUnit(unit: TnpscSyllabusUnit, topics: TnpscTopic[], tests: Tnps
   const subjectIds = new Set(unit.subject_ids ?? []);
   const topicIds = new Set(topics.map(t => t.id));
 
+  // An explicit unit tag is decisive: the admin said which unit this paper is for,
+  // so nothing below needs to be guessed at.
+  const tagged = tests.filter(t => t.unit_id === unit.id);
+  if (tagged.length > 0) return tagged;
+
   const linked = tests.filter(t => {
+    if (t.unit_id && t.unit_id !== unit.id) return false; // claimed by another unit
     if (t.subject_id && subjectIds.has(t.subject_id)) return true;
     if (t.topic_id && topicIds.has(t.topic_id)) return true;
     return false;
@@ -173,6 +180,7 @@ function testsForUnit(unit: TnpscSyllabusUnit, topics: TnpscTopic[], tests: Tnps
   if (linked.length > 0) return linked;
 
   return tests.filter(t => {
+    if (t.unit_id && t.unit_id !== unit.id) return false;
     if (t.topic_id && sameLabel(unit.name, t.topic_id)) return true;
     if (t.topic_name && sameLabel(unit.name, t.topic_name)) return true;
     if (unit.name_ta && t.topic_name && sameLabel(unit.name_ta, t.topic_name)) return true;
@@ -186,55 +194,11 @@ function testsForUnit(unit: TnpscSyllabusUnit, topics: TnpscTopic[], tests: Tnps
   });
 }
 
-/** What a difficulty button needs to know about itself. */
-interface LevelStat {
-  key: LevelKey;
-  papers: TnpscTest[];
-  /** The paper the button opens — the only one, or the first of several. */
-  test: TnpscTest | null;
-  attempts: number;
-  /** True when every paper at this difficulty has been passed. */
-  cleared: boolean;
-  best: number | null;
-}
-
-/**
- * Every difficulty a unit offers, whether or not a paper exists behind it.
- *
- * All four are always returned. Showing only the populated ones made the row
- * jump about between units and hid the fact that a difficulty exists at all —
- * and on the Practice track it collapsed to a single button, because practice
- * papers are ungated and carry no level (`TnpscTest.level` is null for them).
- * An empty difficulty renders disabled and says so, which is information;
- * omitting it is not.
- */
-function levelStats(tests: TnpscTest[]): LevelStat[] {
-  const stat = (key: LevelKey, papers: TnpscTest[]): LevelStat => ({
-    key,
-    papers,
-    test: papers[0] ?? null,
-    attempts: papers.reduce((n, t) => n + (t.attempts_used ?? 0), 0),
-    cleared: papers.length > 0 && papers.every(t => t.is_completed),
-    best: papers.reduce<number | null>(
-      (b, t) => (t.best_percentage == null ? b : b == null ? t.best_percentage : Math.max(b, t.best_percentage)),
-      null,
-    ),
-  });
-
-  const graded = (['simple', 'medium', 'complex'] as TnpscLevel[]).map(lv =>
-    stat(lv, tests.filter(t => t.level === lv)),
-  );
-
-  // The fourth button is the whole unit in one sitting — every paper it holds,
-  // including the ungated practice sets that carry no difficulty of their own.
-  return [...graded, stat('all', tests)];
-}
-
 const LEVEL_LABEL: Record<LevelKey, string> = {
   simple: 'Simple',
   medium: 'Medium',
   complex: 'Complex',
-  all: 'Full Unit',
+  all: MIXED_LABEL,
 };
 
 /** A paper section — the level this screen is organised at. */
@@ -244,7 +208,6 @@ interface SectionModel {
   /** The section this one is sat instead of, where the paper offers a choice. */
   alternativeTo?: string;
   questions: number;
-  countLabel: string;
   note?: string;
   units: UnitRowModel[];
   /** Every paper under the section, however it was matched. */
@@ -262,21 +225,6 @@ interface SectionModel {
    * Tamil sits beside it.
    */
   tamilOnly: boolean;
-}
-
-/**
- * The complete paper for a section.
- *
- * A "full set" carries no topic and matches the section's published question
- * count. Matching on the count rather than on the title keeps it honest — a
- * section with no such paper gets no button, rather than one that leads nowhere.
- */
-function fullSetFor(section: TnpscPatternSection, tests: TnpscTest[]): TnpscTest | null {
-  return (
-    tests.find(t => !t.topic_id && t.question_count === section.questions) ??
-    tests.find(t => !t.topic_id && t.subject_name && sameLabel(section.name, t.subject_name)) ??
-    null
-  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -381,22 +329,19 @@ export default function TnpscStagePage() {
         names.length > 3 ? `${names.slice(0, 3).join(', ')} and more…` : names.join(', ');
 
       const inUnits = units.flatMap(u => u.tests);
-      const full = fullSetFor(section, trackTests);
+      const full = fullSetFor(stage, section, trackTests);
       const seen = new Set(inUnits.map(t => t.test_id));
       const tests = full && !seen.has(full.test_id) ? [...inUnits, full] : inUnits;
 
       // The language paper is sat in one language or the other; a section that
       // still carries both subjects (an un-split server payload) is not Tamil-only.
-      const subjectIds = section.syllabus_subject_ids ?? section.subject_ids ?? [];
-      const tamilOnly =
-        subjectIds.includes('general-tamil') && !subjectIds.includes('general-english');
+      const tamilOnly = isTamilOnlySection(section);
 
       return {
         key: section.name,
         name: section.name,
         alternativeTo: section.alternative_to,
         questions: section.questions,
-        countLabel: sectionCountLabel(section),
         note: section.note,
         units,
         tests,
@@ -416,7 +361,7 @@ export default function TnpscStagePage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">This exam stage could not be found.</p>
           <button
             onClick={() => navigate('/user/exams')}
-            className="mt-4 text-sm font-semibold text-indigo-600 hover:underline"
+            className="mt-4 text-sm font-semibold text-blue-600 hover:underline"
           >
             Back to exams
           </button>
@@ -439,7 +384,7 @@ export default function TnpscStagePage() {
     <UserShell>
       <Link
         to={`/user/exams/${groupId}`}
-        className="group inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-4 transition-colors"
+        className="group inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 mb-4 transition-colors"
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" /> Back to {group.name}
       </Link>
@@ -480,7 +425,12 @@ export default function TnpscStagePage() {
               <DrillHeader section={drill} verb={verb} onBack={() => setDrillKey(null)} />
 
               {drill.units.length > 1 && (
-                <UnitFilterPills units={drill.units} value={unitFilter} onChange={setUnitFilter} />
+                <UnitFilterPills
+                  units={drill.units}
+                  value={unitFilter}
+                  onChange={setUnitFilter}
+                  tamilOnly={drill.tamilOnly}
+                />
               )}
 
               <div className="space-y-2.5">
@@ -554,9 +504,9 @@ function ExamTrack({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-indigo-100 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/80 to-violet-50/60 dark:from-indigo-950/30 dark:to-violet-950/20 p-4 flex items-start gap-3">
+      <div className="rounded-2xl border border-blue-100 dark:border-blue-900/60 bg-gradient-to-r from-blue-50/80 to-violet-50/60 dark:from-blue-950/30 dark:to-violet-950/20 p-4 flex items-start gap-3">
         <span className="w-11 h-11 rounded-xl bg-white dark:bg-gray-900 shadow-sm flex items-center justify-center flex-shrink-0">
-          <Target className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
         </span>
         <div className="min-w-0">
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Full-length mock tests</p>
@@ -733,10 +683,10 @@ function DrillHeader({
   onBack: () => void;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-indigo-100 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/80 to-violet-50/60 dark:from-indigo-950/30 dark:to-violet-950/20 p-4">
+    <div className="relative overflow-hidden rounded-2xl border border-blue-100 dark:border-blue-900/60 bg-gradient-to-r from-blue-50/80 to-violet-50/60 dark:from-blue-950/30 dark:to-violet-950/20 p-4">
       <div className="flex items-start gap-3">
         <span className="w-11 h-11 rounded-xl bg-white dark:bg-gray-900 shadow-sm flex items-center justify-center flex-shrink-0">
-          <Target className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
@@ -764,10 +714,13 @@ function UnitFilterPills({
   units,
   value,
   onChange,
+  tamilOnly,
 }: {
   units: UnitRowModel[];
   value: string | null;
   onChange: (v: string | null) => void;
+  /** The Tamil paper names its units in Tamil; every other section reads in English. */
+  tamilOnly: boolean;
 }) {
   return (
     <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-1">
@@ -777,8 +730,8 @@ function UnitFilterPills({
         className={cn(
           'flex-shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-bold transition-colors',
           value == null
-            ? 'bg-indigo-600 text-white'
-            : 'border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:border-indigo-300',
+            ? 'bg-brand-600 text-white'
+            : 'border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:border-blue-300',
         )}
       >
         All Units
@@ -795,30 +748,17 @@ function UnitFilterPills({
             className={cn(
               'flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors border',
               active
-                ? 'border-indigo-300 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300'
-                : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:border-indigo-300',
+                ? 'border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-brand-300'
+                : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:border-blue-300',
             )}
           >
             <span className={cn('w-1.5 h-1.5 rounded-full', accentFor(i).dot)} />
-            {shortUnitName(u.nameTa ?? u.name)}
+            {unitChipLabel(u, tamilOnly)}
           </button>
         );
       })}
     </div>
   );
-}
-
-/**
- * A short pill label — "History, Culture of India…" does not fit a filter chip.
- *
- * Splits on the dash as well as the comma, because the Tamil titles separate
- * their clauses that way: "வாசித்தல் – புரிந்து கொள்ளும் திறன்" wants to become
- * "வாசித்தல்", not the first two words of it.
- */
-function shortUnitName(name: string): string {
-  const head = name.split(/[,&(–—]/)[0].trim();
-  const words = head.split(/\s+/);
-  return words.length <= 3 ? head : words.slice(0, 2).join(' ');
 }
 
 // ─── Section row ──────────────────────────────────────────────────────────────
@@ -861,8 +801,6 @@ function SectionRow({
           </div>
           <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mt-0.5">
             {section.units.length} Unit{section.units.length === 1 ? '' : 's'}
-            <span className="mx-1.5 text-gray-300 dark:text-gray-600">•</span>
-            {section.countLabel}
           </p>
           {section.blurb && (
             <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 leading-relaxed line-clamp-2">
@@ -889,7 +827,7 @@ function SectionRow({
           <ActionTile
             icon={<Layers className="w-4 h-4" />}
             title={`Full Set ${verb}`}
-            sub={section.fullSet ? `${section.fullSet.question_count} Questions` : 'Not available'}
+            sub={section.fullSet ? 'All units' : 'Not available'}
             accent={a}
             to={
               section.fullSet
@@ -1024,12 +962,12 @@ function StageHero({
       <div className={cn('h-1.5 w-full bg-gradient-to-r', accent)} />
 
       {/* A wash behind the title, so the band reads as a cover rather than a bar. */}
-      <div className="absolute inset-x-0 top-1.5 h-32 bg-gradient-to-br from-indigo-50/80 via-white to-white dark:from-indigo-950/30 dark:via-gray-900 dark:to-gray-900 pointer-events-none" />
+      <div className="absolute inset-x-0 top-1.5 h-32 bg-gradient-to-br from-blue-50/80 via-white to-white dark:from-blue-950/30 dark:via-gray-900 dark:to-gray-900 pointer-events-none" />
 
       <div className="relative p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400">
               {groupName}
             </p>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
@@ -1077,7 +1015,7 @@ function StageHero({
 }
 
 const STAT_TONE = {
-  indigo: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400',
+  indigo: 'bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400',
   emerald: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400',
   amber: 'bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400',
 } as const;
@@ -1131,7 +1069,7 @@ function TrackTabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) 
             className={cn(
               'inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-bold transition-all',
               active
-                ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm'
+                ? 'bg-gradient-to-r from-brand-600 to-brand-400 text-white shadow-sm'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200',
             )}
           >
@@ -1147,10 +1085,10 @@ function TrackTabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) 
 function TrackBanner({ tab }: { tab: Tab }) {
   const practice = tab === 'practice';
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-indigo-100 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/80 to-violet-50/60 dark:from-indigo-950/30 dark:to-violet-950/20 p-4">
+    <div className="relative overflow-hidden rounded-2xl border border-blue-100 dark:border-blue-900/60 bg-gradient-to-r from-blue-50/80 to-violet-50/60 dark:from-blue-950/30 dark:to-violet-950/20 p-4">
       <div className="relative flex items-start gap-3">
         <span className="w-11 h-11 rounded-xl bg-white dark:bg-gray-900 shadow-sm flex items-center justify-center flex-shrink-0">
-          <Target className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
         </span>
         <div className="min-w-0">
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
@@ -1166,7 +1104,7 @@ function TrackBanner({ tab }: { tab: Tab }) {
       {/* Decorative only — hidden from assistive tech and from narrow screens. */}
       <Sparkles
         aria-hidden
-        className="hidden sm:block absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 text-indigo-200 dark:text-indigo-900"
+        className="hidden sm:block absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 text-brand-200 dark:text-blue-900"
       />
     </div>
   );
@@ -1229,9 +1167,9 @@ function UnitListRow({
               {unit.nameTa}
             </p>
           )}
-          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-            {unit.questions != null ? `${unit.questions} Questions` : `${unit.topics.length} topics`}
-          </p>
+          {unit.questions == null && (
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{unit.topics.length} topics</p>
+          )}
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -1271,7 +1209,7 @@ function LevelButton({ stat }: { stat: LevelStat }) {
     'flex flex-col items-start justify-center gap-0.5 rounded-lg border px-2.5 py-1.5 text-left transition-all w-[5.75rem] flex-shrink-0',
     meta
       ? meta.chip
-      : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-900',
+      : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-brand-300 border-blue-200 dark:border-blue-900',
     test ? 'hover:brightness-95 hover:shadow-sm' : 'opacity-45 cursor-not-allowed',
     cleared && 'ring-1 ring-emerald-400 dark:ring-emerald-600',
   );
@@ -1328,7 +1266,7 @@ function FullSetBar({ section, verb }: { section: SectionModel; verb: string }) 
 
   return (
     <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex items-center gap-3 flex-wrap">
-      <span className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0">
+      <span className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
         <Layers className="w-5 h-5" />
       </span>
 
@@ -1341,14 +1279,14 @@ function FullSetBar({ section, verb }: { section: SectionModel; verb: string }) 
 
       <Link
         to={test.is_locked ? '/user/subscription' : testHref(test)}
-        className="inline-flex items-center gap-2.5 rounded-xl bg-indigo-600 px-3.5 py-2.5 text-white transition-all hover:bg-indigo-700 hover:shadow-md flex-shrink-0"
+        className="inline-flex items-center gap-2.5 rounded-xl bg-brand-600 px-3.5 py-2.5 text-white transition-all hover:bg-brand-700 hover:shadow-md flex-shrink-0"
       >
         <span className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
           {test.is_locked ? <Lock className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
         </span>
         <span className="text-left">
           <span className="block text-xs font-bold leading-tight">{section.name}</span>
-          <span className="block text-[10px] opacity-80">{test.question_count} Questions</span>
+          <span className="block text-[10px] opacity-80">All units</span>
         </span>
         <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-80" />
       </Link>
@@ -1399,7 +1337,10 @@ function PaperRow({
           {test.time_limit_minutes ? (
             <MiniChip icon={<Clock className="w-3 h-3" />} label={`${test.time_limit_minutes} min`} />
           ) : null}
-          {test.level && (
+          {/* A mock is built across all three difficulties, and while the portal shows a
+              single level the group is headed "Exam Pattern" rather than naming one — so a
+              "Simple" chip on each paper contradicted its own heading. */}
+          {test.level && !LEVELS_HIDDEN && (
             <span
               className={cn(
                 'text-[10px] font-semibold px-2 py-1 rounded-md border',
@@ -1460,7 +1401,7 @@ function PaperRow({
   return (
     <Link
       to={test.is_locked ? '/user/subscription' : testHref(test)}
-      className={cn(shell, 'transition-all hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800')}
+      className={cn(shell, 'transition-all hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800')}
       style={{ animationDelay: `${index * 0.04}s` }}
     >
       {inner}
@@ -1503,9 +1444,9 @@ function SyllabusPanel({
           onClick={() => onCollapsedChange(false)}
           aria-expanded={false}
           aria-label="Show the syllabus"
-          className="w-12 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 py-3 flex flex-col items-center gap-2 hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors"
+          className="w-12 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 py-3 flex flex-col items-center gap-2 hover:border-blue-200 dark:hover:border-blue-800 transition-colors"
         >
-          <PanelLeftOpen className="w-4 h-4 text-indigo-500" />
+          <PanelLeftOpen className="w-4 h-4 text-blue-500" />
           <span
             className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400"
             style={{ writingMode: 'vertical-rl' }}
@@ -1526,7 +1467,7 @@ function SyllabusPanel({
       <aside className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden lg:sticky lg:top-4">
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100 inline-flex items-center gap-1.5 min-w-0">
-            <BookOpen className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+            <BookOpen className="w-4 h-4 text-blue-500 flex-shrink-0" />
             <span className="truncate">Syllabus</span>
           </p>
           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -1560,7 +1501,7 @@ function SyllabusPanel({
               label={u.label}
               name={u.name}
               nameTa={u.nameTa}
-              count={u.questions != null ? `${u.questions} Questions` : `${u.topics.length} topics`}
+              count={u.questions != null ? undefined : `${u.topics.length} topics`}
               topics={u.topics}
               tamilOnly={drill.tamilOnly}
             />
@@ -1568,7 +1509,7 @@ function SyllabusPanel({
         </ul>
 
         <div className="border-t border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/30 px-4 py-3 flex items-start gap-2">
-          <BookOpen className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-px" />
+          <BookOpen className="w-4 h-4 text-blue-400 flex-shrink-0 mt-px" />
           <p className="text-[10px] leading-snug text-gray-500 dark:text-gray-400">
             You can expand each unit to view the topics under it and start practising.
           </p>
@@ -1582,7 +1523,7 @@ function SyllabusPanel({
     <aside className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden lg:sticky lg:top-4">
       <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
         <p className="text-sm font-bold text-gray-900 dark:text-gray-100 inline-flex items-center gap-1.5">
-          <BookOpen className="w-4 h-4 text-indigo-500" />
+          <BookOpen className="w-4 h-4 text-blue-500" />
           Syllabus
         </p>
         <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -1633,8 +1574,6 @@ function SyllabusPanel({
                   </span>
                   <span className="block text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
                     {sec.units.length} Unit{sec.units.length === 1 ? '' : 's'}
-                    <span className="mx-1 text-gray-300 dark:text-gray-600">•</span>
-                    {sec.countLabel}
                   </span>
                 </span>
                 <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -1649,7 +1588,7 @@ function SyllabusPanel({
                       label={u.label}
                       name={u.name}
                       nameTa={u.nameTa}
-                      count={u.questions != null ? `${u.questions} Questions` : `${u.topics.length} topics`}
+                      count={u.questions != null ? undefined : `${u.topics.length} topics`}
                       topics={u.topics}
                       tamilOnly={sec.tamilOnly}
                     />
@@ -1664,7 +1603,7 @@ function SyllabusPanel({
       {!expandAll && (
         <div className="border-t border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/30 px-4 py-6 text-center">
           <span className="inline-flex w-10 h-10 rounded-xl bg-white dark:bg-gray-900 shadow-sm items-center justify-center mb-2">
-            <BookOpen className="w-5 h-5 text-indigo-300 dark:text-indigo-700" />
+            <BookOpen className="w-5 h-5 text-brand-300 dark:text-blue-700" />
           </span>
           <p className="text-[11px] leading-snug text-gray-500 dark:text-gray-400">
             Click on any section to view
@@ -1691,7 +1630,8 @@ function SyllabusRow({
   label?: string;
   name: string;
   nameTa?: string;
-  count: string;
+  /** A line under the name — omitted when there is nothing to say. */
+  count?: string;
   topics: TnpscTopic[];
   /** The Tamil paper: show the Tamil title alone. */
   tamilOnly?: boolean;
@@ -1732,7 +1672,7 @@ function SyllabusRow({
               {nameTa}
             </span>
           )}
-          <span className="block text-[10px] text-gray-400 dark:text-gray-500">{count}</span>
+          {count && <span className="block text-[10px] text-gray-400 dark:text-gray-500">{count}</span>}
         </span>
 
         <ChevronDown
@@ -1756,7 +1696,7 @@ function SyllabusRow({
             </li>
           ))}
           {topics.length > PREVIEW && (
-            <li className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 pl-2.5">
+            <li className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 pl-2.5">
               + {topics.length - PREVIEW} more topics
             </li>
           )}
@@ -1787,7 +1727,7 @@ function EmptyRow({ label }: { label: string }) {
 function LoadingRow({ label }: { label: string }) {
   return (
     <div className="flex items-center justify-center py-20 gap-3 text-gray-400 dark:text-gray-500">
-      <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+      <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
       <span className="text-sm">{label}</span>
     </div>
   );

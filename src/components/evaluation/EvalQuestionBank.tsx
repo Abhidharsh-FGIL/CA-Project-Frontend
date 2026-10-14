@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,6 +28,8 @@ const resolveUrl = (url: string | undefined) => {
 };
 import { downloadQuestionsAsDocx } from '@/lib/eval-docx-export';
 import { exportQuestionBank, type ExportFormat, type QuestionData } from '@/lib/eval-export-utils';
+import { DIFFICULTY_OPTIONS, asQuestionDifficulty, difficultyLabel } from '@/lib/eval-difficulty';
+import { mapLimit } from '@/lib/reclassify';
 
 const TYPE_LABELS: Record<string, string> = {
   mcq: 'MCQ', fill: 'Fill', short: 'Short', long: 'Long',
@@ -94,8 +97,101 @@ export function EvalQuestionBank() {
   }), [subjectFilter, typeFilter, difficultyFilter, sourceFilter]);
 
   const { data: questions, isLoading } = useEvalQuestions(filters);
+
+  /**
+   * Every subject the filter can offer.
+   *
+   * `/api/v1/evaluation/subjects` returns a curated list that lags what the bank
+   * actually holds — a bank of 6k questions tagged "Reasoning" offered no
+   * "Reasoning" option, so most of it could not be filtered to at all. The
+   * subjects the loaded questions carry are therefore folded in.
+   *
+   * Accumulated across renders rather than recomputed: once a subject filter is
+   * applied the response only carries that subject, and a list rebuilt from it
+   * would drop every other option the moment you used one.
+   */
+  const seenSubjects = useRef(new Map<string, string>());
+  const subjectOptions = useMemo(() => {
+    const add = (value?: unknown) => {
+      const label = typeof value === 'string' ? value.trim() : '';
+      if (label && !seenSubjects.current.has(label.toLowerCase())) {
+        seenSubjects.current.set(label.toLowerCase(), label);
+      }
+    };
+    (subjectSuggestions as any[]).forEach(entry =>
+      add(typeof entry === 'string' ? entry : (entry?.subject ?? entry?.name)),
+    );
+    (questions ?? []).forEach((q: any) => add(q?.subject));
+    add(subjectFilter === 'all' ? undefined : subjectFilter);
+    return Array.from(seenSubjects.current.values()).sort((a, b) => a.localeCompare(b));
+  }, [subjectSuggestions, questions, subjectFilter]);
   const deleteQuestion = useDeleteEvalQuestion();
   const updateQuestion = useUpdateEvalQuestion();
+  const qc = useQueryClient();
+
+  /**
+   * Set one difficulty across a selection.
+   *
+   * Goes to the API directly rather than through `useUpdateEvalQuestion`: that
+   * hook toasts on every success and invalidates the list each time, which for a
+   * hundred questions means a hundred toasts and a hundred refetches. One
+   * summary and one refetch is the whole point of a bulk action.
+   */
+  const [reclassifying, setReclassifying] = useState<string | null>(null);
+  const setDifficultyOn = async (questions: any[], value: string) => {
+    if (questions.length === 0) return;
+    setReclassifying(value);
+
+    let done = 0;
+    const failures: string[] = [];
+    // Four at a time: enough to be quick, few enough not to be rate-limited.
+    await mapLimit(questions, 4, async (q: any) => {
+      try {
+        await api.patch(`/api/v1/evaluation/questions/${q.id}`, { difficulty: value });
+        done += 1;
+      } catch (err: any) {
+        // One bad row must not abandon the rest — it is counted instead.
+        failures.push(err?.message ?? q.id);
+      }
+    });
+
+    setReclassifying(null);
+
+    /*
+     * Check what the server actually stored.
+     *
+     * A 200 only says the request was understood. This endpoint's documented
+     * body has no `difficulty` field, so a server that ignores unknown keys
+     * answers 200 and changes nothing — and the first version of this action
+     * reported "146 questions set to Complex" over 146 untouched rows. The list
+     * is refetched and compared with what was asked for; the toast reports that.
+     */
+    await qc.refetchQueries({ queryKey: ['eval-questions'] });
+    const fresh = new Map<string, any>();
+    qc.getQueriesData<any[]>({ queryKey: ['eval-questions'] }).forEach(([, rows]) =>
+      (rows ?? []).forEach(r => fresh.set(r.id, r)),
+    );
+    const want = asQuestionDifficulty(value);
+    const seen = questions.filter(q => fresh.has(q.id));
+    const unchanged = seen.filter(q => asQuestionDifficulty(fresh.get(q.id)?.difficulty) !== want);
+
+    if (failures.length > 0) {
+      toast.error(`${failures.length} could not be updated — ${failures[0]}`);
+    }
+    if (done > 0 && seen.length > 0 && unchanged.length === seen.length) {
+      toast.error(
+        'The server accepted the request but did not change any difficulty. ' +
+          'The questions endpoint does not appear to store it yet — see BACKEND_WORK.md.',
+        { duration: 10000 },
+      );
+    } else if (unchanged.length > 0) {
+      toast.warning(
+        `${seen.length - unchanged.length} of ${seen.length} questions are now ${difficultyLabel(value)}; ${unchanged.length} did not change.`,
+      );
+    } else if (done > 0) {
+      toast.success(`${done} question${done === 1 ? '' : 's'} set to ${difficultyLabel(value)}.`);
+    }
+  };
 
   const filtered = useMemo(() => {
     if (!questions) return [];
@@ -166,7 +262,7 @@ export function EvalQuestionBank() {
           text: q.question_text || q.text || '', type: q.question_type || q.type || '',
           points: q.marks || q.points || 1, subject: q.subject, difficulty: q.difficulty,
           options: q.options, correct_answer: q.correct_answer, explanation: q.explanation,
-          pairs: q.pairs,
+          pairs: q.pairs, translations: q.translations,
         }));
         await exportQuestionBank(qs, 'Question Bank Export', fmt);
       }
@@ -267,7 +363,7 @@ export function EvalQuestionBank() {
           onDifficultyChange={setDifficultyFilter}
           source={sourceFilter}
           onSourceChange={setSourceFilter}
-          subjects={subjectSuggestions}
+          subjects={subjectOptions}
           onReset={resetFilters}
         />
       </div>
@@ -284,6 +380,32 @@ export function EvalQuestionBank() {
                   onDownload={(fmt) => handleDownload(visibleSelected, fmt)}
                   label={`Download (${visibleSelected.length})`}
                 />
+                {/* Re-grading a batch by hand is a question each; the portal's
+                    difficulty buttons read this field, so a bank imported
+                    without it leaves those buttons permanently empty. */}
+                <Select
+                  value=""
+                  onValueChange={v => setDifficultyOn(visibleSelected, v)}
+                  disabled={!!reclassifying}
+                >
+                  <SelectTrigger className="h-8 w-[170px] text-xs">
+                    <SelectValue
+                      placeholder={
+                        reclassifying
+                          ? `Setting ${difficultyLabel(reclassifying)}…`
+                          : `Set difficulty (${visibleSelected.length})`
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DIFFICULTY_OPTIONS.map(o => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
                 <Button variant="outline" size="sm" className="gap-1 text-xs text-destructive" onClick={handleDeleteSelected}>
                   <Trash2 className="h-3 w-3" /> Delete ({visibleSelected.length})
                 </Button>
@@ -392,7 +514,7 @@ export function EvalQuestionBank() {
                       <Badge variant="secondary" className="text-[10px]">{TYPE_LABELS[q.type] || q.type}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={`text-[10px] ${DIFF_COLORS[q.difficulty] || ''}`}>{q.difficulty}</Badge>
+                      <Badge className={`text-[10px] ${DIFF_COLORS[q.difficulty] || ''}`}>{difficultyLabel(q.difficulty)}</Badge>
                     </TableCell>
                     <TableCell>
                       {(() => {
@@ -558,9 +680,9 @@ export function EvalQuestionBank() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="easy">Easy</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="hard">Hard</SelectItem>
+                    {DIFFICULTY_OPTIONS.map(o => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

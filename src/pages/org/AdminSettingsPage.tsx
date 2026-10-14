@@ -133,7 +133,7 @@ export default function AdminSettingsPage() {
 
       {settingsLoading ? (
         <div className="flex items-center justify-center py-24">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
       ) : (
       <div className="grid lg:grid-cols-[220px_1fr] gap-5 pb-6">
@@ -148,7 +148,7 @@ export default function AdminSettingsPage() {
                 className={cn(
                   'w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all',
                   tab === t.key
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-200/40'
+                    ? 'bg-gradient-to-r from-brand-600 to-brand-400 text-white shadow-md shadow-blue-200/40'
                     : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800',
                 )}
               >
@@ -172,7 +172,7 @@ export default function AdminSettingsPage() {
                     type="text"
                     value={localName}
                     onChange={e => setLocalName(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
                   />
                 </FormField>
                 <FormField label="Email">
@@ -389,7 +389,7 @@ function PasswordInput({
         type={show ? 'text' : 'password'}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full pl-3 pr-9 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+        className="w-full pl-3 pr-9 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
       />
       <button
         type="button"
@@ -425,7 +425,7 @@ function NumberRow({
 }) {
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50/60 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
-      <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0 [&>svg]:w-4 [&>svg]:h-4">
+      <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 [&>svg]:w-4 [&>svg]:h-4">
         {icon}
       </div>
       <div className="flex-1 min-w-0">
@@ -440,7 +440,7 @@ function NumberRow({
           step={step}
           value={value}
           onChange={e => onChange(parseFloat(e.target.value) || 0)}
-          className="w-20 px-2 py-1 text-sm font-bold text-right border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300 tabular-nums"
+          className="w-20 px-2 py-1 text-sm font-bold text-right border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-300 tabular-nums"
         />
         <span className="text-xs text-gray-500 dark:text-gray-400">{suffix}</span>
       </div>
@@ -463,7 +463,7 @@ function ToggleRow({
 }) {
   return (
     <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50/60 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
-      <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0 [&>svg]:w-4 [&>svg]:h-4">
+      <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 [&>svg]:w-4 [&>svg]:h-4">
         {icon}
       </div>
       <div className="flex-1 min-w-0">
@@ -493,7 +493,7 @@ function ActionButton({ children, onClick }: { children: React.ReactNode; onClic
     <div className="pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-end">
       <button
         onClick={onClick}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg shadow-md press"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold bg-gradient-to-r from-brand-600 to-brand-400 hover:from-brand-700 hover:to-brand-500 text-white px-4 py-2 rounded-lg shadow-md press"
       >
         <Save className="w-3.5 h-3.5" /> {children}
       </button>

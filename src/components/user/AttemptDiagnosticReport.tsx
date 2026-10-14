@@ -42,6 +42,7 @@ import {
   TrendingUp,
   Zap,
 } from 'lucide-react';
+import { LogoMark, Wordmark } from '@/components/brand/Brand';
 import { cn } from '@/lib/utils';
 import {
   ACCENT,
@@ -206,7 +207,7 @@ export function ReportCover({
       <div
         className={cn(
           'absolute -top-24 -right-16 w-72 h-72 rounded-full blur-3xl opacity-[0.18] dark:opacity-[0.12] pointer-events-none bg-gradient-to-br',
-          exam?.accent ?? 'from-indigo-500 via-violet-500 to-purple-600',
+          exam?.accent ?? 'from-brand-500 via-brand-400 to-brand-400',
         )}
         aria-hidden
       />
@@ -215,15 +216,15 @@ export function ReportCover({
         {/* Brand and exam, on one line */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 flex items-center justify-center shadow-sm flex-shrink-0">
-              <GraduationCap className="w-4 h-4 text-white" />
+            <span className="flex-shrink-0 rounded-lg dark:bg-white dark:p-0.5">
+              <LogoMark className="h-9 w-auto dark:h-8" />
             </span>
             <div className="min-w-0">
-              <p className="text-[13px] font-bold text-[#1e2a5a] dark:text-gray-100 leading-tight">
-                BrightLearn Academy
+              <p className="text-[14px] leading-tight">
+                <Wordmark />
               </p>
-              <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-violet-500 dark:text-violet-400">
-                Learn &middot; Practice &middot; Score &middot; Succeed
+              <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">
+                Practice &middot; Prepare &middot; Succeed
               </p>
             </div>
           </div>
@@ -234,17 +235,17 @@ export function ReportCover({
                   {exam.authority}
                 </p>
               )}
-              <p className="text-[11px] font-bold text-[#1e2a5a] dark:text-gray-200 whitespace-nowrap">{title}</p>
+              <p className="text-[11px] font-bold text-[#122447] dark:text-gray-200 whitespace-nowrap">{title}</p>
             </div>
           )}
         </div>
 
         <div className="mt-4 grid sm:grid-cols-[1fr_auto] items-start gap-5">
           <div className="min-w-0">
-            <h1 className="text-[26px] font-bold text-[#1e2a5a] dark:text-gray-100 leading-none">
+            <h1 className="text-[26px] font-bold text-[#122447] dark:text-gray-100 leading-none">
               Assessment Report
             </h1>
-            <p className="text-sm font-bold text-[#1e2a5a]/80 dark:text-gray-300 mt-1">{model.meta.testName}</p>
+            <p className="text-sm font-bold text-[#122447]/80 dark:text-gray-300 mt-1">{model.meta.testName}</p>
 
             {/* Tight label column so the colon sits next to the value, as designed. */}
             <dl className="mt-3.5 space-y-1.5">
@@ -253,7 +254,7 @@ export function ReportCover({
                   <span className="text-violet-500 dark:text-violet-400 flex-shrink-0">{r.icon}</span>
                   <dt className="w-[104px] flex-shrink-0 text-gray-500 dark:text-gray-400">{r.label}</dt>
                   <span className="text-gray-300 dark:text-gray-600 flex-shrink-0">:</span>
-                  <dd className="font-semibold text-[#1e2a5a] dark:text-gray-100 truncate">{r.value}</dd>
+                  <dd className="font-semibold text-[#122447] dark:text-gray-100 truncate">{r.value}</dd>
                 </div>
               ))}
             </dl>
@@ -263,7 +264,7 @@ export function ReportCover({
           {(exam?.tagline || paperFacts.length > 0 || exam?.posts?.length) && (
             <div className="sm:max-w-[16rem] sm:text-right">
               {exam?.tagline && (
-                <p className="text-[11px] font-semibold text-[#1e2a5a]/75 dark:text-gray-300 leading-snug">
+                <p className="text-[11px] font-semibold text-[#122447]/75 dark:text-gray-300 leading-snug">
                   {exam.tagline}
                 </p>
               )}
@@ -279,7 +280,7 @@ export function ReportCover({
                         key={f.label}
                         className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/50 px-2 py-1 text-center"
                       >
-                        <span className="block text-[12px] font-bold tabular-nums text-[#1e2a5a] dark:text-gray-100 leading-none">
+                        <span className="block text-[12px] font-bold tabular-nums text-[#122447] dark:text-gray-100 leading-none">
                           {f.value}
                         </span>
                         <span className="block text-[8px] uppercase tracking-wide text-gray-400 mt-0.5">
@@ -314,7 +315,7 @@ export function ReportCover({
             <Sparkles className="w-3.5 h-3.5" />
           </span>
           <div className="min-w-0">
-            <p className="text-[12px] font-bold text-[#1e2a5a] dark:text-gray-100 leading-tight">
+            <p className="text-[12px] font-bold text-[#122447] dark:text-gray-100 leading-tight">
               Every attempt is a step closer to your goal.
             </p>
             <p className="text-[10px] text-gray-500 dark:text-gray-400">Analyse. Learn. Improve.</p>
@@ -370,7 +371,7 @@ export function ReportTitleRow({
     <div className="flex items-start justify-between gap-3 flex-wrap">
       <div className="min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <h2 className="text-lg sm:text-xl font-bold text-[#1e2a5a] dark:text-gray-100 leading-tight">
+          <h2 className="text-lg sm:text-xl font-bold text-[#122447] dark:text-gray-100 leading-tight">
             {model.meta.testName}
           </h2>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-violet-50 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300 border border-violet-100 dark:border-violet-900">
@@ -971,7 +972,7 @@ export function SubjectPerformance({
                 <th
                   key={h.label}
                   className={cn(
-                    'px-3 py-2.5 font-semibold text-[#1e2a5a] dark:text-gray-300 whitespace-nowrap align-bottom',
+                    'px-3 py-2.5 font-semibold text-[#122447] dark:text-gray-300 whitespace-nowrap align-bottom',
                     h.align === 'right' && 'text-right',
                   )}
                 >
@@ -995,7 +996,7 @@ export function SubjectPerformance({
                     onClick={() => onToggle(s.subjectId)}
                     className={cn(
                       'border-b border-gray-50 dark:border-gray-800/60 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/40',
-                      open && 'bg-indigo-50/40 dark:bg-indigo-950/20',
+                      open && 'bg-blue-50/40 dark:bg-blue-950/20',
                     )}
                   >
                     <td className="px-3 py-2.5 font-semibold text-gray-900 dark:text-gray-100">
@@ -1008,7 +1009,7 @@ export function SubjectPerformance({
                           {label(s).trim().charAt(0).toUpperCase()}
                         </span>
                         <span
-                          className="truncate max-w-[14rem] text-[#1e2a5a] dark:text-gray-100"
+                          className="truncate max-w-[14rem] text-[#122447] dark:text-gray-100"
                           title={[s.name, s.nameLocal].filter(Boolean).join(' · ')}
                         >
                           {label(s)}
@@ -1020,7 +1021,7 @@ export function SubjectPerformance({
                     <td className="px-3 py-2.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{m.correct}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-rose-600 dark:text-rose-400">{m.incorrect}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-gray-400">{m.skipped}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums font-bold text-[#1e2a5a] dark:text-gray-100">
+                    <td className="px-3 py-2.5 text-right tabular-nums font-bold text-[#122447] dark:text-gray-100">
                       {m.accuracy == null ? <span className="font-normal text-gray-400">—</span> : `${m.accuracy}%`}
                     </td>
                     <td className="px-3 py-2.5">
@@ -1101,7 +1102,7 @@ function TaxonomyRow({
             isOther
               ? 'italic text-gray-400 dark:text-gray-500'
               : depth === 0
-                ? 'font-semibold text-[#1e2a5a] dark:text-gray-100'
+                ? 'font-semibold text-[#122447] dark:text-gray-100'
                 : 'text-gray-600 dark:text-gray-300',
           )}
           title={[node.name, node.nameLocal].filter(Boolean).join(' · ')}
@@ -1187,7 +1188,7 @@ function SubjectDeepDive({
     { value: m.attempted, label: 'Attempted', tone: 'text-emerald-600 dark:text-emerald-400' },
     { value: m.correct, label: 'Correct', tone: 'text-emerald-600 dark:text-emerald-400' },
     { value: m.incorrect, label: 'Incorrect', tone: 'text-rose-600 dark:text-rose-400' },
-    { value: m.skipped, label: 'Skipped', tone: 'text-[#1e2a5a] dark:text-gray-100' },
+    { value: m.skipped, label: 'Skipped', tone: 'text-[#122447] dark:text-gray-100' },
     {
       value: m.accuracy == null ? '—' : `${m.accuracy}%`,
       label: 'Accuracy',
@@ -1203,7 +1204,7 @@ function SubjectDeepDive({
     {
       value: m.marksEarned != null && m.marksAvailable != null ? `${m.marksEarned} / ${m.marksAvailable}` : '—',
       label: 'Score',
-      tone: 'text-[#1e2a5a] dark:text-gray-100',
+      tone: 'text-[#122447] dark:text-gray-100',
     },
   ];
 
@@ -1229,7 +1230,7 @@ function SubjectDeepDive({
         </span>
         <div className="min-w-0 flex-1">
           <p
-            className="text-[13px] font-bold text-[#1e2a5a] dark:text-gray-100 truncate"
+            className="text-[13px] font-bold text-[#122447] dark:text-gray-100 truncate"
             title={[subject.name, subject.nameLocal].filter(Boolean).join(' · ')}
           >
             {label(subject)}
@@ -1341,7 +1342,7 @@ function SubjectDeepDive({
               <button
                 type="button"
                 onClick={() => onViewQuestions(subject.subjectId)}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
               >
                 Open the {m.questions} {subject.name} questions
                 <ArrowRight className="w-3 h-3" />
@@ -1575,13 +1576,13 @@ export function QuestionErrorAnalysis({ model }: { model: AttemptReportModel }) 
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 px-2.5 py-2">
                 <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">Your average</p>
-                <p className="text-xl font-bold text-[#1e2a5a] dark:text-gray-100 leading-none mt-1 tabular-nums">
+                <p className="text-xl font-bold text-[#122447] dark:text-gray-100 leading-none mt-1 tabular-nums">
                   {time.avgSec != null ? `${Math.round(time.avgSec * 10) / 10}s` : '—'}
                 </p>
               </div>
               <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 px-2.5 py-2">
                 <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">This paper allows</p>
-                <p className="text-xl font-bold text-[#1e2a5a] dark:text-gray-100 leading-none mt-1 tabular-nums">
+                <p className="text-xl font-bold text-[#122447] dark:text-gray-100 leading-none mt-1 tabular-nums">
                   {time.idealBand ? `${time.idealBand[0]}–${time.idealBand[1]}s` : '—'}
                 </p>
               </div>
@@ -1644,7 +1645,7 @@ export function QuestionErrorAnalysis({ model }: { model: AttemptReportModel }) 
                     <span className="text-gray-700 dark:text-gray-200 truncate" title={t.label}>
                       {t.label}
                     </span>
-                    <span className="font-bold tabular-nums text-[#1e2a5a] dark:text-gray-100 flex-shrink-0">
+                    <span className="font-bold tabular-nums text-[#122447] dark:text-gray-100 flex-shrink-0">
                       {fmtPct(t.accuracy)}
                     </span>
                   </div>
@@ -1700,7 +1701,7 @@ export function QuestionErrorAnalysis({ model }: { model: AttemptReportModel }) 
                       <span className="text-gray-700 dark:text-gray-200 truncate" title={r.name}>
                         {r.name}
                       </span>
-                      <span className="font-bold tabular-nums text-[#1e2a5a] dark:text-gray-100 flex-shrink-0">
+                      <span className="font-bold tabular-nums text-[#122447] dark:text-gray-100 flex-shrink-0">
                         {fmtPct(r.accuracy)}
                       </span>
                     </div>
@@ -1777,7 +1778,7 @@ function Panel({
     // their content, and each one's closing note pins to the foot rather than
     // floating wherever its list happened to end.
     <div className={cn('rounded-xl border border-gray-100 dark:border-gray-800 p-3 h-full flex flex-col', className)}>
-      <p className="text-[11px] font-bold text-[#1e2a5a] dark:text-gray-200">{title}</p>
+      <p className="text-[11px] font-bold text-[#122447] dark:text-gray-200">{title}</p>
       <p className="text-[10px] text-gray-400 mb-2">{note ? `(${note})` : ' '}</p>
       {children}
     </div>
@@ -1982,7 +1983,7 @@ export function CoverageAnalysis({ model }: { model: AttemptReportModel }) {
                   {r.name.trim().charAt(0).toUpperCase()}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[11px] font-bold text-[#1e2a5a] dark:text-gray-100 truncate">
+                  <span className="block text-[11px] font-bold text-[#122447] dark:text-gray-100 truncate">
                     {r.name}
                   </span>
                   <span className="block text-[10px] text-gray-400 tabular-nums">
@@ -2165,7 +2166,7 @@ export function QuestionInsightsTable({
                   <th
                     key={h}
                     className={cn(
-                      'px-3 py-2.5 font-semibold text-[#1e2a5a] dark:text-gray-300 whitespace-nowrap',
+                      'px-3 py-2.5 font-semibold text-[#122447] dark:text-gray-300 whitespace-nowrap',
                       i === 5 && 'text-right',
                     )}
                   >

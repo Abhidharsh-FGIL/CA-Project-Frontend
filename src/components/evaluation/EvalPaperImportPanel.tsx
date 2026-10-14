@@ -35,12 +35,17 @@ import {
   getExcelPaper,
   importExcelPaper,
   type ExcelImportResult,
-  type ExcelPaperAnswer,
-  type ExcelPaperQuestion,
   type ExcelPaperStats,
 } from '@/lib/excelPaperApi';
 import { EXAMS } from '@/constants';
-import { bilingualLanguageForExamType, marksForSubject, stageForExamType } from '@/config/tnpsc';
+import { bilingualLanguageForExamType } from '@/config/tnpsc';
+import { LEVEL_FROM_SHEET, applyLevelChoice, defaultPoints, mapExcelPaper } from '@/lib/excel-paper-map';
+import {
+  DIFFICULTY_OPTIONS,
+  asQuestionDifficulty,
+  formatDifficultySummary,
+  paperDifficultyFor,
+} from '@/lib/eval-difficulty';
 
 type Phase = 'setup' | 'extracting' | 'review';
 
@@ -75,7 +80,15 @@ export function EvalPaperImportPanel({ onImported }: Props) {
 
   const [title, setTitle] = useState('');
   const [examLabel, setExamLabel] = useState<string>('TNPSC Group 1');
-  const [difficulty, setDifficulty] = useState('medium');
+  /**
+   * The level questions are saved at: a stored level (easy / medium / hard) for every
+   * question, or `sheet` to take each row's own from an Excel Difficulty column.
+   * A question paper has no such column, so it always needs a level of its own.
+   */
+  const [levelChoice, setLevelChoice] = useState<string>(LEVEL_FROM_SHEET);
+  const difficulty = source === 'paper' && levelChoice === LEVEL_FROM_SHEET ? 'medium' : levelChoice;
+  /** What a paper is filed at when its questions say nothing of their own. */
+  const paperFallback = difficulty === LEVEL_FROM_SHEET ? 'medium' : difficulty;
   const [language, setLanguage] = useState<'en' | 'ta'>('en');
   const [bilingual, setBilingual] = useState(true);
   // Always sent. 200 is a full TNPSC paper; lower it for a quick first run.
@@ -152,7 +165,7 @@ export function EvalPaperImportPanel({ onImported }: Props) {
         setPhase('setup');
         return;
       }
-      setQuestions(mapped);
+      setQuestions(applyLevelChoice(mapped, difficulty));
       setStats(final.extraction_stats);
       setPhase('review');
       toast.success(`Extracted ${mapped.length} questions — review the answers before saving.`);
@@ -185,7 +198,7 @@ export function EvalPaperImportPanel({ onImported }: Props) {
         setPhase('setup');
         return;
       }
-      setQuestions(mapped);
+      setQuestions(applyLevelChoice(mapped, difficulty));
       setExcelStats(paper.stats);
       setStats(undefined);
       setPhase('review');
@@ -209,7 +222,7 @@ export function EvalPaperImportPanel({ onImported }: Props) {
     const config: EvalPaperConfig = {
       title: title.trim() || 'Imported Question Paper',
       testType: examLabel,
-      difficulty,
+      difficulty: paperDifficultyFor(reviewed, paperFallback),
       language,
       secondaryLanguage: bilingual ? secondaryLanguage : null,
       mode: 'exam',
@@ -259,9 +272,11 @@ export function EvalPaperImportPanel({ onImported }: Props) {
           config={{
             title: title || 'Imported Question Paper',
             subject: effectiveSubject,
-            difficulty,
+            difficulty: paperDifficultyFor(questions, paperFallback),
             mode: 'exam',
           }}
+          showDifficulty
+          bulkDifficulty
           onSaveDraft={handleSave}
           onTakeQuiz={() => {}}
           onBack={() => setPhase('setup')}
@@ -281,7 +296,7 @@ export function EvalPaperImportPanel({ onImported }: Props) {
     const pct = total > 0 ? Math.round((done / total) * 100) : undefined;
     return (
       <div className="max-w-xl mx-auto py-10 text-center">
-        <Loader2 className="h-10 w-10 animate-spin text-indigo-500 mx-auto mb-4" />
+        <Loader2 className="h-10 w-10 animate-spin text-blue-500 mx-auto mb-4" />
         <h2 className="text-lg font-semibold">Reading the question paper</h2>
         <p className="text-sm text-muted-foreground mt-1">{status?.message || 'Transcribing questions…'}</p>
         {pct !== undefined && (
@@ -356,14 +371,14 @@ export function EvalPaperImportPanel({ onImported }: Props) {
         className={cn(
           'rounded-2xl border-2 border-dashed p-8 text-center cursor-pointer transition-colors',
           dragging
-            ? 'border-indigo-400 bg-indigo-50/60 dark:bg-indigo-950/30'
+            ? 'border-blue-400 bg-blue-50/60 dark:bg-blue-950/30'
             : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700',
         )}
       >
         <input ref={fileInputRef} type="file" accept={source === 'excel' ? ACCEPTED_EXCEL : ACCEPTED_PAPER} className="hidden" onChange={e => pickFile(e.target.files?.[0])} />
         {file ? (
           <div className="flex items-center justify-center gap-3">
-            <FileUp className="h-5 w-5 text-indigo-500" />
+            <FileUp className="h-5 w-5 text-blue-500" />
             <div className="text-left">
               <p className="text-sm font-medium">{file.name}</p>
               <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
@@ -406,6 +421,29 @@ export function EvalPaperImportPanel({ onImported }: Props) {
                 {EXAMS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Difficulty</Label>
+            <Select value={difficulty} onValueChange={setLevelChoice}>
+              <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {source === 'excel' && (
+                  <SelectItem value={LEVEL_FROM_SHEET}>From the sheet — each row&apos;s own level</SelectItem>
+                )}
+                {DIFFICULTY_OPTIONS.map(o => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {source === 'excel' ? `${o.label} — every question` : o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              {source === 'excel'
+                ? difficulty === LEVEL_FROM_SHEET
+                  ? 'Reads the Difficulty column. Rows without one are flagged so you can set them.'
+                  : 'Replaces the sheet’s own levels — every question is saved at this one.'
+                : 'Every extracted question is saved at this level. You can change single questions in review.'}
+            </p>
           </div>
           {source === 'paper' && (
           <div className="space-y-1.5">
@@ -565,18 +603,6 @@ function ExtractionSummary({
   );
 }
 
-/**
- * Marks a question is worth by default, from the exam's section weighting.
- *
- * A paper whose sections are weighted differently (GAT-B: 1 mark at 10+2 level, 3 at
- * graduate level) can't use a flat default — the question's own subject decides. Falls
- * back to 1 for uniform papers and for subjects the catalog doesn't recognise, which
- * is what every TNPSC import gets.
- */
-function defaultPoints(examLabel: string, subject?: string | null): number {
-  return marksForSubject(stageForExamType(examLabel), subject) ?? 1;
-}
-
 /** Extraction payload → the shape the shared review panel edits. */
 function mapExtracted(
   items: ExtractedQuestion[],
@@ -628,7 +654,7 @@ function SourceCard({
       className={cn(
         'rounded-xl border p-3.5 text-left transition-all',
         active
-          ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 ring-1 ring-indigo-300 dark:ring-indigo-700'
+          ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/40 ring-1 ring-blue-300 dark:ring-brand-700'
           : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700',
       )}
     >
@@ -658,6 +684,7 @@ function ExcelSummary({
   const issues = report?.issues ?? [];
   const rejected = report?.rejected_count ?? 0;
   const misaligned = stats?.misaligned_translations ?? 0;
+  const unlevelled = questions.filter(q => !asQuestionDifficulty(q.difficulty)).length;
 
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4">
@@ -675,7 +702,17 @@ function ExcelSummary({
         {rejected > 0 && (
           <span className="font-medium text-amber-700 dark:text-amber-400">{rejected} rejected</span>
         )}
+        <span className="text-muted-foreground">{formatDifficultySummary(questions)}</span>
       </div>
+
+      {unlevelled > 0 && (
+        <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />
+          {unlevelled} question{unlevelled !== 1 ? 's' : ''} came back without a recognised difficulty — the
+          Difficulty column was empty or not Simple / Medium / Complex. Set a level below; without one they are
+          saved at the paper&apos;s default, Medium.
+        </p>
+      )}
 
       {misaligned > 0 && (
         <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
@@ -712,36 +749,4 @@ function ExcelSummary({
       )}
     </div>
   );
-}
-
-/** Excel payload → the shape the shared review panel edits. */
-function mapExcelPaper(
-  items: ExcelPaperQuestion[],
-  answers: ExcelPaperAnswer[],
-  examLabel: string,
-): ReviewQuestion[] {
-  const keyById = new Map(answers.map(a => [a.id, a]));
-  return items.map((q, i) => {
-    const key = keyById.get(q.id);
-    return {
-      id: q.id || `xls_${i + 1}`,
-      type: q.type || 'mcq',
-      subtype: q.subtype,
-      text: q.text || '',
-      options: q.options,
-      correctAnswer: key?.correctAnswer,
-      explanation: key?.explanation,
-      points: q.points ?? defaultPoints(examLabel, q.subject),
-      subject: q.subject,
-      chapter: q.chapter,
-      subtopic: q.subtopic,
-      passage: q.passage ?? undefined,
-      group_id: q.group_id ?? undefined,
-      translations: q.translations,
-      confidence: key?.confidence,
-      // Sheet numbers are strings ("1"), the badge wants a number.
-      sourceNumber: q.source_number != null ? Number(q.source_number) || undefined : undefined,
-      needsReview: q.needs_review ?? undefined,
-    };
-  });
 }

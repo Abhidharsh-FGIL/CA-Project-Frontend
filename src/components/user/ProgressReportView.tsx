@@ -52,7 +52,7 @@ import {
  * Three series on one chart, validated for colour-blind separation in both themes
  * (worst adjacent pair ΔE 16.7, well clear of the 8-point floor).
  */
-const SERIES = { score: '#6366f1', accuracy: '#e11d48', attemptRate: '#0891b2' };
+const SERIES = { score: '#ff6c24', accuracy: '#e11d48', attemptRate: '#0891b2' };
 
 const TREND_TONE: Record<TrendStatus, string> = {
   STRENGTH: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
@@ -164,10 +164,10 @@ export function ReportCover({
     ['Latest attempt', day(model.window.latestDate)],
   ];
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-indigo-100 dark:border-indigo-900 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-indigo-950/50 dark:via-purple-950/50 dark:to-pink-950/50 p-5 sm:p-6">
+    <div className="relative overflow-hidden rounded-2xl border border-blue-100 dark:border-blue-900 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-950/50 dark:via-purple-950/50 dark:to-pink-950/50 p-5 sm:p-6">
       <div className="absolute -top-16 -right-16 w-48 h-48 bg-purple-300/30 dark:bg-purple-700/20 rounded-full blur-3xl pointer-events-none" />
       <div className="relative">
-        <p className="text-[10px] uppercase tracking-[0.25em] text-indigo-700 dark:text-indigo-300 font-bold mb-1.5">
+        <p className="text-[10px] uppercase tracking-[0.25em] text-blue-700 dark:text-brand-300 font-bold mb-1.5">
           Progress Report
         </p>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
@@ -234,7 +234,7 @@ export function ExecutiveDashboard({ model }: { model: ProgressReportModel }) {
 
   return (
     <Card>
-      <ModuleHead icon={<Gauge className="w-4 h-4 text-indigo-500" />} title="Where you stand now" />
+      <ModuleHead icon={<Gauge className="w-4 h-4 text-blue-500" />} title="Where you stand now" />
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
         {tiles.map(t => (
           <div key={t.label} className="rounded-xl border border-gray-100 dark:border-gray-800 p-3">
@@ -265,7 +265,7 @@ export function ExecutiveDashboard({ model }: { model: ProgressReportModel }) {
       )}
 
       {r && (
-        <div className="mt-3 rounded-xl border border-indigo-100 dark:border-indigo-900 bg-indigo-50/60 dark:bg-indigo-950/30 p-3">
+        <div className="mt-3 rounded-xl border border-blue-100 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/30 p-3">
           <p className="text-xs font-bold text-gray-900 dark:text-gray-100">
             Readiness {r.grade} · {r.label}{' '}
             <span className="font-normal text-gray-500 dark:text-gray-400">({r.score}/100)</span>
@@ -331,7 +331,7 @@ export function PerformanceJourney({
   return (
     <Card>
       <ModuleHead
-        icon={<LineChartIcon className="w-4 h-4 text-indigo-500" />}
+        icon={<LineChartIcon className="w-4 h-4 text-blue-500" />}
         title="Your progress journey"
         subtitle={
           // Naming the exam matters here: the curve only means something because
@@ -465,7 +465,7 @@ export function ProficiencyRadarModule({ model }: { model: ProgressReportModel }
   if (plotted.length < 3) {
     return (
       <Card>
-        <ModuleHead icon={<Target className="w-4 h-4 text-indigo-500" />} title="Subject proficiency" />
+        <ModuleHead icon={<Target className="w-4 h-4 text-blue-500" />} title="Subject proficiency" />
         <Unavailable
           reason={`Only ${plotted.length} subject${plotted.length === 1 ? '' : 's'} have enough attempted questions to plot. The subject table below carries the same figures.`}
         />
@@ -489,7 +489,7 @@ export function ProficiencyRadarModule({ model }: { model: ProgressReportModel }
   return (
     <Card>
       <ModuleHead
-        icon={<Target className="w-4 h-4 text-indigo-500" />}
+        icon={<Target className="w-4 h-4 text-blue-500" />}
         title="Subject proficiency — first vs latest"
         subtitle="Accuracy on attempted questions, same scale for both"
       />
@@ -571,7 +571,7 @@ export function SubjectProgressTable({ model }: { model: ProgressReportModel }) 
   return (
     <Card>
       <ModuleHead
-        icon={<TrendingUp className="w-4 h-4 text-indigo-500" />}
+        icon={<TrendingUp className="w-4 h-4 text-blue-500" />}
         title="Subject-wise progress"
         subtitle="Accuracy per attempt. Click a subject to open its detail here"
       />
@@ -600,7 +600,7 @@ export function SubjectProgressTable({ model }: { model: ProgressReportModel }) 
                     onClick={() => setOpen(cur => (cur === s.subjectId ? null : s.subjectId))}
                     className={cn(
                       'border-b border-gray-50 dark:border-gray-800/60 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/60',
-                      isOpen && 'bg-indigo-50/40 dark:bg-indigo-950/20',
+                      isOpen && 'bg-blue-50/40 dark:bg-blue-950/20',
                     )}
                   >
                     <td className="px-2 py-2 font-semibold text-gray-900 dark:text-gray-100">
@@ -731,7 +731,7 @@ export function GapEvolution({ model }: { model: ProgressReportModel }) {
   return (
     <Card>
       <ModuleHead
-        icon={<Flag className="w-4 h-4 text-indigo-500" />}
+        icon={<Flag className="w-4 h-4 text-blue-500" />}
         title="Gap evolution across attempts"
         subtitle="Which weaknesses are closing, and which are not"
       />
@@ -750,7 +750,7 @@ export function GapEvolution({ model }: { model: ProgressReportModel }) {
                 className={cn(
                   'text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-colors',
                   tab === t.key
-                    ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300'
+                    ? 'bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-brand-300'
                     : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800',
                 )}
               >
@@ -825,7 +825,7 @@ export function BehaviourAnalysis({ model }: { model: ProgressReportModel }) {
   return (
     <Card>
       <ModuleHead
-        icon={<Sparkles className="w-4 h-4 text-indigo-500" />}
+        icon={<Sparkles className="w-4 h-4 text-blue-500" />}
         title="Accuracy and attempt behaviour"
         subtitle="Whether marks are lost to knowledge or to how the paper was worked"
       />
@@ -894,7 +894,7 @@ export function ExamReadiness({ model }: { model: ProgressReportModel }) {
   if (!r) {
     return (
       <Card>
-        <ModuleHead icon={<Gauge className="w-4 h-4 text-indigo-500" />} title="Exam readiness" />
+        <ModuleHead icon={<Gauge className="w-4 h-4 text-blue-500" />} title="Exam readiness" />
         <Unavailable reason="Readiness needs at least one attempt with question-level detail." />
       </Card>
     );
@@ -903,13 +903,13 @@ export function ExamReadiness({ model }: { model: ProgressReportModel }) {
   return (
     <Card>
       <ModuleHead
-        icon={<Gauge className="w-4 h-4 text-indigo-500" />}
+        icon={<Gauge className="w-4 h-4 text-blue-500" />}
         title="Exam readiness"
         subtitle="A weighted composite — every component and weight is shown"
       />
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-shrink-0 text-center">
-          <div className="w-24 h-24 rounded-full border-8 border-indigo-100 dark:border-indigo-950/60 flex flex-col items-center justify-center">
+          <div className="w-24 h-24 rounded-full border-8 border-blue-100 dark:border-blue-950/60 flex flex-col items-center justify-center">
             <span className="text-2xl font-bold text-gray-900 dark:text-gray-100 leading-none">{r.grade}</span>
             <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{r.score}/100</span>
           </div>
@@ -950,7 +950,7 @@ export function NextPhasePlan({ model }: { model: ProgressReportModel }) {
   if (model.priorities.length === 0) {
     return (
       <Card>
-        <ModuleHead icon={<Flag className="w-4 h-4 text-indigo-500" />} title="Next-phase study plan" />
+        <ModuleHead icon={<Flag className="w-4 h-4 text-blue-500" />} title="Next-phase study plan" />
         <Unavailable reason="A plan needs at least one measured subject to prioritise." />
       </Card>
     );
@@ -959,7 +959,7 @@ export function NextPhasePlan({ model }: { model: ProgressReportModel }) {
   return (
     <Card>
       <ModuleHead
-        icon={<Flag className="w-4 h-4 text-indigo-500" />}
+        icon={<Flag className="w-4 h-4 text-blue-500" />}
         title="Personalised next-phase plan"
         subtitle={`${model.priorities.length} active priorities, ${model.queuedPriorities.length} queued`}
       />
@@ -992,7 +992,7 @@ function PriorityCard({ p }: { p: PlanPriority }) {
           </p>
           <p className="text-[10px] text-gray-400 mt-0.5 tabular-nums">{p.evidence}</p>
         </div>
-        <span className="flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300">
+        <span className="flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-brand-300">
           {BUCKET_LABEL[p.bucket]}
         </span>
       </div>
@@ -1030,7 +1030,7 @@ export function WeeklyPlan({ model }: { model: ProgressReportModel }) {
   return (
     <Card>
       <ModuleHead
-        icon={<CalendarDays className="w-4 h-4 text-indigo-500" />}
+        icon={<CalendarDays className="w-4 h-4 text-blue-500" />}
         title="This week"
         subtitle={`${totalMinutes} minutes across ${rows.filter(r => r.minutes > 0).length} working days`}
       />

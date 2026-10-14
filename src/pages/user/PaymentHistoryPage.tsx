@@ -58,6 +58,7 @@ const METHOD_ICON: Record<PaymentTransaction['payment_method'], typeof CreditCar
   upi: Smartphone,
   netbanking: Building2,
   wallet: Wallet,
+  online: CreditCard,
 };
 
 type FilterType = 'all' | TransactionType;
@@ -138,6 +139,7 @@ export default function PaymentHistoryPage() {
       upi: 0,
       netbanking: 0,
       wallet: 0,
+      online: 0,
     };
     for (const t of successful) counts[t.payment_method] += 1;
     return Object.entries(counts)
@@ -174,7 +176,7 @@ export default function PaymentHistoryPage() {
     <UserShell>
       {/* ───── Hero header ───── */}
       <div className="mb-6 animate-fadeIn">
-        <div className="relative overflow-hidden rounded-3xl border border-indigo-100 dark:border-indigo-900 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 bg-[length:200%_auto] animate-gradient-x text-white shadow-xl shadow-indigo-200/40 dark:shadow-indigo-950/40">
+        <div className="relative overflow-hidden rounded-3xl border border-blue-100 dark:border-blue-900 bg-gradient-to-br from-brand-600 via-brand-400 to-pink-600 bg-[length:200%_auto] animate-gradient-x text-white shadow-xl shadow-blue-200/40 dark:shadow-blue-950/40">
           <div className="absolute inset-0 bg-soft-dots opacity-15 pointer-events-none" />
           <div className="absolute -top-20 -right-20 w-72 h-72 bg-white/15 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-black/15 rounded-full blur-3xl pointer-events-none" />
@@ -224,7 +226,7 @@ export default function PaymentHistoryPage() {
           <div className="flex items-start justify-between mb-4 gap-2 flex-wrap">
             <div>
               <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 Spending Trend
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Last 6 months</p>
@@ -235,7 +237,7 @@ export default function PaymentHistoryPage() {
                 <span className="text-gray-600 dark:text-gray-400">Tests</span>
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm bg-indigo-500" />
+                <span className="w-2.5 h-2.5 rounded-sm bg-brand-500" />
                 <span className="text-gray-600 dark:text-gray-400">Plans</span>
               </span>
             </div>
@@ -262,7 +264,7 @@ export default function PaymentHistoryPage() {
                     />
                     {/* Subscription bar (stacked on top) */}
                     <div
-                      className="absolute left-0 right-0 bg-gradient-to-t from-indigo-500 to-indigo-400 group-hover:from-indigo-600 group-hover:to-indigo-500 transition-all duration-500"
+                      className="absolute left-0 right-0 bg-gradient-to-t from-brand-500 to-blue-400 group-hover:from-brand-600 group-hover:to-brand-500 transition-all duration-500"
                       style={{ height: `${subShare}%`, bottom: `${testShare}%` }}
                     />
                   </div>
@@ -302,7 +304,7 @@ export default function PaymentHistoryPage() {
                     fill="none"
                     strokeWidth="14"
                     strokeDasharray={subDash}
-                    className="stroke-indigo-500 dark:stroke-indigo-400 transition-all"
+                    className="stroke-brand-500 dark:stroke-blue-400 transition-all"
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -336,9 +338,9 @@ export default function PaymentHistoryPage() {
 
       {/* ───── Payment methods strip ───── */}
       {methodStats.length > 0 && (
-        <div className="bg-gradient-to-r from-indigo-50/60 via-white to-purple-50/60 dark:from-indigo-950/30 dark:via-gray-900 dark:to-purple-950/30 rounded-2xl border border-indigo-100 dark:border-indigo-900 p-4 mb-6 animate-fadeIn">
+        <div className="bg-gradient-to-r from-blue-50/60 via-white to-purple-50/60 dark:from-blue-950/30 dark:via-gray-900 dark:to-purple-950/30 rounded-2xl border border-blue-100 dark:border-blue-900 p-4 mb-6 animate-fadeIn">
           <div className="flex items-center gap-2 mb-3">
-            <Coins className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <Coins className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             <p className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
               Your Payment Methods
             </p>
@@ -349,10 +351,10 @@ export default function PaymentHistoryPage() {
               return (
                 <div
                   key={m.method}
-                  className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors hover-lift"
+                  className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:border-blue-300 dark:hover:border-brand-700 transition-colors hover-lift"
                 >
                   <div className="flex items-center justify-between mb-1.5">
-                    <Icon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <Icon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 tabular-nums">{m.pct}%</span>
                   </div>
                   <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">{formatPaymentMethod(m.method)}</p>
@@ -374,7 +376,7 @@ export default function PaymentHistoryPage() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search by invoice, item, or promo code…"
-              className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700 transition-all"
+              className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-brand-700 transition-all"
             />
           </div>
 
@@ -408,8 +410,8 @@ export default function PaymentHistoryPage() {
       {/* ───── Transaction timeline ───── */}
       {filtered.length === 0 ? (
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-12 text-center animate-fadeIn">
-          <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-950/60 dark:to-purple-950/60 flex items-center justify-center">
-            <Receipt className="w-7 h-7 text-indigo-500 dark:text-indigo-400" />
+          <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-950/60 dark:to-purple-950/60 flex items-center justify-center">
+            <Receipt className="w-7 h-7 text-blue-500 dark:text-blue-400" />
           </div>
           <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">No transactions match your filters</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -422,11 +424,11 @@ export default function PaymentHistoryPage() {
             <div key={group.key} className="animate-slideUp" style={{ animationDelay: `${gi * 0.04}s` }}>
               {/* Month header bar */}
               <div className="flex items-center gap-3 mb-3">
-                <div className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-950/60 dark:to-purple-950/60 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-full">
+                <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-950/60 dark:to-purple-950/60 text-blue-700 dark:text-brand-300 px-3 py-1.5 rounded-full">
                   <Calendar className="w-3.5 h-3.5" />
                   <p className="text-xs font-bold">{group.label}</p>
                 </div>
-                <div className="flex-1 h-px bg-gradient-to-r from-indigo-200 dark:from-indigo-900 to-transparent" />
+                <div className="flex-1 h-px bg-gradient-to-r from-blue-200 dark:from-blue-900 to-transparent" />
                 <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 tabular-nums">
                   {group.txns.length} {group.txns.length === 1 ? 'item' : 'items'}
                 </p>
@@ -465,7 +467,7 @@ function DonutLegend({
 }) {
   const cls =
     color === 'indigo'
-      ? 'bg-indigo-500'
+      ? 'bg-brand-500'
       : 'bg-emerald-500';
   return (
     <div className="flex items-center gap-2">
@@ -500,8 +502,8 @@ function FilterChip({
       className={cn(
         'inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border',
         active
-          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-transparent shadow-md shadow-indigo-200/60 dark:shadow-indigo-900/40'
-          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 hover:text-indigo-600 dark:hover:text-indigo-400',
+          ? 'bg-gradient-to-r from-brand-600 to-brand-400 text-white border-transparent shadow-md shadow-blue-200/60 dark:shadow-blue-900/40'
+          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-brand-700 hover:text-blue-600 dark:hover:text-blue-400',
       )}
     >
       {icon}
@@ -520,7 +522,7 @@ function ReceiptCard({ txn }: { txn: PaymentTransaction }) {
     <div
       className={cn(
         'group relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden transition-all duration-300',
-        'hover:shadow-lg hover:shadow-indigo-100/40 dark:hover:shadow-indigo-950/40 hover:border-indigo-200 dark:hover:border-indigo-800 hover-lift card-shine',
+        'hover:shadow-lg hover:shadow-blue-100/40 dark:hover:shadow-blue-950/40 hover:border-blue-200 dark:hover:border-blue-800 hover-lift card-shine',
       )}
     >
       {/* Left accent bar */}
@@ -528,7 +530,7 @@ function ReceiptCard({ txn }: { txn: PaymentTransaction }) {
         className={cn(
           'absolute left-0 top-0 bottom-0 w-1',
           isSub
-            ? 'bg-gradient-to-b from-indigo-500 via-purple-500 to-pink-500'
+            ? 'bg-gradient-to-b from-brand-500 via-brand-400 to-pink-500'
             : 'bg-gradient-to-b from-emerald-500 via-teal-500 to-cyan-500',
         )}
       />
@@ -542,7 +544,7 @@ function ReceiptCard({ txn }: { txn: PaymentTransaction }) {
             className={cn(
               'w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm',
               isSub
-                ? 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white'
+                ? 'bg-gradient-to-br from-brand-500 to-brand-400 text-white'
                 : 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white',
             )}
           >
@@ -566,7 +568,7 @@ function ReceiptCard({ txn }: { txn: PaymentTransaction }) {
 
             <div className="flex items-center gap-1.5 flex-wrap">
               {isSub && txn.billing_cycle && (
-                <span className="text-[9px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded">
+                <span className="text-[9px] font-bold uppercase tracking-wider bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-brand-300 px-1.5 py-0.5 rounded">
                   {txn.billing_cycle}
                 </span>
               )}
@@ -626,7 +628,7 @@ function ReceiptCard({ txn }: { txn: PaymentTransaction }) {
       </button>
 
       {expanded && (
-        <div className="border-t border-gray-100 dark:border-gray-800 px-5 py-3 bg-gradient-to-br from-gray-50/80 to-indigo-50/40 dark:from-gray-800/40 dark:to-indigo-950/20 animate-fadeIn">
+        <div className="border-t border-gray-100 dark:border-gray-800 px-5 py-3 bg-gradient-to-br from-gray-50/80 to-blue-50/40 dark:from-gray-800/40 dark:to-blue-950/20 animate-fadeIn">
           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
             <DetailRow label="Base amount" value={`₹${txn.base_amount.toLocaleString('en-IN')}`} />
             {txn.discount_amount > 0 && (
@@ -653,7 +655,7 @@ function ReceiptCard({ txn }: { txn: PaymentTransaction }) {
                 e.stopPropagation();
                 toast.success(`Receipt ${txn.invoice_no} downloaded (demo)`);
               }}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:border-indigo-300 dark:hover:border-indigo-700 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors press"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:border-blue-300 dark:hover:border-brand-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors press"
             >
               <Download className="w-3.5 h-3.5" />
               Receipt
@@ -664,7 +666,7 @@ function ReceiptCard({ txn }: { txn: PaymentTransaction }) {
                 navigator.clipboard.writeText(txn.invoice_no);
                 toast.success('Invoice number copied');
               }}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:border-indigo-300 dark:hover:border-indigo-700 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors press"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:border-blue-300 dark:hover:border-brand-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors press"
             >
               <FileText className="w-3.5 h-3.5" />
               Copy ID

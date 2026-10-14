@@ -120,7 +120,7 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
                 transition={{ delay: 0.3 }}
                 className="text-sm text-muted-foreground mb-6"
               >
-                Your feedback helps us make BrightLearn better for everyone.
+                Your feedback helps us make MyGovExams better for everyone.
               </motion.p>
               <motion.div
                 initial={{ opacity: 0 }}
@@ -146,7 +146,7 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
                   Share Your Feedback
                 </DialogTitle>
                 <DialogDescription>
-                  We'd love to hear what you think about BrightLearn.
+                  We'd love to hear what you think about MyGovExams.
                 </DialogDescription>
               </DialogHeader>
 
@@ -258,7 +258,7 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
                 {/* Info note */}
                 <p className="text-[11px] text-muted-foreground text-center flex items-center justify-center gap-1">
                   <Sparkles className="h-3 w-3" />
-                  Your feedback is sent to our team and helps us improve BrightLearn.
+                  Your feedback is sent to our team and helps us improve MyGovExams.
                 </p>
               </div>
             </motion.div>

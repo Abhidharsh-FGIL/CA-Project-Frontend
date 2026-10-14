@@ -107,7 +107,7 @@ export const mockClasses: Class[] = [
     teacherId: 'teacher-1',
     teacherName: 'Priya Sharma',
     studentCount: 32,
-    color: '#6366f1',
+    color: '#ff6c24',
     createdAt: '2024-01-01',
   },
   {

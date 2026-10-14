@@ -13,6 +13,7 @@ import {
 } from 'docx';
 import { saveAs } from 'file-saver';
 import { stripLatexDelimiters } from '@/lib/latex-utils';
+import { TRANSLATION_DOC_FONT, translationCopy } from '@/lib/question-language';
 
 const TYPE_LABELS: Record<string, string> = {
   mcq: 'MCQ',
@@ -114,6 +115,18 @@ export async function downloadPaperAsDocx(
       }),
     );
 
+    // The second language sits directly under the first, so the pair reads as one question.
+    const tr = translationCopy(q);
+    if (tr?.text) {
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: stripLatexDelimiters(tr.text), size: 24, font: TRANSLATION_DOC_FONT, color: '4B5563' })],
+          indent: { left: 360 },
+          spacing: { after: 100 },
+        }),
+      );
+    }
+
     // ── MCQ / True-False options (inline answer highlighting) ──
     if ((q.type === 'mcq' || q.type === 'true_false') && Array.isArray(q.options) && q.options.length > 0) {
       q.options.forEach((opt: string, i: number) => {
@@ -144,6 +157,17 @@ export async function downloadPaperAsDocx(
                 new TextRun({ text: stripLatexDelimiters(opt), size: 20, font: 'Calibri' }),
               ],
               indent: { left: 720 },
+              spacing: { after: 40 },
+            }),
+          );
+        }
+
+        const trOpt = tr?.options[i];
+        if (trOpt && trOpt !== String(opt).trim()) {
+          children.push(
+            new Paragraph({
+              children: [new TextRun({ text: stripLatexDelimiters(trOpt), size: 20, font: TRANSLATION_DOC_FONT, color: '4B5563' })],
+              indent: { left: 1080 },
               spacing: { after: 40 },
             }),
           );
@@ -286,6 +310,15 @@ export async function downloadPaperAsDocx(
         }),
       );
     }
+    if (withAnswers && tr?.explanation) {
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: stripLatexDelimiters(tr.explanation), size: 18, italics: true, color: '6B7280', font: TRANSLATION_DOC_FONT })],
+          indent: { left: 360 },
+          spacing: { after: 60 },
+        }),
+      );
+    }
 
     qNum++;
   }
@@ -314,7 +347,7 @@ export async function downloadPaperAsDocx(
 }
 
 /** Generate and download a DOCX for a question bank export. */
-export async function downloadQuestionsAsDocx(items: any[], filename?: string) {
+export async function downloadQuestionsAsDocx(items: any[], filename?: string, withAnswers: boolean = true) {
   const children: any[] = [];
 
   children.push(
@@ -358,6 +391,17 @@ export async function downloadQuestionsAsDocx(items: any[], filename?: string) {
       }),
     );
 
+    const tr = translationCopy(q);
+    if (tr?.text) {
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: stripLatexDelimiters(tr.text), size: 22, font: TRANSLATION_DOC_FONT, color: '4B5563' })],
+          indent: { left: 360 },
+          spacing: { after: 60 },
+        }),
+      );
+    }
+
     // MCQ options
     if (q.type === 'mcq' && Array.isArray(q.options)) {
       q.options.forEach((opt: string, j: number) => {
@@ -371,6 +415,16 @@ export async function downloadQuestionsAsDocx(items: any[], filename?: string) {
             spacing: { after: 30 },
           }),
         );
+        const trOpt = tr?.options[j];
+        if (trOpt && trOpt !== String(opt).trim()) {
+          children.push(
+            new Paragraph({
+              children: [new TextRun({ text: stripLatexDelimiters(trOpt), size: 20, font: TRANSLATION_DOC_FONT, color: '4B5563' })],
+              indent: { left: 1080 },
+              spacing: { after: 30 },
+            }),
+          );
+        }
       });
     }
 

@@ -44,10 +44,10 @@ export default function UserTrackPage({ track }: { track: 'mock' | 'practice' })
           <Link
             key={stage.id}
             to={`/user/exams/${group.id}/${stage.id}?tab=${track}`}
-            className="group rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:shadow-lg hover:border-indigo-200 dark:hover:border-indigo-800 transition-all relative overflow-hidden"
+            className="group rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:shadow-lg hover:border-blue-200 dark:hover:border-blue-800 transition-all relative overflow-hidden"
           >
             <div className={cn('absolute inset-x-0 top-0 h-1 bg-gradient-to-r', group.accent)} />
-            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-indigo-500">{group.name}</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-blue-500">{group.name}</p>
             <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 mt-1">{stage.name}</h2>
             <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{stage.description}</p>
             {stage.pattern && (
@@ -58,7 +58,7 @@ export default function UserTrackPage({ track }: { track: 'mock' | 'practice' })
               </div>
             )}
             <div className="flex items-center justify-end mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400">
                 Open <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </span>
             </div>

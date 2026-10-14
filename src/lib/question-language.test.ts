@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { langToggleOptions, resolveLanguage } from './question-language';
+import { langToggleOptions, resolveLanguage, translationCopy } from './question-language';
 
 /**
  * The payload keeps the two languages apart — the paper's own stem, options and
@@ -84,5 +84,32 @@ describe('resolveLanguage', () => {
     const r = resolveLanguage<string | null>(blank, 'translation', primaryOf(blank));
     expect(r.text).toBe(blank.body);
     expect(r.explanation).toBe(blank.explanation);
+  });
+});
+
+/**
+ * Every exporter prints the second language from the same three fields. An export
+ * that read `translations` itself — or never read it — is how a Tamil paper came
+ * out English-only.
+ */
+describe('translationCopy', () => {
+  it('returns the Tamil stem, options and explanation, labelled', () => {
+    const tr = translationCopy(bilingual)!;
+    expect(tr.lang).toBe('ta');
+    expect(tr.label).toBe('தமிழ்');
+    expect(tr.text).toBe('₹48/கி.கி. விலையில் 20 கி.கி. அரிசியையும்…');
+    expect(tr.options).toEqual(['₹72', '₹66.24', '₹67.20']);
+    expect(tr.explanation).toContain('சரியான விடை');
+  });
+
+  it('accepts options written as { text } objects', () => {
+    const q = { translations: { ta: { text: 'கேள்வி', options: [{ text: 'அ' }, { text: 'ஆ' }] } } };
+    expect(translationCopy(q)!.options).toEqual(['அ', 'ஆ']);
+  });
+
+  it('is null for a single-language question, so those export exactly as before', () => {
+    expect(translationCopy({ text: 'English only' })).toBeNull();
+    expect(translationCopy({ translations: { ta: {} } })).toBeNull();
+    expect(translationCopy(null)).toBeNull();
   });
 });

@@ -11,6 +11,7 @@ import { buildUrl } from '@/lib/api';
 import { useCreateEvalQuestion, uploadEvalQuestionImage } from '@/hooks/use-evaluation';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { DIFFICULTY_OPTIONS } from '@/lib/eval-difficulty';
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E'];
 const MIN_OPTIONS = 2;
@@ -250,9 +251,9 @@ export function AddQuestionDialog({
             <Select value={difficulty} onValueChange={setDifficulty}>
               <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="easy">Easy</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="hard">Hard</SelectItem>
+                {DIFFICULTY_OPTIONS.map(o => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

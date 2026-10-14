@@ -8,6 +8,8 @@ import {
 } from 'docx';
 import { saveAs } from 'file-saver';
 import { stripLatexDelimiters } from '@/lib/latex-utils';
+import { TRANSLATION_DOC_FONT, translationCopy } from '@/lib/question-language';
+import { printQuestionPaper } from '@/lib/question-paper-print';
 
 export type ExportFormat = 'excel' | 'pdf' | 'docx';
 
@@ -73,6 +75,8 @@ export interface QuestionData {
   text: string; type: string; points: number; subject?: string;
   difficulty?: string; options?: any; correct_answer?: any;
   explanation?: string; pairs?: any[];
+  /** The second-language copy (Tamil, on a Group 4 paper), keyed by language code. */
+  translations?: Record<string, { text?: string; options?: string[]; explanation?: string | null }> | null;
 }
 export interface StudentRow {
   email: string; name: string; status: string; score: string;
@@ -137,10 +141,19 @@ async function exportAssessmentDocx(meta: MetaField[], questions: QuestionData[]
       spacing: { before: 200, after: 100 },
     }));
 
+    // The second language sits directly under the first, so the pair reads as one question.
+    const tr = translationCopy(q);
+    if (tr?.text) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: stripLatexDelimiters(tr.text), size: 24, font: TRANSLATION_DOC_FONT, color: '4B5563' })],
+        indent: { left: 360 }, spacing: { after: 100 },
+      }));
+    }
+
     // MCQ options
     if (q.type === 'mcq' && q.options) {
       const entries = getOptionEntries(q.options);
-      entries.forEach(([label, text]) => {
+      entries.forEach(([label, text], oi) => {
         children.push(new Paragraph({
           children: [
             new TextRun({ text: `${label}) `, bold: true, size: 20, font: 'Calibri' }),
@@ -148,6 +161,13 @@ async function exportAssessmentDocx(meta: MetaField[], questions: QuestionData[]
           ],
           indent: { left: 720 }, spacing: { after: 40 },
         }));
+        const trOpt = tr?.options[oi];
+        if (trOpt && trOpt !== text.trim()) {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: stripLatexDelimiters(trOpt), size: 20, font: TRANSLATION_DOC_FONT, color: '4B5563' })],
+            indent: { left: 1080 }, spacing: { after: 40 },
+          }));
+        }
       });
     }
 
@@ -221,6 +241,13 @@ async function exportAssessmentDocx(meta: MetaField[], questions: QuestionData[]
       runs.push(new TextRun({ text: `  \u2014 ${stripLatexDelimiters(q.explanation)}`, size: 18, italics: true, color: '777777', font: 'Calibri' }));
     }
     children.push(new Paragraph({ children: runs, spacing: { after: 60 }, indent: { left: 180 } }));
+    const trExp = translationCopy(q)?.explanation;
+    if (trExp) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: stripLatexDelimiters(trExp), size: 18, italics: true, color: '777777', font: TRANSLATION_DOC_FONT })],
+        spacing: { after: 60 }, indent: { left: 360 },
+      }));
+    }
   });
 
   const doc = new Document({ sections: [{ children }] });
@@ -231,6 +258,23 @@ async function exportAssessmentDocx(meta: MetaField[], questions: QuestionData[]
 // ── Assessment PDF ──
 
 async function exportAssessmentPDF(meta: MetaField[], questions: QuestionData[], title: string) {
+  /*
+   * jsPDF cannot shape Tamil — consonant/vowel-sign reordering and ligatures come
+   * out malformed even with a Tamil font embedded — so a paper that carries a
+   * second language goes through the browser's print dialog instead, which shapes
+   * it natively (see question-paper-print.ts). English-only papers keep the direct
+   * download.
+   */
+  if (questions.some(q => translationCopy(q))) {
+    printQuestionPaper({
+      title,
+      meta: meta.filter(m => m.value && m.value !== '-').map(m => `${m.label}: ${m.value}`),
+      questions: questions.map(q => ({ ...q, marks: q.points })),
+      withAnswers: true,
+    });
+    return;
+  }
+
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pw = doc.internal.pageSize.getWidth();
@@ -417,7 +461,11 @@ async function exportAssessmentExcel(meta: MetaField[], questions: QuestionData[
   }
 
   // Questions sheet
+  const bilingual = questions.some(q => translationCopy(q));
+  const trLabel = questions.map(q => translationCopy(q)?.label).find(Boolean) ?? '';
   const qHeaders = ['#', 'Question', 'Type', 'Points', 'Subject', 'Difficulty', 'Options', 'Correct Answer', 'Explanation'];
+  // The second language gets its own columns beside the first, so a row is still one question.
+  if (bilingual) qHeaders.push(`Question (${trLabel})`, `Options (${trLabel})`, `Explanation (${trLabel})`);
   const qRows: any[][] = [qHeaders];
   questions.forEach((q, i) => {
     let opts = '-';
@@ -432,10 +480,21 @@ async function exportAssessmentExcel(meta: MetaField[], questions: QuestionData[
 
     const ans = q.correct_answer != null ? resolveAnswer(q) || '-' : '-';
 
-    qRows.push([i + 1, stripLatexDelimiters(q.text || ''), TYPE_LABELS[q.type] || q.type, q.points || 1, q.subject || '-', q.difficulty || '-', stripLatexDelimiters(opts), stripLatexDelimiters(ans), stripLatexDelimiters(q.explanation || '-')]);
+    const row: any[] = [i + 1, stripLatexDelimiters(q.text || ''), TYPE_LABELS[q.type] || q.type, q.points || 1, q.subject || '-', q.difficulty || '-', stripLatexDelimiters(opts), stripLatexDelimiters(ans), stripLatexDelimiters(q.explanation || '-')];
+    if (bilingual) {
+      const tr = translationCopy(q);
+      row.push(
+        stripLatexDelimiters(tr?.text || '-'),
+        tr && q.type === 'mcq' && tr.options.some(Boolean)
+          ? stripLatexDelimiters(tr.options.map((o, j) => `${String.fromCharCode(65 + j)}) ${o}`).join('\n'))
+          : '-',
+        stripLatexDelimiters(tr?.explanation || '-'),
+      );
+    }
+    qRows.push(row);
   });
   const ws2 = XLSX.utils.aoa_to_sheet(qRows);
-  ws2['!cols'] = [{ wch: 4 }, { wch: 50 }, { wch: 16 }, { wch: 7 }, { wch: 14 }, { wch: 10 }, { wch: 40 }, { wch: 30 }, { wch: 40 }];
+  ws2['!cols'] = [{ wch: 4 }, { wch: 50 }, { wch: 16 }, { wch: 7 }, { wch: 14 }, { wch: 10 }, { wch: 40 }, { wch: 30 }, { wch: 40 }, ...(bilingual ? [{ wch: 50 }, { wch: 40 }, { wch: 40 }] : [])];
   XLSX.utils.book_append_sheet(wb, ws2, 'Questions');
 
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });

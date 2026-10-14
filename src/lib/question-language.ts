@@ -75,6 +75,49 @@ export function isBilingualQuestion(q: any, stem: unknown): boolean {
   return !!primary && !!translationLang(q);
 }
 
+/**
+ * Font for the second language in a generated document.
+ *
+ * Named outright rather than left to Calibri: Word substitutes a Tamil face on its
+ * own, but LibreOffice and some viewers do not, and show boxes instead.
+ */
+export const TRANSLATION_DOC_FONT = 'Nirmala UI';
+
+/** A question's second-language copy, normalised for printing into a document. */
+export interface TranslationCopy {
+  lang: string;
+  /** The language's own name — "தமிழ்" — for a column or heading. */
+  label: string;
+  text: string;
+  options: string[];
+  explanation: string;
+}
+
+/**
+ * The second-language copy of a question, or null when it has none.
+ *
+ * Every export that prints a paper needs the same three fields — stem, options,
+ * explanation — and the same tolerance for the shapes they arrive in (an option
+ * can be a bare string or `{ text }`), so it is read here once instead of by each
+ * exporter. Null for the empty `translations: { ta: {} }` that single-language
+ * papers carry, so those export exactly as they did before.
+ */
+export function translationCopy(q: any): TranslationCopy | null {
+  const lang = translationLang(q);
+  if (!lang) return null;
+  const tr = q.translations[lang];
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+  return {
+    lang,
+    label: TRANSLATION_LABELS[lang] ?? lang,
+    text: str(tr.text),
+    options: Array.isArray(tr.options)
+      ? tr.options.map((o: any) => str(o && typeof o === 'object' ? o.text : o))
+      : [],
+    explanation: str(tr.explanation),
+  };
+}
+
 /** The translation block for a question, unless the reader asked for the primary only. */
 export function translationOf(q: any, show: boolean): QuestionTranslationBlock | null {
   if (!show) return null;

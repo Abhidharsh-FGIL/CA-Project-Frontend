@@ -84,7 +84,7 @@ export function TnpscCoveragePanel() {
       {/* Mock levels */}
       <section>
         <h3 className="flex items-center gap-1.5 text-sm font-semibold mb-2">
-          <Target className="h-4 w-4 text-indigo-500" /> Mock tests by level
+          <Target className="h-4 w-4 text-blue-500" /> Mock tests by level
         </h3>
         <div className="grid gap-3 sm:grid-cols-3">
           {TNPSC_LEVELS.map(lv => {
@@ -138,7 +138,7 @@ export function TnpscCoveragePanel() {
                   <p className="text-xs font-medium truncate">{s.subject_name ?? s.subject_id}</p>
                   <div className="mt-1 h-1.5 w-full max-w-xs rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                     <div
-                      className={cn('h-full rounded-full', pct === 100 ? 'bg-emerald-500' : pct > 0 ? 'bg-indigo-500' : 'bg-transparent')}
+                      className={cn('h-full rounded-full', pct === 100 ? 'bg-emerald-500' : pct > 0 ? 'bg-brand-500' : 'bg-transparent')}
                       style={{ width: `${pct}%` }}
                     />
                   </div>

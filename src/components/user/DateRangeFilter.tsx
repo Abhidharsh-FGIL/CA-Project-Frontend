@@ -92,10 +92,10 @@ export function DateRangeFilter({
           aria-label="Date range"
           className={cn(
             'inline-flex items-center gap-1.5 rounded-xl border font-semibold transition-colors',
-            'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 dark:focus-visible:ring-indigo-700',
+            'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:focus-visible:ring-brand-700',
             size === 'sm' ? 'h-8 px-2.5 text-[11px]' : 'h-9 px-3 text-xs',
             isFiltered
-              ? 'border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-500/20'
+              ? 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-brand-500/10 text-blue-700 dark:text-brand-300 hover:bg-blue-100 dark:hover:bg-brand-500/20'
               : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800',
           )}
         >
@@ -117,7 +117,7 @@ export function DateRangeFilter({
             className={cn(
               'w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors',
               value.key === p.key
-                ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
+                ? 'bg-blue-50 dark:bg-brand-500/10 text-blue-700 dark:text-brand-300'
                 : 'hover:bg-gray-50 dark:hover:bg-gray-800',
             )}
           >
@@ -137,7 +137,7 @@ export function DateRangeFilter({
               value={from}
               max={to || today}
               onChange={e => setFrom(e.target.value)}
-              className="flex-1 min-w-0 h-8 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-800"
+              className="flex-1 min-w-0 h-8 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
             />
             <span className="text-[10px] text-gray-400">to</span>
             <input
@@ -146,7 +146,7 @@ export function DateRangeFilter({
               min={from || undefined}
               max={today}
               onChange={e => setTo(e.target.value)}
-              className="flex-1 min-w-0 h-8 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-800"
+              className="flex-1 min-w-0 h-8 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
             />
           </div>
           <div className="flex items-center gap-1.5 mt-2">
@@ -154,7 +154,7 @@ export function DateRangeFilter({
               type="button"
               onClick={applyCustom}
               disabled={!from && !to}
-              className="flex-1 h-8 rounded-lg bg-indigo-600 text-white text-[11px] font-semibold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 h-8 rounded-lg bg-brand-600 text-white text-[11px] font-semibold hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Apply
             </button>
