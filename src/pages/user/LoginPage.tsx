@@ -1,10 +1,24 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, BarChart3, BookOpen, CheckCircle2, Eye, EyeOff, FileText, Lock, Mail, Target } from 'lucide-react';
+import {
+  ArrowRight,
+  BarChart3,
+  BookOpen,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  FileText,
+  KeyRound,
+  Lock,
+  Mail,
+  Target,
+} from 'lucide-react';
 import { useUserPortal } from '@/contexts/UserPortalContext';
+import { STUDENT_PASSWORD_LOGIN } from '@/config/features';
 import { toast } from 'sonner';
 import { ROUTES } from '@/pages/landing/LandingShell';
 import { ArtImage, AuthField, AuthLayout, AuthModal } from './auth/AuthShell';
+import { LoginOtpForm } from './auth/LoginOtpForm';
 
 /** What the product offers, as a row under the form. */
 const POINTS = [
@@ -17,6 +31,11 @@ const POINTS = [
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login, forgotPassword, isAuthenticated } = useUserPortal();
+  /**
+   * Password is the way in by default, with the OTP form one tap away and back. When password
+   * login is switched off (`STUDENT_PASSWORD_LOGIN`) the page opens on the OTP form and stays there.
+   */
+  const [mode, setMode] = useState<'password' | 'otp'>(STUDENT_PASSWORD_LOGIN ? 'password' : 'otp');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -82,67 +101,83 @@ export default function LoginPage() {
     >
       <div className="mge-auth-card">
         <h1>Welcome Back</h1>
-        <p className="mge-auth-sub">Login to continue your exam preparation</p>
-
-        {locked && (
-          <div className="mge-auth-alert">
-            <strong>Account locked.</strong> Too many failed attempts. Check your email for the unlock link.
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="mge-auth-form">
-          <AuthField
-            icon={Mail}
-            type="email"
-            value={email}
-            onChange={setEmail}
-            placeholder="Email"
-            required
-            autoComplete="email"
+        {mode === 'otp' ? (
+          <LoginOtpForm
+            initialIdentifier={email}
+            onUsePassword={STUDENT_PASSWORD_LOGIN ? () => setMode('password') : undefined}
           />
-          <AuthField
-            icon={Lock}
-            type={showPwd ? 'text' : 'password'}
-            value={password}
-            onChange={setPassword}
-            placeholder="Password"
-            required
-            autoComplete="current-password"
-            trailing={
+        ) : (
+          <>
+            <p className="mge-auth-sub">Login to continue your exam preparation</p>
+
+            {locked && (
+              <div className="mge-auth-alert">
+                <strong>Account locked.</strong> Too many failed attempts. Check your email for the unlock link.
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="mge-auth-form">
+              <AuthField
+                icon={Mail}
+                type="email"
+                value={email}
+                onChange={setEmail}
+                placeholder="Email"
+                required
+                autoComplete="email"
+              />
+              <AuthField
+                icon={Lock}
+                type={showPwd ? 'text' : 'password'}
+                value={password}
+                onChange={setPassword}
+                placeholder="Password"
+                required
+                autoComplete="current-password"
+                trailing={
+                  <button
+                    type="button"
+                    className="mge-eye"
+                    aria-label={showPwd ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowPwd(p => !p)}
+                  >
+                    {showPwd ? <EyeOff /> : <Eye />}
+                  </button>
+                }
+              />
+
               <button
                 type="button"
-                className="mge-eye"
-                aria-label={showPwd ? 'Hide password' : 'Show password'}
-                onClick={() => setShowPwd(p => !p)}
+                className="mge-link-btn"
+                onClick={() => {
+                  setForgotEmail(email);
+                  setForgotOpen(true);
+                }}
               >
-                {showPwd ? <EyeOff /> : <Eye />}
+                Forgot Password?
               </button>
-            }
-          />
 
-          <button
-            type="button"
-            className="mge-link-btn"
-            onClick={() => {
-              setForgotEmail(email);
-              setForgotOpen(true);
-            }}
-          >
-            Forgot Password?
-          </button>
+              <button type="submit" disabled={submitting || locked} className="mge-btn mge-btn-primary mge-auth-submit">
+                {submitting ? (
+                  <>
+                    <span className="mge-spinner" /> Logging in...
+                  </>
+                ) : (
+                  <>
+                    Login <ArrowRight size={19} />
+                  </>
+                )}
+              </button>
+            </form>
 
-          <button type="submit" disabled={submitting || locked} className="mge-btn mge-btn-primary mge-auth-submit">
-            {submitting ? (
-              <>
-                <span className="mge-spinner" /> Logging in...
-              </>
-            ) : (
-              <>
-                Login <ArrowRight size={19} />
-              </>
-            )}
-          </button>
-        </form>
+            <div className="mge-auth-or">
+              <span>or</span>
+            </div>
+            <button type="button" className="mge-auth-alt" onClick={() => setMode('otp')}>
+              <KeyRound size={18} aria-hidden="true" /> Login with OTP
+            </button>
+          </>
+        )}
 
         <div className="mge-auth-rule" />
         <p className="mge-auth-switch">

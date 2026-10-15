@@ -36,6 +36,7 @@ import { REPORT_NAVY, UserShell } from '@/components/user/UserShell';
 import { StudyPlanCard } from '@/components/user/study-plan/StudyPlanCard';
 import { SHOW_STUDY_PLAN } from '@/config/features';
 import { useUserPortal } from '@/contexts/UserPortalContext';
+import { useReportGate } from '@/hooks/use-report-gate';
 import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { FilterSelect } from '@/components/user/FilterSelect';
 import { SubjectBreakdown } from '@/components/user/SubjectBreakdown';
@@ -46,7 +47,7 @@ import {
   EXAM_TRACK_OPTIONS,
   GROUP_STAGE,
   formatTrendLabel,
-  resolveGroupKey,
+  openGroupKey,
   useProgressTrend,
   type ExamGroupKey,
   type ExamTrackKey,
@@ -71,10 +72,11 @@ const SUBJECT_PREVIEW_COUNT = 6;
 
 export default function UserDashboardPage() {
   const { user, assessments, history, isLoading } = useUserPortal();
+  const gateReport = useReportGate();
   const { groups } = useTnpscCatalog();
   const [range, setRange] = useState<DateRange>(ALL_TIME);
   const [track, setTrack] = useState<ExamTrackKey>('mock');
-  const preferredGroup = resolveGroupKey(user?.preferred_exam);
+  const preferredGroup = openGroupKey(user?.preferred_exam);
   const [group, setGroup] = useState<ExamGroupKey>(preferredGroup);
 
   /**
@@ -651,6 +653,7 @@ export default function UserDashboardPage() {
                   <li key={r.attempt_id}>
                     <Link
                       to={`/user/report/${r.attempt_id}`}
+                      onClick={gateReport(r.test_mode)}
                       className="flex items-center gap-2.5 rounded-xl bg-white dark:bg-gray-900 px-3 py-2.5 hover:bg-blue-50 dark:hover:bg-gray-800 transition-colors"
                     >
                       <span className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center flex-shrink-0">

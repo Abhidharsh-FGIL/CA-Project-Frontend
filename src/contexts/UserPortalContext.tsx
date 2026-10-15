@@ -26,6 +26,8 @@ import {
   verifyUserOtp,
   resendUserOtp,
   loginUser,
+  sendLoginOtp as requestLoginOtp,
+  verifyLoginOtp,
   logoutUser,
   forgotUserPassword,
   resetUserPassword,
@@ -50,6 +52,7 @@ import {
   getSubscriptionPlans,
 } from '@/lib/userPortalApi';
 import { ApiError, getUserToken } from '@/lib/api';
+import { onSessionExpired } from '@/lib/session-bus';
 
 interface UserPortalContextValue {
   user: SampleUser | null;
@@ -68,6 +71,10 @@ interface UserPortalContextValue {
   redeemedPromoCodes: Set<string>;
 
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  /** Have a one-time password sent to the account behind an email ID or mobile number. `message` says where it went. */
+  sendLoginOtp: (identifier: string) => Promise<{ ok: boolean; message?: string; error?: string }>;
+  /** Sign in with that one-time password — the same session `login` starts. */
+  loginWithOtp: (identifier: string, otp: string) => Promise<{ ok: boolean; error?: string }>;
   register: (data: { name: string; email: string; phone: string; password: string } & StudentDetailFields) => Promise<{ ok: boolean; error?: string; otpSentTo?: string }>;
   verifyOtp: (otp: string) => Promise<{ ok: boolean; error?: string }>;
   resendOtp: () => Promise<{ ok: boolean; error?: string }>;
@@ -235,25 +242,80 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
     };
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  /**
+   * The session lapsed — the token and its refresh were both refused. Forget the signed-in person,
+   * so the guards send them to the login page instead of leaving them on screens that can no longer
+   * load (and so the login page does not bounce them back in). `SessionExpiredHost` tells them why.
+   */
+  useEffect(
+    () =>
+      onSessionExpired(portal => {
+        if (portal !== 'user') return;
+        setUser(null);
+        setAssessments([]);
+        setHistory([]);
+        setNotifications([]);
+        setLastLoginAt(null);
+        setRedeemedPromoCodes(new Set());
+        setIsLoading(false);
+      }),
+    [],
+  );
+
+  /**
+   * With a token in storage: load the profile and the data behind it, and sign the user in.
+   * What every way of signing in ends with. The caller owns `isLoading` going back to false.
+   */
+  const startSession = useCallback(async () => {
+    setIsLoading(true);
+    const profile = await getUserProfile();
+    const su = mapProfileToSampleUser(profile);
+    const portalData = await fetchPortalData(su);
+    setUser(su);
+    setAssessments(portalData.assessments);
+    setHistory(portalData.history);
+    setNotifications(portalData.notifications);
+    setLastLoginAt(new Date().toISOString());
+  }, []);
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      try {
+        await loginUser({ email, password });
+        await startSession();
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: describeApiError(err, 'Login failed') };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [startSession],
+  );
+
+  const sendLoginOtp = useCallback(async (identifier: string) => {
     try {
-      await loginUser({ email, password });
-      setIsLoading(true);
-      const profile = await getUserProfile();
-      const su = mapProfileToSampleUser(profile);
-      const portalData = await fetchPortalData(su);
-      setUser(su);
-      setAssessments(portalData.assessments);
-      setHistory(portalData.history);
-      setNotifications(portalData.notifications);
-      setLastLoginAt(new Date().toISOString());
-      return { ok: true };
+      const res = await requestLoginOtp(identifier);
+      return { ok: true, message: res?.message };
     } catch (err) {
-      return { ok: false, error: describeApiError(err, 'Login failed') };
-    } finally {
-      setIsLoading(false);
+      return { ok: false, error: describeApiError(err, 'Could not send the OTP') };
     }
   }, []);
+
+  const loginWithOtp = useCallback(
+    async (identifier: string, otp: string) => {
+      try {
+        await verifyLoginOtp({ identifier, otp });
+        await startSession();
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: describeApiError(err, 'Login failed') };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [startSession],
+  );
 
   const register = useCallback(
     async (data: { name: string; email: string; phone: string; password: string } & StudentDetailFields) => {
@@ -288,15 +350,7 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
       if (!pendingRegistrationEmail) return { ok: false, error: 'No pending registration. Please register again.' };
       try {
         await verifyUserOtp({ email_address: pendingRegistrationEmail, otp });
-        setIsLoading(true);
-        const profile = await getUserProfile();
-        const su = mapProfileToSampleUser(profile);
-        const portalData = await fetchPortalData(su);
-        setUser(su);
-        setAssessments(portalData.assessments);
-        setHistory(portalData.history);
-        setNotifications(portalData.notifications);
-        setLastLoginAt(new Date().toISOString());
+        await startSession();
         setPendingRegistrationEmail(null);
         return { ok: true };
       } catch (err) {
@@ -305,7 +359,7 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
         setIsLoading(false);
       }
     },
-    [pendingRegistrationEmail],
+    [pendingRegistrationEmail, startSession],
   );
 
   const resendOtp = useCallback(async () => {
@@ -655,6 +709,8 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
     payForTest,
     transactions,
     login,
+    sendLoginOtp,
+    loginWithOtp,
     register,
     verifyOtp,
     resendOtp,

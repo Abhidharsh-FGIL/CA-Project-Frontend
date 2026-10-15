@@ -25,6 +25,8 @@ import {
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { difficultyLabel } from '@/lib/eval-difficulty';
+import { attemptsUsed as attemptsUsedFacts } from '@/lib/plan-notice';
+import { showPlanNotice } from '@/lib/plan-notice-bus';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -357,7 +359,10 @@ function TestCard({
           ? 'hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 cursor-pointer'
           : 'opacity-95',
       )}
-      onClick={() => canStart && navigate(`/user/test/${test.test_id}/start`)}
+      onClick={() => {
+        if (canStart) navigate(`/user/test/${test.test_id}/start`);
+        else if (exhausted && !test.is_locked) showPlanNotice(attemptsUsedFacts(maxAttempts));
+      }}
     >
       {test.is_new && !attempted && (
         <span className="absolute top-3 right-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow animate-bounce-soft">
@@ -429,10 +434,13 @@ function TestCard({
             <Lock className="w-3 h-3" /> Upgrade <Sparkles className="w-3 h-3" />
           </button>
         ) : exhausted ? (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg cursor-not-allowed"
-            onClick={e => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); showPlanNotice(attemptsUsedFacts(maxAttempts)); }}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-700 dark:hover:text-amber-300 transition-colors"
+          >
             <Lock className="w-3 h-3" /> No attempts left
-          </span>
+          </button>
         ) : (
           <Link
             to={`/user/test/${test.test_id}/start`}

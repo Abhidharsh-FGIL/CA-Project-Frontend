@@ -20,12 +20,13 @@ import { SubjectBreakdown, SubjectKey, sortSubjects, type SubjectSort } from '@/
 import { TestScoreCard } from '@/components/user/TestScoreCard';
 import { useSubjectStrengths } from '@/hooks/use-subject-strengths';
 import { useUserPortal } from '@/contexts/UserPortalContext';
+import { useReportGate } from '@/hooks/use-report-gate';
 import {
   EXAM_GROUP_OPTIONS,
   EXAM_TRACK_OPTIONS,
   GROUP_STAGE,
   formatTrendLabel,
-  resolveGroupKey,
+  openGroupKey,
   useProgressTrend,
   type ExamGroupKey,
   type ExamTrackKey,
@@ -50,9 +51,10 @@ const SORT_OPTIONS: FilterOption<SubjectSort>[] = [
 /** The "View detailed report" destination — trend, subject breakdown, every attempt. */
 export default function UserPerformancePage() {
   const { user, assessments, history, isLoading } = useUserPortal();
+  const gateReport = useReportGate();
   const [range, setRange] = useState<DateRange>(ALL_TIME);
   const [track, setTrack] = useState<ExamTrackKey>('mock');
-  const preferredGroup = resolveGroupKey(user?.preferred_exam);
+  const preferredGroup = openGroupKey(user?.preferred_exam);
   const [group, setGroup] = useState<ExamGroupKey>(preferredGroup);
 
   /**
@@ -548,6 +550,7 @@ export default function UserPerformancePage() {
                   <li key={h.attempt_id}>
                     <Link
                       to={`/user/report/${h.attempt_id}`}
+                      onClick={gateReport(h.test_mode)}
                       className="group flex items-center gap-3 rounded-xl border border-gray-100 dark:border-gray-800 px-3 py-2.5 hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-50/30 dark:hover:bg-gray-800/40 transition-colors"
                     >
                       <span className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center flex-shrink-0">

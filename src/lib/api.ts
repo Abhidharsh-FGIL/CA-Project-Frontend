@@ -3,6 +3,7 @@
  * Replaces all Supabase direct calls.
  */
 import { toast } from 'sonner';
+import { announceSessionExpired, rearmSessionExpired, type Portal } from './session-bus';
 
 // Backend root URL — read from VITE_API_BASE_URL in .env, no trailing slash.
 export const BASE_URL: string =
@@ -66,12 +67,14 @@ export function buildUrl(path: string): string {
  */
 export function toRequestError(body: any, status: number): Error {
   const detail = body?.detail ?? body;
-  if (detail && typeof detail === 'object' && typeof detail.message === 'string') {
-    const error = new Error(detail.message);
-    // FastAPI errors say `code`; the evaluation endpoints say `error_code`. Reading
-    // only the first left `err.code` undefined for the second, and anything that
-    // branched on a code quietly never matched.
-    (error as any).code = detail.code ?? detail.error_code;
+  // FastAPI errors say `code`; the evaluation endpoints say `error_code`. Reading
+  // only the first left `err.code` undefined for the second, and anything that
+  // branched on a code quietly never matched.
+  const code: unknown = detail && typeof detail === 'object' ? (detail.code ?? detail.error_code) : undefined;
+  if (detail && typeof detail === 'object' && (typeof detail.message === 'string' || typeof code === 'string')) {
+    // A body that is only a code (`{code, limit, used}`) still has to throw with that code.
+    const error = new Error(typeof detail.message === 'string' ? detail.message : String(code));
+    (error as any).code = code;
     (error as any).detail = detail;
     (error as any).status = status;
     return error;
@@ -98,6 +101,7 @@ export function getToken(): string | null {
 export function setTokens(access: string, refresh: string): void {
   localStorage.setItem(TOKEN_KEY, access);
   localStorage.setItem(REFRESH_KEY, refresh);
+  rearmSessionExpired('admin');
 }
 
 export function clearTokens(): void {
@@ -114,11 +118,28 @@ export function getUserToken(): string | null {
 export function setUserTokens(access: string, refresh: string): void {
   localStorage.setItem(USER_TOKEN_KEY, access);
   localStorage.setItem(USER_REFRESH_KEY, refresh);
+  rearmSessionExpired('user');
 }
 
 export function clearUserTokens(): void {
   localStorage.removeItem(USER_TOKEN_KEY);
   localStorage.removeItem(USER_REFRESH_KEY);
+}
+
+// ─── A lapsed session ─────────────────────────────────────────────────────────
+
+/**
+ * A call was refused (401) and so was the refresh: the session is over.
+ *
+ * When there was a session to lose, the person is told with a popup (`SessionExpiredHost`) and
+ * this returns true — the caller then throws a `handled` error so no second message is toasted.
+ * Otherwise (they were never signed in, or no portal is listening) they are sent to the login
+ * page, as this client always did, and it returns false.
+ */
+function sessionLapsed(portal: Portal, hadSession: boolean, loginRoute: string): boolean {
+  if (hadSession && announceSessionExpired(portal)) return true;
+  window.location.href = `${import.meta.env.BASE_URL || '/'}#${loginRoute}`;
+  return false;
 }
 
 // ─── Public (no-auth) client for unauthenticated user-auth endpoints ─────────
@@ -163,6 +184,8 @@ async function userApiRequest<T>(path: string, options: RequestInit = {}): Promi
     });
   };
 
+  // Whether there was a session to lose: a call made with no token at all is a visitor, not an expiry.
+  const hadSession = !!getUserToken();
   let res = await makeUserRequest(getUserToken());
 
   // Auto-refresh user token once on 401, but never on the refresh endpoint itself
@@ -172,7 +195,10 @@ async function userApiRequest<T>(path: string, options: RequestInit = {}): Promi
     if (newToken) {
       res = await makeUserRequest(newToken);
     } else {
-      window.location.href = `${import.meta.env.BASE_URL || '/'}#/user/login`;
+      clearUserTokens();
+      // Signing out with a token that has already lapsed is not news to the person signing out.
+      const signingOut = path.includes('/user/auth/logout');
+      if (sessionLapsed('user', hadSession && !signingOut, '/user/login')) throw new ApiError('Session expired', true);
       throw new Error('Session expired');
     }
   }
@@ -195,8 +221,17 @@ export const userApi = {
 
 // ─── Token refresh ────────────────────────────────────────────────────────────
 
-/** Refresh the admin access token via the admin-specific endpoint. */
-export async function refreshAccessToken(): Promise<string | null> {
+let adminRefreshInFlight: Promise<string | null> | null = null;
+
+/** Refresh the admin access token via the admin-specific endpoint. Calls that need it at once share one refresh (see the user one below). */
+export function refreshAccessToken(): Promise<string | null> {
+  adminRefreshInFlight ??= requestAdminRefresh().finally(() => {
+    adminRefreshInFlight = null;
+  });
+  return adminRefreshInFlight;
+}
+
+async function requestAdminRefresh(): Promise<string | null> {
   const refresh = localStorage.getItem(REFRESH_KEY);
   if (!refresh) return null;
   try {
@@ -218,8 +253,23 @@ export async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
-/** Refresh the user portal access token via the user-specific endpoint. */
-export async function refreshUserAccessToken(): Promise<string | null> {
+let userRefreshInFlight: Promise<string | null> | null = null;
+
+/**
+ * Refresh the user portal access token via the user-specific endpoint.
+ *
+ * A page makes several calls at once, so an expired token is refused several times at once. They
+ * share one refresh: the refresh token is single-use, so a second refresh with the same one would
+ * be refused — and the failure would wipe the very tokens the first had just been given.
+ */
+export function refreshUserAccessToken(): Promise<string | null> {
+  userRefreshInFlight ??= requestUserRefresh().finally(() => {
+    userRefreshInFlight = null;
+  });
+  return userRefreshInFlight;
+}
+
+async function requestUserRefresh(): Promise<string | null> {
   const refresh = localStorage.getItem(USER_REFRESH_KEY);
   if (!refresh) return null;
   try {
@@ -356,6 +406,7 @@ export async function apiRequest<T>(
   options: RequestInit = {}
 ): Promise<T> {
   let token = getToken();
+  const hadSession = !!token;
   const url = buildUrl(path);
 
   // Dev-only: log every outgoing request so you can verify the URL + auth
@@ -441,8 +492,8 @@ export async function apiRequest<T>(
     if (token) {
       res = await makeRequest(url, token);
     } else {
-      // Redirect to login if we can't refresh
-      window.location.href = `${import.meta.env.BASE_URL || '/'}#/adminlogin`;
+      // Cannot refresh: the session is over — tell the admin (or send them to login if nobody can)
+      if (sessionLapsed('admin', hadSession, '/adminlogin')) throw new ApiError('Session expired', true);
       throw new Error('Session expired');
     }
   }
@@ -503,6 +554,7 @@ export const api = {
 export async function apiDownload(path: string): Promise<Blob> {
   const url = buildUrl(path);
   let token = getToken();
+  const hadSession = !!token;
 
   const makeRequest = async (tok: string | null): Promise<Response> => {
     const headers: Record<string, string> = {};
@@ -517,7 +569,7 @@ export async function apiDownload(path: string): Promise<Blob> {
     if (token) {
       res = await makeRequest(token);
     } else {
-      window.location.href = `${import.meta.env.BASE_URL || '/'}#/adminlogin`;
+      if (sessionLapsed('admin', hadSession, '/adminlogin')) throw new ApiError('Session expired', true);
       throw new Error('Session expired');
     }
   }
@@ -553,6 +605,7 @@ export function streamRequest(
   (async () => {
     try {
       let token = getToken();
+      const hadSession = !!token;
 
       const makeReq = (tok: string | null) =>
         fetch(url, {
@@ -573,8 +626,7 @@ export function streamRequest(
         if (token) {
           res = await makeReq(token);
         } else {
-          window.location.href = `${import.meta.env.BASE_URL || '/'}#/adminlogin`;
-          onError?.(new Error('Session expired'));
+          onError?.(new ApiError('Session expired', sessionLapsed('admin', hadSession, '/adminlogin')));
           return;
         }
       }

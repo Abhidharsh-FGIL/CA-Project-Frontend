@@ -13,6 +13,7 @@
  *   DELETE /api/v1/user/notifications/clear                 → { message, success }
  */
 import { userApi, getUserToken, buildUrl } from './api';
+import { withPlanNotice } from './plan-notice-bus';
 
 // ─── Response types ───────────────────────────────────────────────────────────
 
@@ -937,8 +938,9 @@ export function getEvalAssessmentDetail(assessmentId: string): Promise<Assessmen
   return userApi.get<AssessmentDetailResponse>(`/api/v1/user/eval-assessments/${assessmentId}`);
 }
 
+/** A plan refusal opens the plan popup (`PlanNoticeHost`) and is rethrown `handled` — see `withPlanNotice`. */
 export function startEvalAttempt(assessmentId: string): Promise<StartAttemptResponse> {
-  return userApi.post<StartAttemptResponse>(`/api/v1/user/eval-assessments/${assessmentId}/start`);
+  return withPlanNotice(userApi.post<StartAttemptResponse>(`/api/v1/user/eval-assessments/${assessmentId}/start`));
 }
 
 export function autosaveEvalAttempt(
@@ -1037,7 +1039,7 @@ export function getTestDetail(testId: string): Promise<TestDetail> {
 
 export function startTestAttempt(testId: string, promoCode?: string): Promise<StartTestAttemptResponse> {
   const params = promoCode ? `?promo_code=${encodeURIComponent(promoCode)}` : '';
-  return userApi.post<StartTestAttemptResponse>(`/api/v1/test-engine/${testId}/start${params}`);
+  return withPlanNotice(userApi.post<StartTestAttemptResponse>(`/api/v1/test-engine/${testId}/start${params}`));
 }
 
 export function saveTestAnswer(

@@ -15,6 +15,7 @@ import type { TrendPoint, UserDashboardAnalytics } from '@/lib/userDashboardApi'
 import type { ApiAttempt } from '@/lib/userPortalApi';
 import type { FilterOption } from '@/components/user/FilterSelect';
 import { inRange, isoDay, rangeLabel, type DateRange } from '@/components/user/DateRangeFilter';
+import { OPEN_EXAM_IDS } from '@/lib/exam-listing';
 
 export type TrackKey = 'all' | 'mock' | 'practice';
 export type GroupKey = 'all' | 'group-1' | 'group-4' | 'gat-b';
@@ -61,11 +62,29 @@ export const EXAM_TRACK_OPTIONS: FilterOption<ExamTrackKey>[] = [
   { value: 'practice', label: 'Practice', hint: 'Syllabus-wise sets' },
 ];
 
-export const EXAM_GROUP_OPTIONS: FilterOption<ExamGroupKey>[] = [
+const EXAM_GROUPS: FilterOption<ExamGroupKey>[] = [
   { value: 'group-1', label: 'Group 1', hint: 'Prelims' },
   { value: 'group-4', label: 'Group 4', hint: 'Written' },
   { value: 'gat-b', label: 'GAT-B', hint: 'Biotechnology' },
 ];
+
+/**
+ * The exam filter. An exam that is not open yet is listed but cannot be chosen — the same rule
+ * as the Exams page (`OPEN_EXAM_IDS`), so a filter never opens a view of an exam the rest of the
+ * portal says is not there.
+ */
+export const EXAM_GROUP_OPTIONS: FilterOption<ExamGroupKey>[] = EXAM_GROUPS.map(o =>
+  OPEN_EXAM_IDS.has(o.value) ? o : { ...o, hint: 'Coming soon', disabled: true },
+);
+
+/**
+ * The group a view opens on: the aspirant's exam if it is open, otherwise the fallback — an exam
+ * that is not open cannot be the selected, un-changeable, filter.
+ */
+export function openGroupKey(preferredExam?: string | null): ExamGroupKey {
+  const key = resolveGroupKey(preferredExam);
+  return OPEN_EXAM_IDS.has(key) ? key : FALLBACK_GROUP;
+}
 
 export const TRACK_OPTIONS: FilterOption<TrackKey>[] = [
   { value: 'all', label: 'All tests' },

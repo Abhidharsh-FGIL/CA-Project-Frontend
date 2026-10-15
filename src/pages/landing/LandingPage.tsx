@@ -18,7 +18,7 @@
  *    route.
  *  - The report and study-plan previews are drawings, not data, and say so.
  */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -43,7 +43,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { publicApi } from '@/lib/api';
-import { offeredPlans, plansFromApi, yearlySavings } from '@/lib/plans';
+import { offeredPlans, perksFor, plansFromApi, yearlySavings } from '@/lib/plans';
+import { PLAN_COPY } from '@/lib/plan-copy';
 import { AnnounceIcon, ChooseTestIcon, PlanIcon, PracticeIcon, ReportIcon, type LandingIcon } from './LandingIcons';
 import { ButtonLink, LandingFooter, LandingHeader, ROUTES, SectionLink, scrollToSection } from './LandingShell';
 import './landing.css';
@@ -127,6 +128,10 @@ function Hero() {
           <div className="mge-hero-actions">
             <ButtonLink to={CONFIG.signupPath}>
               Start Free Trial <ArrowRight size={19} />
+            </ButtonLink>
+            {/* Phones only: the header's Login is behind the menu button there. */}
+            <ButtonLink to={CONFIG.loginPath} secondary className="mge-hero-login">
+              Login
             </ButtonLink>
             <SectionLink to="pricing" className="mge-btn mge-btn-secondary">
               View Plans
@@ -405,17 +410,28 @@ function useLandingPlans() {
   };
 }
 
-/** The line under the cards: what the plans' own prices say a year saves, or nothing about it. */
-function yearlyNote(savings: { min: number; max: number } | null): string {
-  if (!savings) return 'Yearly billing is available from your account.';
+/**
+ * The line under the cards. Monthly: how the limits are counted, and what the plans' own prices say a
+ * year saves (or nothing about it). Yearly: the cards already show the year's limits and price.
+ */
+function pricingNote(billing: Billing, savings: { min: number; max: number } | null): string {
+  if (billing === 'yearly') return 'Yearly plans are paid once for the full year.';
+  const counted = 'Limits are counted per month.';
+  if (!savings) return counted;
   const how = savings.min === savings.max ? `about ${savings.max}%` : `up to ${savings.max}%`;
-  return `Yearly billing, at ${how} less, is available from your account.`;
+  return `${counted} Choose Yearly to pay ${how} less.`;
 }
 
 const rupees = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
+type Billing = 'monthly' | 'yearly';
+
 function Pricing() {
   const { plans, loading, failed, retry } = useLandingPlans();
+  const [billing, setBilling] = useState<Billing>('monthly');
+  const savings = yearlySavings(plans);
+  // No toggle unless a paid plan actually has a yearly price to show.
+  const hasYearly = plans.some(p => p.price_monthly > 0 && p.price_yearly > 0);
   return (
     <section className="mge-pricing-section" id="pricing">
       <div className="mge-container">
@@ -423,6 +439,24 @@ function Pricing() {
           <h2>Simple Plans for Serious Preparation</h2>
           <p>Choose a plan that fits your goals.</p>
         </div>
+        {hasYearly && (
+          <div className="mge-billing">
+            <div className="mge-billing-toggle" role="group" aria-label="Billing period">
+              <button type="button" aria-pressed={billing === 'monthly'} onClick={() => setBilling('monthly')}>
+                Monthly
+              </button>
+              <button type="button" aria-pressed={billing === 'yearly'} onClick={() => setBilling('yearly')}>
+                Yearly
+                {savings && (
+                  <span className="mge-billing-save">
+                    SAVE {savings.min === savings.max ? '' : 'UP TO '}
+                    {savings.max}%
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
         {loading && (
           <div className="mge-pricing-grid" aria-busy="true" aria-label="Loading plans">
             {[0, 1, 2].map(i => (
@@ -443,43 +477,70 @@ function Pricing() {
             const free = p.price_monthly === 0;
             const popular = !!p.highlight;
             const Icon = popular ? Crown : free ? Gift : Gem;
+            // A paid plan with no yearly price keeps showing its monthly one rather than ₹0.
+            const cycle: Billing = billing === 'yearly' && (free || p.price_yearly > 0) ? 'yearly' : 'monthly';
+            // The pitch for this plan and cycle, when there is one; otherwise the plan's own tagline and perks.
+            const copy = PLAN_COPY[p.tier]?.[cycle];
+            const badge = copy?.badge ?? (popular ? 'Most Popular' : null);
             return (
               <article key={p.tier} className={`mge-price-card ${popular ? 'mge-popular' : ''}`}>
-                {popular && <div className="mge-popular-label">Most Popular</div>}
+                {badge && <div className={copy?.badge ? 'mge-popular-label mge-popular-label-wide' : 'mge-popular-label'}>{badge}</div>}
                 <div className="mge-plan-heading">
                   <div className={`mge-plan-symbol ${popular ? 'mge-sym-gold' : free ? 'mge-sym-green' : 'mge-sym-violet'}`}>
                     <Icon size={30} />
                   </div>
                   <div>
                     <h3>{p.name}</h3>
-                    <p>{p.tagline}</p>
+                    <p>{copy ? copy.validity : p.tagline}</p>
                   </div>
                 </div>
                 <div className="mge-price">
-                  {rupees(p.price_monthly)}
-                  <span> / month</span>
+                  {rupees(cycle === 'yearly' ? p.price_yearly : p.price_monthly)}
+                  {/* A free plan's price has no period: its validity line says how long it lasts. */}
+                  {!(free && copy) && <span> / {cycle === 'yearly' ? 'year' : 'month'}</span>}
                 </div>
+                {copy && (
+                  <>
+                    <p className="mge-plan-headline">{copy.headline}</p>
+                    <p className="mge-plan-blurb">{copy.blurb}</p>
+                    <p className="mge-included-title">What’s included</p>
+                  </>
+                )}
                 <ul>
-                  {p.perks.map(perk => (
-                    <li key={perk}>
-                      <CheckCircle2 size={17} />
-                      {perk}
-                    </li>
-                  ))}
+                  {copy
+                    ? copy.included.map(([title, detail]) => (
+                        <li key={title}>
+                          <CheckCircle2 size={17} />
+                          <span>
+                            <strong>{title}</strong> – {detail}
+                          </span>
+                        </li>
+                      ))
+                    : perksFor(p, cycle).map(perk => (
+                        <li key={perk}>
+                          <CheckCircle2 size={17} />
+                          {perk}
+                        </li>
+                      ))}
                 </ul>
+                {copy && (
+                  <p className="mge-best-for">
+                    <strong>Best for:</strong> {copy.bestFor}
+                  </p>
+                )}
                 <ButtonLink
                   to={free ? CONFIG.signupPath : `${CONFIG.signupPath}?plan=${p.tier}`}
                   secondary={!popular}
                   className="mge-price-btn"
                 >
-                  {free ? 'Start Free Trial' : `Choose ${p.name}`}
+                  {copy?.cta ?? (free ? 'Start Free Trial' : `Choose ${p.name}`)}
                 </ButtonLink>
               </article>
             );
           })}
         </div>
         {plans.length > 0 && (
-          <p className="mge-pricing-note">Limits are counted per month. {yearlyNote(yearlySavings(plans))}</p>
+          <p className="mge-pricing-note">{pricingNote(billing, savings)}</p>
         )}
       </div>
     </section>

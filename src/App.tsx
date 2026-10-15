@@ -54,6 +54,9 @@ import UserTrackPage from "@/pages/user/UserTrackPage";
 import UserPerformancePage from "@/pages/user/UserPerformancePage";
 import UserProgressPage from "@/pages/user/UserProgressPage";
 import UserSavedPage from "@/pages/user/UserSavedPage";
+import PlanNoticeHost from "@/components/user/PlanNoticeHost";
+import SessionExpiredHost from "@/components/SessionExpiredHost";
+import { announcePlanNotice } from "@/lib/plan-notice-bus";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,6 +68,8 @@ const queryClient = new QueryClient({
     },
     mutations: {
       onError: (error: Error) => {
+        // A plan refusal is a popup, not a toast — and only where the user portal is listening.
+        if ((error as { handled?: boolean }).handled || announcePlanNotice(error)) return;
         toast.error(error.message || 'Something went wrong. Please try again.');
       },
     },
@@ -160,6 +165,7 @@ function HomePage() {
 function UserPortalRoutes() {
   return (
     <UserPortalProvider>
+      <PlanNoticeHost />
       <Routes>
         {/* Public user routes — accessible without a token */}
         <Route index element={<Navigate to="/user/login" replace />} />
@@ -252,6 +258,7 @@ const App = () => (
                 <Sonner />
                 <HashRouter>
                   <ScrollToTop />
+                  <SessionExpiredHost />
                   <ErrorBoundary>
                     <AppRoutes />
                   </ErrorBoundary>

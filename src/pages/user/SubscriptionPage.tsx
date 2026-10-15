@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { UserShell } from '@/components/user/UserShell';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import {
@@ -18,15 +19,21 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getEffectivePlanPrice, getSubscriptionPlanPrice, type SubscriptionTier, type SubscriptionPlanInfo, type SubscriptionPromoCode, getPlan } from '@/data/userPortalSampleData';
+import { perksFor, planDetails, yearlySavings } from '@/lib/plans';
 import { validatePromo } from '@/lib/subscriptionApi';
 import type { PurchaseOutcome } from '@/lib/purchase';
 
 export default function SubscriptionPage() {
   const { user, plans, upgradeSubscription, payForSubscription } = useUserPortal();
-  const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
+  // The plan popups link here with the cycle they are offering (`?billing=yearly`).
+  const [searchParams] = useSearchParams();
+  const [billing, setBilling] = useState<'monthly' | 'yearly'>(searchParams.get('billing') === 'yearly' ? 'yearly' : 'monthly');
   const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlanInfo | null>(null);
 
   if (!user) return null;
+
+  // From the plans' own prices, so the badge never claims a saving the prices do not show.
+  const savings = yearlySavings(plans);
 
   return (
     <UserShell>
@@ -78,7 +85,12 @@ export default function SubscriptionPage() {
             )}
           >
             Yearly
-            <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full">SAVE 16%</span>
+            {savings && (
+              <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full">
+                SAVE {savings.min === savings.max ? '' : 'UP TO '}
+                {savings.max}%
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -120,7 +132,7 @@ export default function SubscriptionPage() {
 
               <div
                 className={cn(
-                  'relative bg-white dark:bg-gray-900 rounded-2xl border p-5 sm:p-6 transition-all duration-300 hover-lift card-shine h-full',
+                  'relative flex flex-col bg-white dark:bg-gray-900 rounded-2xl border p-5 sm:p-6 transition-all duration-300 hover-lift card-shine h-full',
                   plan.highlight
                     ? 'border-brand-500 dark:border-blue-400 shadow-xl shadow-blue-200 dark:shadow-blue-900/40'
                     : 'border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-black/50 hover:border-blue-200 dark:hover:border-blue-800',
@@ -155,8 +167,8 @@ export default function SubscriptionPage() {
                   )}
                 </div>
 
-                <ul className="space-y-2 mb-6 sm:min-h-[200px]">
-                  {plan.perks.map((p, idx) => (
+                <ul className="space-y-2 mb-5 flex-1">
+                  {perksFor(plan, billing).map((p, idx) => (
                     <li
                       key={idx}
                       className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300 animate-fadeIn"
@@ -166,18 +178,17 @@ export default function SubscriptionPage() {
                       {p}
                     </li>
                   ))}
-                  <li className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-100 dark:border-gray-800">
-                    History retention:{' '}
-                    <strong className="text-gray-700 dark:text-gray-200">
-                      {plan.features.history_retention_days === 'unlimited'
-                        ? 'Unlimited'
-                        : `${plan.features.history_retention_days} days`}
-                    </strong>
-                  </li>
-                  <li className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
-                    Support: <strong className="text-gray-700 dark:text-gray-200">{plan.features.support}</strong>
-                  </li>
                 </ul>
+
+                {/* Everything else the plan data says, for the cycle being looked at. */}
+                <dl className="mb-6 pt-3 border-t border-gray-100 dark:border-gray-800 space-y-1.5 text-xs">
+                  {planDetails(plan, billing).map(row => (
+                    <div key={row.label} className="flex items-baseline justify-between gap-3">
+                      <dt className="text-gray-500 dark:text-gray-400">{row.label}</dt>
+                      <dd className="font-semibold text-right text-gray-700 dark:text-gray-200">{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
 
                 <button
                   onClick={() => {
@@ -261,6 +272,12 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
   const [appliedPromo, setAppliedPromo] = useState<SubscriptionPromoCode | null>(null);
   const [paying, setPaying] = useState(false);
   const [checkingPromo, setCheckingPromo] = useState(false);
+
+  // Four or fewer points are all shown: the last is usually the validity, which a buyer needs to see,
+  // and "+ 1 more" would hide exactly that. A longer list is cut to three with a count.
+  const perks = perksFor(plan, billing);
+  const shownPerks = perks.length <= 4 ? perks : perks.slice(0, 3);
+  const hiddenPerks = perks.length - shownPerks.length;
 
   const basePrice = useMemo(() => getSubscriptionPlanPrice(plan, billing), [plan, billing]);
   const finalPrice = useMemo(
@@ -395,15 +412,15 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
               What you get
             </p>
             <ul className="space-y-1">
-              {plan.perks.slice(0, 3).map((p, i) => (
+              {shownPerks.map((p, i) => (
                 <li key={i} className="flex items-start gap-1.5 text-xs text-gray-700 dark:text-gray-300">
                   <Check className="w-3 h-3 text-emerald-500 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
                   {p}
                 </li>
               ))}
-              {plan.perks.length > 3 && (
+              {hiddenPerks > 0 && (
                 <li className="text-[11px] text-gray-500 dark:text-gray-400 italic pl-4">
-                  + {plan.perks.length - 3} more perks
+                  + {hiddenPerks} more perks
                 </li>
               )}
             </ul>

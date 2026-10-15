@@ -9,6 +9,8 @@
  *   POST  /api/v1/user/auth/verify-otp/         → { email_address, otp }
  *   POST  /api/v1/user/auth/resend-otp/         → { email_address }
  *   POST  /api/v1/user/auth/login/              → { email, password }
+ *   POST  /api/v1/user/auth/login-otp/send      → { identifier }  (an email ID or a 10-digit mobile number)
+ *   POST  /api/v1/user/auth/login-otp/verify    → { identifier, otp }  (answers as /login does)
  *   POST  /api/v1/user/auth/forgot-password/    → { email }
  *   POST  /api/v1/user/auth/reset-password/     → { token, new_password }
  *
@@ -100,6 +102,12 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface LoginOtpPayload {
+  /** The same email ID or mobile number the code was sent for. */
+  identifier: string;
+  otp: string;
+}
+
 export interface ResetPasswordPayload {
   token: string;
   new_password: string;
@@ -121,10 +129,14 @@ export function registerUser(payload: RegisterPayload) {
   return publicApi.post<MessageSuccess>('/api/v1/user/auth/register', payload);
 }
 
-export async function verifyUserOtp(payload: VerifyOtpPayload): Promise<AuthTokenResponse> {
-  const res = await publicApi.post<AuthTokenResponse>('/api/v1/user/auth/verify-otp', payload);
+/** Keep the tokens of a successful sign-in where the authenticated client reads them. */
+function keepTokens(res: AuthTokenResponse): AuthTokenResponse {
   if (res?.access_token && res?.refresh_token) setUserTokens(res.access_token, res.refresh_token);
   return res;
+}
+
+export async function verifyUserOtp(payload: VerifyOtpPayload): Promise<AuthTokenResponse> {
+  return keepTokens(await publicApi.post<AuthTokenResponse>('/api/v1/user/auth/verify-otp', payload));
 }
 
 export function resendUserOtp(email_address: string) {
@@ -132,9 +144,21 @@ export function resendUserOtp(email_address: string) {
 }
 
 export async function loginUser(payload: LoginPayload): Promise<AuthTokenResponse> {
-  const res = await publicApi.post<AuthTokenResponse>('/api/v1/user/auth/login', payload);
-  if (res?.access_token && res?.refresh_token) setUserTokens(res.access_token, res.refresh_token);
-  return res;
+  return keepTokens(await publicApi.post<AuthTokenResponse>('/api/v1/user/auth/login', payload));
+}
+
+/**
+ * Ask for a one-time password to be sent to the account behind an email ID or a mobile number.
+ * The reply's `message` names where it went, masked ("OTP sent to your registered email
+ * ez********@gmail.com"). 429 means it was asked for again inside the 60 seconds.
+ */
+export function sendLoginOtp(identifier: string) {
+  return publicApi.post<MessageSuccess>('/api/v1/user/auth/login-otp/send', { identifier });
+}
+
+/** Sign in with that password. Answers exactly as `loginUser` does, so the tokens are kept the same way. */
+export async function verifyLoginOtp(payload: LoginOtpPayload): Promise<AuthTokenResponse> {
+  return keepTokens(await publicApi.post<AuthTokenResponse>('/api/v1/user/auth/login-otp/verify', payload));
 }
 
 export function forgotUserPassword(email: string) {

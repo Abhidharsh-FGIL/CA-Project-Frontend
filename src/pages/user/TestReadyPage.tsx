@@ -50,7 +50,8 @@ export default function TestReadyPage() {
         navigate('/user/exams');
         return;
       }
-      toast.error(err?.message || 'Could not start test. Please try again.');
+      // A plan refusal has already opened the plan popup; a toast on top would say it twice.
+      if (!err?.handled) toast.error(err?.message || 'Could not start test. Please try again.');
       setStarting(false);
     }
   };

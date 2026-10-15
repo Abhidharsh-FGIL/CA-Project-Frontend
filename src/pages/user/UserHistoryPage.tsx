@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { UserShell } from '@/components/user/UserShell';
 import { useUserPortal } from '@/contexts/UserPortalContext';
+import { useReportGate } from '@/hooks/use-report-gate';
 import {
   Search,
   FileText,
@@ -335,6 +336,7 @@ function AttemptRow({
   const flags = Array.isArray(a.malpractice_events) ? a.malpractice_events.length : 0;
   const mode = TEST_MODES[a.test_mode ?? ''] ?? TEST_MODES.other;
   const ModeIcon = mode.icon;
+  const gateReport = useReportGate();
 
   return (
     <div
@@ -424,6 +426,7 @@ function AttemptRow({
           // shareable, which the drawer never was.
           <Link
             to={`/user/report/${a.attempt_id}`}
+            onClick={gateReport(a.test_mode)}
             className="group inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-brand-300 bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-900 hover:bg-blue-50 dark:hover:bg-blue-950/40 px-3 py-1.5 rounded-lg transition-colors press"
           >
             <FileText className="w-3.5 h-3.5" />

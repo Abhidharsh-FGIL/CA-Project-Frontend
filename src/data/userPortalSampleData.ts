@@ -187,7 +187,29 @@ export interface SubscriptionPlanInfo {
    */
   legacy?: boolean;
   features: PlanFeatures;
+  /**
+   * What the plan includes, as one list. For a plan whose limits differ by billing cycle this is the
+   * backend's combined wording ("Monthly ₹499 — 5 mock tests … Yearly ₹1999 — 30 …"), so it is the
+   * fallback; show `perksFor(plan, billing)` where a cycle is known.
+   */
   perks: string[];
+  /** What the plan includes when billed monthly — present when the backend has a list for that cycle. */
+  perks_monthly?: string[];
+  /** What the plan includes when billed yearly — present when the backend has a list for that cycle. */
+  perks_yearly?: string[];
+  /** The test allowance when billed monthly / yearly, where the backend gives the two separately (`features.monthly` / `features.yearly`). */
+  limits_monthly?: PlanLimits;
+  limits_yearly?: PlanLimits;
+  /** How long a purchase lasts, in days, per billing cycle. */
+  duration_days_monthly?: number;
+  duration_days_yearly?: number;
+}
+
+/** What a plan lets someone take, for one billing cycle. */
+export interface PlanLimits {
+  /** Absent when the backend's per-cycle object does not say — the plan's own top-level count stands in. */
+  mock?: number | 'unlimited' | 'none';
+  practice?: number | 'unlimited';
 }
 
 export interface UserUsage {

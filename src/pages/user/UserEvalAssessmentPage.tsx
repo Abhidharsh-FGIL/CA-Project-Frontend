@@ -4,6 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { buildUrl } from '@/lib/api';
+import { attemptsUsed, reportLocked } from '@/lib/plan-notice';
+import { showPlanNotice } from '@/lib/plan-notice-bus';
+import { reportIsLocked } from '@/lib/report-access';
+import { planAllowance } from '@/lib/plan-allowance';
+import { getCurrentSubscription } from '@/lib/subscriptionApi';
+import { getPlan } from '@/data/userPortalSampleData';
+import { useQuery } from '@tanstack/react-query';
 import { MathText } from '@/components/ui/MathText';
 import {
   CheckCircle2,
@@ -799,7 +806,13 @@ function QuestionView({
 export function UserEvalAssessmentPage() {
   const { assessmentId } = useParams<{ assessmentId: string }>();
   const navigate = useNavigate();
-  const { user, refreshHistory } = useUserPortal();
+  const { user, history, refreshHistory } = useUserPortal();
+  // When the current plan began — attempts before it were made under another plan and do not count against this one.
+  const { data: currentSub } = useQuery({
+    queryKey: ['subscription', 'current'],
+    queryFn: getCurrentSubscription,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const [pageState, setPageState] = useState<PageState>('loading');
   const [assessment, setAssessment] = useState<AssessmentDetailResponse | null>(null);
@@ -1099,14 +1112,21 @@ export function UserEvalAssessmentPage() {
         } catch {
           /* Non-fatal: the report falls back to the history list on its own. */
         }
-        navigate(`/user/report/${attemptId}`, { replace: true });
+        // A plan that does not include this report gets the plan popup over the history list —
+        // where the attempt now is — rather than the report.
+        if (reportIsLocked(user?.subscription_tier, assessment?.mode)) {
+          showPlanNotice(reportLocked());
+          navigate('/user/history', { replace: true });
+        } else {
+          navigate(`/user/report/${attemptId}`, { replace: true });
+        }
       } catch {
         toast.error('Failed to submit. Please try again.');
         submittedRef.current = false;
         setPageState('active');
       }
     },
-    [assessmentId, attemptId, assessment, navigate, refreshHistory],
+    [assessmentId, attemptId, assessment, user?.subscription_tier, navigate, refreshHistory],
   );
 
   // ── Timer expire ───────────────────────────────────────────────────────────
@@ -1174,8 +1194,24 @@ export function UserEvalAssessmentPage() {
 
   // ── Start / Resume ─────────────────────────────────────────────────────────
 
+  // Spent attempts: say so in the plan popup the moment the landing page shows, once per visit — the page
+  // used to say it in a red line and leave a disabled button, which gave no way on.
+  // An attempt in progress counts toward the limit, so `can_attempt` is false while one is open — but it can
+  // be resumed, and the server lets it. Only a paper with nothing to resume is really out of attempts.
+  const attemptsSpent = !!assessment && !assessment.can_attempt && !assessment.in_progress_attempt_id;
+  const attemptsNoticeShown = useRef(false);
+  useEffect(() => {
+    if (pageState !== 'landing' || !assessment || !attemptsSpent || attemptsNoticeShown.current) return;
+    attemptsNoticeShown.current = true;
+    showPlanNotice(attemptsUsed(assessment.max_attempts));
+  }, [pageState, assessment, attemptsSpent]);
+
   const handleStart = async () => {
     if (!assessmentId) return;
+    if (assessment && attemptsSpent) {
+      showPlanNotice(attemptsUsed(assessment.max_attempts));
+      return;
+    }
     try {
       setPageState('loading');
       expiredRef.current = false;
@@ -1208,7 +1244,8 @@ export function UserEvalAssessmentPage() {
       if (e?.code === 'LEVEL_LOCKED') {
         toast.error(e.message || 'Clear the previous level first.', { duration: 6000 });
         navigate('/user/exams');
-      } else {
+      } else if (!e?.handled) {
+        // (A plan refusal has already opened the plan popup — no toast on top of it.)
         toast.error(e?.message || 'Failed to start assessment');
       }
       setPageState('landing');
@@ -1245,10 +1282,13 @@ export function UserEvalAssessmentPage() {
   // ── RENDER: Landing ────────────────────────────────────────────────────────
 
   if (pageState === 'landing' && assessment) {
-    const attemptsLeft = assessment.max_attempts
-      ? assessment.max_attempts - assessment.attempt_count
-      : null;
     const isMock = assessment.mode === 'mock';
+    // The count is the plan's: how many tests of this kind it still allows. The test's own cap on
+    // attempts is enforced all the same (the notice below), it just is not the number on the chip.
+    const plan = user ? getPlan(user.subscription_tier) : null;
+    const allowance = plan
+      ? planAllowance(plan, isMock ? 'mock' : 'practice', history, currentSub?.status === 'active' ? currentSub.start_date : null)
+      : null;
 
     return (
       <UserShell>
@@ -1297,8 +1337,13 @@ export function UserEvalAssessmentPage() {
                 <div className="flex-shrink-0 self-start bg-white/15 backdrop-blur border border-white/25 rounded-xl px-3 py-2 text-right">
                   <p className="text-[9px] uppercase tracking-widest opacity-80">Attempts</p>
                   <p className="text-lg font-bold leading-tight">
-                    {attemptsLeft !== null ? `${attemptsLeft} left` : 'Unlimited'}
+                    {allowance?.left == null ? 'Unlimited' : `${allowance.left} left`}
                   </p>
+                  {plan && allowance?.limit != null && (
+                    <p className="text-[10px] opacity-80 leading-tight mt-0.5">
+                      of {allowance.limit} on {plan.name}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1368,14 +1413,19 @@ export function UserEvalAssessmentPage() {
                 </ul>
               </div>
 
-              {!assessment.can_attempt && (
-                <p className="mt-5 text-sm text-red-600 dark:text-red-400 text-center font-medium bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg py-3">
+              {attemptsSpent && (
+                <button
+                  type="button"
+                  onClick={() => showPlanNotice(attemptsUsed(assessment.max_attempts))}
+                  className="mt-5 w-full text-sm text-red-600 dark:text-red-400 text-center font-medium bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg py-3 hover:bg-red-100 dark:hover:bg-red-950/40 transition-colors"
+                >
                   You have used all {assessment.max_attempts} attempt
-                  {assessment.max_attempts !== 1 ? 's' : ''} for this assessment.
-                </p>
+                  {assessment.max_attempts !== 1 ? 's' : ''} for this assessment.{' '}
+                  <span className="underline underline-offset-2">See plans</span>
+                </button>
               )}
 
-              {assessment.can_attempt && (
+              {!attemptsSpent && (
                 <label className="mt-5 flex items-start gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -1391,12 +1441,16 @@ export function UserEvalAssessmentPage() {
 
               <button
                 onClick={handleStart}
-                disabled={!assessment.can_attempt || !agreed}
+                disabled={!attemptsSpent && !agreed}
                 className="group w-full mt-5 bg-gradient-to-r from-brand-600 via-brand-400 to-brand-600 bg-[length:200%_auto] hover:bg-right-bottom text-white py-3.5 rounded-xl font-semibold transition-all duration-500 shadow-lg shadow-blue-200 dark:shadow-blue-900/40 hover:shadow-xl hover:shadow-blue-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
               >
                 <span className="inline-flex items-center justify-center gap-2">
-                  {assessment.in_progress_attempt_id ? 'Resume Test' : 'Begin Test'}
-                  {!assessment.in_progress_attempt_id && (
+                  {attemptsSpent
+                    ? 'No attempts left — see plans'
+                    : assessment.in_progress_attempt_id
+                      ? 'Resume Test'
+                      : 'Begin Test'}
+                  {!attemptsSpent && !assessment.in_progress_attempt_id && (
                     <Sparkles className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                   )}
                 </span>
@@ -1620,6 +1674,9 @@ export function UserEvalAssessmentPage() {
 
   /** Both the click and the disabled state ask the same question, so they cannot disagree. */
   const canStep = (delta: 1 | -1) => nextIdx(delta) !== null;
+
+  /** The last question of the paper, whatever filter is applied — where "Save & Next" turns into Submit. */
+  const isLastQuestion = currentIdx === totalQ - 1;
 
   const handleMarkForReview = () => {
     if (!currentQ) return;
@@ -1891,8 +1948,39 @@ export function UserEvalAssessmentPage() {
                 langMode={langMode}
               />
 
+              {/* Navigation */}
+              <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
+                <button
+                  onClick={() => stepQuestion(-1)}
+                  disabled={!canStep(-1)}
+                  className="flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-4 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Previous
+                </button>
+
+                {/* On the last question there is no "next", so this becomes the submit button
+                    (through the same confirm dialog as the header's Submit). */}
+                <button
+                  onClick={() => (isLastQuestion ? setShowConfirmSubmit(true) : stepQuestion(1))}
+                  disabled={!isLastQuestion && !canStep(1)}
+                  className={`flex items-center gap-1.5 text-white text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-colors ${
+                    isLastQuestion ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-brand-600 hover:bg-brand-700'
+                  }`}
+                >
+                  {isLastQuestion ? 'Submit' : 'Save & Next'}
+                  {!isLastQuestion && (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+
               {/* Action row */}
-              <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+              <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
                 <button
                   onClick={handleMarkForReview}
                   className={`border text-sm font-semibold px-4 py-2 rounded-xl transition-colors ${
@@ -1919,31 +2007,6 @@ export function UserEvalAssessmentPage() {
                     Clear response
                   </button>
                 )}
-              </div>
-
-              {/* Navigation */}
-              <div className="mt-3 flex items-center justify-between gap-3">
-                <button
-                  onClick={() => stepQuestion(-1)}
-                  disabled={!canStep(-1)}
-                  className="flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-4 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                  Previous
-                </button>
-
-                <button
-                  onClick={() => stepQuestion(1)}
-                  disabled={!canStep(1)}
-                  className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  Save & Next
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
               </div>
             </div>
           )}

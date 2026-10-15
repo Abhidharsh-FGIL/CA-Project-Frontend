@@ -275,6 +275,53 @@
   box-shadow: none;
 }
 
+/* The other way in: "or", then an outlined button that reads as second to the filled one. */
+.mge .mge-auth-or {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 18px 0 14px;
+  font-size: 13px;
+  color: var(--mge-muted);
+}
+
+.mge .mge-auth-or::before,
+.mge .mge-auth-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--mge-line);
+}
+
+.mge .mge-auth-alt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  height: 52px;
+  border: 1.5px solid #cfd9ea;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--mge-navy);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.mge .mge-auth-alt:hover {
+  border-color: #ff8a3d;
+  background: #fff8f3;
+}
+
+.mge .mge-auth-alt svg {
+  color: #ff6c24;
+}
+
 .mge .mge-spinner {
   width: 18px;
   height: 18px;

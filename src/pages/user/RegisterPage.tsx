@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { TNPSC_GROUPS } from '@/config/tnpsc';
+import { splitExams } from '@/lib/exam-listing';
 import { toast } from 'sonner';
 import { ROUTES } from '@/pages/landing/LandingShell';
 import { ArtImage, AuthField, AuthLayout, AuthModal, AuthSelect } from './auth/AuthShell';
@@ -46,11 +47,12 @@ const FIRST_LANDING = '/user/exams';
 
 const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
 /**
- * Exams an aspirant can register against — read from the shared catalog rather
- * than hardcoded, so adding a group to TNPSC_GROUPS also offers it here. The
- * stored value is the group id; the label is what the aspirant reads.
+ * Exams an aspirant can register against — the ones that are open (see `exam-listing.ts`), read
+ * from the shared catalog rather than hardcoded, so opening another exam offers it here too. The
+ * stored value is the group id; the label is what the aspirant reads. An exam that is not open
+ * yet is not offered: signing up for it would land on screens that say it is coming soon.
  */
-const EXAM_OPTIONS = TNPSC_GROUPS.map(g => ({ value: g.id, label: `${g.name} — ${g.tagline}` }));
+const EXAM_OPTIONS = splitExams(TNPSC_GROUPS).open.map(g => ({ value: g.id, label: g.name }));
 const MEDIUM_OPTIONS = ['English', 'Tamil', 'Hindi', 'Telugu', 'Kannada', 'Malayalam', 'Marathi', 'Bengali', 'Gujarati', 'Other'];
 
 export default function RegisterPage() {
@@ -81,7 +83,8 @@ export default function RegisterPage() {
     medium: '',
     class_teacher: '',
     academic_year: '',
-    preferred_exam: '',
+    // With one exam open there is nothing to choose, so it is already chosen.
+    preferred_exam: EXAM_OPTIONS.length === 1 ? EXAM_OPTIONS[0].value : '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [showPwd, setShowPwd] = useState(false);

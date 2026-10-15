@@ -279,6 +279,11 @@
   font-size: 16px;
 }
 
+/* Login is in the header above the phone breakpoint; the hero carries it only below it. */
+.mge .mge-hero-login {
+  display: none;
+}
+
 .mge .mge-checks {
   display: flex;
   flex-wrap: wrap;
@@ -976,6 +981,59 @@
   background: rgba(255, 255, 255, 0.7);
 }
 
+/* Monthly / Yearly switch above the cards. */
+.mge .mge-billing {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.mge .mge-billing-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--mge-panel);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: var(--mge-shadow);
+}
+
+.mge .mge-billing-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 22px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--mge-muted);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.mge .mge-billing-toggle button[aria-pressed="true"] {
+  background: linear-gradient(100deg, #ff5921, #ff8617);
+  color: #fff;
+}
+
+.mge .mge-billing-save {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e5f7ee;
+  color: #128a5a;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.mge .mge-billing-toggle button[aria-pressed="true"] .mge-billing-save {
+  background: rgba(255, 255, 255, 0.24);
+  color: #fff;
+}
+
 .mge .mge-pricing-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1017,6 +1075,18 @@
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+/* The long badge ("Best value for long-term preparation"). An absolutely placed box sized from
+   `left: 50%` would get half the card to wrap in, so it is sized to its text and capped instead. */
+.mge .mge-popular-label-wide {
+  width: max-content;
+  max-width: calc(100% - 24px);
+  padding: 6px 16px;
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: center;
+  white-space: normal;
 }
 
 /* Plan names and taglines come from the backend and are not all the same length —
@@ -1066,6 +1136,53 @@
   font-weight: 500;
   letter-spacing: normal;
   color: var(--mge-muted);
+}
+
+/* The pitch under the price: a headline, a sentence, then the list. */
+.mge .mge-plan-headline {
+  margin: 0 0 8px;
+  font-size: 16.5px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.mge .mge-plan-blurb {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--mge-text);
+}
+
+.mge .mge-included-title {
+  margin: 0 0 2px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mge-muted);
+}
+
+.mge .mge-price-card li span {
+  font-size: 14px;
+  color: var(--mge-text);
+}
+
+.mge .mge-price-card li strong {
+  color: var(--mge-navy);
+}
+
+.mge .mge-best-for {
+  margin: 0 0 22px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f5f8fd;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--mge-text);
+}
+
+.mge .mge-best-for strong {
+  color: var(--mge-navy);
 }
 
 .mge .mge-price-card ul {
@@ -1394,8 +1511,19 @@
   .mge .mge-hero {
     padding-top: 30px;
   }
+  /* Start Free Trial takes the row; Login and View Plans share the one below it. */
+  .mge .mge-hero-actions {
+    gap: 12px;
+  }
   .mge .mge-hero-actions .mge-btn {
     flex: 1 1 100%;
+  }
+  .mge .mge-hero-actions .mge-btn-secondary {
+    flex: 1 1 calc(50% - 6px);
+    padding: 0 12px;
+  }
+  .mge .mge-hero-actions .mge-hero-login {
+    display: inline-flex;
   }
   .mge .mge-stats {
     grid-template-columns: 1fr;
@@ -1434,5 +1562,10 @@
 @media (max-width: 400px) {
   .mge h1 {
     font-size: 34px;
+  }
+  /* Keeps Login and View Plans on one line on the narrowest phones. */
+  .mge .mge-hero-actions .mge-btn-secondary {
+    padding: 0 8px;
+    font-size: 15px;
   }
 }

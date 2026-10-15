@@ -19,6 +19,8 @@ export interface FilterOption<T extends string> {
   label: string;
   /** Optional second line in the menu — context the label alone can't carry. */
   hint?: string;
+  /** Shown in the menu but cannot be chosen — an exam that is not open yet. */
+  disabled?: boolean;
 }
 
 interface FilterSelectProps<T extends string> {
@@ -75,9 +77,11 @@ export function FilterSelect<T extends string>({
         {options.map(o => (
           <DropdownMenuItem
             key={o.value}
+            disabled={o.disabled}
             onSelect={() => onChange(o.value)}
             className={cn(
-              'rounded-lg text-xs cursor-pointer gap-2 py-2',
+              'rounded-lg text-xs gap-2 py-2',
+              o.disabled ? 'cursor-not-allowed' : 'cursor-pointer',
               o.value === value && 'bg-blue-50 dark:bg-brand-500/10 text-blue-700 dark:text-brand-300',
             )}
           >

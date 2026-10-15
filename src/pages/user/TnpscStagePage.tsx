@@ -25,6 +25,8 @@ import {
   type TnpscSyllabusUnit,
   type TnpscTopic,
 } from '@/config/tnpsc';
+import { attemptsUsed } from '@/lib/plan-notice';
+import { showPlanNotice } from '@/lib/plan-notice-bus';
 import { fullSetFor } from '@/lib/tnpsc-full-set';
 import { unitChipLabel } from '@/lib/unit-chip';
 import { levelStats, type LevelKey, type LevelStat } from '@/lib/unit-levels';
@@ -1391,10 +1393,17 @@ function PaperRow({
   );
 
   if (exhausted) {
+    // Spent attempts are a dead end for this paper, but not for the person: the popup says so and
+    // points at the plans. (The row stays dimmed — it is still not something to start.)
     return (
-      <div className={cn(shell, 'opacity-60')} style={{ animationDelay: `${index * 0.04}s` }}>
+      <button
+        type="button"
+        onClick={() => showPlanNotice(attemptsUsed(test.max_attempts))}
+        className={cn(shell, 'w-full text-left opacity-70 transition-all hover:opacity-100 hover:border-amber-200 dark:hover:border-amber-800')}
+        style={{ animationDelay: `${index * 0.04}s` }}
+      >
         {inner}
-      </div>
+      </button>
     );
   }
 
