@@ -16,6 +16,7 @@
 import { useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { getAttemptDetail, type ApiAttempt } from '@/lib/userPortalApi';
+import { isAttempted } from '@/lib/attempt-report';
 import type { SubjectStrength, UserDashboardAnalytics } from '@/lib/userDashboardApi';
 
 /** Attempt details fetched at once. Each is one request; they're immutable once submitted. */
@@ -57,12 +58,16 @@ export function useSubjectStrengths({ analytics, attempts, scoped, by = 'subject
     for (const d of details) {
       if (by === 'unit') {
         // Per question: the unit it belongs to, whether it was answered, and whether it was right.
-        for (const q of d.data?.questions ?? []) {
-          const unit = (q.unit_name ?? '').trim();
+        const questions = d.data?.questions ?? [];
+        // An attempt whose questions carry no unit at all (older papers, or a server that has not tagged them)
+        // would otherwise leave the card empty; its questions are grouped by subject instead.
+        const hasUnits = questions.some(q => (q.unit_name ?? '').trim());
+        for (const q of questions) {
+          const unit = ((hasUnits ? q.unit_name : q.subject) ?? '').trim();
           if (!unit) continue;
           const entry = totals.get(unit) ?? { correct: 0, wrong: 0, total: 0 };
           entry.total += 1;
-          if (q.user_answer) {
+          if (isAttempted(q)) {
             if (q.is_correct) entry.correct += 1;
             else entry.wrong += 1;
           }

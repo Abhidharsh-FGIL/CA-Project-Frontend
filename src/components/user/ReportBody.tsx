@@ -39,6 +39,7 @@ import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { resolveLanguage, translationOf, type LangMode } from '@/lib/question-language';
 import { downloadQuestionCsv } from '@/lib/question-export';
+import { readProctoringRecord } from '@/lib/proctoring-record';
 import { canDownloadQuestions } from '@/lib/download-access';
 import { ReportLanguageProvider, type ReportLanguage } from '@/components/user/report-ui';
 import { toast } from 'sonner';
@@ -46,6 +47,7 @@ import { cn } from '@/lib/utils';
 import { buildAttemptReport, factsFromModel } from '@/lib/attempt-report';
 import { DEPTH_NOTE, reportDepth, showsPanel } from '@/lib/report-depth';
 import { UnitPracticeReport } from '@/components/user/UnitPracticeReport';
+import { PassMarkNote } from '@/components/user/PassMarkNote';
 import { getPlan, includesAiInsights } from '@/data/userPortalSampleData';
 import { StudyPlanReportCta } from '@/components/user/study-plan/StudyPlanCard';
 import { SHOW_STUDY_PLAN } from '@/config/features';
@@ -790,9 +792,13 @@ export function AttemptReport({
     (detail?.attempt as any)?.attempt_metadata ?? (detail as any)?.attempt_metadata ?? (attempt as any)?.attempt_metadata ?? {};
   const malpracticeEvents: any[] =
     (detail?.attempt?.malpractice_events as any[]) ?? (attempt.malpractice_events as any[]) ?? [];
-  const tabViolations: number =
-    attemptMeta.tab_violations ?? (Array.isArray(malpracticeEvents) ? malpracticeEvents.length : 0);
-  const submitReason: string | null = attemptMeta.submit_reason ?? null;
+  // The count the test screen kept in this browser, for when the server's report does not carry it.
+  const kept = readProctoringRecord(attempt.attempt_id);
+  const tabViolations: number = Math.max(
+    attemptMeta.tab_violations ?? (Array.isArray(malpracticeEvents) ? malpracticeEvents.length : 0),
+    kept?.tab_violations ?? 0,
+  );
+  const submitReason: string | null = attemptMeta.submit_reason ?? kept?.submit_reason ?? null;
   const hasIntegrityInfo = tabViolations > 0 || malpracticeEvents.length > 0 || !!autoSubmitted;
 
   const timeTakenMin =
@@ -930,6 +936,8 @@ export function AttemptReport({
         // it takes — and passing them again is all it takes to bring them back.
         <ReportTitleRow model={model} />
       )}
+
+      {model && <PassMarkNote model={model} track={placement.track} />}
 
       {/* ── Diagnostic report (§2 information architecture) ─────────────────
           Every figure comes from the normalized model, so the snapshot, radar,

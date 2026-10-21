@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { isMobileDevice } from '@/lib/device';
 import { displayTitle } from '@/lib/display-title';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -11,6 +11,8 @@ import { attemptsUsed, reportLocked } from '@/lib/plan-notice';
 import { showPlanNotice } from '@/lib/plan-notice-bus';
 import { reportIsLocked } from '@/lib/report-access';
 import { planAllowance } from '@/lib/plan-allowance';
+import { difficultyLabel } from '@/lib/eval-difficulty';
+import { saveProctoringRecord } from '@/lib/proctoring-record';
 import { getCurrentSubscription } from '@/lib/subscriptionApi';
 import { getTopUpBalance } from '@/lib/topup-api';
 import { getPlan } from '@/data/userPortalSampleData';
@@ -49,8 +51,10 @@ import {
   subjectDisplayName,
   type TnpscPatternSection,
 } from '@/config/tnpsc';
-import { subjectIdForQuestion } from '@/lib/unit-pool';
+import { subjectIdForQuestion, unitIdsOf } from '@/lib/unit-pool';
+import { findUnit, stageUnits, unitDisplayName } from '@/config/tnpsc';
 import { useUserPortal } from '@/contexts/UserPortalContext';
+import { useCurrentPlanPurchase } from '@/hooks/use-plan-purchase';
 import {
   getEvalAssessmentDetail,
   startEvalAttempt,
@@ -386,7 +390,8 @@ function ActiveQuestionCard({
           {index + 1}
         </div>
         <div className="flex-1 min-w-0">
-          {showPrimary && hasText && (
+          {/* A translation can carry options but no stem; the question is then shown as written rather than blank. */}
+          {(showPrimary || !trText) && hasText && (
             <div className="text-sm sm:text-[15px] font-medium text-gray-900 leading-relaxed whitespace-pre-line">
               <MathText text={stemText} />
             </div>
@@ -828,6 +833,9 @@ export function UserEvalAssessmentPage() {
     queryFn: getCurrentSubscription,
     staleTime: 5 * 60 * 1000,
   });
+  // The plan purchase in force, with what the server has counted against it — the count that excludes anything
+  // taken under an earlier plan, the free one included.
+  const planPurchase = useCurrentPlanPurchase();
   // Top-up tests the person has bought and not yet used. They carry on once the plan's own run out.
   // Keyed under 'topup', so the top-up purchase's invalidation refreshes it straight away.
   const { data: topUp } = useQuery({
@@ -957,24 +965,43 @@ export function UserEvalAssessmentPage() {
     [examStage, subjectNameOf],
   );
 
-  /** Subjects available, narrowed to the chosen section. */
+  /**
+   * The group a question is filtered under: its syllabus unit when the catalog places it in one, otherwise
+   * its subject. "General Studies (48)" told a candidate nothing about where to look; the unit does.
+   */
+  const filterKeyOf = useCallback(
+    (q: EvalAttemptQuestion) => {
+      const unitId = unitIdsOf(examStage, q)[0];
+      return unitId ? `unit:${unitId}` : `subject:${subjectIdOf(q)}`;
+    },
+    [examStage, subjectIdOf],
+  );
+
+  /** Units (or, for a question no unit claims, subjects) available, narrowed to the chosen section. */
   const subjectOptions = useMemo(() => {
     const pool = questions.filter(q => filterSection === 'all' || sectionOf(q) === filterSection);
-    const counts = new Map<string, { label: string; count: number }>();
+    const counts = new Map<string, { label: string; count: number; order: number }>();
+    const unitOrder = new Map(stageUnits(examStage).map(({ unit }, i) => [unit.id, i]));
     for (const q of pool) {
       if (!q.subject) continue;
-      const key = subjectIdOf(q);
-      // The backend's own canonical name first — it is the only source that can
-      // name a composite unit like "Indian History & Freedom Movement", which
-      // the catalog splits into two subjects and so cannot resolve.
-      const canonical = (q.subject_name ?? '').trim();
-      const label = canonical || subjectDisplayName(examStage, subjectNameOf(q));
-      const entry = counts.get(key) ?? { label, count: 0 };
-      entry.count += 1;
-      counts.set(key, entry);
+      const key = filterKeyOf(q);
+      if (!counts.has(key)) {
+        if (key.startsWith('unit:')) {
+          const id = key.slice(5);
+          counts.set(key, { label: unitDisplayName(examStage, findUnit(examStage, id)) || id, count: 0, order: unitOrder.get(id) ?? 999 });
+        } else {
+          // The backend's own canonical name first — it is the only source that can
+          // name a composite unit like "Indian History & Freedom Movement", which
+          // the catalog splits into two subjects and so cannot resolve.
+          const canonical = (q.subject_name ?? '').trim();
+          counts.set(key, { label: canonical || subjectDisplayName(examStage, subjectNameOf(q)), count: 0, order: 1000 });
+        }
+      }
+      counts.get(key)!.count += 1;
     }
-    return [...counts.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label));
-  }, [questions, filterSection, sectionOf, subjectIdOf, subjectNameOf, examStage]);
+    // Units in the order the syllabus prints them; anything no unit claims after them, alphabetically.
+    return [...counts.entries()].sort((a, b) => a[1].order - b[1].order || a[1].label.localeCompare(b[1].label));
+  }, [questions, filterSection, sectionOf, filterKeyOf, subjectNameOf, examStage]);
 
   /** Questions passing the filter, carrying their original paper position. */
   const visibleQuestions = useMemo(
@@ -984,9 +1011,9 @@ export function UserEvalAssessmentPage() {
         .filter(
           ({ q }) =>
             (filterSection === 'all' || sectionOf(q) === filterSection) &&
-            (filterSubject === 'all' || subjectIdOf(q) === filterSubject),
+            (filterSubject === 'all' || filterKeyOf(q) === filterSubject),
         ),
-    [questions, filterSection, filterSubject, sectionOf, subjectIdOf],
+    [questions, filterSection, filterSubject, sectionOf, filterKeyOf],
   );
 
   const filtersActive = filterSection !== 'all' || filterSubject !== 'all';
@@ -1126,6 +1153,8 @@ export function UserEvalAssessmentPage() {
         answer: ans,
       }));
 
+      // Kept here too, so the report can show it even if the server does not return the count.
+      saveProctoringRecord(attemptId, { tab_violations: tabSwitchRef.current, submit_reason: reason });
       try {
         await submitEvalAttempt(assessmentId, attemptId, flat, auto, {
           // Read the ref, not the state: an auto-submit fires from inside the
@@ -1322,7 +1351,7 @@ export function UserEvalAssessmentPage() {
     // attempts is enforced all the same (the notice below), it just is not the number on the chip.
     const plan = user ? getPlan(user.subscription_tier) : null;
     const allowance = plan
-      ? planAllowance(plan, isMock ? 'mock' : 'practice', history, currentSub?.status === 'active' ? currentSub.start_date : null, assessments)
+      ? planAllowance(plan, isMock ? 'mock' : 'practice', history, currentSub?.status === 'active' ? currentSub.start_date : null, assessments, planPurchase)
       : null;
     // What the top-up tests add. Plan tests go first; a top-up is used once they are gone.
     const topUpLeft = topUp ? (isMock ? topUp.mock : topUp.practice) : 0;
@@ -1357,8 +1386,8 @@ export function UserEvalAssessmentPage() {
                       {isMock ? '★ Mock Exam' : 'Practice Mode'}
                     </span>
                     {assessment.difficulty && (
-                      <span className="text-[10px] font-semibold uppercase tracking-wider opacity-90 capitalize">
-                        {assessment.difficulty}
+                      <span className="text-[10px] font-semibold uppercase tracking-wider opacity-90">
+                        {difficultyLabel(assessment.difficulty)}
                       </span>
                     )}
                   </div>
@@ -1704,6 +1733,20 @@ export function UserEvalAssessmentPage() {
     setPanelOpen(false);
   };
 
+  /**
+   * Choose a filter and go to the first question it leaves — the candidate picked "this unit" to work on it,
+   * so the page shows its first question rather than staying on one that may now be filtered out.
+   * A new section clears the unit, since the units on offer change with the section.
+   */
+  const applyFilter = (section: string, subject: string) => {
+    setFilterSection(section);
+    setFilterSubject(subject);
+    const first = questions.findIndex(
+      q => (section === 'all' || sectionOf(q) === section) && (subject === 'all' || filterKeyOf(q) === subject),
+    );
+    if (first >= 0) goToQuestion(first);
+  };
+
   /** Where the current question sits in the filtered set; -1 when it is filtered out. */
   const filteredPos = visibleQuestions.findIndex(v => v.idx === currentIdx);
 
@@ -1790,10 +1833,7 @@ export function UserEvalAssessmentPage() {
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Filter</p>
             {filtersActive && (
               <button
-                onClick={() => {
-                  setFilterSection('all');
-                  setFilterSubject('all');
-                }}
+                onClick={() => applyFilter('all', 'all')}
                 className="text-[10px] font-semibold text-blue-600 hover:underline"
               >
                 Clear
@@ -1807,7 +1847,7 @@ export function UserEvalAssessmentPage() {
                 label="All sections"
                 count={`${totalQ}`}
                 active={filterSection === 'all'}
-                onClick={() => setFilterSection('all')}
+                onClick={() => applyFilter('all', 'all')}
               />
               {sectionOptions.map(sec => (
                 <FilterRow
@@ -1816,7 +1856,7 @@ export function UserEvalAssessmentPage() {
                   title={sec.name}
                   count={`${sec.answered}/${sec.total}`}
                   active={filterSection === sec.name}
-                  onClick={() => setFilterSection(sec.name)}
+                  onClick={() => applyFilter(sec.name, 'all')}
                 />
               ))}
             </div>
@@ -1825,10 +1865,10 @@ export function UserEvalAssessmentPage() {
           {subjectOptions.length > 1 && (
             <select
               value={filterSubject}
-              onChange={e => setFilterSubject(e.target.value)}
+              onChange={e => applyFilter(filterSection, e.target.value)}
               className="w-full text-[11px] rounded-lg border border-gray-200 px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
             >
-              <option value="all">All subjects</option>
+              <option value="all">All units</option>
               {subjectOptions.map(([key, { label, count }]) => (
                 <option key={key} value={key}>
                   {label} ({count})
@@ -1879,14 +1919,14 @@ export function UserEvalAssessmentPage() {
   );
 
   return (
-    <div className="h-screen flex flex-col bg-slate-100 select-none overflow-hidden">
+    <div className="h-[100dvh] flex flex-col bg-slate-100 select-none overflow-hidden">
       {/* Dark header */}
       <header className="flex-shrink-0 bg-slate-900 text-white shadow-lg z-30">
         <div className="max-w-screen-xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
             {assessment?.difficulty && (
               <p className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em] leading-none mb-0.5">
-                {assessment.difficulty}
+                {difficultyLabel(assessment.difficulty)}
               </p>
             )}
             <p className="text-sm sm:text-[15px] font-bold leading-snug truncate">
@@ -1946,7 +1986,7 @@ export function UserEvalAssessmentPage() {
       {/* Body */}
       <div className="flex flex-1 min-h-0 overflow-hidden max-w-screen-xl mx-auto w-full">
         {/* Question area */}
-        <main className="flex-1 min-w-0 overflow-y-auto p-4">
+        <main className="flex-1 min-w-0 overflow-y-auto p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           {currentQ && (
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-6">
               {/*

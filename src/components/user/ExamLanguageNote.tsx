@@ -53,7 +53,7 @@ export function ExamLanguageNote({ className }: { className?: string }) {
         </p>
         <p className="text-[12px] leading-relaxed text-gray-500 dark:text-gray-400">
           {chosen
-            ? 'You sit one of the two, never both — so only yours is listed here.'
+            ? 'Candidates must choose either General Tamil or General English, as taking both tests is not permitted. Only the test applicable to the candidate is listed here.'
             : 'You sit General Tamil or General English, never both. Choose yours and only its papers are listed.'}
         </p>
       </div>

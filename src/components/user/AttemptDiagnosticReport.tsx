@@ -7,7 +7,8 @@
  * also what keeps these components exam-agnostic. Nothing here names a subject, a
  * topic or an exam; the taxonomy arrives in the model.
  */
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useCountUp } from '@/hooks/use-count-up';
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -446,10 +447,19 @@ export function OverallScoreSummary({ model }: { model: AttemptReportModel }) {
   const total = s.totalQuestions;
   const share = (n: number) => (total > 0 ? Math.round((n / total) * 1000) / 10 : 0);
 
-  // The ring: a white arc on a faint track, as long as the percentage.
+  // The ring: a white arc on a faint track, as long as the percentage. The arc sweeps round and the figures
+  // count up when the card appears.
+  const shownPct = useCountUp(pct, 1400);
+  const shownScore = useCountUp(s.score, 1400);
   const R = 52;
   const C = 2 * Math.PI * R;
-  const arc = (Math.min(100, Math.max(0, pct ?? 0)) / 100) * C;
+  const arc = (Math.min(100, Math.max(0, shownPct)) / 100) * C;
+  // The split bar grows from nothing on first paint.
+  const [barIn, setBarIn] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setBarIn(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   const tiles: Array<{ label: string; value: number; icon: React.ReactNode; wrap: string; chip: string; text: string }> = [
     {
@@ -517,13 +527,16 @@ export function OverallScoreSummary({ model }: { model: AttemptReportModel }) {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-extrabold tabular-nums leading-none">{pct == null ? '—' : `${pct}%`}</span>
-                <span className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/80">Score</span>
+                <span className="text-2xl font-extrabold tabular-nums leading-none">
+                  {pct == null ? '—' : `${Math.round(shownPct * 10) / 10}%`}
+                </span>
               </div>
             </div>
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/85">Total Score</p>
-              <p className="mt-1 text-4xl font-extrabold tabular-nums leading-none">{s.score != null ? s.score : '—'}</p>
+              <p className="mt-1 text-4xl font-extrabold tabular-nums leading-none">
+                {s.score != null ? Math.round(shownScore * 10) / 10 : '—'}
+              </p>
               {s.maxMarks != null && <p className="mt-1.5 text-sm font-medium text-white/85">out of {s.maxMarks} marks</p>}
             </div>
           </div>
@@ -534,7 +547,12 @@ export function OverallScoreSummary({ model }: { model: AttemptReportModel }) {
           <div>
             <div className="flex h-3.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800" role="img" aria-label="Correct, incorrect and unattempted questions">
               {segments.map(seg => (
-                <div key={seg.label} className={cn('h-full', seg.cls)} style={{ width: `${share(seg.n)}%` }} title={`${seg.label}: ${seg.n}`} />
+                <div
+                  key={seg.label}
+                  className={cn('h-full transition-[width] duration-1000 ease-out', seg.cls)}
+                  style={{ width: barIn ? `${share(seg.n)}%` : '0%' }}
+                  title={`${seg.label}: ${seg.n}`}
+                />
               ))}
             </div>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
@@ -1344,9 +1362,6 @@ function TaxonomyRow({
       >
         {m.correctPct == null ? dash : `${m.correctPct}%`}
       </td>
-      <td className="px-3 py-2 text-right tabular-nums text-gray-500 dark:text-gray-400">
-        {m.avgTimeSec == null ? dash : `${Math.round(m.avgTimeSec)} sec`}
-      </td>
       <td className="px-3 py-2">
         <StatusPill tone={STATUS_TONE[taxonomyStatus(node)]}>{STATUS_LABEL[taxonomyStatus(node)]}</StatusPill>
       </td>
@@ -1360,15 +1375,17 @@ function TaxonomyRow({
  * Deliberately not read from a server-supplied label: one classifier keeps the
  * table, the narrative and the study plan from disagreeing about the same row.
  * Coverage is part of it — high accuracy on a thin slice of a topic is a coverage
- * story, not a strength — and a handful of answers is held back as insufficient
- * evidence rather than promoted to "Strong" on two lucky questions.
+ * story, not a strength. A handful of answers is held back as insufficient evidence,
+ * except when every one of them is right: that reads as Strong, not "Too few answers".
  */
 function taxonomyStatus(node: TopicNode): NodeStatus {
   const m = node.metrics;
   const cfg = DEFAULT_REPORT_CONFIG;
   if (m.attempted === 0) return 'NOT_ASSESSED';
-  if (m.attempted < cfg.minEvidence) return 'INSUFFICIENT_EVIDENCE';
   const acc = m.accuracy ?? 0;
+  // A sub-category answered right every time reads as Strong even on a few questions, so a 100% row is not
+  // labelled "Too few answers". Anything lower on a small sample is still not judged.
+  if (m.attempted < cfg.minEvidence) return acc >= cfg.strongAccuracy ? 'STRONG' : 'INSUFFICIENT_EVIDENCE';
   if (acc >= cfg.strongAccuracy && (m.coverage ?? 0) >= cfg.targetCoverage) return 'STRONG';
   if (acc >= cfg.developingAccuracy) return 'DEVELOPING';
   return 'FOCUS';
@@ -1524,7 +1541,6 @@ function SubjectDeepDive({
                         { label: 'Incorrect', align: 'right' as const },
                         { label: 'Skipped', align: 'right' as const },
                         { label: 'Correct %', align: 'right' as const },
-                        { label: 'Avg. Time/Q', align: 'right' as const },
                         { label: 'Status' },
                       ].map(h => (
                         <th

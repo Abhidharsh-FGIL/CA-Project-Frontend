@@ -61,7 +61,7 @@ export const Count = ({ n, of }: { n: number; of?: number }) => (
 );
 
 function UnitBlock({ unit, renderCard }: { unit: TreeUnit; renderCard: (p: Paper) => ReactNode }) {
-  const [open, setOpen] = useState(unit.papers.length > 0);
+  const [open, setOpen] = useState(false);
   const empty = unit.papers.length === 0;
   return (
     <Fold
@@ -90,7 +90,7 @@ function UnitBlock({ unit, renderCard }: { unit: TreeUnit; renderCard: (p: Paper
 }
 
 function SectionBlock({ section, renderCard }: { section: TreeSection; renderCard: (p: Paper) => ReactNode }) {
-  const [open, setOpen] = useState(section.total > 0);
+  const [open, setOpen] = useState(false);
   const filled = section.units.filter(u => u.papers.length > 0).length;
   return (
     <Fold

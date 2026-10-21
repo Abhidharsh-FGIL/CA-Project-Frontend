@@ -4,6 +4,7 @@ import { CalendarClock, ClipboardList, Crown, Timer, Wallet } from 'lucide-react
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { getPlan } from '@/data/userPortalSampleData';
 import { billingCycleOf, planAllowance } from '@/lib/plan-allowance';
+import { useCurrentPlanPurchase } from '@/hooks/use-plan-purchase';
 import { planCounts } from '@/lib/plans';
 import { getPurchaseHistory } from '@/lib/purchase-history';
 import { getCurrentSubscription } from '@/lib/subscriptionApi';
@@ -19,6 +20,7 @@ const day = (iso: string) =>
  */
 export function CurrentPlanCard() {
   const { user, history } = useUserPortal();
+  const planPurchase = useCurrentPlanPurchase();
 
   const { data: sub } = useQuery({
     queryKey: ['subscription', 'current'],
@@ -42,8 +44,8 @@ export function CurrentPlanCard() {
   const cycle = active ? (active.billing_cycle ?? billingCycleOf(active.start_date, active.end_date)) : null;
   const limits = planCounts(plan, cycle ?? 'monthly');
   const since = active?.start_date ?? null;
-  const mock = planAllowance(plan, 'mock', history, since);
-  const practice = planAllowance(plan, 'practice', history, since);
+  const mock = planAllowance(plan, 'mock', history, since, undefined, planPurchase);
+  const practice = planAllowance(plan, 'practice', history, since, undefined, planPurchase);
 
   const credits = (topups?.items ?? [])
     .filter(p => p.validity && p.validity.status === 'active')

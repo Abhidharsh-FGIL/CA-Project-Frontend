@@ -8,7 +8,6 @@ import {
   AlertCircle,
   CheckCircle2,
   FileText,
-  Languages,
   Mail,
   Phone,
   Target,
@@ -19,12 +18,17 @@ import { useUserPortal } from '@/contexts/UserPortalContext';
 import { TNPSC_GROUPS } from '@/config/tnpsc';
 import { GOOGLE_ENABLED } from '@/config/google';
 import { formNameFrom, readGoogleCredential } from '@/lib/google-identity';
-import { splitExams } from '@/lib/exam-listing';
-import { EXAM_LANGUAGE_OPTIONS } from '@/lib/exam-language';
+import { UPCOMING_EXAMS, splitExams } from '@/lib/exam-listing';
 import { toast } from 'sonner';
 import { ROUTES } from '@/pages/landing/LandingShell';
 import { ArtImage, AuthField, AuthLayout, AuthModal, AuthSelect } from './auth/AuthShell';
 import { GoogleButton } from './auth/GoogleButton';
+
+/** Today in the person's own calendar, as `YYYY-MM-DD` — the latest birth date the form takes. */
+const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 interface FormErrors {
   name?: string;
@@ -52,13 +56,12 @@ const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
  * stored value is the group id; the label is what the aspirant reads. An exam that is not open
  * yet is not offered: signing up for it would land on screens that say it is coming soon.
  */
-const EXAM_OPTIONS = splitExams(TNPSC_GROUPS).open.map(g => ({ value: g.id, label: g.name }));
-/**
- * Which language paper they sit — General Tamil or General English. Group 4 has both and a candidate
- * takes one, so this is what lets every screen after sign-up show only theirs. Stored in `medium`
- * (see `exam-language.ts`), as "Tamil" or "English".
- */
-const LANGUAGE_OPTIONS = EXAM_LANGUAGE_OPTIONS.map(o => ({ value: o.value, label: o.label }));
+const EXAM_OPTIONS = [
+  ...splitExams(TNPSC_GROUPS).open.map(g => ({ value: g.id, label: g.name, disabled: false })),
+  // The rest are listed so aspirants see what is coming, but cannot be chosen yet.
+  ...splitExams(TNPSC_GROUPS).soon.map(g => ({ value: g.id, label: `${g.name} (Coming soon)`, disabled: true })),
+  ...UPCOMING_EXAMS.map(e => ({ value: e.id, label: `${e.name} (Coming soon)`, disabled: true })),
+];
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -129,9 +132,8 @@ export default function RegisterPage() {
 
     // Aspirant details relevant to competitive exams.
     if (!form.date_of_birth) e.date_of_birth = 'Date of birth is required';
-    else if (new Date(form.date_of_birth) > new Date()) e.date_of_birth = 'Date of birth cannot be in the future';
+    else if (form.date_of_birth > todayISO()) e.date_of_birth = 'Date of birth cannot be in the future';
     if (!form.gender) e.gender = 'Select a gender';
-    if (!form.medium) e.medium = 'Choose General Tamil or General English';
     if (!form.preferred_exam) e.preferred_exam = 'Select the exam you are preparing for';
     // Class / Section / Roll No. / School / Teacher / Academic Year are not collected for competitive exams.
 
@@ -322,6 +324,7 @@ export default function RegisterPage() {
             icon={Calendar}
             type="date"
             label="Date of Birth"
+            max={todayISO()}
             value={form.date_of_birth}
             onChange={v => setForm(f => ({ ...f, date_of_birth: v }))}
             error={errors.date_of_birth}
@@ -335,15 +338,6 @@ export default function RegisterPage() {
             onChange={v => setForm(f => ({ ...f, gender: v }))}
             error={errors.gender}
             options={GENDER_OPTIONS}
-          />
-          <AuthSelect
-            icon={Languages}
-            label="Language paper"
-            placeholder="General Tamil or General English"
-            value={form.medium}
-            onChange={v => setForm(f => ({ ...f, medium: v }))}
-            error={errors.medium}
-            options={LANGUAGE_OPTIONS}
           />
           <AuthSelect
             icon={Target}

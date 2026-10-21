@@ -300,7 +300,16 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, cate
               <Label className="text-xs font-medium">Syllabus Unit <span className="text-red-500">*</span></Label>
               <Select value={value.unit_id ?? undefined} onValueChange={setUnit} disabled={!stage}>
                 <SelectTrigger className="h-10">
-                  <SelectValue placeholder={stage ? 'Select unit…' : 'Pick a stage first'} />
+                  {/* The trigger shows the unit alone, on one line. Left to itself it copies the whole row of the
+                      list (numeral, name, question count and subject) and wraps it over itself. */}
+                  <SelectValue placeholder={stage ? 'Select unit…' : 'Pick a stage first'}>
+                    {unit ? (
+                      <span className="block truncate text-left">
+                        {unit.label ? `${unit.label} · ` : ''}
+                        {unitDisplayName(stage, unit)}
+                      </span>
+                    ) : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {units.map(({ unit: u, sectionName }) => (
@@ -335,7 +344,9 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, cate
                             ? 'Select category…'
                             : 'The bank has no categories for this unit'
                       }
-                    />
+                    >
+                      {value.topic_id ? <span className="block truncate text-left">{value.topic_id}</span> : undefined}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {(categoryOptions ?? []).map(c => (

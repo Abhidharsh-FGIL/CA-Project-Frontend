@@ -68,14 +68,12 @@ export const SINGLE_LEVEL_BLURB =
   'Full-length papers set to the official exam pattern — the real question count in one sitting.';
 
 /**
- * Minimum score (%) in a level's mock test before the next level unlocks.
+ * The bundled mock pass mark (%): what a level's mock is cleared at until the server's arrives.
  *
- * The stricter of this and the server's `pass_percentage` wins (see
- * `effectivePassPercentage` in src/lib/tnpscApi.ts), so the portal never offers a
- * level the backend would refuse to start. Keep the backend's
- * `TNPSC_LEVEL_PASS_PERCENTAGE` setting on the same number.
+ * Pass marks now come from the server (`GET /api/v1/user/tnpsc/pass-marks`, see src/config/pass-marks.ts); this
+ * is only the starting value. Read the mark in force with `mockPassPercentage()`, not this constant.
  */
-export const LEVEL_PASS_PERCENTAGE = 20;
+export const LEVEL_PASS_PERCENTAGE = 60;
 
 /**
  * Sequential level progression (Simple → Medium → Complex).
@@ -1376,7 +1374,7 @@ export const TNPSC_GROUPS: TnpscGroup[] = [
               alternative_to: 'General English',
               syllabus_subject_ids: [TAMIL_SUBJECT.id],
               units: G4_TAMIL_UNITS,
-              note: 'The Tamil Eligibility-cum-Scoring Test. Sat by every candidate except those taking General English, never alongside it.',
+              note: 'The Tamil Eligibility-cum-Scoring Test is mandatory for all candidates, except those who opt for General English, as candidates cannot take both tests.',
             },
             {
               name: 'General English',

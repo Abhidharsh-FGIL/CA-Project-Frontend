@@ -16,7 +16,6 @@ import { getUserAssessments, type ApiEvalAssessment } from './userPortalApi';
 import {
   DIFFICULTY_TO_LEVEL,
   LEVEL_GATE_ENABLED,
-  LEVEL_PASS_PERCENTAGE,
   LEVEL_RESPECT_SERVER_LOCK,
   LEVEL_UNLOCK_RULE,
   TNPSC_GROUPS,
@@ -31,6 +30,7 @@ import {
   type TnpscTestType,
 } from '@/config/tnpsc';
 import { withTitlePlacement } from '@/lib/tnpsc-title-placement';
+import { mockPassPercentage, parsePassMarks, type PassMarkTable } from '@/config/pass-marks';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -367,14 +367,26 @@ export async function getTnpscMockOverview(
 }
 
 /**
- * The pass mark actually applied, in percent.
- *
- * Takes the stricter of the bundled constant and whatever the server reports, so
- * the UI never invites an aspirant into a level the server would refuse to start.
- * When the backend's `TNPSC_LEVEL_PASS_PERCENTAGE` is aligned the two agree.
+ * The pass mark actually applied, in percent: the server's, when it reports one, so the UI never offers a
+ * level the server would refuse to start.
  */
 export function effectivePassPercentage(serverRequired?: number | null): number {
-  return Math.max(LEVEL_PASS_PERCENTAGE, serverRequired ?? 0);
+  // The server's own mark wins: the pass marks now come from it (see getPassMarks), so the bundled
+  // figure is only the answer when the server says nothing.
+  return serverRequired != null && serverRequired > 0 ? serverRequired : mockPassPercentage();
+}
+
+/**
+ * GET /api/v1/user/tnpsc/pass-marks — the benchmarks for each kind of paper, set on the server.
+ * Resolves to null when the endpoint is absent or says nothing usable, and the bundled benchmarks stay in force.
+ */
+export async function getPassMarks(): Promise<PassMarkTable | null> {
+  try {
+    const res = await userApi.get<unknown>('/api/v1/user/tnpsc/pass-marks');
+    return parsePassMarks(res);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -400,7 +412,7 @@ function bestOf(tests: TnpscTest[]): number | null {
 }
 
 /** Bucket a flat list of mocks into the three levels, then normalise. */
-export function buildLevelGroups(tests: TnpscTest[], pass = LEVEL_PASS_PERCENTAGE): TnpscLevelGroup[] {
+export function buildLevelGroups(tests: TnpscTest[], pass = mockPassPercentage()): TnpscLevelGroup[] {
   const skeleton: TnpscLevelGroup[] = TNPSC_LEVELS.map(level => {
     const levelTests = tests.filter(t => (t.level ?? 'simple') === level);
     return {
@@ -428,7 +440,7 @@ export function buildLevelGroups(tests: TnpscTest[], pass = LEVEL_PASS_PERCENTAG
  */
 export function normaliseLevelGroups(
   levels: TnpscLevelGroup[],
-  pass = LEVEL_PASS_PERCENTAGE,
+  pass = mockPassPercentage(),
 ): TnpscLevelGroup[] {
   const byLevel = new Map((levels ?? []).map(l => [l.level, l]));
 
@@ -683,7 +695,7 @@ export interface AttemptSummary {
 export function applyAttemptHistory(
   tests: TnpscTest[],
   attempts: AttemptSummary[],
-  pass = LEVEL_PASS_PERCENTAGE,
+  pass = mockPassPercentage(),
 ): TnpscTest[] {
   const byTest = new Map<string, { count: number; best: number | null }>();
   for (const at of attempts) {

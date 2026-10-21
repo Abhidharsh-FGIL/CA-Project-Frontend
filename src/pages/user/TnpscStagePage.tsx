@@ -8,8 +8,7 @@ import {
   LEVEL_GATE_ENABLED,
   LEVEL_META,
   MIXED_LABEL,
-  LEVEL_PASS_PERCENTAGE,
-  SINGLE_LEVEL_BLURB,
+ SINGLE_LEVEL_BLURB,
   SINGLE_LEVEL_HEADING,
   TNPSC_LEVELS,
   VISIBLE_LEVELS,
@@ -29,6 +28,8 @@ import {
 } from '@/config/tnpsc';
 import { ExamLanguageNote } from '@/components/user/ExamLanguageNote';
 import { useExamLanguage } from '@/hooks/use-exam-language';
+import { usePassMarks } from '@/hooks/use-pass-marks';
+import { mockPassPercentage } from '@/config/pass-marks';
 import { hasLanguageChoice } from '@/lib/exam-language';
 import { attemptsUsed } from '@/lib/plan-notice';
 import { showPlanNotice } from '@/lib/plan-notice-bus';
@@ -225,6 +226,7 @@ interface SectionModel {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TnpscStagePage() {
+  usePassMarks(); // the "needs N%" labels below follow the server's mock pass mark once it arrives
   const { groupId, stageId } = useParams<{ groupId: string; stageId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -258,7 +260,7 @@ export default function TnpscStagePage() {
   /**
    * The syllabus panel folds away to a rail.
    *
-   * Open it costs a third of the width, which is the right trade while you are
+   * Open it costs a fifth of the width, which is the right trade while you are
    * deciding what to sit and the wrong one once you have decided — the unit rows
    * carry four difficulty buttons each and want the room.
    */
@@ -266,10 +268,8 @@ export default function TnpscStagePage() {
   const [unitFilter, setUnitFilter] = useState<string | null>(null);
   /** The Key Topics sections that are open — a dropdown each, so several can be. */
   const [openTopicSections, setOpenTopicSections] = useState<string[]>([]);
-  const toggleTopicSection = (key: string, only?: 'open') =>
-    setOpenTopicSections(prev =>
-      prev.includes(key) ? (only ? prev : prev.filter(k => k !== key)) : [...prev, key],
-    );
+  const toggleTopicSection = (key: string) =>
+    setOpenTopicSections(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
 
   const mock = useTnpscMockTests(groupId, stageId, language);
   const practice = useTnpscPracticeTests(groupId, stageId, language);
@@ -408,11 +408,11 @@ export default function TnpscStagePage() {
       {offersLanguageChoice && <ExamLanguageNote className="mb-4 sm:mb-5" />}
 
       {/* Syllabus beside the papers, so what's in the exam stays in view while
-          picking one — a third of the width open, a rail when folded. */}
+          picking one — 30% of the width open, a rail when folded. */}
       <div
         className={cn(
           'grid gap-4 sm:gap-5 items-start transition-[grid-template-columns] duration-200',
-          syllabusOpen ? 'lg:grid-cols-[minmax(0,34fr)_minmax(0,66fr)]' : 'lg:grid-cols-[3rem_minmax(0,1fr)]',
+          syllabusOpen ? 'lg:grid-cols-[minmax(0,30fr)_minmax(0,70fr)]' : 'lg:grid-cols-[3rem_minmax(0,1fr)]',
         )}
       >
         <SyllabusPanel
@@ -420,9 +420,8 @@ export default function TnpscStagePage() {
           drill={tab === 'topics' ? null : drill}
           collapsed={!syllabusOpen}
           onCollapsedChange={v => setSyllabusOpen(!v)}
-          // Opening a section here only opens its dropdown; the right-hand pane changes when a
-          // section's own card is chosen. On Key Topics the dropdown is the right-hand list's own.
-          onOpen={tab === 'topics' ? k => toggleTopicSection(k, 'open') : undefined}
+          // Opening a section here only opens its own dropdown, on every tab; the right-hand pane changes
+          // when a section's own card is chosen there.
           onBack={() => setDrillKey(null)}
         />
 
@@ -472,7 +471,7 @@ export default function TnpscStagePage() {
                       index={drill.units.indexOf(u)}
                       order={i}
                       verb={verb}
-                      passPercentage={mock.levels[0]?.required_percentage ?? LEVEL_PASS_PERCENTAGE}
+                      passPercentage={mock.levels[0]?.required_percentage ?? mockPassPercentage()}
                       tamilOnly={drill.tamilOnly}
                     />
                   ),
@@ -539,7 +538,8 @@ function KeyTopicsTrack({
               key={sec.key}
               className={cn(
                 'rounded-2xl border overflow-hidden transition-colors',
-                isOpen ? cn(a.ring, a.soft) : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900',
+                // An open section keeps its accent on the border only; the tint behind the cards made the whole list read as one block of colour.
+                isOpen ? cn(a.ring, 'bg-white dark:bg-gray-900') : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900',
               )}
             >
               <button
@@ -577,14 +577,14 @@ function KeyTopicsTrack({
                 <div className="px-4 pb-4 space-y-4">
                   {sec.groups.map(g => (
                     <div key={g.key}>
-                      {/* A section with one unit needs no unit heading; with several, the unit says where a topic sits. */}
-                      {sec.groups.length > 1 && (
+                      {/* A published unit is always named, even when it is the only one with a paper yet. */}
+                      {(sec.groups.length > 1 || g.label) && (
                         <p className={cn('mb-2 text-[11px] font-bold uppercase tracking-wider', a.text)}>
                           {g.label ? `Unit ${g.label} · ` : ''}
                           {g.name}
                         </p>
                       )}
-                      <div className="space-y-2">
+                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
                         {g.topics.map((r, ri) => (
                           <KeyTopicItem key={r.topic.id} row={r} index={ri} />
                         ))}
@@ -604,13 +604,16 @@ function KeyTopicsTrack({
 function KeyTopicItem({ row, index }: { row: KeyTopicRow; index: number }) {
   const { topic, tests } = row;
   // One paper: the topic is the paper, so pressing it starts it.
-  if (tests.length === 1) return <PaperRow test={tests[0]} index={index} label={topic.name} />;
+  if (tests.length === 1) return <PaperRow compact test={tests[0]} index={index} label={topic.name} />;
+  // Several papers on one topic (different difficulties): the topic is a heading over its own row of cards.
   return (
-    <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 space-y-2">
+    <div className="col-span-full space-y-2">
       <p className="text-[13px] font-bold text-gray-900 dark:text-gray-100">{topic.name}</p>
-      {tests.map((t, i) => (
-        <PaperRow key={t.test_id} test={t} index={i} />
-      ))}
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        {tests.map((t, i) => (
+          <PaperRow compact key={t.test_id} test={t} index={i} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -633,7 +636,7 @@ function ExamTrack({
   levels: TnpscLevelGroup[];
   totalQuestions?: number;
 }) {
-  const passPercentage = levels[0]?.required_percentage ?? LEVEL_PASS_PERCENTAGE;
+  const passPercentage = levels[0]?.required_percentage ?? mockPassPercentage();
 
   /**
    * Which level groups to show.
@@ -931,16 +934,16 @@ function SectionRow({
               </span>
             )}
           </div>
-          <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mt-0.5">
+          <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 mt-0.5">
             {section.units.length} Unit{section.units.length === 1 ? '' : 's'}
           </p>
           {section.blurb && (
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 leading-relaxed line-clamp-2">
+            <p className="text-xs sm:text-[13px] text-gray-500 dark:text-gray-400 mt-1 leading-relaxed line-clamp-2">
               {section.blurb}
             </p>
           )}
           {section.note && (
-            <p className="mt-1.5 text-[10px] leading-snug text-gray-400 dark:text-gray-500">
+            <p className="mt-1.5 text-xs leading-snug text-gray-500 dark:text-gray-400">
               {section.note}
             </p>
           )}
@@ -1047,10 +1050,10 @@ function ActionTile({
         {icon}
       </span>
       <span className="min-w-0">
-        <span className="block text-[11px] font-bold text-gray-800 dark:text-gray-100 leading-tight">
+        <span className="block text-xs font-bold text-gray-800 dark:text-gray-100 leading-tight">
           {title}
         </span>
-        <span className="block text-[10px] text-gray-500 dark:text-gray-400">{sub}</span>
+        <span className="block text-[11px] text-gray-500 dark:text-gray-400">{sub}</span>
       </span>
       {!disabled && (
         <ChevronRight
@@ -1449,6 +1452,7 @@ function PaperRow({
   index,
   passPercentage,
   label,
+  compact = false,
 }: {
   test: TnpscTest;
   index: number;
@@ -1456,83 +1460,114 @@ function PaperRow({
   label?: string;
   /** Shown alongside a below-par best score. Omitted for ungated practice sets. */
   passPercentage?: number;
+  /** A card for a grid — the name over its details over the action — rather than a full-width row. */
+  compact?: boolean;
 }) {
   const attemptsLeft =
     test.max_attempts == null ? null : Math.max(0, test.max_attempts - test.attempts_used);
   const exhausted = attemptsLeft === 0;
 
-  const inner = (
-    <>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-2">
-          <p className="text-[15px] font-extrabold text-gray-900 dark:text-gray-100 line-clamp-2 min-w-0">
-            {label ?? test.title}
-          </p>
-          {test.is_completed && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full flex-shrink-0">
-              <CheckCircle2 className="w-3 h-3" /> Cleared
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-          <MiniChip icon={<FileText className="w-3 h-3" />} label={`${test.question_count} Qs`} />
-          {test.time_limit_minutes ? (
-            <MiniChip icon={<Clock className="w-3 h-3" />} label={`${test.time_limit_minutes} min`} />
-          ) : null}
-          {/* A mock is built across all three difficulties, and while the portal shows a
-              single level the group is headed "Exam Pattern" rather than naming one — so a
-              "Simple" chip on each paper contradicted its own heading. */}
-          {test.level && !LEVELS_HIDDEN && (
-            <span
-              className={cn(
-                'text-[10px] font-semibold px-2 py-1 rounded-md border',
-                LEVEL_META[test.level as TnpscLevel].chip,
-              )}
-            >
-              {LEVEL_META[test.level as TnpscLevel].label}
-            </span>
-          )}
-          {test.negative_marking && (
-            <span className="text-[10px] font-semibold text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-950/40 px-2 py-1 rounded-md">
-              -{test.negative_mark_value || 0.25} neg
-            </span>
-          )}
-          <span className="text-[10px] text-gray-500 dark:text-gray-400">
-            {test.best_percentage != null ? (
-              <>
-                Best {Math.round(test.best_percentage)}%
-                {LEVEL_GATE_ENABLED && !test.is_completed && passPercentage != null && (
-                  <span className="text-amber-600 dark:text-amber-400"> · needs {passPercentage}%</span>
-                )}
-              </>
-            ) : test.max_attempts != null ? (
-              `${test.attempts_used}/${test.max_attempts} attempts`
-            ) : (
-              'Not attempted'
-            )}
-          </span>
-        </div>
-      </div>
-
-      {test.is_locked ? (
-        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-1 rounded-lg flex-shrink-0">
-          <Lock className="w-3 h-3" /> Upgrade <Sparkles className="w-3 h-3" />
-        </span>
-      ) : exhausted ? (
-        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 dark:text-gray-400 flex-shrink-0">
-          <Lock className="w-3 h-3" /> No attempts left
-        </span>
-      ) : (
-        <span className="inline-flex items-center gap-1 h-8 px-3 rounded-lg bg-orange-500 group-hover/paper:bg-orange-600 text-white text-xs font-bold shadow-sm flex-shrink-0">
-          Start <ChevronRight className="w-3.5 h-3.5" />
+  const title = (
+    <div className="flex items-start gap-2">
+      <p
+        className={cn(
+          'font-extrabold text-gray-900 dark:text-gray-100 line-clamp-2 min-w-0',
+          // Two lines kept in a card, so a short name and a long one leave the buttons level.
+          compact ? 'text-[13px] leading-snug min-h-[2.1rem]' : 'text-[15px]',
+        )}
+      >
+        {label ?? test.title}
+      </p>
+      {test.is_completed && (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full flex-shrink-0">
+          <CheckCircle2 className="w-3 h-3" /> Cleared
         </span>
       )}
+    </div>
+  );
+
+  const meta = (
+    <div className={cn('flex items-center gap-1.5 flex-wrap', !compact && 'mt-1.5')}>
+      <MiniChip icon={<FileText className="w-3 h-3" />} label={`${test.question_count} Qs`} />
+      {test.time_limit_minutes ? (
+        <MiniChip icon={<Clock className="w-3 h-3" />} label={`${test.time_limit_minutes} min`} />
+      ) : null}
+      {/* A mock is built across all three difficulties, and while the portal shows a
+          single level the group is headed "Exam Pattern" rather than naming one — so a
+          "Simple" chip on each paper contradicted its own heading. */}
+      {test.level && !LEVELS_HIDDEN && (
+        <span
+          className={cn(
+            'text-[10px] font-semibold px-2 py-1 rounded-md border',
+            LEVEL_META[test.level as TnpscLevel].chip,
+          )}
+        >
+          {LEVEL_META[test.level as TnpscLevel].label}
+        </span>
+      )}
+      {test.negative_marking && (
+        <span className="text-[10px] font-semibold text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-950/40 px-2 py-1 rounded-md">
+          -{test.negative_mark_value || 0.25} neg
+        </span>
+      )}
+      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+        {test.best_percentage != null ? (
+          <>
+            Best {Math.round(test.best_percentage)}%
+            {LEVEL_GATE_ENABLED && !test.is_completed && passPercentage != null && (
+              <span className="text-amber-600 dark:text-amber-400"> · needs {passPercentage}%</span>
+            )}
+          </>
+        ) : test.max_attempts != null ? (
+          `${test.attempts_used}/${test.max_attempts} attempts`
+        ) : (
+          'Not attempted'
+        )}
+      </span>
+    </div>
+  );
+
+  // In a card the action is a small button at the right of the details row, not a bar across the card.
+  const action = test.is_locked ? (
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-1 rounded-lg flex-shrink-0">
+      <Lock className="w-3 h-3" /> Upgrade <Sparkles className="w-3 h-3" />
+    </span>
+  ) : exhausted ? (
+    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 dark:text-gray-400 flex-shrink-0">
+      <Lock className="w-3 h-3" /> No attempts left
+    </span>
+  ) : (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-lg bg-orange-500 group-hover/paper:bg-orange-600 text-white font-bold shadow-sm flex-shrink-0',
+        // A card's action is a small button; a full-width row keeps the larger one.
+        compact ? 'h-6 px-2.5 text-[11px]' : 'h-8 px-3 text-xs',
+      )}
+    >
+      Start <ChevronRight className={compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
+    </span>
+  );
+
+  const inner = compact ? (
+    <>
+      {title}
+      <div className="flex items-end justify-between gap-2">
+        <div className="min-w-0 flex-1">{meta}</div>
+        {action}
+      </div>
+    </>
+  ) : (
+    <>
+      <div className="min-w-0 flex-1">
+        {title}
+        {meta}
+      </div>
+      {action}
     </>
   );
 
   const shell = cn(
-    'flex items-center gap-3 rounded-xl border-2 p-4 animate-slideUp',
+    compact ? 'flex h-full flex-col justify-between gap-3 rounded-xl border-2 p-3 animate-slideUp' : 'flex items-center gap-3 rounded-xl border-2 p-4 animate-slideUp',
     test.is_locked || exhausted
       ? 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900'
       : 'border-orange-200 dark:border-orange-900/60 bg-gradient-to-r from-orange-50/70 to-white dark:from-orange-950/20 dark:to-gray-900 shadow-sm',
@@ -1600,7 +1635,6 @@ function SyllabusPanel({
   drill,
   collapsed,
   onCollapsedChange,
-  onOpen,
   onBack,
 }: {
   sections: SectionModel[];
@@ -1608,16 +1642,18 @@ function SyllabusPanel({
   drill: SectionModel | null;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
-  /** Set on Key Topics, where a section's dropdown is the right-hand list's own. Otherwise the dropdown opens here. */
-  onOpen?: (key: string) => void;
   /** Leaves the drill-down the right-hand pane is showing. */
   onBack: () => void;
 }) {
-  const [expandAll, setExpandAll] = useState(false);
-  // Which sections' dropdowns are open here. Kept apart from the right-hand pane, so opening one does not move it.
+  // Which sections' dropdowns are open here. Kept apart from the right-hand pane on every tab, so opening one
+  // here never moves it and what is open on the right never moves this.
   const [openKeys, setOpenKeys] = useState<string[]>([]);
   const toggleOpen = (key: string) =>
     setOpenKeys(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
+  // "Expand all" is just every section open: no separate flag to override a single section's own click.
+  const allKeys = sections.map(s => s.key);
+  const allOpen = allKeys.length > 0 && allKeys.every(k => openKeys.includes(k));
+  const toggleAll = () => setOpenKeys(allOpen ? [] : allKeys);
   // On a phone the syllabus starts folded, so the papers are what the page opens on. Desktop ignores this.
   const [mobileOpen, setMobileOpen] = useState(false);
   if (sections.length === 0) return null;
@@ -1639,9 +1675,6 @@ function SyllabusPanel({
             style={{ writingMode: 'vertical-rl' }}
           >
             Syllabus
-          </span>
-          <span className="text-[9px] tabular-nums text-gray-400">
-            {drill ? drill.units.length : sections.length}
           </span>
         </button>
       </aside>
@@ -1718,11 +1751,11 @@ function SyllabusPanel({
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <button
             type="button"
-            onClick={() => setExpandAll(v => !v)}
+            onClick={toggleAll}
             className="inline-flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-1 text-[10px] font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
-            <ChevronDown className={cn('w-3 h-3 transition-transform', expandAll && 'rotate-180')} />
-            {expandAll ? 'Collapse All' : 'Expand All'}
+            <ChevronDown className={cn('w-3 h-3 transition-transform', allOpen && 'rotate-180')} />
+            {allOpen ? 'Collapse All' : 'Expand All'}
           </button>
           <button
             type="button"
@@ -1738,7 +1771,7 @@ function SyllabusPanel({
       <div className={cn(mobileOpen ? 'block' : 'hidden', 'lg:block max-h-[calc(100vh-13rem)] overflow-y-auto scrollbar-thin p-2.5 space-y-2')}>
         {sections.map((sec, i) => {
           const a = accentFor(i);
-          const isOpen = expandAll || openKeys.includes(sec.key);
+          const isOpen = openKeys.includes(sec.key);
 
           return (
             <div
@@ -1750,7 +1783,7 @@ function SyllabusPanel({
             >
               <button
                 type="button"
-                onClick={() => (onOpen ? onOpen(sec.key) : toggleOpen(sec.key))}
+                onClick={() => toggleOpen(sec.key)}
                 aria-expanded={isOpen}
                 className={cn(
                   'w-full flex items-center gap-2.5 p-2.5 text-left transition-colors',
@@ -1766,7 +1799,7 @@ function SyllabusPanel({
                     {sec.units.length} Unit{sec.units.length === 1 ? '' : 's'}
                   </span>
                 </span>
-                <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <ChevronRight className={cn('w-4 h-4 text-gray-400 flex-shrink-0 transition-transform', isOpen && 'rotate-90')} />
               </button>
 
               {isOpen && sec.units.length > 0 && (
@@ -1790,7 +1823,7 @@ function SyllabusPanel({
         })}
       </div>
 
-      {!expandAll && (
+      {!allOpen && (
         <div className="border-t border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/30 px-4 py-6 text-center">
           <span className="inline-flex w-10 h-10 rounded-xl bg-white dark:bg-gray-900 shadow-sm items-center justify-center mb-2">
             <BookOpen className="w-5 h-5 text-brand-300 dark:text-blue-700" />
@@ -1827,6 +1860,8 @@ function SyllabusRow({
   tamilOnly?: boolean;
 }) {
   const [open, setOpen] = useState(index === 0);
+  // "+ N more topics" opens the rest of the list in place.
+  const [showAll, setShowAll] = useState(false);
   const expandable = topics.length > 0;
   const a = accentFor(index);
   const PREVIEW = 5;
@@ -1876,7 +1911,7 @@ function SyllabusRow({
 
       {open && expandable && (
         <ul className="pb-2.5 pl-12 pr-3 space-y-1">
-          {topics.slice(0, PREVIEW).map(t => (
+          {(showAll ? topics : topics.slice(0, PREVIEW)).map(t => (
             <li
               key={t.id}
               className="text-[11px] text-gray-600 dark:text-gray-300 leading-snug flex items-start gap-1.5"
@@ -1886,8 +1921,15 @@ function SyllabusRow({
             </li>
           ))}
           {topics.length > PREVIEW && (
-            <li className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 pl-2.5">
-              + {topics.length - PREVIEW} more topics
+            <li className="pl-2.5">
+              <button
+                type="button"
+                onClick={() => setShowAll(v => !v)}
+                aria-expanded={showAll}
+                className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {showAll ? 'Show fewer topics' : `+ ${topics.length - PREVIEW} more topics`}
+              </button>
             </li>
           )}
         </ul>

@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { getTestDetail, type TestDetail } from '@/lib/userPortalApi';
+import { difficultyLabel } from '@/lib/eval-difficulty';
 
 export default function TestStartPage() {
   const { testId } = useParams<{ testId: string }>();
@@ -133,7 +134,7 @@ export default function TestStartPage() {
               <InfoTile
                 icon={<Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
                 label="Difficulty"
-                value={test.difficulty ?? 'Mixed'}
+                value={test.difficulty ? difficultyLabel(test.difficulty) : 'Mixed'}
                 valueClass="capitalize"
               />
               <InfoTile

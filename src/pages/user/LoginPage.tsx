@@ -210,7 +210,7 @@ export default function LoginPage() {
                 {googleError}
               </div>
             )}
-            <GoogleButton text="signin_with" onCredential={googleLogin} />
+            <GoogleButton text="continue_with" onCredential={googleLogin} />
           </>
         )}
 

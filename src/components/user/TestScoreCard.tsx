@@ -8,7 +8,6 @@
 import { useMemo } from 'react';
 import { displayTitle } from '@/lib/display-title';
 import { Link } from 'react-router-dom';
-import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ClipboardList, Loader2 } from 'lucide-react';
 import { trendCeiling } from '@/hooks/use-progress-trend';
 import type { ApiAttempt } from '@/lib/userPortalApi';
@@ -144,74 +143,75 @@ interface TestRow {
 }
 
 /**
- * A single series, so one hue and no legend — the card title names it. Validated
- * against both the light and dark chart surfaces (dataviz six checks, all pass).
- */
-const TEST_SERIES = '#ff6c24';
-/** Row pitch and bar thickness: under the 24px cap, with the leftover left as air. */
-const TEST_ROW_PITCH = 38;
-const TEST_BAR_SIZE = 18;
-
-/** Longest paper name the axis gutter fits before it starts eating the plot. */
-function shortName(name: string, max = 26) {
-  return name.length > max ? `${name.slice(0, max - 1)}…` : name;
-}
-
-const dayLabel = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-
-/**
  * Average score per paper, one bar each.
  *
- * Horizontal because paper names are long and would collide as column labels. The
- * axis ceiling follows the trend curve's rule rather than a fixed 0–100 — early in
- * preparation every bar would otherwise be an invisible sliver on the baseline.
+ * Each row is the paper's name over its bar, in plain HTML rather than chart axis text: names are long, and in
+ * Tamil they are wider than a character count suggests, so a fixed label gutter cut them off. Here the name takes
+ * the card's width and wraps to a second line before it is ever clipped. The axis ceiling follows the trend
+ * curve's rule rather than a fixed 0-100 — early in preparation every bar would otherwise be a sliver.
  */
 function TestScoreChart({ rows }: { rows: TestRow[] }) {
   const ceiling = trendCeiling(rows.map(r => ({ value: r.average })));
   return (
-    <div className="max-h-[19rem] overflow-y-auto scrollbar-thin -ml-1 pr-1">
-      <div style={{ height: rows.length * TEST_ROW_PITCH + 26 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 46, bottom: 0, left: 0 }}>
-            <XAxis
-              type="number"
-              domain={[0, ceiling]}
-              tickFormatter={(v: number) => `${v}%`}
-              tickLine={false}
-              axisLine={false}
-              tick={{ fontSize: 10, fill: '#9ca3af' }}
-              height={22}
+    <ul className="max-h-[19rem] space-y-3.5 overflow-y-auto scrollbar-thin pr-1">
+      {rows.map(row => (
+        <li key={row.key} className="group relative">
+          <div className="flex items-start justify-between gap-3">
+            <p
+              className="min-w-0 flex-1 text-[12px] font-semibold leading-snug text-gray-700 dark:text-gray-200 line-clamp-2 break-words"
+              title={row.name}
+            >
+              {row.name}
+            </p>
+            <span className="shrink-0 text-[12px] font-bold tabular-nums text-gray-700 dark:text-gray-200">
+              {row.average}%
+            </span>
+          </div>
+          <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${Math.max(2, Math.min(100, (row.average / ceiling) * 100))}%`, background: TEST_SERIES }}
             />
-            <YAxis
-              type="category"
-              dataKey="name"
-              width={176}
-              tickLine={false}
-              axisLine={false}
-              interval={0}
-              tick={<TestTick rows={rows} />}
-            />
-            <Tooltip cursor={{ fill: 'rgba(99,102,241,0.06)' }} content={<TestTooltip />} />
-            <Bar dataKey="average" fill={TEST_SERIES} radius={[0, 4, 4, 0]} maxBarSize={TEST_BAR_SIZE}>
-              {/* Value at the tip — the axis alone can't be read across a long gutter. */}
-              <LabelList
-                dataKey="average"
-                position="right"
-                offset={8}
-                className="fill-gray-600 dark:fill-gray-300"
-                fontSize={10}
-                fontWeight={700}
-                formatter={(v: any) => `${v}%`}
-              />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+          </div>
+          <p className="mt-1 text-[10px] text-gray-400">
+            {row.attempts} attempt{row.attempts === 1 ? '' : 's'}
+          </p>
+          <ScoreHover row={row} />
+        </li>
+      ))}
+    </ul>
   );
 }
 
+/** A single series, so one hue and no legend — the card title names it. */
+const TEST_SERIES = '#ff6c24';
+
+const dayLabel = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+
+/** Every individual score on a paper, shown over its row on hover or focus — the bar only carries the average. */
+function ScoreHover({ row }: { row: TestRow }) {
+  const shown = row.scores.slice(0, 6);
+  return (
+    <div className="pointer-events-none absolute left-0 right-0 top-full z-10 hidden max-w-[15rem] rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-lg group-hover:block dark:border-gray-700 dark:bg-gray-900">
+      <p className="text-xs font-bold leading-snug text-gray-900 dark:text-gray-100">{row.name}</p>
+      <p className="mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">
+        {row.attempts} attempt{row.attempts === 1 ? '' : 's'} · avg {row.average}% · best {row.best}%
+      </p>
+      <ul className="mt-1.5 space-y-0.5 border-t border-gray-100 pt-1.5 dark:border-gray-800">
+        {shown.map((sc, i) => (
+          <li key={i} className="flex items-center justify-between gap-5 text-[10px]">
+            <span className="text-gray-400">{dayLabel(sc.date)}</span>
+            <span className="font-semibold tabular-nums text-gray-700 dark:text-gray-200">{Math.round(sc.pct)}%</span>
+          </li>
+        ))}
+        {row.scores.length > shown.length && (
+          <li className="pt-0.5 text-[10px] text-gray-400">+{row.scores.length - shown.length} earlier</li>
+        )}
+      </ul>
+    </div>
+  );
+}
 /**
  * The one-paper case, which a bar chart handles badly — a lone bar spends a whole
  * card communicating a single number, and its length has nothing to compare against.
@@ -241,47 +241,6 @@ function SingleTestSummary({ row }: { row: TestRow }) {
           )}
         </ul>
       </div>
-    </div>
-  );
-}
-
-/** Paper name over its attempt count, so "attempts" is readable without hovering. */
-function TestTick({ x, y, payload, rows }: any) {
-  const row: TestRow | undefined = rows[payload?.index];
-  return (
-    <g transform={`translate(${x},${y})`}>
-      <text x={-168} y={-1} textAnchor="start" fontSize={11} fontWeight={600} className="fill-gray-700 dark:fill-gray-200">
-        {shortName(String(payload?.value ?? ''))}
-      </text>
-      <text x={-168} y={11} textAnchor="start" fontSize={9} className="fill-gray-400">
-        {row?.attempts ?? 0} attempt{row?.attempts === 1 ? '' : 's'}
-      </text>
-    </g>
-  );
-}
-
-/** Every individual score on the hovered paper — the bar only carries the average. */
-function TestTooltip({ active, payload }: any) {
-  const row: TestRow | undefined = payload?.[0]?.payload;
-  if (!active || !row) return null;
-  const shown = row.scores.slice(0, 6);
-  return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 shadow-lg max-w-[15rem]">
-      <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-snug">{row.name}</p>
-      <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-        {row.attempts} attempt{row.attempts === 1 ? '' : 's'} · avg {row.average}% · best {row.best}%
-      </p>
-      <ul className="mt-1.5 pt-1.5 border-t border-gray-100 dark:border-gray-800 space-y-0.5">
-        {shown.map((sc, i) => (
-          <li key={i} className="flex items-center justify-between gap-5 text-[10px]">
-            <span className="text-gray-400">{dayLabel(sc.date)}</span>
-            <span className="font-semibold text-gray-700 dark:text-gray-200 tabular-nums">{Math.round(sc.pct)}%</span>
-          </li>
-        ))}
-        {row.scores.length > shown.length && (
-          <li className="text-[10px] text-gray-400 pt-0.5">+{row.scores.length - shown.length} earlier</li>
-        )}
-      </ul>
     </div>
   );
 }

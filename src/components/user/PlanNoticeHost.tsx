@@ -24,6 +24,7 @@ import {
 import { onPlanNotice, showPlanNotice } from '@/lib/plan-notice-bus';
 import { billingCycleOf, planAllowance } from '@/lib/plan-allowance';
 import { getCurrentSubscription } from '@/lib/subscriptionApi';
+import { useCurrentPlanPurchase } from '@/hooks/use-plan-purchase';
 import { cn } from '@/lib/utils';
 
 const ICONS: Record<NoticeIcon, LucideIcon> = {
@@ -72,6 +73,7 @@ export default function PlanNoticeHost() {
 
   // When the current plan began and ended: what separates this plan's tests from earlier ones, and
   // whether it was monthly or yearly. Only for someone signed in — the portal's login pages mount this too.
+  const planPurchase = useCurrentPlanPurchase();
   const { data: sub } = useQuery({
     queryKey: ['subscription', 'current'],
     queryFn: getCurrentSubscription,
@@ -110,9 +112,9 @@ export default function PlanNoticeHost() {
     const since = sub?.status === 'active' ? sub.start_date : null;
     const left = current
       ? {
-          mock: planAllowance(current, 'mock', history, since, assessments).left,
+          mock: planAllowance(current, 'mock', history, since, assessments, planPurchase).left,
           // Practice and Key Topics tests are one allowance — see `attemptKind`.
-          practice: planAllowance(current, 'practice', history, since, assessments).left,
+          practice: planAllowance(current, 'practice', history, since, assessments, planPurchase).left,
         }
       : undefined;
     // Out of time outranks out of tests: the plan to renew is the news, not its allowance.
@@ -125,7 +127,7 @@ export default function PlanNoticeHost() {
       left,
       held: sub ? (plans.find(p => p.plan_id === sub.plan_id) ?? null) : null,
     });
-  }, [facts, user, plans, history, assessments, sub, lapsed]);
+  }, [facts, user, plans, history, assessments, sub, planPurchase, lapsed]);
 
   // `facts` stays after closing so the text does not vanish mid-animation.
   if (!notice) return null;

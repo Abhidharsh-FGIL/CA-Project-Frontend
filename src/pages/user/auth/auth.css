@@ -609,11 +609,55 @@
   gap: 6px;
 }
 
-/* Google draws its own button into this; it only has to give it the row, centred. */
-.mge .mge-google {
+/* "Continue with Google": our face, Google's real (invisible) button on top of it. */
+.mge .mge-gbtn {
+  position: relative;
+  width: 100%;
+}
+
+.mge .mge-gbtn-face {
   display: flex;
+  align-items: center;
   justify-content: center;
-  min-height: 44px;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  border: 1.5px solid #dadce0;
+  border-radius: 16px;
+  background: #fff;
+  color: #3c4043;
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.14);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background 0.15s,
+    transform 0.15s;
+}
+
+.mge .mge-gbtn:hover .mge-gbtn-face {
+  border-color: #4285f4;
+  background: #f8fbff;
+  box-shadow: 0 8px 20px -10px rgba(66, 133, 244, 0.55);
+  transform: translateY(-1px);
+}
+
+.mge .mge-gbtn:focus-within .mge-gbtn-face {
+  border-color: #4285f4;
+  box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.22);
+}
+
+/* Not display:none or opacity:0 — a hidden button gets no clicks. Nearly clear, stretched over the face. */
+.mge .mge-gbtn-hit {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  overflow: hidden;
+  opacity: 0.01;
+  cursor: pointer;
+  transform-origin: 0 0;
 }
 
 .mge .mge-google-banner {

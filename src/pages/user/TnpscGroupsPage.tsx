@@ -74,14 +74,17 @@ export default function TnpscGroupsPage() {
 
       <div className="mb-6 animate-fadeIn">
         <div className="relative overflow-hidden rounded-2xl border border-orange-100 dark:border-orange-900/40 bg-gradient-to-r from-[#fff0e4] via-[#fff6ee] to-[#f4f2f8] dark:from-orange-950/30 dark:via-gray-900 dark:to-blue-950/30 p-5 sm:p-7">
-          <ExamArt className="hidden lg:block absolute right-6 xl:right-12 top-1/2 -translate-y-1/2 h-[88%] w-auto opacity-90 dark:opacity-40 pointer-events-none" />
-          <p
-            className="hidden lg:block absolute right-8 xl:right-16 top-4 max-w-[13rem] text-right text-lg leading-tight text-blue-700/80 dark:text-blue-300/70 pointer-events-none"
-            style={{ fontFamily: 'Kalam, cursive' }}
-          >
-            Your Gateway <br />to a Government Job
-          </p>
-          <div className="relative max-w-2xl lg:max-w-[58%] xl:max-w-2xl">
+          {/* The tagline sits beside the picture, not over it. */}
+          <div className="hidden lg:flex absolute right-6 xl:right-12 top-1/2 -translate-y-1/2 items-center gap-3 pointer-events-none">
+            <p
+              className="text-right text-lg leading-tight text-blue-700/80 dark:text-blue-300/70"
+              style={{ fontFamily: 'Kalam, cursive' }}
+            >
+              Your Gateway <br />to a Government Job
+            </p>
+            <ExamArt className="h-24 xl:h-28 w-auto opacity-90 dark:opacity-40" />
+          </div>
+          <div className="relative max-w-2xl lg:max-w-[50%] xl:max-w-2xl">
             <p className="text-[10px] uppercase tracking-[0.25em] text-blue-600 dark:text-blue-400 font-bold mb-2">
               Choose Your Examination
             </p>

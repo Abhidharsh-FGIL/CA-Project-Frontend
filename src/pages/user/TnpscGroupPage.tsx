@@ -7,12 +7,10 @@ import {
   ArrowRight,
   BarChart3,
   BookOpen,
-  Check,
   Clock,
   FileText,
   Layers,
   Lock,
-  RefreshCw,
   Sparkles,
   Target,
 } from 'lucide-react';
@@ -53,17 +51,17 @@ export default function TnpscGroupPage() {
             {group.tagline}
           </p>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{group.name}</h1>
-          <p className="text-[13px] text-gray-600 dark:text-gray-400 mt-1.5 max-w-3xl">{group.description}</p>
+          <p className="text-sm sm:text-[15px] text-gray-600 dark:text-gray-400 mt-1.5 max-w-3xl">{group.description}</p>
           {structure.length > 0 && (
             <div className="mt-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
                 Paper structure{group.stages.length > 1 && featured ? ` · ${featured.short_name}` : ''}
               </p>
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {structure.map(row => (
                   <span
                     key={row.label}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-medium bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-md"
+                    className="inline-flex items-center gap-1.5 text-xs sm:text-[13px] font-medium bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-md"
                   >
                     {row.label}
                     <span className="font-bold text-blue-600 dark:text-blue-400">{row.questions} Q</span>
@@ -75,42 +73,89 @@ export default function TnpscGroupPage() {
         </div>
       </div>
 
-      {/* What practising here is like — only for an examination that can be sat today. */}
+      {/* What preparing here involves — only for an examination that can be sat today. Each tile is a way in. */}
       {featured && (
-        <div className="mb-6 rounded-2xl border border-sky-200 dark:border-sky-900/50 bg-gradient-to-b from-sky-50/80 to-white dark:from-sky-950/20 dark:to-gray-900 p-4 sm:p-5 animate-fadeIn">
-          <div className="flex items-start gap-3">
-            <Sparkles className="w-7 h-7 shrink-0 text-orange-500" />
-            <div className="min-w-0">
-              <h2 className="text-base sm:text-lg font-extrabold text-gray-900 dark:text-gray-100">Prepare Smarter for {group.name}</h2>
-              <p className="mt-0.5 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                Practice with fresh questions, multiple difficulty levels and AI-powered insights.
-              </p>
+        <div className="mb-6 rounded-2xl border border-sky-200 dark:border-sky-900/50 bg-gradient-to-br from-sky-50/80 via-white to-orange-50/40 dark:from-sky-950/20 dark:via-gray-900 dark:to-orange-950/10 p-4 sm:p-5 animate-fadeIn">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600 dark:bg-orange-950/40 dark:text-orange-300">
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-extrabold text-gray-900 dark:text-gray-100">
+                  Prepare smarter for {group.name}
+                </h2>
+                <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
+                  Syllabus-aligned practice, full-length mocks and insights that show where to work next.
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                to={`/user/exams/${group.id}/${featured.id}`}
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-orange-500 px-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-orange-600"
+              >
+                Start practising <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                to={`/user/exams/${group.id}/${featured.id}?tab=exam`}
+                className="inline-flex h-9 items-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700 transition-colors hover:border-orange-300 hover:text-orange-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+              >
+                Take a mock
+              </Link>
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
+
+          <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { icon: RefreshCw, title: 'Fresh Questions', text: 'Every attempt gets a new set of questions.' },
-              { icon: Layers, title: '3 Difficulty Levels', text: 'Practice from Simple to Complex.' },
-              { icon: BarChart3, title: 'AI Insights', text: 'Know your strengths and areas to improve.' },
+              {
+                icon: Layers,
+                title: 'Unit-wise practice',
+                text: 'Every unit split into categories and sub-categories.',
+                to: `/user/exams/${group.id}/${featured.id}`,
+                tone: 'bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300',
+              },
+              {
+                icon: Target,
+                title: 'Simple · Medium · Complex',
+                text: 'Choose the level that matches where you are.',
+                to: `/user/exams/${group.id}/${featured.id}`,
+                tone: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300',
+              },
+              {
+                icon: Clock,
+                title: 'Full-length mocks',
+                text: featured.pattern?.total_questions
+                  ? `The real ${featured.pattern.total_questions}-question pattern, in one sitting.`
+                  : 'The real exam pattern, in one sitting.',
+                to: `/user/exams/${group.id}/${featured.id}?tab=exam`,
+                tone: 'bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300',
+              },
+              {
+                icon: BarChart3,
+                title: 'Insights & study plan',
+                text: 'See your strengths and weak spots, then follow a plan.',
+                to: '/user/performance',
+                tone: 'bg-orange-100 text-orange-600 dark:bg-orange-950/50 dark:text-orange-300',
+              },
             ].map(f => (
-              <div key={f.title} className="rounded-xl bg-white/80 dark:bg-gray-900/60 border border-sky-100 dark:border-sky-900/40 px-2 py-3 text-center">
-                <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300">
-                  <f.icon className="w-5 h-5" />
+              <Link
+                key={f.title}
+                to={f.to}
+                className="group flex items-start gap-3 rounded-xl border border-gray-100 bg-white/90 p-3.5 transition-all hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900/70 dark:hover:border-orange-900"
+              >
+                <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', f.tone)}>
+                  <f.icon className="h-[18px] w-[18px]" />
                 </span>
-                <p className="mt-2 text-[11px] sm:text-sm font-bold leading-tight text-gray-900 dark:text-gray-100">{f.title}</p>
-                <p className="mt-1 text-[10px] sm:text-xs leading-snug text-gray-500 dark:text-gray-400">{f.text}</p>
-              </div>
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold leading-snug text-gray-900 dark:text-gray-100">{f.title}</span>
+                  <span className="mt-0.5 block text-xs leading-snug text-gray-500 dark:text-gray-400">{f.text}</span>
+                </span>
+              </Link>
             ))}
           </div>
-          <p className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2 text-xs sm:text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
-              <Check className="w-3.5 h-3.5" />
-            </span>
-            No repeated questions. Learn better. Score higher.
-          </p>
         </div>
       )}
-
       <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-3">
         {group.stages.length > 1 ? 'Select a stage' : 'Examination'}
       </h2>
@@ -126,6 +171,13 @@ export default function TnpscGroupPage() {
 
 function StageCard({ groupId, stage, index }: { groupId: string; stage: TnpscStage; index: number }) {
   const disabled = stage.status !== 'active';
+  // The syllabus units the paper covers. A language paper sat in one of two languages counts once.
+  const counted = new Set<string>();
+  const unitCount = (stage.pattern?.sections ?? []).reduce((total, sec) => {
+    if (sec.alternative_to && counted.has(sec.alternative_to)) return total;
+    counted.add(sec.name);
+    return total + (sec.units?.length ?? 0);
+  }, 0);
   const body = (
     <>
       <div className="flex items-start justify-between gap-3">
@@ -134,7 +186,7 @@ function StageCard({ groupId, stage, index }: { groupId: string; stage: TnpscSta
             {stage.paper_type === 'objective' ? 'Objective · MCQ' : 'Descriptive'}
           </p>
           <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mt-1">{stage.short_name}</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{stage.name}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{stage.name}</p>
         </div>
         <span
           className={cn(
@@ -148,22 +200,26 @@ function StageCard({ groupId, stage, index }: { groupId: string; stage: TnpscSta
         </span>
       </div>
 
-      <p className="text-xs text-gray-600 dark:text-gray-400 mt-3">{stage.description}</p>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">{stage.description}</p>
 
       {stage.pattern && (
         <div className="flex flex-wrap gap-2 mt-4">
           <Chip icon={<FileText className="w-3 h-3" />} label={`${questionCountLabel(stage.pattern)} questions`} />
           <Chip icon={<Layers className="w-3 h-3" />} label={`${stage.pattern.total_marks} marks`} />
           <Chip icon={<Clock className="w-3 h-3" />} label={`${stage.pattern.duration_minutes / 60} hours`} />
-          {stage.subjects.length > 0 && (
-            <Chip icon={<BookOpen className="w-3 h-3" />} label={`${stage.subjects.length} subjects`} />
+          {unitCount > 0 ? (
+            <Chip icon={<BookOpen className="w-3 h-3" />} label={`${unitCount} unit${unitCount === 1 ? '' : 's'}`} />
+          ) : (
+            stage.subjects.length > 0 && (
+              <Chip icon={<BookOpen className="w-3 h-3" />} label={`${stage.subjects.length} subjects`} />
+            )
           )}
         </div>
       )}
 
       <div className="mt-auto pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3">
         {disabled && (
-          <span className="text-[11px] text-gray-500 dark:text-gray-400">Opening soon on the portal</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">Opening soon on the portal</span>
         )}
         {disabled ? (
           <span className="inline-flex items-center gap-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-400 text-xs font-semibold px-3.5 py-2">
@@ -204,7 +260,7 @@ function StageCard({ groupId, stage, index }: { groupId: string; stage: TnpscSta
 
 function Chip({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-md">
+    <span className="inline-flex items-center gap-1 text-xs bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-md">
       {icon}
       {label}
     </span>

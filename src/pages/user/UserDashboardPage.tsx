@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { displayTitle } from '@/lib/display-title';
 import { Link } from 'react-router-dom';
+import { performanceHref } from '@/lib/performance-view';
 import { here } from '@/lib/report-origin';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -28,7 +29,7 @@ import {
   Gift,
   LineChart as LineChartIcon,
   Loader2,
-  Receipt,
+  History as HistoryIcon,
   Sparkles,
   Timer,
   TrendingUp,
@@ -43,7 +44,6 @@ import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { useExamLanguage } from '@/hooks/use-exam-language';
 import { papersFor } from '@/lib/exam-language';
 import { FilterSelect } from '@/components/user/FilterSelect';
-import { SubjectBreakdown } from '@/components/user/SubjectBreakdown';
 import { TestScoreCard } from '@/components/user/TestScoreCard';
 import { useSubjectStrengths } from '@/hooks/use-subject-strengths';
 import {
@@ -52,6 +52,7 @@ import {
   GROUP_STAGE,
   formatTrendLabel,
   openGroupKey,
+  useGroupMatcher,
   useProgressTrend,
   type ExamGroupKey,
   type ExamTrackKey,
@@ -125,9 +126,12 @@ export default function UserDashboardPage() {
   const {
     subjects: allSubjects,
     overallAccuracy,
-    isLoading: subjectsLoading,
+    isLoading: strengthsFetching,
     truncated: subjectsTruncated,
   } = useSubjectStrengths({ analytics: a, attempts: filteredAttempts, scoped: true, by: 'unit' });
+  // Until the group's papers are known the attempts in scope are not either, so the card waits rather than
+  // showing "nothing analysed yet" for a moment (or for good, if the list settles empty too early).
+  const subjectsLoading = strengthsFetching || groupIndexLoading;
 
   // The ring and the legend must show the same six subjects — previously the ring drew
   // every subject while the legend listed six, so half the ring had no key.
@@ -138,6 +142,8 @@ export default function UserDashboardPage() {
     [allSubjects],
   );
   const hiddenSubjects = Math.max(0, allSubjects.length - topSubjects.length);
+  /** What the list shows: the strongest few, or every unit once "Show all" is chosen. */
+  const listed = showAllSubjects ? allSubjects : topSubjects;
 
   const weakestSubject = useMemo(() => {
     const scored = allSubjects.filter(sub => (sub.attempted ?? 0) > 0);
@@ -223,14 +229,19 @@ export default function UserDashboardPage() {
    * Assigned work for the selected track. Assessments carry no group, only a mode — and a paper in the
    * language the aspirant does not sit (a Tamil full mock for an English aspirant) is not theirs to take.
    */
+  // With a group chosen, only the papers that group's catalog lists count, so the figure agrees with the Exams
+  // screen — a paper outside it (a custom set, another exam's) is not part of "Group 4's" total.
+  const { matchesGroup, isLoading: groupMatchLoading } = useGroupMatcher(group);
   const scopedAssessments = useMemo(
     () =>
       papersFor(
         language,
         assessments.filter(x => x.mode === track),
         // GAT-B is not open on the dashboard yet, so its papers are not offered here.
-      ).filter(x => stageForTitle(x.title)?.group_id !== 'gat-b'),
-    [assessments, track, language],
+      )
+        .filter(x => stageForTitle(x.title)?.group_id !== 'gat-b')
+        .filter(x => group === 'all' || groupMatchLoading || matchesGroup({ test_id: x.assessment_id, test_name: x.title })),
+    [assessments, track, language, group, groupMatchLoading, matchesGroup],
   );
 
   const recent = useMemo(() => filteredAttempts.slice(0, 5), [filteredAttempts]);
@@ -388,7 +399,7 @@ export default function UserDashboardPage() {
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <Link
-                      to="/user/performance"
+                      to={performanceHref({ group, track, range })}
                       className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap"
                     >
                       View detailed report
@@ -497,8 +508,11 @@ export default function UserDashboardPage() {
                 </div>
               ) : allSubjects.length > 0 ? (
                 <>
-                  <ul className="space-y-2 min-w-0" onMouseLeave={() => setActiveSubject(null)}>
-                    {topSubjects.map((sub, i) => (
+                  <ul
+                    className={cn('space-y-2 min-w-0', showAllSubjects && 'max-h-[260px] overflow-y-auto scrollbar-thin pr-1')}
+                    onMouseLeave={() => setActiveSubject(null)}
+                  >
+                    {listed.map((sub, i) => (
                       <li
                         key={sub.subject}
                         onMouseEnter={() => setActiveSubject(i)}
@@ -522,8 +536,9 @@ export default function UserDashboardPage() {
                         </span>
                       </li>
                     ))}
+                  </ul>
                     {(hiddenSubjects > 0 || showAllSubjects) && (
-                      <li className="pt-1">
+                      <div className="pt-2">
                         <button
                           type="button"
                           onClick={() => {
@@ -538,9 +553,8 @@ export default function UserDashboardPage() {
                             <>Show all {allSubjects.length} units <ChevronDown className="w-3 h-3" /></>
                           )}
                         </button>
-                      </li>
+                      </div>
                     )}
-                  </ul>
                   {/* The units that most need work: the lowest scores first, so they are not the last thing in a list
                       sorted strongest-first. */}
                   {needsFocus.length > 0 && (
@@ -557,16 +571,6 @@ export default function UserDashboardPage() {
                     </div>
                   )}
 
-                  {showAllSubjects && (
-                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
-                        All {allSubjects.length} units · focus areas first
-                      </p>
-                      <div className="max-h-[220px] overflow-y-auto scrollbar-thin pr-1">
-                        <SubjectBreakdown subjects={allSubjects} sort="weakest" />
-                      </div>
-                    </div>
-                  )}
                   {/* Fixed detail row — reserved height, so hovering never reflows the card. */}
                   <p className="mt-3 pt-2.5 border-t border-gray-100 dark:border-gray-800 text-[10px] leading-snug text-gray-500 dark:text-gray-400 min-h-[2rem]">
                     {activeSubject != null ? (
@@ -576,20 +580,20 @@ export default function UserDashboardPage() {
                           style={{ background: SUBJECT_COLORS[activeSubject % SUBJECT_COLORS.length] }}
                         />
                         <span className="font-semibold text-gray-700 dark:text-gray-200">
-                          {topSubjects[activeSubject].subject}
+                          {listed[activeSubject].subject}
                         </span>
-                        {topSubjects[activeSubject].correct != null &&
-                          topSubjects[activeSubject].attempted != null && (
+                        {listed[activeSubject].correct != null &&
+                          listed[activeSubject].attempted != null && (
                             <>
                               {' — '}
-                              {topSubjects[activeSubject].correct} of {topSubjects[activeSubject].attempted} answered
+                              {listed[activeSubject].correct} of {listed[activeSubject].attempted} answered
                               correctly
-                              {topSubjects[activeSubject].total_questions != null &&
-                                topSubjects[activeSubject].attempted! < topSubjects[activeSubject].total_questions! && (
+                              {listed[activeSubject].total_questions != null &&
+                                listed[activeSubject].attempted! < listed[activeSubject].total_questions! && (
                                   <>
                                     {' · '}
-                                    {topSubjects[activeSubject].total_questions! -
-                                      topSubjects[activeSubject].attempted!}{' '}
+                                    {listed[activeSubject].total_questions! -
+                                      listed[activeSubject].attempted!}{' '}
                                     left blank
                                   </>
                                 )}
@@ -614,11 +618,7 @@ export default function UserDashboardPage() {
                             <span className="font-semibold text-gray-700 dark:text-gray-200">
                               {weakestSubject.subject}
                             </span>{' '}
-                            ({Math.round(weakestSubject.accuracy)}%).{' '}
-                            <Link to="/user/practice" className="text-blue-600 dark:text-blue-400 hover:underline">
-                              Focus on this unit
-                            </Link>
-                            .
+                            ({Math.round(weakestSubject.accuracy)}%).
                           </>
                         )}
                       </>
@@ -646,7 +646,7 @@ export default function UserDashboardPage() {
         </div>
 
         {/* ── Right rail ─────────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-3 sm:gap-4 min-w-0 lg:self-start xl:self-stretch">
+        <div className="flex flex-col gap-3 sm:gap-4 min-w-0 lg:self-start">
           {/* Recent activity */}
           <div className={cn('rounded-2xl p-4 text-gray-900 dark:text-gray-100', PANEL_SURFACE)}>
             <div className="flex items-start justify-between gap-3 mb-3">
@@ -695,11 +695,11 @@ export default function UserDashboardPage() {
             )}
           </div>
 
-          {/* Last 7 active days — from `xl` it takes the height the left column leaves, so both columns end together. */}
-          <div className={cn('rounded-2xl p-4 text-gray-900 dark:text-gray-100 flex flex-col xl:flex-1', PANEL_SURFACE)}>
+          {/* Last 7 active days — a fixed height. It used to take whatever the left column left, so opening `Show all units` there stretched this chart to the height of the page. */}
+          <div className={cn('rounded-2xl p-4 text-gray-900 dark:text-gray-100 flex flex-col', PANEL_SURFACE)}>
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold">Last 7 Active Days</p>
-              <Link to="/user/performance" className="text-xs font-semibold text-brand-600 dark:text-brand-400 underline-offset-2 hover:underline">
+              <Link to={performanceHref({ group, track, range })} className="text-xs font-semibold text-brand-600 dark:text-brand-400 underline-offset-2 hover:underline">
                 View report
               </Link>
             </div>
@@ -711,7 +711,7 @@ export default function UserDashboardPage() {
                 </p>
               </div>
             </div>
-            <div className="h-24 sm:h-28 xl:h-auto xl:flex-1 xl:min-h-[7rem]">
+            <div className="h-28 sm:h-32 xl:h-44">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={activeDayBars} barCategoryGap="28%">
                   <CartesianGrid vertical={false} stroke="#e9edf3" />
@@ -801,8 +801,8 @@ export default function UserDashboardPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
             <QuickAction to={trackHref('mock')} icon={<Timer className="w-5 h-5" />} label="Take a Mock Test" tone="indigo" />
             <QuickAction to={trackHref('practice')} icon={<BookOpen className="w-5 h-5" />} label="Practice Now" tone="emerald" />
-            <QuickAction to="/user/performance" icon={<LineChartIcon className="w-5 h-5" />} label="View Performance" tone="amber" />
-            <QuickAction to="/user/history" icon={<Receipt className="w-5 h-5" />} label="Test History" tone="rose" />
+            <QuickAction to={performanceHref({ group, track, range })} icon={<LineChartIcon className="w-5 h-5" />} label="View Performance" tone="amber" />
+            <QuickAction to="/user/history" icon={<HistoryIcon className="w-5 h-5" />} label="Test History" tone="rose" />
           </div>
         </Card>
       </div>

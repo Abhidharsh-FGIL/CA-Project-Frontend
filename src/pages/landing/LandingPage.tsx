@@ -72,7 +72,7 @@ const CONFIG = {
 const heroChecks = ['Full mock tests', 'Unit-wise practice', 'Previous year papers', 'AI performance reports'];
 
 /** The "Powered by AI" cards. `tone` picks the tint of the icon circle. */
-const features: Array<{ icon: LucideIcon; title: string; desc: string; tone: string }> = [
+const features: Array<{ icon: LucideIcon; title: string; desc: string; tone: string; soon?: boolean }> = [
   {
     icon: ClipboardList,
     title: 'AI-Powered Full Mock Tests',
@@ -102,14 +102,15 @@ const features: Array<{ icon: LucideIcon; title: string; desc: string; tone: str
     title: 'AI-Personalized Study Plans',
     desc: 'Turn your performance insights into a step-by-step study plan. Let AI identify areas for improvement, recommend relevant topics, and create a practical plan to help you prepare more effectively.',
     tone: 'rose',
+    soon: true,
   },
 ];
 
-const steps: Array<{ name: string; desc: string; icon: LandingIcon }> = [
+const steps: Array<{ name: string; desc: string; icon: LandingIcon; soon?: boolean }> = [
   { name: 'Choose a Test', desc: 'Take a full mock test or practice by subject, part and unit.', icon: ChooseTestIcon },
   { name: 'Practice & Learn', desc: 'Attempt questions at Simple, Medium, and Complex difficulty levels.', icon: PracticeIcon },
   { name: 'Get Your AI Report', desc: 'See your score, accuracy, strengths, weak areas and comparisons.', icon: ReportIcon },
-  { name: 'Build Your Study Plan', desc: 'Get a personalized plan based on your performance and focus on weak topics.', icon: PlanIcon },
+  { name: 'Build Your Study Plan', desc: 'Get a personalized plan based on your performance and focus on weak topics.', icon: PlanIcon, soon: true },
 ];
 
 function Hero() {
@@ -134,10 +135,9 @@ function Hero() {
             </span>
           </h1>
           <p className="mge-lead">
-            Prepare smarter with syllabus-aligned questions and practice tests organised by Unit, Category, and
-            Subcategory, across Simple, Medium, and Complex levels. Take full-length mock exams, learn with clear
-            explanations, and improve with <span className="mge-nowrap">AI-powered</span> performance insights and
-            personalized study plans — all in one place.
+            From <span className="mge-nowrap">AI-powered</span> questions and easy-to-understand explanations to
+            full-length mock tests, personalized performance insights, and <span className="mge-nowrap">AI-driven</span>{' '}
+            study plans — everything you need to prepare smarter, all in one place.
           </p>
           <div className="mge-hero-actions">
             <ButtonLink to={CONFIG.signupPath}>
@@ -270,7 +270,10 @@ function Features() {
               <span className={`mge-ai-icon mge-ai-${f.tone}`}>
                 <f.icon size={26} aria-hidden="true" />
               </span>
-              <h3>{f.title}</h3>
+              <h3>
+                {f.title}
+                {f.soon && <em className="mge-soon-tag">Coming soon</em>}
+              </h3>
             </div>
             <p>{f.desc}</p>
           </article>
@@ -393,7 +396,9 @@ function DemoCards() {
 
       <figure>
         <div className="mge-demo-card">
-          <h4>Personalized Study Plan</h4>
+          <h4>
+            Personalized Study Plan <em className="mge-soon-tag">Coming soon</em>
+          </h4>
           <h5 className="mge-plan-title">Your 4-Week Study Plan</h5>
           {(
             [
@@ -434,7 +439,10 @@ function HowItWorks() {
               </span>
               {i < 3 && <ArrowRight className="mge-step-arrow" size={22} />}
             </div>
-            <h3>{s.name}</h3>
+            <h3>
+              {s.name}
+              {s.soon && <em className="mge-soon-tag">Coming soon</em>}
+            </h3>
             <p>{s.desc}</p>
           </div>
         ))}

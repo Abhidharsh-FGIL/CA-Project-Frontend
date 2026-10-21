@@ -1,4 +1,4 @@
-﻿/**
+/**
  * The report for a practice set on one unit.
  *
  * Deliberately not the diagnostic report with panels switched off. A unit set is
@@ -15,13 +15,16 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, CheckCircle2, Circle, Clock, MinusCircle, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ACCENT, MeterRow, ReportCard, ScoreRing, StatTile } from '@/components/user/report-ui';
+import { ACCENT, MeterRow, ReportCard } from '@/components/user/report-ui';
+import { OverallScoreSummary } from '@/components/user/AttemptDiagnosticReport';
 import { isAttempted, type AttemptReportModel } from '@/lib/attempt-report';
 import type { QuestionReviewItem } from '@/lib/userPortalApi';
 import { MathText } from '@/components/ui/MathText';
 import { normaliseLineBreaks, splitExplanationSteps } from '@/lib/question-text';
 import { difficultyLabel } from '@/lib/eval-difficulty';
 import { MIXED_LABEL } from '@/config/tnpsc';
+import { passMarkFor, standingOf, type PassMark } from '@/config/pass-marks';
+import { usePassMarks } from '@/hooks/use-pass-marks';
 import { allOptions, answerKeyOf, resolveAnswerLabel } from '@/lib/question-options';
 import {
   langToggleOptions,
@@ -30,13 +33,102 @@ import {
   type LangMode,
 } from '@/lib/question-language';
 
-/** Short, plain, and tied to the pass mark rather than to a mood. */
-function verdictFor(pct: number | null, pass: number) {
-  if (pct == null) return { title: 'Not scored', note: 'This attempt has no score recorded.', accent: 'slate' as const };
-  if (pct >= 85) return { title: 'Strong pass', note: 'You have this unit. Try the next difficulty up.', accent: 'emerald' as const };
-  if (pct >= pass) return { title: 'Passed', note: 'Solid. One more pass and it will be automatic.', accent: 'emerald' as const };
-  if (pct >= pass - 15) return { title: 'Just short', note: 'Close. Review the ones you missed and sit it again.', accent: 'amber' as const };
-  return { title: 'Needs another look', note: 'Work through the concepts before retrying this set.', accent: 'rose' as const };
+/** Short, plain, and tied to the pass mark rather than to a mood. The mark depends on the set's difficulty. */
+function verdictFor(pct: number | null, mark: PassMark) {
+  const standing = standingOf(pct, mark);
+  if (standing == null) return { title: 'Not scored', note: 'This attempt has no score recorded.', accent: 'slate' as const };
+  if (standing === 'target') return { title: 'Strong pass', note: `You are at or above the ${mark.target}% target. Try the next difficulty up.`, accent: 'emerald' as const };
+  if (standing === 'pass') return { title: 'Passed', note: `Above the ${mark.pass}% pass mark. Aim for ${mark.target}% to have this unit secure.`, accent: 'emerald' as const };
+  if (standing === 'close') return { title: 'Just short', note: `The pass mark is ${mark.pass}%. Review the ones you missed and sit it again.`, accent: 'amber' as const };
+  return { title: 'Needs another look', note: `The pass mark is ${mark.pass}%. Work through the concepts before retrying this set.`, accent: 'rose' as const };
+}
+
+const BAR_FILL = {
+  emerald: 'bg-emerald-500',
+  amber: 'bg-amber-500',
+  rose: 'bg-rose-500',
+  slate: 'bg-slate-400',
+} as Record<string, string>;
+
+/**
+ * How the set went against the pass mark, for the right of the header.
+ *
+ * The score card below already shows the score and the counts, so this does not repeat them. It answers
+ * the next question: how far from passing was it? A bar with the pass mark marked on it, what is still
+ * missing in marks (or points, when the paper has no marks), and the pace the set was done at.
+ */
+function PassGap({
+  score,
+  maxMarks,
+  percentage,
+  pass,
+  accent,
+  timeSec,
+  perQuestionSec,
+  attempted,
+  total,
+}: {
+  score: number | null;
+  maxMarks: number | null;
+  percentage: number | null;
+  pass: number;
+  accent: string;
+  timeSec: number | null;
+  perQuestionSec: number | null;
+  attempted: number;
+  total: number;
+}) {
+  const pct = percentage == null ? null : Math.round(percentage * 10) / 10;
+  const passed = pct != null && pct >= pass;
+  // Marks when the paper has them (9 of 60, pass at 42 — 33 to go); otherwise points of percentage.
+  const passMarks = maxMarks != null ? Math.ceil((pass / 100) * maxMarks * 100) / 100 : null;
+  const short =
+    pct == null
+      ? null
+      : passMarks != null && score != null
+        ? `${Math.round((passMarks - score) * 100) / 100} more marks`
+        : `${Math.round((pass - pct) * 10) / 10} more points`;
+
+  return (
+    <div className="w-full md:w-[23rem] flex-shrink-0 rounded-xl bg-gray-50 dark:bg-gray-800/50 p-3.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Your score vs the pass mark</p>
+        {pct != null && (
+          <p className={cn('text-[11px] font-bold', passed ? 'text-emerald-600 dark:text-emerald-400' : ACCENT[accent as 'rose'].text)}>
+            {passed ? 'Passed' : `${short} to pass`}
+          </p>
+        )}
+      </div>
+
+      <div className="relative mt-3.5 h-3 rounded-full bg-gray-200 dark:bg-gray-700">
+        <div
+          className={cn('h-full rounded-full transition-all', BAR_FILL[accent] ?? BAR_FILL.slate)}
+          style={{ width: `${Math.min(100, Math.max(0, pct ?? 0))}%` }}
+        />
+        {/* the pass mark */}
+        <div className="absolute -top-1 h-5 w-0.5 rounded bg-slate-700 dark:bg-slate-200" style={{ left: `${pass}%` }} aria-hidden />
+      </div>
+      <div className="relative mt-1 h-4 text-[10px] tabular-nums">
+        <span className="absolute left-0 font-bold text-gray-700 dark:text-gray-200">You {pct == null ? '—' : `${pct}%`}</span>
+        <span className="absolute -translate-x-1/2 whitespace-nowrap font-semibold text-gray-500 dark:text-gray-400" style={{ left: `${Math.min(pass, 88)}%` }}>
+          Pass mark {pass}%
+        </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-2 border-t border-gray-200 dark:border-gray-700 pt-3 text-center">
+        {[
+          { label: 'Time taken', value: fmtTime(timeSec) },
+          { label: 'Per question', value: perQuestionSec == null ? '—' : `${Math.round(perQuestionSec)}s` },
+          { label: 'Attempted', value: `${attempted}/${total}` },
+        ].map(c => (
+          <div key={c.label}>
+            <p className="text-sm font-bold tabular-nums text-gray-900 dark:text-gray-100">{c.value}</p>
+            <p className="text-[10px] text-gray-400">{c.label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 const fmtTime = (sec: number | null) => {
@@ -49,99 +141,67 @@ const fmtTime = (sec: number | null) => {
 export function UnitPracticeReport({
   model,
   examName = null,
-  passPercentage = 70,
+  passMark,
 }: {
   model: AttemptReportModel;
   /** The exam the paper belongs to, e.g. "TNPSC Group 4" — shown above the set's name. */
   examName?: string | null;
-  passPercentage?: number;
+  /** Override the benchmark; by default it follows the set's difficulty. */
+  passMark?: PassMark;
   /** No longer shown — the report ends with the question recap. Kept so existing callers still compile. */
   retryHref?: string;
   unitHref?: string;
 }) {
+  usePassMarks(); // draws again once the server's benchmarks arrive
   const s = model.summary;
-  const verdict = verdictFor(s.percentage, passPercentage);
 
   /** The unit this set came from — one subject, by definition of a unit set. */
   const subject = model.subjects[0];
   const level = model.meta.testName ? inferLevel(model.meta.testName) : null;
+  // Simple is held to 70 %, Medium 60 %, Complex 50 %, a Mixed set 60 % — see config/pass-marks.
+  const mark = passMark ?? passMarkFor({ kind: 'practice', level });
+  const verdict = verdictFor(s.percentage, mark);
 
   return (
     <div className="space-y-3 sm:space-y-4">
-      {/* ── Verdict and score ─────────────────────────────────────────── */}
+      {/* ── Which set, and how it went ────────────────────────────────── */}
       <ReportCard>
-        <div className="flex items-center gap-4 sm:gap-5 flex-wrap">
-          <ScoreRing
-            percent={s.percentage ?? 0}
-            primary={s.percentage != null ? `${Math.round(s.percentage)}%` : '—'}
-            secondary={s.maxMarks != null ? `${s.score ?? 0}/${s.maxMarks}` : undefined}
-            accent={verdict.accent}
-            size={96}
-          />
-
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400">
-              {examName ? `${examName} · Practice set` : 'Practice set'}
-            </p>
-            <h2 className="mt-0.5 text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
-              {model.meta.testName || subject?.name || 'Practice'}
-            </h2>
-            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-              {level && (
-                <span className={cn('rounded-md px-1.5 py-0.5 text-[10px] font-bold', ACCENT.indigo.chip)}>
-                  {level}
-                </span>
-              )}
-              <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                {s.totalQuestions} questions
-              </span>
-            </div>
-
-            <p className={cn('mt-2 text-sm font-bold', ACCENT[verdict.accent].text)}>
-              {verdict.title}
-            </p>
-            <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">
-              {verdict.note}
-            </p>
-          </div>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400">
+          {examName ? `${examName} · Practice set` : 'Practice set'}
+        </p>
+        <h2 className="mt-0.5 text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
+          {model.meta.testName || subject?.name || 'Practice'}
+        </h2>
+        <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+          {level && (
+            <span className={cn('rounded-md px-1.5 py-0.5 text-[10px] font-bold', ACCENT.indigo.chip)}>{level}</span>
+          )}
+          <span className="text-[11px] text-gray-500 dark:text-gray-400">{s.totalQuestions} questions</span>
+        </div>
+        <p className={cn('mt-2 text-sm font-bold', ACCENT[verdict.accent].text)}>{verdict.title}</p>
+        <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">{verdict.note}</p>
+        </div>
+        <PassGap
+          score={s.score}
+          maxMarks={s.maxMarks}
+          percentage={s.percentage ?? s.correctPct}
+          pass={mark.pass}
+          accent={verdict.accent}
+          timeSec={s.timeUsedSec}
+          perQuestionSec={s.avgTimePerAttemptedSec ?? (s.timeUsedSec != null && s.attempted > 0 ? s.timeUsedSec / s.attempted : null)}
+          attempted={s.attempted}
+          total={s.totalQuestions}
+        />
         </div>
       </ReportCard>
 
-      {/* ── The four numbers ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <StatTile
-          icon={<CheckCircle2 className="w-4 h-4" />}
-          value={s.correct}
-          label="Correct"
-          accent="emerald"
-        />
-        <StatTile
-          icon={<XCircle className="w-4 h-4" />}
-          value={s.incorrect}
-          label="Wrong"
-          accent="rose"
-        />
-        <StatTile
-          icon={<MinusCircle className="w-4 h-4" />}
-          value={s.unattempted}
-          label="Skipped"
-          accent="slate"
-        />
-        <StatTile
-          icon={<Clock className="w-4 h-4" />}
-          value={fmtTime(s.timeUsedSec)}
-          label="Time taken"
-          hint={
-            s.avgTimePerAttemptedSec != null
-              ? `${Math.round(s.avgTimePerAttemptedSec)}s per question`
-              : undefined
-          }
-          accent="indigo"
-        />
-      </div>
+      {/* ── The score, and how the set split ──────────────────────────── */}
+      <OverallScoreSummary model={model} />
 
       {/* ── Categories inside the unit, each opening to its subtopics ── */}
-      <CategoryBreakdown questions={model.questions} passPercentage={passPercentage} />
+      <CategoryBreakdown questions={model.questions} passPercentage={mark.pass} />
 
       {/* ── Every question ────────────────────────────────────────────── */}
       <QuestionRecap model={model} />
@@ -397,7 +457,8 @@ function QuestionRecap({ model }: { model: AttemptReportModel }) {
                           {difficultyLabel(q.difficulty)}
                         </span>
                       )}
-                      {q.time_spent_seconds != null && (
+                      {/* A zero is "time was not recorded", not "answered in no time". */}
+                      {(q.time_spent_seconds ?? 0) > 0 && (
                         <span className="text-gray-400">{fmtTime(q.time_spent_seconds)}</span>
                       )}
                     </div>

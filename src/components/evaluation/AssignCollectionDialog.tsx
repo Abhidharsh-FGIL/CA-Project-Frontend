@@ -70,7 +70,16 @@ export function AssignCollectionDialog({ paper, onClose }: { paper: any | null; 
             <Label className="text-xs">Subject and unit</Label>
             <Select value={unitId || undefined} onValueChange={setUnitId}>
               <SelectTrigger>
-                <SelectValue placeholder="Choose the unit this collection belongs to" />
+                <SelectValue placeholder="Choose the unit this collection belongs to">
+                  {chosen ? (
+                    <span className="block truncate text-left">
+                      {(() => {
+                        const u = chosen.units.find(x => x.id === unitId);
+                        return u ? `${u.label ? `${u.label} · ` : ''}${u.name}` : '';
+                      })()}
+                    </span>
+                  ) : undefined}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent className="max-h-[60vh]">
                 {choices.map(c => (

@@ -38,7 +38,14 @@ export function CollectionUnitField({ examLabel, value, onChange }: Props) {
       </Label>
       <Select value={value.unitId ?? undefined} onValueChange={pickUnit}>
         <SelectTrigger className="h-10">
-          <SelectValue placeholder="Choose the unit this sheet is for" />
+          <SelectValue placeholder="Choose the unit this sheet is for">
+            {unit ? (
+              <span className="block truncate text-left">
+                {unit.label ? `${unit.label} · ` : ''}
+                {unitDisplayName(stage, unit)}
+              </span>
+            ) : undefined}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent className="max-h-[60vh]">
           {/* Subject first, then its units — the same order the Collections tab files them in. */}

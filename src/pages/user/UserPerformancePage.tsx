@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { displayTitle } from '@/lib/display-title';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { readPerformanceView } from '@/lib/performance-view';
 import { here } from '@/lib/report-origin';
 import { useQuery } from '@tanstack/react-query';
 import { TestsPerDayChart } from '@/components/user/TestsPerDayChart';
@@ -47,16 +48,20 @@ import { cn } from '@/lib/utils';
 export default function UserPerformancePage() {
   const { user, assessments, history, isLoading } = useUserPortal();
   const gateReport = useReportGate();
-  const [range, setRange] = useState<DateRange>(ALL_TIME);
-  const [track, setTrack] = useState<ExamTrackKey>('practice');
+  // The dashboard's link carries the exam, test type and range it was showing; start on those.
+  const [searchParams] = useSearchParams();
+  const fromLink = useMemo(() => readPerformanceView(searchParams), []); // only the view that was opened
+  const [range, setRange] = useState<DateRange>(fromLink.range ?? ALL_TIME);
+  const [track, setTrack] = useState<ExamTrackKey>(fromLink.track ?? 'practice');
   const preferredGroup = openGroupKey(user?.preferred_exam);
-  const [group, setGroup] = useState<ExamGroupKey>(preferredGroup);
+  const [group, setGroup] = useState<ExamGroupKey>(fromLink.group ?? preferredGroup);
 
   /**
    * Follows the registered exam until the aspirant picks one — the same rule the
    * dashboard uses, so moving between the two doesn't change which exam is shown.
+   * An exam named in the link counts as picked.
    */
-  const [pinned, setPinned] = useState(false);
+  const [pinned, setPinned] = useState(!!fromLink.group);
   useEffect(() => {
     if (!pinned) setGroup(preferredGroup);
   }, [preferredGroup, pinned]);

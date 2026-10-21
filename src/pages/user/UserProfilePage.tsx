@@ -75,9 +75,12 @@ export default function UserProfilePage() {
               <Mail className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
               <span className="truncate">{user.email}</span>
             </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Phone className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> +91 {user.phone}
-            </span>
+            {/* No number given: no "+91" with nothing after it. */}
+            {user.phone?.replace(/\D/g, '') && (
+              <span className="inline-flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> +91 {user.phone}
+              </span>
+            )}
             <span className="hidden sm:inline-flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" /> Joined {memberSince}
             </span>
@@ -157,7 +160,8 @@ function ProfileSection({
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
-    if (!/^\d{10}$/.test(form.phone)) {
+    // The number is optional: blank is fine, but one that is given has to be complete.
+    if (form.phone && !/^\d{10}$/.test(form.phone)) {
       toast.error('Phone must be 10 digits');
       return;
     }
@@ -364,6 +368,8 @@ function FormRow({
           ) : (
             <input
               type={type}
+              // A date of birth cannot be in the future.
+              max={type === 'date' ? new Date().toLocaleDateString('en-CA') : undefined}
               value={value}
               onChange={e => onChange(e.target.value)}
               className={field}

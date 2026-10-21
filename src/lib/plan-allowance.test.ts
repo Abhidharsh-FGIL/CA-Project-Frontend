@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SUBSCRIPTION_PLANS } from '@/data/userPortalSampleData';
-import { billingCycleOf, planAllowance, planCardState } from '@/lib/plan-allowance';
+import { activePlanPurchase, billingCycleOf, planAllowance, planCardState } from '@/lib/plan-allowance';
 
 const plan = (tier: string) => SUBSCRIPTION_PLANS.find(p => p.tier === tier)!;
 const withFeatures = (tier: string, features: Record<string, unknown>) => {
@@ -80,5 +80,52 @@ describe('planCardState', () => {
   it('a Free plan has no cycle, so it is current on both tabs', () => {
     expect(planCardState('free', 'free', 'yearly', 'monthly')).toBe('current');
     expect(planCardState('free', 'free', 'monthly', null)).toBe('current');
+  });
+});
+
+describe('planAllowance with the plan purchase', () => {
+  const ultimate = plan('ultimate');
+  const at = (start_time: string) => ({ test_mode: 'practice', mode: 'practice', start_time }) as any;
+  // Two practice tests under the Free plan, then one after upgrading on 15 Oct.
+  const history = [at('2026-10-02T10:00:00Z'), at('2026-10-05T10:00:00Z'), at('2026-10-16T10:00:00Z')];
+  const purchase = (over: Record<string, unknown> = {}) => ({
+    purchased_at: '2026-10-15T08:00:00Z',
+    validity: { valid_from: '2026-10-15T08:00:00Z', status: 'active', mock_tests: 5, mock_used: 0, practice_tests: 25, practice_used: 1, ...over },
+  });
+
+  it('uses the server’s own count for the plan, which never includes tests taken under an earlier plan', () => {
+    const a = planAllowance(ultimate, 'practice', history, null, undefined, purchase());
+    expect(a).toEqual({ limit: 25, used: 1, left: 24 });
+  });
+
+  it('takes the limit from the purchase, so a yearly plan is judged by its own', () => {
+    expect(planAllowance(ultimate, 'practice', history, null, undefined, purchase({ practice_tests: 60 })).limit).toBe(60);
+  });
+
+  it('without a count from the server, counts only from when the plan was bought — even with no subscription start', () => {
+    const noCount = purchase({ practice_used: null, practice_tests: null });
+    const a = planAllowance(ultimate, 'practice', history, null, undefined, noCount);
+    expect(a.used).toBe(1); // the two Free-plan tests are not counted
+  });
+
+  it('counts from the later of the subscription start and the purchase', () => {
+    const noCount = purchase({ practice_used: null });
+    expect(planAllowance(ultimate, 'practice', history, '2026-09-01T00:00:00Z', undefined, noCount).used).toBe(1);
+    expect(planAllowance(ultimate, 'practice', history, '2026-10-20T00:00:00Z', undefined, noCount).used).toBe(0);
+  });
+
+  it('with no purchase at all it counts as before', () => {
+    expect(planAllowance(ultimate, 'practice', history).used).toBe(3);
+    expect(planAllowance(ultimate, 'practice', history, null, undefined, null).used).toBe(3);
+  });
+
+  it('finds the purchase in force: the newest one marked active', () => {
+    const items = [
+      { purchased_at: '2026-10-15', validity: { status: 'active' } },
+      { purchased_at: '2026-09-01', validity: { status: 'replaced' } },
+    ] as any[];
+    expect(activePlanPurchase(items)).toBe(items[0]);
+    expect(activePlanPurchase([{ purchased_at: 'x', validity: { status: 'expired' } }] as any[])).toBeNull();
+    expect(activePlanPurchase(undefined)).toBeNull();
   });
 });

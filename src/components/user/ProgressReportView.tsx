@@ -5,7 +5,7 @@
  * more (§21 steps 27–29). Where the model reports a dimension as unavailable the
  * module says so rather than thinning out into a plausible-looking chart (§3, §19).
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Bar,
   CartesianGrid,
@@ -145,9 +145,124 @@ function TrendArrow({ delta }: { delta: number | null }) {
   );
 }
 
-// ─── 1. Cover / report context (§6.1) ──────────────────────────────────────────
+// ─── 1 + 2. Overview: where you stand, and what stands out ──────────────────────
 
-export function ReportCover({
+/** A circular score, drawn as an arc — the readiness at a glance. */
+function ReadinessRing({ score, grade, label }: { score: number; grade: string; label: string }) {
+  const size = 132;
+  const stroke = 12;
+  const r = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * r;
+  const clamped = Math.max(0, Math.min(100, score));
+  const colour = clamped >= 75 ? '#10b981' : clamped >= 50 ? '#f59e0b' : '#ff6c24';
+  return (
+    <div className="flex flex-col items-center text-center">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="-rotate-90">
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-gray-100 dark:stroke-gray-800" />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            stroke={colour}
+            strokeDasharray={circumference}
+            strokeDashoffset={circumference * (1 - clamped / 100)}
+            style={{ transition: 'stroke-dashoffset 600ms ease' }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-3xl font-extrabold leading-none text-gray-900 dark:text-gray-100">{grade}</span>
+          <span className="mt-1 text-[11px] font-semibold tabular-nums text-gray-500 dark:text-gray-400">{Math.round(score)}/100</span>
+        </div>
+      </div>
+      <p className="mt-2 text-xs font-bold text-gray-800 dark:text-gray-100">{label}</p>
+      <p className="text-[10px] uppercase tracking-wider text-gray-400">Exam readiness</p>
+    </div>
+  );
+}
+
+function Kpi({
+  label,
+  value,
+  hint,
+  tone,
+  icon,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: 'good' | 'warn';
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-gray-100 bg-white/80 p-3.5 dark:border-gray-800 dark:bg-gray-900/70">
+      <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        {icon}
+        {label}
+      </p>
+      <p
+        className={cn(
+          'mt-1.5 text-2xl font-extrabold leading-none tabular-nums',
+          tone === 'good'
+            ? 'text-emerald-600 dark:text-emerald-400'
+            : tone === 'warn'
+              ? 'text-rose-600 dark:text-rose-400'
+              : 'text-gray-900 dark:text-gray-100',
+        )}
+      >
+        {value}
+      </p>
+      {hint && <p className="mt-1.5 text-[11px] leading-snug text-gray-500 dark:text-gray-400">{hint}</p>}
+    </div>
+  );
+}
+
+function Highlights({
+  title,
+  tone,
+  icon,
+  items,
+  empty,
+}: {
+  title: string;
+  tone: 'good' | 'warn' | 'info';
+  icon: React.ReactNode;
+  items: string[];
+  empty: string;
+}) {
+  const head =
+    tone === 'good'
+      ? 'text-emerald-700 dark:text-emerald-300'
+      : tone === 'warn'
+        ? 'text-rose-700 dark:text-rose-300'
+        : 'text-blue-700 dark:text-blue-300';
+  const dot = tone === 'good' ? 'bg-emerald-500' : tone === 'warn' ? 'bg-rose-500' : 'bg-blue-500';
+  return (
+    <div className="rounded-xl border border-gray-100 bg-white/80 p-3.5 dark:border-gray-800 dark:bg-gray-900/70">
+      <p className={cn('flex items-center gap-1.5 text-xs font-bold', head)}>
+        {icon}
+        {title}
+      </p>
+      {items.length === 0 ? (
+        <p className="mt-2 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">{empty}</p>
+      ) : (
+        <ul className="mt-2 space-y-2">
+          {items.map((t, i) => (
+            <li key={i} className="flex items-start gap-2 text-[12px] leading-snug text-gray-700 dark:text-gray-200">
+              <span className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', dot)} />
+              <span>{t}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+export function ProgressHero({
   model,
   studentName,
   examName,
@@ -156,155 +271,209 @@ export function ReportCover({
   studentName: string;
   examName?: string | null;
 }) {
-  const rows: Array<[string, string]> = [
-    ['Student', studentName],
-    ...(examName ? ([['Exam', examName]] as Array<[string, string]>) : []),
-    ['Attempts in window', String(model.window.attempts)],
-    ['First attempt', day(model.window.firstDate)],
-    ['Latest attempt', day(model.window.latestDate)],
-  ];
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-blue-100 dark:border-blue-900 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-950/50 dark:via-purple-950/50 dark:to-pink-950/50 p-5 sm:p-6">
-      <div className="absolute -top-16 -right-16 w-48 h-48 bg-purple-300/30 dark:bg-purple-700/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="relative">
-        <p className="text-[10px] uppercase tracking-[0.25em] text-blue-700 dark:text-brand-300 font-bold mb-1.5">
-          Progress Report
-        </p>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-          Your journey so far
-        </h1>
-        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1.5 max-w-2xl">
-          How your performance has moved across attempts, which gaps are closing, and what to do next.
-        </p>
-        <dl className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 mt-4">
-          {rows.map(([k, v]) => (
-            <div key={k} className="rounded-xl bg-white/70 dark:bg-gray-900/60 px-3 py-2">
-              <dt className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{k}</dt>
-              <dd className="text-xs font-bold text-gray-900 dark:text-gray-100 mt-0.5">{v}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-    </div>
-  );
-}
-
-// ─── 2. Executive dashboard (§7) ───────────────────────────────────────────────
-
-export function ExecutiveDashboard({ model }: { model: ProgressReportModel }) {
   const h = model.headline;
   const r = model.readiness;
+  const n = model.window.attempts;
+  const delta = h.scoreDeltaPoints;
+  const moving = delta == null ? null : delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
 
-  const tiles: Array<{ label: string; value: string; hint: string; tone?: 'good' | 'warn' }> = [
-    {
-      label: 'Latest score',
-      value: h.latestScore != null && h.latestMax != null ? `${h.latestScore}/${h.latestMax}` : fmtPct(h.latestScorePct),
-      hint:
-        h.latestScorePct != null
-          ? `${h.latestScorePct}% of the paper${h.scoreDeltaMarks != null ? ` · ${signed(h.scoreDeltaMarks, ' marks')} vs first` : ''}`
-          : 'No scored attempt',
-    },
-    {
-      label: 'Best score',
-      value: fmtPct(h.bestScorePct),
-      hint: h.bestAttemptLabel ? `Your best was ${h.bestAttemptLabel}` : '—',
-    },
-    {
-      // Points and marks are labelled separately — a marks difference printed as a
-      // percentage is the mislabelling §7 singles out.
-      label: 'Score movement',
-      value: signed(h.scoreDeltaPoints),
-      hint: h.scoreDeltaMarks != null ? `${signed(h.scoreDeltaMarks, ' marks')} in raw terms` : 'Needs two attempts',
-      tone: (h.scoreDeltaPoints ?? 0) >= 0 ? 'good' : 'warn',
-    },
-    { label: 'Attempts', value: String(model.window.attempts), hint: 'In this window' },
-    {
-      label: 'Latest accuracy',
-      value: fmtPct(h.latestAccuracy),
-      hint: h.accuracyDeltaPoints != null ? `${signed(h.accuracyDeltaPoints)} vs first attempt` : 'Of questions attempted',
-      tone: (h.accuracyDeltaPoints ?? 0) >= 0 ? 'good' : 'warn',
-    },
-    {
-      label: 'Attempt rate',
-      value: fmtPct(h.latestAttemptRate),
-      hint: h.attemptRateDeltaPoints != null ? `${signed(h.attemptRateDeltaPoints)} vs first attempt` : 'Of the paper reached',
-      tone: (h.attemptRateDeltaPoints ?? 0) >= 0 ? 'good' : 'warn',
-    },
-  ];
+  const going = [
+    ...model.narrative.improvementDrivers,
+    ...(model.narrative.improvementDrivers.length === 0 && r ? r.strengths.map(c => `${c.label}: ${c.evidence}`) : []),
+  ].slice(0, 4);
+  const needs = [...model.narrative.persistentGaps, ...model.narrative.newOrDeclining].slice(0, 4);
+  const habits = model.narrative.behaviour.slice(0, 3);
+
+  const meta = [
+    examName,
+    studentName,
+    `${n} attempt${n === 1 ? '' : 's'}`,
+    model.window.firstDate && model.window.latestDate
+      ? `${day(model.window.firstDate)} → ${day(model.window.latestDate)}`
+      : null,
+  ].filter(Boolean) as string[];
 
   return (
-    <Card>
-      <ModuleHead icon={<Gauge className="w-4 h-4 text-blue-500" />} title="Where you stand now" />
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-        {tiles.map(t => (
-          <div key={t.label} className="rounded-xl border border-gray-100 dark:border-gray-800 p-3">
-            <p
-              className={cn(
-                'text-lg font-bold leading-none',
-                t.tone === 'good'
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : t.tone === 'warn'
-                    ? 'text-rose-600 dark:text-rose-400'
-                    : 'text-gray-900 dark:text-gray-100',
-              )}
-            >
-              {t.value}
-            </p>
-            <p className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 mt-1.5">{t.label}</p>
-            <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{t.hint}</p>
+    <section id="overview" className="scroll-mt-20 space-y-3 sm:space-y-4">
+      <div className="relative overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-purple-50/70 to-orange-50/60 p-5 dark:border-blue-900 dark:from-blue-950/50 dark:via-purple-950/40 dark:to-orange-950/20 sm:p-6">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-purple-300/30 blur-3xl dark:bg-purple-700/20" />
+        <div className="relative">
+          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-blue-700 dark:text-brand-300">Progress report</p>
+          <h1 className="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100 sm:text-3xl">Your progress so far</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {meta.map(m => (
+              <span key={m} className="rounded-full bg-white/70 px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:bg-gray-900/60 dark:text-gray-300">
+                {m}
+              </span>
+            ))}
           </div>
-        ))}
+
+          <div className="mt-5 grid items-center gap-5 lg:grid-cols-[auto_minmax(0,1fr)]">
+            {r ? (
+              <div className="flex justify-center lg:justify-start lg:pr-4">
+                <ReadinessRing score={r.score} grade={r.grade} label={r.label} />
+              </div>
+            ) : (
+              <div className="hidden lg:block" />
+            )}
+
+            <div className="space-y-3">
+              {model.narrative.trajectory[0] && (
+                <p className="text-sm font-medium leading-relaxed text-gray-800 dark:text-gray-100">
+                  {model.narrative.trajectory[0]}
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+                <Kpi
+                  label="Latest score"
+                  value={fmtPct(h.latestScorePct)}
+                  hint={
+                    h.latestScore != null && h.latestMax != null
+                      ? `${h.latestScore} of ${h.latestMax} marks`
+                      : 'No scored attempt yet'
+                  }
+                />
+                <Kpi
+                  label="Best score"
+                  value={fmtPct(h.bestScorePct)}
+                  hint={h.bestAttemptLabel ?? undefined}
+                  icon={<Target className="h-3 w-3" />}
+                />
+                <Kpi
+                  label="Movement"
+                  value={signed(delta)}
+                  hint={delta == null ? 'Needs two attempts' : 'First to latest attempt'}
+                  tone={moving === 'up' ? 'good' : moving === 'down' ? 'warn' : undefined}
+                  icon={
+                    moving === 'up' ? (
+                      <ArrowUp className="h-3 w-3" />
+                    ) : moving === 'down' ? (
+                      <ArrowDown className="h-3 w-3" />
+                    ) : (
+                      <ArrowRight className="h-3 w-3" />
+                    )
+                  }
+                />
+                <Kpi label="Attempts" value={String(n)} hint="In this window" />
+              </div>
+              {(h.latestAccuracy != null || h.latestAttemptRate != null) && (
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                  {h.latestAccuracy != null && (
+                    <>
+                      Accuracy on what you answered <b className="text-gray-700 dark:text-gray-200">{fmtPct(h.latestAccuracy)}</b>
+                    </>
+                  )}
+                  {h.latestAccuracy != null && h.latestAttemptRate != null && ' · '}
+                  {h.latestAttemptRate != null && (
+                    <>
+                      Reached <b className="text-gray-700 dark:text-gray-200">{fmtPct(h.latestAttemptRate)}</b> of the paper
+                    </>
+                  )}
+                </p>
+              )}
+              {r && r.blockers.length > 0 && (
+                <p className="rounded-lg bg-white/70 px-3 py-2 text-[12px] leading-relaxed text-gray-700 dark:bg-gray-900/60 dark:text-gray-200">
+                  <b>Held back most by</b> {r.blockers.map(b => b.label.toLowerCase()).join(' and ')}.
+                  {r.nextBand ? ` ${r.nextBand}` : ''}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Percentile is absent by design: §3 forbids it without a valid cohort. */}
+      <div className="grid gap-2.5 sm:gap-3 lg:grid-cols-3">
+        <Highlights
+          title="Going well"
+          tone="good"
+          icon={<TrendingUp className="h-4 w-4" />}
+          items={going}
+          empty="Nothing stands out yet — a few more attempts will show where you are gaining."
+        />
+        <Highlights
+          title="Needs work"
+          tone="warn"
+          icon={<Flag className="h-4 w-4" />}
+          items={needs}
+          empty="No unresolved gaps in this window."
+        />
+        <Highlights
+          title="Your habits"
+          tone="info"
+          icon={<Gauge className="h-4 w-4" />}
+          items={habits}
+          empty="Habits show once your attempts carry timing and difficulty detail."
+        />
+      </div>
+
+      {/* Percentile is absent by design: it needs a comparison cohort, which the platform does not record. */}
       {!model.dataQuality.cohortAvailable && (
-        <p className="mt-2.5 text-[10px] text-gray-400 dark:text-gray-500">
-          Percentile and rank are not shown — they need a comparison cohort, which this platform does not yet
-          record.
+        <p className="px-1 text-[10px] text-gray-400 dark:text-gray-500">
+          Percentile and rank are not shown — they need a comparison cohort, which this platform does not yet record.
         </p>
       )}
-
-      {r && (
-        <div className="mt-3 rounded-xl border border-blue-100 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/30 p-3">
-          <p className="text-xs font-bold text-gray-900 dark:text-gray-100">
-            Readiness {r.grade} · {r.label}{' '}
-            <span className="font-normal text-gray-500 dark:text-gray-400">({r.score}/100)</span>
-          </p>
-          <p className="text-[11px] text-gray-700 dark:text-gray-300 mt-1 leading-relaxed">
-            Held back most by {r.blockers.map(b => b.label.toLowerCase()).join(' and ')}.
-            {r.nextBand ? ` ${r.nextBand}` : ''}
-          </p>
-        </div>
-      )}
-
-      <div className="mt-3 space-y-1.5">
-        {model.narrative.trajectory.map((line, i) => (
-          <p key={i} className="text-[11px] leading-relaxed text-gray-700 dark:text-gray-200">
-            {line}
-          </p>
-        ))}
-        {model.narrative.improvementDrivers.length > 0 && (
-          <p className="text-[11px] leading-relaxed text-gray-700 dark:text-gray-200">
-            <span className="font-semibold">Largest gains: </span>
-            {model.narrative.improvementDrivers.join('; ')}.
-          </p>
-        )}
-        {model.narrative.persistentGaps.length > 0 && (
-          <p className="text-[11px] leading-relaxed text-gray-700 dark:text-gray-200">
-            <span className="font-semibold">Still unresolved: </span>
-            {model.narrative.persistentGaps.join('; ')}.
-          </p>
-        )}
-        {model.narrative.behaviour.map((line, i) => (
-          <p key={`b${i}`} className="text-[11px] leading-relaxed text-gray-700 dark:text-gray-200">
-            {line}
-          </p>
-        ))}
-      </div>
-    </Card>
+    </section>
   );
 }
 
+/** Jump links to the report's sections. Follows the page as it scrolls, and stays in reach. */
+const SECTIONS: Array<{ id: string; label: string }> = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'next', label: 'Next steps' },
+  { id: 'trend', label: 'Trend' },
+  { id: 'units', label: 'Units' },
+  { id: 'gaps', label: 'Gaps' },
+  { id: 'habits', label: 'Habits' },
+  { id: 'week', label: 'This week' },
+];
+
+function SectionNav() {
+  const [active, setActive] = useState('overview');
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+    const seen = new Map<string, boolean>();
+    const io = new IntersectionObserver(
+      entries => {
+        for (const e of entries) seen.set(e.target.id, e.isIntersecting);
+        const first = SECTIONS.find(s => seen.get(s.id));
+        if (first) setActive(first.id);
+      },
+      { rootMargin: '-80px 0px -60% 0px', threshold: 0 },
+    );
+    for (const s of SECTIONS) {
+      const el = document.getElementById(s.id);
+      if (el) io.observe(el);
+    }
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <nav
+      aria-label="Sections of this report"
+      className="sticky top-2 z-20 -mx-1 overflow-x-auto rounded-2xl border border-gray-100 bg-white/90 px-2 py-1.5 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/90 scrollbar-thin"
+    >
+      <ul className="flex w-max min-w-full items-center gap-1">
+        {SECTIONS.map(s => (
+          <li key={s.id}>
+            <button
+              type="button"
+              onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              aria-current={active === s.id ? 'true' : undefined}
+              className={cn(
+                'whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors',
+                active === s.id
+                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-brand-300'
+                  : 'text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800',
+              )}
+            >
+              {s.label}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
 // ─── 3. Performance journey (§8) ───────────────────────────────────────────────
 
 export function PerformanceJourney({
@@ -460,14 +629,15 @@ function JourneyTooltip({ active, payload }: any) {
 // ─── 4. Proficiency radar (§9) ─────────────────────────────────────────────────
 
 export function ProficiencyRadarModule({ model }: { model: ProgressReportModel }) {
+  const noun = model.subjects.some(s => s.subjectId.startsWith('unit:')) ? 'unit' : 'subject';
   const plotted = model.subjects.filter(s => s.first?.accuracy != null || s.latest?.accuracy != null);
 
   if (plotted.length < 3) {
     return (
       <Card>
-        <ModuleHead icon={<Target className="w-4 h-4 text-blue-500" />} title="Subject proficiency" />
+        <ModuleHead icon={<Target className="w-4 h-4 text-blue-500" />} title={`${noun === 'unit' ? 'Unit' : 'Subject'} proficiency`} />
         <Unavailable
-          reason={`Only ${plotted.length} subject${plotted.length === 1 ? '' : 's'} have enough attempted questions to plot. The subject table below carries the same figures.`}
+          reason={`Only ${plotted.length} ${noun}${plotted.length === 1 ? '' : 's'} have enough attempted questions to plot. The ${noun} table below carries the same figures.`}
         />
       </Card>
     );
@@ -490,7 +660,7 @@ export function ProficiencyRadarModule({ model }: { model: ProgressReportModel }
     <Card>
       <ModuleHead
         icon={<Target className="w-4 h-4 text-blue-500" />}
-        title="Subject proficiency — first vs latest"
+        title={`${noun === 'unit' ? 'Unit' : 'Subject'} proficiency — first vs latest`}
         subtitle="Accuracy on attempted questions, same scale for both"
       />
       <div className="h-[320px]">
@@ -716,6 +886,7 @@ const GAP_TABS: Array<{ key: 'all' | GapState; label: string }> = [
 ];
 
 export function GapEvolution({ model }: { model: ProgressReportModel }) {
+  const noun = model.subjects.some(s => s.subjectId.startsWith('unit:')) ? 'unit' : 'subject';
   const [tab, setTab] = useState<'all' | GapState>('all');
   const all = useMemo(
     () => [...model.gaps.resolved, ...model.gaps.improving, ...model.gaps.persistent, ...model.gaps.new],
@@ -740,7 +911,7 @@ export function GapEvolution({ model }: { model: ProgressReportModel }) {
       {model.comparability === 'BASELINE_ONLY' ? (
         <Unavailable reason="Gap evolution compares attempts — it appears once you have a second one." />
       ) : all.length === 0 ? (
-        <Unavailable reason="No subject has enough measured attempts on both ends to compare yet." />
+        <Unavailable reason={`No ${noun} has enough measured attempts on both ends to compare yet.`} />
       ) : (
         <>
           <div className="flex flex-wrap gap-1.5 mb-3">
@@ -765,7 +936,7 @@ export function GapEvolution({ model }: { model: ProgressReportModel }) {
             <table className="w-full text-[11px] min-w-[520px]">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-800 text-left">
-                  <th className="px-2 py-2 font-semibold text-gray-500 dark:text-gray-400">Subject</th>
+                  <th className="px-2 py-2 font-semibold text-gray-500 dark:text-gray-400">{noun === 'unit' ? 'Unit' : 'Subject'}</th>
                   <th className="px-2 py-2 font-semibold text-gray-500 dark:text-gray-400 text-right">First</th>
                   <th className="px-2 py-2 font-semibold text-gray-500 dark:text-gray-400 text-right">Latest</th>
                   <th className="px-2 py-2 font-semibold text-gray-500 dark:text-gray-400 text-right">Movement</th>
@@ -949,11 +1120,13 @@ export function ExamReadiness({ model }: { model: ProgressReportModel }) {
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export function NextPhasePlan({ model }: { model: ProgressReportModel }) {
+  const [showAll, setShowAll] = useState(false);
+  const unitRows = model.subjects.some(s => s.subjectId.startsWith('unit:'));
   if (model.priorities.length === 0) {
     return (
       <Card>
-        <ModuleHead icon={<Flag className="w-4 h-4 text-blue-500" />} title="Next-phase study plan" />
-        <Unavailable reason="A plan needs at least one measured subject to prioritise." />
+        <ModuleHead icon={<Flag className="w-4 h-4 text-blue-500" />} title="What to work on next" />
+        <Unavailable reason={`A plan needs at least one measured ${unitRows ? 'unit' : 'subject'} to prioritise.`} />
       </Card>
     );
   }
@@ -962,14 +1135,24 @@ export function NextPhasePlan({ model }: { model: ProgressReportModel }) {
     <Card>
       <ModuleHead
         icon={<Flag className="w-4 h-4 text-blue-500" />}
-        title="Personalised next-phase plan"
-        subtitle={`${model.priorities.length} active priorities, ${model.queuedPriorities.length} queued`}
+        title="What to work on next"
+        subtitle={`Your top ${Math.min(3, model.priorities.length)} priorities, in order — most important first`}
       />
       <ol className="space-y-2.5">
-        {model.priorities.map(p => (
+        {(showAll ? model.priorities : model.priorities.slice(0, 3)).map(p => (
           <PriorityCard key={p.subjectId} p={p} />
         ))}
       </ol>
+      {model.priorities.length > 3 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(v => !v)}
+          className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+        >
+          {showAll ? 'Show fewer' : `Show ${model.priorities.length - 3} more`}
+          <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', showAll && 'rotate-180')} />
+        </button>
+      )}
       {model.queuedPriorities.length > 0 && (
         <p className="mt-2.5 text-[11px] text-gray-500 dark:text-gray-400">
           Queued for a later cycle: {model.queuedPriorities.map(p => p.name).join(', ')}. Held back so the
@@ -1146,10 +1329,10 @@ export function ProgressReportView({
 }) {
   return (
     <div className="space-y-3 sm:space-y-4">
-      <ReportCover model={model} studentName={studentName} examName={examName} />
+      <ProgressHero model={model} studentName={studentName} examName={examName} />
 
       {model.dataQuality.warnings.length > 0 && (
-        <div className="rounded-2xl border border-amber-200 dark:border-amber-900 bg-amber-50/60 dark:bg-amber-950/30 p-3 space-y-1">
+        <div className="space-y-1 rounded-2xl border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/30">
           {model.dataQuality.warnings.map((w, i) => (
             <p key={i} className="text-[11px] text-amber-800 dark:text-amber-300">
               {w}
@@ -1158,20 +1341,34 @@ export function ProgressReportView({
         </div>
       )}
 
-      <ExecutiveDashboard model={model} />
-      <PerformanceJourney model={model} examName={examName} />
-      <div className="grid lg:grid-cols-2 gap-3 sm:gap-4 items-start">
-        <ProficiencyRadarModule model={model} />
-        <ExamReadiness model={model} />
-      </div>
-      <SubjectProgressTable model={model} />
-      <GapEvolution model={model} />
-      <BehaviourAnalysis model={model} />
-      <NextPhasePlan model={model} />
-      <WeeklyPlan model={model} />
+      <SectionNav />
 
-      <p className="text-[11px] text-center text-gray-500 dark:text-gray-400 py-2 inline-flex items-center justify-center gap-1.5 w-full">
-        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+      {/* What to do comes before the history of how it got here: it is what the reader came for. */}
+      <section id="next" className="scroll-mt-20">
+        <NextPhasePlan model={model} />
+      </section>
+      <section id="trend" className="scroll-mt-20 space-y-3 sm:space-y-4">
+        <PerformanceJourney model={model} examName={examName} />
+        <div className="grid items-start gap-3 sm:gap-4 lg:grid-cols-2">
+          <ProficiencyRadarModule model={model} />
+          <ExamReadiness model={model} />
+        </div>
+      </section>
+      <section id="units" className="scroll-mt-20">
+        <SubjectProgressTable model={model} />
+      </section>
+      <section id="gaps" className="scroll-mt-20">
+        <GapEvolution model={model} />
+      </section>
+      <section id="habits" className="scroll-mt-20">
+        <BehaviourAnalysis model={model} />
+      </section>
+      <section id="week" className="scroll-mt-20">
+        <WeeklyPlan model={model} />
+      </section>
+
+      <p className="inline-flex w-full items-center justify-center gap-1.5 py-2 text-center text-[11px] text-gray-500 dark:text-gray-400">
+        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
         {model.narrative.studentMessage}
       </p>
     </div>

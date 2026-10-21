@@ -86,6 +86,32 @@ export function planCardState(
   return 'switch';
 }
 
+/** What the allowance reads of a plan purchase: when it began, and what the server has counted against it. */
+export interface PlanPurchaseLike {
+  purchased_at: string;
+  validity: {
+    valid_from: string | null;
+    status: string;
+    mock_tests: number | null;
+    mock_used: number | null;
+    practice_tests: number | null;
+    practice_used: number | null;
+  } | null;
+}
+
+/** The plan purchase now in force — the newest one the server marks active — or null. */
+export function activePlanPurchase<T extends PlanPurchaseLike>(items: T[] | null | undefined): T | null {
+  return (items ?? []).find(p => p.validity?.status === 'active') ?? null;
+}
+
+/** The later of two dates, as an ISO string; either may be absent. */
+function laterOf(a?: string | null, b?: string | null): string | null {
+  const x = a ? Date.parse(a) : NaN;
+  const y = b ? Date.parse(b) : NaN;
+  if (Number.isNaN(x) && Number.isNaN(y)) return null;
+  return Number.isNaN(y) || x >= y ? (a ?? null) : (b ?? null);
+}
+
 export function planAllowance(
   plan: SubscriptionPlanInfo,
   kind: AllowanceKind,
@@ -94,10 +120,26 @@ export function planAllowance(
   since?: string | null,
   /** The papers the portal knows, so an attempt that does not say its track can be matched to its paper. */
   papers?: AllowancePaper[],
+  /**
+   * The plan purchase in force. The server counts tests against it, so its own figures are used when it
+   * gives them — they are what it enforces, and they never include the tests taken under an earlier plan.
+   * Without them its start date still tightens `since`: the plan began when it was bought.
+   */
+  purchase?: PlanPurchaseLike | null,
 ): PlanAllowance {
   const included = kind === 'mock' ? plan.features.mock_tests_per_month : plan.features.practice_tests_per_month;
-  const limit = included === 'none' ? 0 : typeof included === 'number' ? included : null;
+  const planLimit = included === 'none' ? 0 : typeof included === 'number' ? included : null;
 
+  const v = purchase?.validity ?? null;
+  const serverTests = v ? (kind === 'mock' ? v.mock_tests : v.practice_tests) : null;
+  const serverUsed = v ? (kind === 'mock' ? v.mock_used : v.practice_used) : null;
+  if (v && serverUsed != null && Number.isFinite(serverUsed)) {
+    const limit = serverTests != null && Number.isFinite(serverTests) ? serverTests : planLimit;
+    return { limit, used: serverUsed, left: limit === null ? null : Math.max(0, limit - serverUsed) };
+  }
+
+  const limit = planLimit;
+  since = laterOf(since, purchase ? (v?.valid_from ?? purchase.purchased_at) : null);
   const from = since ? Date.parse(since) : NaN;
   const paperModes = new Map((papers ?? []).map(p => [p.assessment_id, p.mode]));
   const used = history.filter(

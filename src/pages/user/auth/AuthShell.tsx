@@ -91,6 +91,8 @@ interface FieldProps {
   error?: string;
   hint?: string;
   type?: string;
+  /** The latest value a date box accepts, as `YYYY-MM-DD`. */
+  max?: string;
   maxLength?: number;
   required?: boolean;
   /** Shown but not editable — the email of a Google account, which is what the account is made for. */
@@ -112,6 +114,7 @@ export function AuthField({
   error,
   hint,
   type = 'text',
+  max,
   maxLength,
   required,
   readOnly,
@@ -134,6 +137,7 @@ export function AuthField({
           id={id}
           type={type}
           value={value}
+          max={max}
           maxLength={maxLength}
           required={required}
           readOnly={readOnly}
@@ -167,11 +171,11 @@ export function AuthSelect({
   label: string;
   placeholder: string;
   /** Plain strings when the value is the label; pairs when they differ. */
-  options: (string | { value: string; label: string })[];
+  options: (string | { value: string; label: string; disabled?: boolean })[];
   error?: string;
 }) {
   const id = useId();
-  const items = options.map(o => (typeof o === 'string' ? { value: o, label: o } : o));
+  const items = options.map(o => (typeof o === 'string' ? { value: o, label: o, disabled: false } : { disabled: false, ...o }));
   return (
     <div className="mge-field">
       <div className={`mge-input mge-input-labelled${error ? ' mge-input-error' : ''}${value ? '' : ' mge-input-empty'}`}>
@@ -184,7 +188,7 @@ export function AuthSelect({
             {placeholder}
           </option>
           {items.map(o => (
-            <option key={o.value} value={o.value}>
+            <option key={o.value} value={o.value} disabled={o.disabled}>
               {o.label}
             </option>
           ))}

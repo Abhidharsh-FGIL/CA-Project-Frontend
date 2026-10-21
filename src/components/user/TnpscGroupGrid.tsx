@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, Clock3, Layers, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -160,11 +161,26 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
 
   // Every subject the examination covers, deduped across its stages — Group 4's
   // single stage carries all twelve, while a multi-stage exam would repeat some.
-  const subjects = [
+  const allNames = [
     ...new Map(group.stages.flatMap(st => st.subjects).map(sub => [sub.id, sub.name])).values(),
   ];
-  const shownSubjects = subjects.slice(0, SUBJECT_CHIP_LIMIT);
-  const hiddenSubjects = subjects.length - shownSubjects.length;
+  // A paper sat in one of two languages can arrive both combined ("General Tamil / General English") and as its
+  // two parts; the combined name already says both, so the parts are not listed again. Same name twice, once.
+  const combinedParts = new Set(
+    allNames.filter(n => n.includes('/')).flatMap(n => n.split('/').map(part => part.trim().toLowerCase())),
+  );
+  const subjects = allNames.filter(
+    (n, i) => n.includes('/') || !combinedParts.has(n.trim().toLowerCase())
+  ).filter((n, i, all) => all.findIndex(m => m.trim().toLowerCase() === n.trim().toLowerCase()) === i);
+  // "+N more" opens the rest in place. The card is a link, so the toggle must not follow it.
+  const [showAll, setShowAll] = useState(false);
+  const shownSubjects = showAll ? subjects : subjects.slice(0, SUBJECT_CHIP_LIMIT);
+  const hiddenSubjects = subjects.length - SUBJECT_CHIP_LIMIT;
+  const toggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowAll(v => !v);
+  };
 
   return (
     <CardFrame to={`/user/exams/${group.id}`} disabled={comingSoon} index={index}>
@@ -220,16 +236,19 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
                 </span>
               ))}
               {hiddenSubjects > 0 && (
-                <span
+                <button
+                  type="button"
+                  onClick={toggle}
+                  aria-expanded={showAll}
                   className={cn(
                     'text-[11px] font-semibold border px-2.5 py-1 rounded-full',
                     comingSoon
                       ? 'text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                      : 'text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700',
+                      : 'text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-blue-950/30',
                   )}
                 >
-                  +{hiddenSubjects} more
-                </span>
+                  {showAll ? 'Show less' : `+${hiddenSubjects} more`}
+                </button>
               )}
             </div>
           </div>

@@ -296,7 +296,13 @@ export function ScoreRing({
 }) {
   const r = (size - 12) / 2;
   const circumference = 2 * Math.PI * r;
-  const filled = percent == null ? 0 : Math.max(0, Math.min(100, percent));
+  // Starts empty and fills on the next frame, so the transition below has somewhere to sweep from.
+  const [ready, setReady] = React.useState(false);
+  React.useEffect(() => {
+    const id = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  const filled = !ready || percent == null ? 0 : Math.max(0, Math.min(100, percent));
   return (
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
@@ -318,6 +324,8 @@ export function ScoreRing({
           stroke={ACCENT[accent].hex}
           strokeDasharray={circumference}
           strokeDashoffset={circumference * (1 - filled / 100)}
+          // Sweeps round to its mark when the ring first appears.
+          style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.22, 1, 0.36, 1)' }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
