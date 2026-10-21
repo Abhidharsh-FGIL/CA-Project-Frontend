@@ -143,7 +143,7 @@ export function LoginOtpForm({
   if (step === 'identify') {
     return (
       <>
-        <p className="mge-auth-sub">Enter your registered email ID or mobile number to get a one-time password</p>
+        <p className="mge-auth-sub">Enter your registered email ID to get a one-time password</p>
 
         {error && (
           <div className="mge-auth-alert" role="alert">
@@ -159,9 +159,9 @@ export function LoginOtpForm({
               setTyped(v);
               setTypedError('');
             }}
-            placeholder="Email ID or Mobile number"
+            placeholder="Email ID"
             error={typedError}
-            autoComplete="username"
+            autoComplete="email"
           />
           <button type="submit" disabled={busy} className="mge-btn mge-btn-primary mge-auth-submit">
             {busy ? (
@@ -237,7 +237,7 @@ export function LoginOtpForm({
           )}
         </button>
         <button type="button" className="mge-modal-text-btn" onClick={changeIdentifier}>
-          Change email / mobile number
+          Change email ID
         </button>
       </form>
     </>

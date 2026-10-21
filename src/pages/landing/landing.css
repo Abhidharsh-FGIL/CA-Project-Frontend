@@ -254,6 +254,122 @@
   margin: 24px 0 22px;
 }
 
+/*
+ * "TNPSC Group 4 · Live", floating beside "Starts Here": the exam that is open today. It bobs, and
+ * its dot sends out a ring. Selectors go through `h1` to win over the heading's orange `span` rule.
+ */
+.mge h1 .mge-live-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-left: 0.2em;
+  padding: 6px 7px 6px 12px;
+  vertical-align: middle;
+  /* A border in the brand orange: the white fill sits over the padding box and the gradient shows
+     through the (transparent) border, which a plain `border-color` cannot do. */
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(120deg, #ff6c24 0%, #ff9a3d 55%, #ffc15e 100%) border-box;
+  box-shadow:
+    0 12px 28px rgba(255, 108, 36, 0.2),
+    0 0 0 4px rgba(255, 122, 47, 0.08);
+  color: var(--mge-navy);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+  white-space: nowrap;
+  animation:
+    mge-float 3.6s ease-in-out infinite,
+    mge-chip-glow 2.4s ease-in-out infinite;
+}
+
+.mge h1 .mge-live-chip b {
+  font-weight: 700;
+}
+
+.mge h1 .mge-live-chip em {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #e4f6ee;
+  color: #0e8f62;
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.mge h1 .mge-live-chip i {
+  position: relative;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #19a974;
+}
+
+.mge h1 .mge-live-chip i::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 2px solid #19a974;
+  border-radius: 50%;
+  opacity: 0;
+  animation: mge-live-ring 1.9s ease-out infinite;
+}
+
+@keyframes mge-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-9px) rotate(1.5deg);
+  }
+}
+
+/* The halo around the chip swells and settles, so the border reads as lit rather than drawn. */
+@keyframes mge-chip-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 12px 28px rgba(255, 108, 36, 0.2),
+      0 0 0 4px rgba(255, 122, 47, 0.08);
+  }
+  50% {
+    box-shadow:
+      0 14px 32px rgba(255, 108, 36, 0.32),
+      0 0 0 8px rgba(255, 122, 47, 0.16);
+  }
+}
+
+@keyframes mge-float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes mge-live-ring {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
 /* Keeps a hyphenated term whole on one line, so "AI-" is never left stranded at a line's end. */
 .mge .mge-nowrap {
   white-space: nowrap;
@@ -351,6 +467,8 @@
   font-weight: 700;
   line-height: 1.2;
   white-space: nowrap;
+  /* A gentle bob, out of step with the chip beside the heading. */
+  animation: mge-float-soft 4.6s ease-in-out 0.9s infinite;
 }
 
 .mge .mge-art-badge svg {
@@ -1398,6 +1516,36 @@
   text-decoration: underline;
 }
 
+.mge .mge-legal-table {
+  width: 100%;
+  margin: 12px 0 16px;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+
+.mge .mge-legal-table th,
+.mge .mge-legal-table td {
+  padding: 9px 12px;
+  border: 1px solid var(--mge-panel);
+  text-align: left;
+  color: var(--mge-text);
+}
+
+.mge .mge-legal-table th {
+  background: #f5f8fd;
+  font-weight: 700;
+  color: var(--mge-navy);
+}
+
+/* Nothing moves for someone who has asked their system for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  .mge h1 .mge-live-chip,
+  .mge .mge-art-badge,
+  .mge h1 .mge-live-chip i::after {
+    animation: none;
+  }
+}
+
 /* ───────────────────────── smaller screens ───────────────────────── */
 
 @media (max-width: 1100px) {
@@ -1559,6 +1707,19 @@
   }
 }
 
+@media (max-width: 650px) {
+  /* Smaller on a phone, so it keeps company with "Starts Here" instead of dropping a line. */
+  .mge h1 .mge-live-chip {
+    gap: 7px;
+    padding: 5px 6px 5px 10px;
+    font-size: 12.5px;
+  }
+  .mge h1 .mge-live-chip em {
+    padding: 2px 7px;
+    font-size: 10px;
+  }
+}
+
 @media (max-width: 400px) {
   .mge h1 {
     font-size: 34px;
@@ -1569,3 +1730,26 @@
     font-size: 15px;
   }
 }
+
+.mge .mge-price-save {
+  display: inline-block;
+  margin: 0.5rem 0 0;
+  padding: 0.3rem 0.7rem;
+  border-radius: 0.6rem;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.mge .mge-topups { margin-top: 3rem; }
+.mge .mge-topups > h3 { font-size: 1.6rem; font-weight: 800; border-left: 4px solid #f97316; padding-left: 0.75rem; }
+.mge .mge-topups > p { margin: 0.4rem 0 0; max-width: 36rem; color: #5b6472; font-size: 0.95rem; }
+.mge .mge-topup-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 1.5rem; }
+.mge .mge-topup-cols h4 { margin: 0 0 0.75rem; font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: #6b7280; }
+.mge .mge-topup-card { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 1rem; background: #fff; }
+.mge .mge-topup-card strong { display: block; font-size: 0.95rem; }
+.mge .mge-topup-card span { display: block; margin-top: 0.2rem; font-size: 0.82rem; color: #5b6472; }
+.mge .mge-topup-price { text-align: right; font-size: 1.15rem; font-weight: 800; white-space: nowrap; }
+.mge .mge-topup-price small { display: block; font-size: 0.65rem; font-weight: 600; color: #6b7280; }
+@media (max-width: 820px) { .mge .mge-topup-cols { grid-template-columns: 1fr; } }

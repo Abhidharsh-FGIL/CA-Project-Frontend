@@ -6,6 +6,7 @@
  * can't show because it collapses every test into one running average.
  */
 import { useMemo } from 'react';
+import { displayTitle } from '@/lib/display-title';
 import { Link } from 'react-router-dom';
 import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ClipboardList, Loader2 } from 'lucide-react';
@@ -26,7 +27,7 @@ export function useTestRows(attempts: ApiAttempt[]): TestRow[] {
       const key = h.test_id || h.test_name || 'unknown';
       const row =
         byTest.get(key) ??
-        { key, name: h.test_name ?? 'Untitled test', attempts: 0, average: 0, best: 0, scores: [] };
+        { key, name: displayTitle(h.test_name) ?? 'Untitled test', attempts: 0, average: 0, best: 0, scores: [] };
       row.attempts += 1;
       row.scores.push({ pct: h.percentage ?? 0, date: h.start_time });
       byTest.set(key, row);
@@ -153,7 +154,7 @@ const TEST_ROW_PITCH = 38;
 const TEST_BAR_SIZE = 18;
 
 /** Longest paper name the axis gutter fits before it starts eating the plot. */
-function shortName(name: string, max = 20) {
+function shortName(name: string, max = 26) {
   return name.length > max ? `${name.slice(0, max - 1)}…` : name;
 }
 
@@ -186,7 +187,7 @@ function TestScoreChart({ rows }: { rows: TestRow[] }) {
             <YAxis
               type="category"
               dataKey="name"
-              width={124}
+              width={176}
               tickLine={false}
               axisLine={false}
               interval={0}
@@ -250,10 +251,10 @@ function TestTick({ x, y, payload, rows }: any) {
   const row: TestRow | undefined = rows[payload?.index];
   return (
     <g transform={`translate(${x},${y})`}>
-      <text x={-8} y={-1} textAnchor="end" fontSize={11} fontWeight={600} className="fill-gray-700 dark:fill-gray-200">
+      <text x={-168} y={-1} textAnchor="start" fontSize={11} fontWeight={600} className="fill-gray-700 dark:fill-gray-200">
         {shortName(String(payload?.value ?? ''))}
       </text>
-      <text x={-8} y={11} textAnchor="end" fontSize={9} className="fill-gray-400">
+      <text x={-168} y={11} textAnchor="start" fontSize={9} className="fill-gray-400">
         {row?.attempts ?? 0} attempt{row?.attempts === 1 ? '' : 's'}
       </text>
     </g>

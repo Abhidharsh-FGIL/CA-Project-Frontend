@@ -1,7 +1,7 @@
 /**
  * Login with a one-time password — the parts of it that are decisions rather than plumbing.
  *
- * The student gives an email ID or a mobile number, is sent a six-digit code, and signs in with
+ * The student gives an email ID, is sent a six-digit code, and signs in with
  * it. The server owns the rules (60 s between codes, 5 wrong tries, a 5-minute life); the screen
  * mirrors them so it can say what is happening instead of waiting to be told no.
  */
@@ -12,29 +12,17 @@ export const RESEND_COOLDOWN_SECONDS = 60;
 /** How long a code stays good. */
 export const OTP_VALID_SECONDS = 300;
 
-const INVALID_IDENTIFIER = 'Enter a valid email ID or 10-digit mobile number';
+const INVALID_IDENTIFIER = 'Enter a valid email ID';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MOBILE = /^\d{10}$/;
 
 /** Either what to send to the server, or why not — tell them apart with `'error' in result`. */
-export type ParsedIdentifier = { identifier: string; kind: 'email' | 'mobile' } | { error: string };
+export type ParsedIdentifier = { identifier: string; kind: 'email' } | { error: string };
 
-/**
- * What the student typed, as the server wants it — or why it will not do.
- *
- * A mobile number is typed with spaces or dashes as often as without ("98765 43210"), and the
- * server takes ten bare digits, so those are tidied away rather than refused.
- */
+/** What the student typed, as the server wants it — or why it will not do. Sign-in is by email ID only. */
 export function parseIdentifier(raw: string): ParsedIdentifier {
   const text = raw.trim();
-  if (!text) return { error: 'Enter your email ID or mobile number' };
-
-  if (text.includes('@')) {
-    return EMAIL.test(text) ? { identifier: text, kind: 'email' } : { error: INVALID_IDENTIFIER };
-  }
-
-  const digits = text.replace(/[\s-]/g, '');
-  return MOBILE.test(digits) ? { identifier: digits, kind: 'mobile' } : { error: INVALID_IDENTIFIER };
+  if (!text) return { error: 'Enter your email ID' };
+  return EMAIL.test(text) ? { identifier: text, kind: 'email' } : { error: INVALID_IDENTIFIER };
 }
 
 /** Only digits, and no more than a code has — what the OTP box accepts, typed or pasted. */

@@ -37,9 +37,9 @@ const LIVE: ApiSubscriptionPlan[] = [
     plan_id: 'a16ce294',
     name: 'ultimate',
     price: 499,
-    features: { support: 'priority email', download_pdf: false, ai_report_level: 'detailed', mock_tests_per_month: 'unlimited', history_retention_days: 365, practice_tests_per_month: 'unlimited' },
-    duration_days: 30, active: true, highlight: true, price_monthly: 499, price_yearly: 4999,
-    perks: ['Unlimited practice tests', 'Unlimited mock tests', 'Detailed AI reports', '1-year history'],
+    features: { yearly: { mock_tests_per_month: 30, practice_tests_per_month: 60 }, monthly: { mock_tests_per_month: 5, practice_tests_per_month: 25 }, support: 'priority email', download_pdf: false, ai_report_level: 'detailed', mock_tests_per_month: 5, history_retention_days: 365, practice_tests_per_month: 25 },
+    duration_days: 30, active: true, highlight: true, price_monthly: 499, price_yearly: 1999,
+    perks: ['Monthly ₹499 — 5 mock tests, 25 practice tests, valid 1 month', 'Yearly ₹1999 — 30 mock tests, 60 practice tests, valid 12 months', 'Full reports with AI insights'],
   },
   {
     plan_id: '82a270e1',

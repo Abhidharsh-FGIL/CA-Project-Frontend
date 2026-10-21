@@ -65,7 +65,7 @@ const ORANGE = 'bg-orange-500 text-white hover:bg-orange-600';
  * they have used and when it began, and shows it.
  */
 export default function PlanNoticeHost() {
-  const { user, plans, history } = useUserPortal();
+  const { user, plans, history, assessments } = useUserPortal();
   const navigate = useNavigate();
   const [facts, setFacts] = useState<PlanErrorFacts | null>(null);
   const [open, setOpen] = useState(false);
@@ -110,8 +110,9 @@ export default function PlanNoticeHost() {
     const since = sub?.status === 'active' ? sub.start_date : null;
     const left = current
       ? {
-          mock: planAllowance(current, 'mock', history, since).left,
-          practice: planAllowance(current, 'practice', history, since).left,
+          mock: planAllowance(current, 'mock', history, since, assessments).left,
+          // Practice and Key Topics tests are one allowance — see `attemptKind`.
+          practice: planAllowance(current, 'practice', history, since, assessments).left,
         }
       : undefined;
     // Out of time outranks out of tests: the plan to renew is the news, not its allowance.
@@ -124,7 +125,7 @@ export default function PlanNoticeHost() {
       left,
       held: sub ? (plans.find(p => p.plan_id === sub.plan_id) ?? null) : null,
     });
-  }, [facts, user, plans, history, sub, lapsed]);
+  }, [facts, user, plans, history, assessments, sub, lapsed]);
 
   // `facts` stays after closing so the text does not vanish mid-animation.
   if (!notice) return null;

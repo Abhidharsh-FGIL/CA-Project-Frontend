@@ -567,19 +567,21 @@ function RadarCompareTooltip({ active, payload, rows }: any) {
 export function SubjectProgressTable({ model }: { model: ProgressReportModel }) {
   const [open, setOpen] = useState<string | null>(null);
   const labels = model.attempts.map(a => a.label);
+  const unitRows = model.subjects.some(s => s.subjectId.startsWith('unit:'));
+  const noun = unitRows ? 'unit' : 'subject';
 
   return (
     <Card>
       <ModuleHead
         icon={<TrendingUp className="w-4 h-4 text-blue-500" />}
-        title="Subject-wise progress"
-        subtitle="Accuracy per attempt. Click a subject to open its detail here"
+        title={unitRows ? 'Unit-wise progress' : 'Subject-wise progress'}
+        subtitle={`Accuracy per attempt. Click a ${noun} to open its detail here`}
       />
       <div className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
         <table className="w-full text-[11px] min-w-[560px]">
           <thead>
             <tr className="border-b border-gray-100 dark:border-gray-800 text-left">
-              <th className="px-2 py-2 font-semibold text-gray-500 dark:text-gray-400">Subject</th>
+              <th className="px-2 py-2 font-semibold text-gray-500 dark:text-gray-400">{unitRows ? 'Unit' : 'Subject'}</th>
               {labels.map((l, i) => (
                 <th key={i} className="px-2 py-2 font-semibold text-gray-500 dark:text-gray-400 text-right whitespace-nowrap">
                   {l.length > 10 ? `${l.slice(0, 9)}…` : l}
@@ -647,8 +649,8 @@ export function SubjectProgressTable({ model }: { model: ProgressReportModel }) 
         </table>
       </div>
       <Takeaway>
-        A dash means the subject was not attempted enough times in that paper to measure. Accuracy counts only
-        attempted questions, so a skipped subject is never shown as 0%.
+        A dash means the {noun} was not attempted enough times in that paper to measure. Accuracy counts only
+        attempted questions, so a skipped {noun} is never shown as 0%.
       </Takeaway>
     </Card>
   );

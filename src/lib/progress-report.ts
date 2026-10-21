@@ -14,7 +14,7 @@
  * two definitions of "attempted" would eventually disagree, and §20.2 requires the
  * arithmetic to reconcile.
  */
-import { isAttempted, metricsFor, type NodeMetrics } from './attempt-report';
+import { isAttempted, metricsFor, paperSection, type NodeMetrics } from './attempt-report';
 import type { AttemptDetailResponse, ApiAttempt, QuestionReviewItem } from './userPortalApi';
 import { difficultyLabel } from '@/lib/eval-difficulty';
 
@@ -422,20 +422,27 @@ function buildSubjectProgress(
   cfg: ProgressConfig,
 ): SubjectProgress[] {
   const bySubject = new Map<string, { name: string; series: SubjectAttemptMetric[] }>();
+  /** Tamil, then General Studies, then Aptitude — the order of the paper. */
+  const sectionOf = new Map<string, number>();
 
   ordered.forEach((a, i) => {
     const d = details.get(a.attempt_id);
     if (!d?.questions?.length) return;
     const label = a.test_name ?? `Attempt ${i + 1}`;
 
+    // A paper whose questions name their syllabus unit (at least half of them) is read by unit, like the report.
+    const byUnit = d.questions.filter(q => !!q.unit_id).length * 2 >= d.questions.length;
     const grouped = new Map<string, QuestionReviewItem[]>();
     for (const q of d.questions) {
-      const name = (q.subject ?? '').trim() || 'Untagged';
-      grouped.set(slug(name), [...(grouped.get(slug(name)) ?? []), q]);
+      const key = byUnit && q.unit_id ? `unit:${q.unit_id}` : slug((q.subject ?? '').trim() || 'Untagged');
+      grouped.set(key, [...(grouped.get(key) ?? []), q]);
     }
 
     for (const [id, items] of grouped) {
-      const name = (items[0].subject ?? '').trim() || 'Untagged';
+      const name = id.startsWith('unit:')
+        ? (items[0].unit_name ?? '').trim() || 'Unit'
+        : (items[0].subject ?? '').trim() || 'Untagged';
+      if (!sectionOf.has(id)) sectionOf.set(id, paperSection(items[0]));
       const entry = bySubject.get(id) ?? { name, series: [] };
       entry.series.push({ attemptId: a.attempt_id, label, metrics: metricsFor(items) });
       bySubject.set(id, entry);
@@ -471,7 +478,12 @@ function buildSubjectProgress(
         interpretation: describeTrend(name, status, firstM, latestM, deltaPoints, measured.length, cfg),
       };
     })
-    .sort((a, b) => (b.latest?.questions ?? 0) - (a.latest?.questions ?? 0) || a.name.localeCompare(b.name));
+    .sort(
+      (a, b) =>
+        (sectionOf.get(a.subjectId) ?? 1) - (sectionOf.get(b.subjectId) ?? 1) ||
+        (b.latest?.questions ?? 0) - (a.latest?.questions ?? 0) ||
+        a.name.localeCompare(b.name),
+    );
 }
 
 /** §10's deterministic rules, applied in priority order. */

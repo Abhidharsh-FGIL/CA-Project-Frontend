@@ -57,7 +57,7 @@ import { api } from '@/lib/api';
 import { TnpscTagFields } from '@/components/evaluation/TnpscTagFields';
 import { UnitPoolDiagnosis, UnitPoolPicker } from '@/components/evaluation/UnitPoolPicker';
 import { UnitMappingDialog } from '@/components/evaluation/UnitMappingDialog';
-import { EMPTY_TAG, describeTag, describeTagError, examTypeLabel, suggestAssessmentTitle, tagAssessment, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
+import { EMPTY_TAG, describeTag, describeTagError, examTypeLabel, suggestAssessmentTitle, tagAssessmentKeepingTopic, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
 import {
   hasPerSectionNegative,
   leastNegative,
@@ -65,6 +65,7 @@ import {
   stageUnits,
   unitDisplayName,
   unitTopics,
+  findUnit,
   type TnpscPatternSection,
   type TnpscSyllabusUnit,
 } from '@/config/tnpsc';
@@ -79,6 +80,7 @@ import {
   unitWeightsFromSyllabus,
 } from '@/lib/unit-pool';
 import { getSyllabusChapters, getSyllabusSubjects } from '@/data/examSyllabus';
+import { bankCategoryCounts } from '@/lib/key-topics';
 
 interface Props {
   onCreated: (assessmentId: string) => void;
@@ -353,7 +355,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
   useEffect(() => {
     if (!unitMode || tnpscTag.track !== 'practice') return;
     const ids =
-      tnpscTag.scope === 'unit' && tnpscTag.unit_id
+      (tnpscTag.scope === 'unit' || tnpscTag.scope === 'topic') && tnpscTag.unit_id
         ? [tnpscTag.unit_id]
         : tnpscTag.scope === 'section' && tnpscTag.section_name
           ? stageUnitList.filter(x => x.sectionName === tnpscTag.section_name).map(x => x.unit.id)
@@ -528,6 +530,16 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
     );
   }, [bankQuestions, selectedSubjects, selectedUnits, unitMode, tnpscStage, source]);
 
+  /** The placed unit's categories, as the bank tags its questions, with counts — the key-topic choices. */
+  const placedUnit = findUnit(tnpscStage, tnpscTag.unit_id);
+  const categoryOptions = useMemo(
+    () =>
+      tnpscTag.scope === 'topic' && placedUnit
+        ? bankCategoryCounts(tnpscStage, placedUnit, bankQuestions as any[])
+        : null,
+    [tnpscTag.scope, placedUnit, tnpscStage, bankQuestions],
+  );
+
   /**
    * Chapters to choose from: what the bank holds, then what the syllabus expects.
    *
@@ -578,6 +590,11 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
   const matchingQuestions = useMemo(() => {
     if (source === 'paper') return [];
     let qs = subjectPool.filter((q: any) => matchesDifficulty(q, wantedDifficulty));
+    // A key-topic paper is drawn from its category alone.
+    if (tnpscTag.scope === 'topic' && tnpscTag.topic_id) {
+      const wanted = tnpscTag.topic_id.trim();
+      qs = qs.filter((q: any) => (q?.category ?? '').trim() === wanted);
+    }
     if (selectedChapters.length > 0) {
       qs = qs.filter((q: any) => selectedChapters.includes(q.chapter));
     }
@@ -585,7 +602,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
       qs = qs.filter((q: any) => selectedTypes.includes(q.type));
     }
     return qs;
-  }, [subjectPool, wantedDifficulty, selectedChapters, selectedTypes, source]);
+  }, [subjectPool, wantedDifficulty, selectedChapters, selectedTypes, source, tnpscTag.scope, tnpscTag.topic_id]);
 
   const toggleSubject = (s: string) => {
     setPickedSubjects(prev => {
@@ -684,13 +701,13 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
   const wantsBlend =
     tnpscTag.track === 'mock' ||
     (tnpscTag.track === 'practice' && tnpscTag.scope === 'section') ||
-    (tnpscTag.track === 'practice' && tnpscTag.scope === 'unit' && !tnpscTag.level);
+    (tnpscTag.track === 'practice' && (tnpscTag.scope === 'unit' || tnpscTag.scope === 'topic') && !tnpscTag.level);
 
   // The fallback difficulty is no longer asked for, so it follows the placement: a unit
   // pitched at one level saves as that level. Whole papers take their difficulty from
   // the questions they are composed of (`difficultyOf`), so there is nothing to follow.
   useEffect(() => {
-    if (tnpscTag.track === 'practice' && tnpscTag.scope === 'unit' && tnpscTag.level) {
+    if (tnpscTag.track === 'practice' && (tnpscTag.scope === 'unit' || tnpscTag.scope === 'topic') && tnpscTag.level) {
       setDifficulty(toStored(tnpscTag.level));
     }
   }, [tnpscTag.track, tnpscTag.scope, tnpscTag.level]);
@@ -926,9 +943,11 @@ Create it anyway?`);
       track: tnpscTag.track ?? undefined,
       tnpscLevel: tnpscTag.track === 'mock' ? tnpscTag.level ?? undefined : undefined,
       tnpscSubjectId: tnpscTag.track === 'practice' ? tnpscTag.subject_id ?? undefined : undefined,
-      tnpscTopicId: tnpscTag.track === 'practice' ? tnpscTag.topic_id ?? undefined : undefined,
-      tnpscUnitId: tnpscTag.scope === 'unit' ? tnpscTag.unit_id ?? undefined : undefined,
-      tnpscScope: tnpscTag.scope ?? undefined,
+      tnpscTopicId: tnpscTag.track === 'practice' && tnpscTag.scope === 'topic' ? tnpscTag.topic_id ?? undefined : undefined,
+      tnpscUnitId:
+        tnpscTag.scope === 'unit' || tnpscTag.scope === 'topic' ? tnpscTag.unit_id ?? undefined : undefined,
+      // A key topic is saved as a unit paper that names its topic (see `TnpscScope`).
+      tnpscScope: (tnpscTag.scope === 'topic' ? 'unit' : tnpscTag.scope) ?? undefined,
       tnpscSectionName: tnpscTag.scope === 'section' ? tnpscTag.section_name ?? undefined : undefined,
       tnpscLanguage: tnpscTag.track === 'mock' ? tnpscTag.language ?? undefined : undefined,
       paperId: source === 'paper' && paperIds.length === 1 ? paperIds[0] : undefined,
@@ -989,7 +1008,13 @@ Create it anyway?`);
     // Confirm the TNPSC placement. Non-fatal: the assessment exists either way,
     // but until it is tagged it will not appear under any group/stage.
     try {
-      await tagAssessment(result.id, tnpscTag);
+      const { topicInTitleOnly } = await tagAssessmentKeepingTopic(result.id, tnpscTag);
+      if (topicInTitleOnly) {
+        toast.info(
+          `Placed under the unit. The server has no such topic under that subject yet, so “${title}” carries the key topic in its title — keep the “Unit: Topic” part of the title as it is.`,
+          { duration: 20_000 },
+        );
+      }
     } catch (err: any) {
       // The old message always blamed a missing endpoint, whatever had actually
       // failed. Say what the server said.
@@ -1104,6 +1129,7 @@ Create it anyway?`);
                   value={tnpscTag}
                   onChange={setTnpscTag}
                   questionCount={effectiveCount || questionCount}
+                  categoryOptions={categoryOptions}
                   hideTrack
                 />
                 {tnpscStage?.pattern && tnpscTag.track === 'mock' && (

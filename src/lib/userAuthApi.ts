@@ -89,7 +89,6 @@ export interface RegisterPayload extends StudentDetailFields {
   full_name: string;
   email_address: string;
   mobile_number: string;
-  password: string;
 }
 
 export interface VerifyOtpPayload {

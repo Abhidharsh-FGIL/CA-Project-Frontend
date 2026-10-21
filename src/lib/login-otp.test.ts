@@ -6,22 +6,13 @@ describe('parseIdentifier', () => {
     expect(parseIdentifier('  ezhilnambi@gmail.com ')).toEqual({ identifier: 'ezhilnambi@gmail.com', kind: 'email' });
   });
 
-  it('takes ten digits as a mobile number', () => {
-    expect(parseIdentifier('9876543210')).toEqual({ identifier: '9876543210', kind: 'mobile' });
-  });
-
-  it('tidies the spaces and dashes a mobile number is typed with', () => {
-    expect(parseIdentifier('98765 43210')).toEqual({ identifier: '9876543210', kind: 'mobile' });
-    expect(parseIdentifier('98765-43210')).toEqual({ identifier: '9876543210', kind: 'mobile' });
-  });
-
   it('asks for something when the box is empty', () => {
-    expect(parseIdentifier('')).toEqual({ error: 'Enter your email ID or mobile number' });
-    expect(parseIdentifier('   ')).toEqual({ error: 'Enter your email ID or mobile number' });
+    expect(parseIdentifier('')).toEqual({ error: 'Enter your email ID' });
+    expect(parseIdentifier('   ')).toEqual({ error: 'Enter your email ID' });
   });
 
-  it('refuses a mobile number that is not ten digits', () => {
-    for (const bad of ['98765', '98765432101', '98765abcde', '+919876543210']) {
+  it('no longer takes a mobile number', () => {
+    for (const bad of ['9876543210', '98765 43210', '+919876543210']) {
       expect(parseIdentifier(bad), bad).toHaveProperty('error');
     }
   });
@@ -33,7 +24,7 @@ describe('parseIdentifier', () => {
   });
 
   it('says the same thing the server would when it refuses', () => {
-    expect(parseIdentifier('nope')).toEqual({ error: 'Enter a valid email ID or 10-digit mobile number' });
+    expect(parseIdentifier('nope')).toEqual({ error: 'Enter a valid email ID' });
   });
 });
 

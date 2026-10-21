@@ -26,6 +26,7 @@ export type PromoDraft = Pick<
   | 'test_id'
   | 'applies_to_tiers'
   | 'applies_to_billing'
+  | 'max_uses_per_user'
 >;
 
 /** Plan and billing limits only mean something for a subscription code. */
@@ -59,6 +60,11 @@ export function validatePromoDraft(d: PromoDraft, isNew: boolean): string | null
   const expiry = day(d.expiry_date);
   if (isNew && expiry && expiry < today()) return 'The expiry date is in the past.';
 
+  const perUser = d.max_uses_per_user ?? -1;
+  if (perUser > 0 && d.max_uses > 0 && perUser > d.max_uses) {
+    return 'Uses per user cannot be more than the total uses.';
+  }
+
   return null;
 }
 
@@ -70,6 +76,7 @@ export function toCreatePayload(d: PromoDraft): PromoCreatePayload {
     discount_pct: d.discount_pct,
     // -1 is how the server says "unlimited". Say it outright rather than omit it.
     max_uses: d.max_uses > 0 ? d.max_uses : -1,
+    max_uses_per_user: (d.max_uses_per_user ?? 0) > 0 ? d.max_uses_per_user : -1,
   };
 
   const expiry = day(d.expiry_date);
@@ -99,6 +106,7 @@ export function toUpdatePayload(d: PromoDraft): PromoUpdatePayload {
     scope: d.scope,
     discount_pct: d.discount_pct,
     max_uses: d.max_uses > 0 ? d.max_uses : -1,
+    max_uses_per_user: (d.max_uses_per_user ?? 0) > 0 ? d.max_uses_per_user : -1,
     expiry_date: day(d.expiry_date),
     test_id: d.scope === 'test' ? d.test_id?.trim() || null : null,
     applies_to_tiers: limitsPlans(d.scope) ? picked(d.applies_to_tiers) : null,

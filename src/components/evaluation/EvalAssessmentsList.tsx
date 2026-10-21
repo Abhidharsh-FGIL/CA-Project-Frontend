@@ -61,9 +61,11 @@ function AssessmentCard({
   return (
     <Card className={`group hover:shadow-md transition-shadow ${isExpired ? 'opacity-75' : ''}`}>
       <CardContent className="p-4 space-y-3">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
+        {/* Header: the title and its figures, then the badges on a row of their own. Side by side, a long
+            placement badge ("History, Culture, Heritage … of Tamil Nadu · Complex") took the whole width and
+            squeezed the title to a few letters and the figures to one word a line. */}
+        <div className="flex flex-col gap-2">
+          <div className="min-w-0">
             <h4 className="font-semibold text-sm truncate">{a.title}</h4>
             {a.course_name && (
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900 rounded-full px-2 py-0.5 mt-1">
@@ -77,24 +79,26 @@ function AssessmentCard({
               {a.negative_marking && ` • -${a.negative_mark_value || 0.25} negative`}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 shrink-0 justify-end">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Badge
               variant="outline"
-              className={`text-[10px] gap-1 ${placed
+              className={`text-[10px] gap-1 max-w-full overflow-hidden ${placed
                 ? 'border-blue-300 text-blue-600 dark:border-brand-700 dark:text-blue-400'
                 : notPlaced
                   ? 'border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400'
                   : 'border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400'}`}
               title={
                 placed
-                  ? 'Visible in the aspirant portal'
+                  ? `${describeTag(tnpsc)} — visible in the aspirant portal`
                   : notPlaced
                     ? 'Not tagged — invisible to aspirants'
                     : 'The server’s list does not say where a paper is placed. Open Placement to check or set it.'
               }
             >
-              {placed ? <Tag className="h-3 w-3" /> : notPlaced ? <EyeOff className="h-3 w-3" /> : <Tag className="h-3 w-3" />}
-              {placed ? describeTag(tnpsc) : notPlaced ? 'Not placed' : 'Placement unknown'}
+              {placed ? <Tag className="h-3 w-3 shrink-0" /> : notPlaced ? <EyeOff className="h-3 w-3 shrink-0" /> : <Tag className="h-3 w-3 shrink-0" />}
+              <span className="min-w-0 truncate">
+                {placed ? describeTag(tnpsc) : notPlaced ? 'Not placed' : 'Placement unknown'}
+              </span>
             </Badge>
             {a.mode && (
               <Badge variant="outline" className={`text-[10px] ${a.mode === 'exam' ? 'border-red-300 text-red-600 dark:border-red-700 dark:text-red-400' : 'border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400'}`}>

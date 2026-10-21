@@ -41,6 +41,11 @@ export interface CreateOrderResponse {
   currency?: string;
   base_amount?: number;
   discount_amount?: number;
+  /** What GST is charged on: the price less any discount. */
+  taxable_amount?: number;
+  gst_percent?: number;
+  gst_amount?: number;
+  /** Rupees, GST included — the same sum as `amount`, which is in paise. */
   final_amount?: number;
   plan_name: string;
   billing_cycle?: string | null;
@@ -69,6 +74,16 @@ export interface PromoValidation {
   message: string;
   code_id?: string | null;
   discount_pct: number;
+  /**
+   * The price with the code applied, as the server works it out — the figures the checkout shows.
+   * Absent on a server that does not send them, and the checkout then shows no breakdown.
+   */
+  base_amount?: number;
+  discount_amount?: number;
+  taxable_amount?: number;
+  gst_percent?: number;
+  gst_amount?: number;
+  final_amount?: number;
 }
 
 export interface CurrentSubscription {
@@ -78,6 +93,10 @@ export interface CurrentSubscription {
   end_date: string;
   payment_ref: string | null;
   status: 'active' | 'expired' | 'cancelled';
+  /** The plan's name, as the server has it. */
+  plan_name?: string | null;
+  /** 'monthly' | 'yearly' — stored from activation. Null for rows bought before it was stored. */
+  billing_cycle?: 'monthly' | 'yearly' | null;
 }
 
 export function createOrder(req: CreateOrderRequest): Promise<CreateOrderResponse> {
@@ -88,8 +107,9 @@ export function verifyPayment(req: VerifyPaymentRequest): Promise<PaymentResult>
   return userApi.post<PaymentResult>('/api/v1/user/payment/verify', req);
 }
 
-export function validatePromo(code: string): Promise<PromoValidation> {
-  return userApi.post<PromoValidation>('/api/v1/user/promo/validate', { code });
+/** `plan_id` and the cycle let the server price the code against what is being bought. */
+export function validatePromo(code: string, plan?: { plan_id: string; billing_cycle: BillingCycle }): Promise<PromoValidation> {
+  return userApi.post<PromoValidation>('/api/v1/user/promo/validate', { code, ...(plan ?? {}) });
 }
 
 /** `null` when the user has never subscribed. */

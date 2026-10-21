@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+﻿import { useState, useEffect, useCallback, useRef } from 'react';
+import { isMobileDevice } from '@/lib/device';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { MathText } from '@/components/ui/MathText';
 import {
@@ -155,6 +156,8 @@ export default function TestTakingPage() {
   // Malpractice: tab-switch detection
   useEffect(() => {
     if (submitted) return;
+    // No tab-switch limit on phones and tablets — leaving the app there is not a sign of anything.
+    if (isMobileDevice()) return;
     const onVisibilityChange = () => {
       if (document.hidden) {
         malpracticeCount.current += 1;

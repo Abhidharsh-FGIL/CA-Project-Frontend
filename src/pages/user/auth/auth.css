@@ -164,6 +164,20 @@
   color: #8b97ad;
 }
 
+/*
+ * The open list takes its text colour from the select itself, so while nothing is chosen the muted
+ * placeholder colour above made every choice in it look disabled. Set the choices in the normal text
+ * colour; only the placeholder row (a disabled option) stays muted.
+ */
+.mge .mge-input select option {
+  color: var(--mge-navy);
+  background: #fff;
+}
+
+.mge .mge-input select option:disabled {
+  color: #8b97ad;
+}
+
 .mge .mge-input-chevron {
   position: absolute;
   right: 16px;

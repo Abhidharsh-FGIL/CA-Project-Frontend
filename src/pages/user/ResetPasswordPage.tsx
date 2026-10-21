@@ -4,6 +4,7 @@ import { Eye, EyeOff, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { LogoMark, Wordmark } from '@/components/brand/Brand';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { toast } from 'sonner';
+import { PASSWORD_HINT, confirmError, passwordError } from '@/lib/password-rules';
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -16,6 +17,15 @@ export default function ResetPasswordPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  // Checked as it is typed, with the same rule and wording as sign-up — not a toast that disappears.
+  const passwordProblem = password || submitted ? passwordError(password) : null;
+  const confirmProblem = confirm || submitted ? confirmError(password, confirm) : null;
+  const fieldBorder = (problem: string | null) =>
+    problem
+      ? 'border-red-400 dark:border-red-500 focus:border-red-500'
+      : 'border-gray-200 dark:border-gray-700 focus:border-brand-500 dark:focus:border-blue-400';
 
   // Redirect to login if no token in URL after the first paint.
   useEffect(() => {
@@ -28,14 +38,8 @@ export default function ResetPasswordPage() {
       toast.error('Reset token is missing from the link');
       return;
     }
-    if (password.length < 8 || !/[A-Z]/.test(password) || !/\d/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
-      toast.error('Password must be at least 8 chars with 1 uppercase, 1 number, 1 special character');
-      return;
-    }
-    if (password !== confirm) {
-      toast.error('Passwords do not match');
-      return;
-    }
+    setSubmitted(true);
+    if (passwordError(password) || confirmError(password, confirm)) return;
     setSubmitting(true);
     const res = await resetPassword(token, password);
     setSubmitting(false);
@@ -93,7 +97,7 @@ export default function ResetPasswordPage() {
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">New password</label>
                   <div className="relative">
@@ -102,8 +106,8 @@ export default function ResetPasswordPage() {
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      required
-                      className="w-full px-4 py-2.5 pr-11 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-xl focus:border-brand-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 outline-none transition-all text-sm"
+                      aria-invalid={!!passwordProblem}
+                      className={`w-full px-4 py-2.5 pr-11 border-2 ${fieldBorder(passwordProblem)} bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 outline-none transition-all text-sm`}
                     />
                     <button
                       type="button"
@@ -113,9 +117,13 @@ export default function ResetPasswordPage() {
                       {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
-                    Min 8 chars, 1 uppercase, 1 number, 1 special character
-                  </p>
+                  {passwordProblem ? (
+                    <p role="alert" className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      {passwordProblem}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">{PASSWORD_HINT}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Confirm password</label>
@@ -124,9 +132,14 @@ export default function ResetPasswordPage() {
                     value={confirm}
                     onChange={e => setConfirm(e.target.value)}
                     placeholder="••••••••"
-                    required
-                    className="w-full px-4 py-2.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-xl focus:border-brand-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 outline-none transition-all text-sm"
+                    aria-invalid={!!confirmProblem}
+                    className={`w-full px-4 py-2.5 border-2 ${fieldBorder(confirmProblem)} bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-xl focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 outline-none transition-all text-sm`}
                   />
+                  {confirmProblem && (
+                    <p role="alert" className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      {confirmProblem}
+                    </p>
+                  )}
                 </div>
 
                 <button

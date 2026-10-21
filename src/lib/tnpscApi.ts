@@ -60,6 +60,12 @@ export interface TnpscTest {
    * stage page falls back to the paper's title and subject. See `tnpsc-full-set.ts`.
    */
   section_name?: string | null;
+  /**
+   * Which language paper this is in — "tamil" | "english" — when the placement says (`tnpsc_language`).
+   * Absent on a server that does not send it, and the portal then reads the paper's title; see
+   * `paperLanguage` in `exam-language.ts`.
+   */
+  language?: string | null;
   subject_id: string | null;
   subject_name: string | null;
   topic_id: string | null;
@@ -627,6 +633,7 @@ function toTnpscTest(
     level: type === 'mock' ? DIFFICULTY_TO_LEVEL[(a.difficulty || '').toLowerCase()] ?? 'simple' : null,
     unit_id: a.tnpsc_unit_id ?? null,
     section_name: a.tnpsc_section_name ?? null,
+    language: a.tnpsc_language ?? null,
     subject_id: subject?.id ?? null,
     subject_name: subject?.name ?? null,
     topic_id: null,

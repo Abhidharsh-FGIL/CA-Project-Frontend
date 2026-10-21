@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+﻿import { useState, useEffect, useCallback, useRef } from 'react';
+import { isMobileDevice } from '@/lib/device';
 import { useSearchParams } from 'react-router-dom';
 import { BASE_URL, buildUrl } from '@/lib/api';
 import { MathText } from '@/components/ui/MathText';
@@ -392,6 +393,8 @@ export default function TakeAssessmentPage() {
   // Tab visibility + window blur + fullscreen detection
   useEffect(() => {
     if (pageState !== 'active') return;
+    // No tab-switch limit on phones and tablets — leaving the app there is not a sign of anything.
+    if (isMobileDevice()) return;
 
     // Debounce flag to prevent multiple violations from the same user action
     // (e.g., visibilitychange + blur both fire on a single tab switch)

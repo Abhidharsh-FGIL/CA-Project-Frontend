@@ -10,6 +10,7 @@ import { useState, type MouseEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Menu, X } from 'lucide-react';
 import { LogoFull } from '@/components/brand/Brand';
+import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_LINK } from '@/config/support';
 import './landing.css';
 
 /** Where login and sign-up live in this app. */
@@ -89,7 +90,11 @@ export function LandingFooter() {
         <div className="mge-footer-meta">
           <span>
             © {new Date().getFullYear()} MyGovExams · <Link to="/terms">Terms &amp; Conditions</Link> ·{' '}
-            <Link to="/privacy">Privacy Policy</Link>
+            <Link to="/privacy">Privacy Policy</Link> ·{' '}
+            <Link to="/refund">Refund Policy</Link>
+          </span>
+          <span>
+            Support: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> · <a href={`tel:${SUPPORT_PHONE_LINK}`}>{SUPPORT_PHONE}</a>
           </span>
           <span>Practice • Analyse • Improve</span>
           <span>Powered by FutureGen Innovation Lab Pvt Ltd</span>

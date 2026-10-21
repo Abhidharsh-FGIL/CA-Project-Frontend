@@ -15,10 +15,10 @@ const countOf = (qs: Array<{ difficulty?: string | null }>, d: string) =>
   qs.filter(q => q.difficulty === d).length;
 
 describe('blendTargets', () => {
-  it('splits a paper 20 / 30 / 50', () => {
-    expect(blendTargets(50)).toEqual({ easy: 10, medium: 15, hard: 25 });
-    expect(blendTargets(100)).toEqual({ easy: 20, medium: 30, hard: 50 });
-    expect(blendTargets(200)).toEqual({ easy: 40, medium: 60, hard: 100 });
+  it('splits a paper 30 / 30 / 40', () => {
+    expect(blendTargets(50)).toEqual({ easy: 15, medium: 15, hard: 20 });
+    expect(blendTargets(100)).toEqual({ easy: 30, medium: 30, hard: 40 });
+    expect(blendTargets(200)).toEqual({ easy: 60, medium: 60, hard: 80 });
   });
 
   it('always totals exactly what was asked for, however it rounds', () => {
@@ -29,7 +29,7 @@ describe('blendTargets', () => {
   });
 
   it('is the blend the product states', () => {
-    expect(FULL_PAPER_BLEND).toEqual({ easy: 20, medium: 30, hard: 50 });
+    expect(FULL_PAPER_BLEND).toEqual({ easy: 30, medium: 30, hard: 40 });
   });
 });
 
@@ -39,9 +39,9 @@ describe('pickByBlend', () => {
     const r = pickByBlend(pool, 50);
 
     expect(r.picked).toHaveLength(50);
-    expect(countOf(r.picked, 'easy')).toBe(10);
+    expect(countOf(r.picked, 'easy')).toBe(15);
     expect(countOf(r.picked, 'medium')).toBe(15);
-    expect(countOf(r.picked, 'hard')).toBe(25);
+    expect(countOf(r.picked, 'hard')).toBe(20);
     expect(r.exact).toBe(true);
     expect(r.shortfall).toEqual({});
   });
@@ -52,7 +52,7 @@ describe('pickByBlend', () => {
     const r = pickByBlend(pool, 50);
 
     expect(r.picked).toHaveLength(50);
-    expect(r.shortfall).toEqual({ hard: 20 });
+    expect(r.shortfall).toEqual({ hard: 15 });
     expect(r.exact).toBe(false);
     // The gap is made up, not left as a short paper.
     expect(countOf(r.picked, 'hard')).toBe(5);
@@ -61,15 +61,15 @@ describe('pickByBlend', () => {
   it('reports every band that fell short', () => {
     const pool = [...band('easy', 50), ...band('medium', 2), ...band('hard', 3)];
     const r = pickByBlend(pool, 50);
-    expect(r.shortfall).toEqual({ medium: 13, hard: 22 });
+    expect(r.shortfall).toEqual({ medium: 13, hard: 17 });
     expect(r.picked).toHaveLength(50);
   });
 
   it('uses untagged questions last, never in place of a known band', () => {
     const pool = [
-      ...band('easy', 10),
+      ...band('easy', 15),
       ...band('medium', 15),
-      ...band('hard', 25),
+      ...band('hard', 20),
       ...Array.from({ length: 20 }, (_, i) => ({ id: `u-${i}`, difficulty: undefined })),
     ];
     const r = pickByBlend(pool, 50);
@@ -103,25 +103,25 @@ describe('pickByBlend', () => {
   it('reads both difficulty vocabularies', () => {
     // A question tagged through the portal says "complex"; one imported says "hard".
     const pool = [
-      ...band('simple', 10),
+      ...band('simple', 15),
       ...band('medium', 15),
-      ...band('complex', 25),
+      ...band('complex', 20),
     ];
     const r = pickByBlend(pool, 50);
     expect(r.exact).toBe(true);
-    expect(r.taken).toEqual({ easy: 10, medium: 15, hard: 25 });
+    expect(r.taken).toEqual({ easy: 15, medium: 15, hard: 20 });
   });
 
   it('handles an empty pool without throwing', () => {
     const r = pickByBlend([], 50);
     expect(r.picked).toEqual([]);
-    expect(r.shortfall).toEqual({ easy: 10, medium: 15, hard: 25 });
+    expect(r.shortfall).toEqual({ easy: 15, medium: 15, hard: 20 });
   });
 });
 
 describe('describeBlend', () => {
   it('reads in the product’s own vocabulary', () => {
-    expect(describeBlend(blendTargets(50))).toBe('Simple 10 · Medium 15 · Complex 25');
+    expect(describeBlend(blendTargets(50))).toBe('Simple 15 · Medium 15 · Complex 20');
   });
 });
 
@@ -136,9 +136,9 @@ describe('explainBlendShortfall — a Mixed paper over a bank graded all Complex
 
   it('says so in numbers, before the paper exists', () => {
     const text = explainBlendShortfall(result, 50);
-    expect(text).toContain('Simple 10 · Medium 15 · Complex 25'); // what it should be
+    expect(text).toContain('Simple 15 · Medium 15 · Complex 20'); // what it should be
     expect(text).toContain('Simple 0 · Medium 0 · Complex 50'); // what it would be
-    expect(text).toContain('10 Simple, 15 Medium'); // what is missing
+    expect(text).toContain('15 Simple, 15 Medium'); // what is missing
   });
 
   it('names only the bands that are short', () => {
@@ -151,7 +151,7 @@ describe('explainBlendShortfall — a Mixed paper over a bank graded all Complex
       50,
     );
     const text = explainBlendShortfall(some, 50);
-    expect(text).toContain('20 Complex');
+    expect(text).toContain('15 Complex');
     expect(text).not.toContain('Simple,');
   });
 });

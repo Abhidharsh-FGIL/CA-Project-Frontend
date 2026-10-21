@@ -20,6 +20,7 @@
  *     cannot be attributed
  *   • expected_time_sec        — time bands fall back to the student's own median
  */
+import { displayTitle } from '@/lib/display-title';
 import type {
   AttemptDetailResponse,
   QuestionReviewItem,
@@ -91,6 +92,12 @@ export interface NodeMetrics {
   coverage: number | null;
   /** correct / attempted × 100 — null when nothing was attempted, never 0. */
   accuracy: number | null;
+  /**
+   * correct / questions × 100 — every question counts, the unattempted ones as not correct. So a unit
+   * with 25 questions, 19 attempted and 2 right reads 8%, not 10.5%. 0 (not null) when nothing was
+   * answered right, because here "nothing attempted" really is none correct.
+   */
+  correctPct: number | null;
   marksEarned: number | null;
   marksAvailable: number | null;
   /** marksEarned / marksAvailable × 100. */
@@ -159,6 +166,8 @@ export interface DifficultyRow {
   attempted: number;
   correct: number;
   accuracy: number | null;
+  /** correct / questions × 100, the unattempted counting as not correct. */
+  correctPct: number | null;
 }
 
 /**
@@ -201,6 +210,8 @@ export interface SubjectShareRow {
   incorrect: number;
   skipped: number;
   accuracy: number | null;
+  /** correct / questions × 100, the unattempted counting as not correct. */
+  correctPct: number | null;
   /** This subject's share of every wrong answer in the paper. */
   shareOfErrors: number | null;
   /** This subject's share of every unattempted question. */
@@ -216,6 +227,8 @@ export interface TypeRow {
   attempted: number;
   correct: number;
   accuracy: number | null;
+  /** correct / questions × 100, the unattempted counting as not correct. */
+  correctPct: number | null;
 }
 
 export interface TimeBandRow {
@@ -318,6 +331,8 @@ export interface AttemptReportModel {
     unattempted: number;
     attemptRate: number | null;
     accuracy: number | null;
+    /** correct / total questions × 100 — the unattempted count as not correct. */
+    correctPct: number | null;
     timeUsedSec: number | null;
     timeAllowedSec: number | null;
     avgTimePerAttemptedSec: number | null;
@@ -360,7 +375,9 @@ export interface AttemptReportModel {
   }>;
   /** 3–5 sentences read alongside the radar (§5 Interpretation). */
   radarInterpretation: string[];
+  /** The rows of `subjects`: syllabus units when the paper's questions name theirs, otherwise subjects. */
   subjects: SubjectNode[];
+  groupedBy: 'unit' | 'subject';
   analyses: {
     difficulty: { state: AnalysisState; rows: DifficultyRow[]; whatThisMeans: string; reason: string };
     time: {
@@ -531,6 +548,7 @@ function emptyMetrics(): NodeMetrics {
     skipped: 0,
     coverage: null,
     accuracy: null,
+    correctPct: null,
     marksEarned: null,
     marksAvailable: null,
     scoreEfficiency: null,
@@ -568,6 +586,7 @@ export function metricsFor(questions: QuestionReviewItem[]): NodeMetrics {
   m.coverage = pct(m.attempted, m.questions);
   // Null, not zero: nothing attempted means accuracy is unmeasured (§1 No false zero).
   m.accuracy = m.attempted > 0 ? pct(m.correct, m.attempted) : null;
+  m.correctPct = m.questions > 0 ? pct(m.correct, m.questions) : null;
   m.avgTimeSec = m.timedCount > 0 ? round1(timeSum / m.timedCount) : null;
   return m;
 }
@@ -580,13 +599,23 @@ export function metricsFor(questions: QuestionReviewItem[]): NodeMetrics {
  * syllabus area and would be planned around as one. The subject's own totals
  * still count every question, so nothing goes missing from the figures above.
  */
+/** Where a question's subject sits in a paper: 0 Tamil, 2 Aptitude, 1 everything else (General Studies). */
+export function paperSection(q: QuestionReviewItem | undefined): number {
+  const text = `${q?.subject ?? ''} ${q?.subject_id ?? ''}`.toLowerCase();
+  if (/tamil|தமிழ்/.test(text)) return 0;
+  if (/aptitude|mental|reasoning|mathematic|maths|numerical|logical|data interpretation|திறன|கணிதம்/.test(text)) return 2;
+  return 1;
+}
+
 function topicNodes(items: QuestionReviewItem[], cfg: ReportConfig): TopicNode[] {
-  const tagged = items.filter(q => (q.topic ?? '').trim().length > 0);
+  // Under a unit the topic is the question's category; otherwise its topic, as before.
+  const topicOf = (q: QuestionReviewItem) => (q.category ?? q.topic ?? '').trim();
+  const tagged = items.filter(q => topicOf(q).length > 0);
   if (tagged.length === 0) return [];
 
   const byTopic = new Map<string, { name: string; items: QuestionReviewItem[] }>();
   for (const q of tagged) {
-    const name = (q.topic ?? '').trim();
+    const name = topicOf(q);
     const id = taxonomyKey(q.topic_id, name);
     const bucket = byTopic.get(id) ?? { name, items: [] };
     bucket.items.push(q);
@@ -814,6 +843,10 @@ export function normalizeAttemptDetail(detail: AttemptDetailResponse): AttemptDe
     is_correct: !!q.is_correct,
     time_spent_seconds: q.time_spent_seconds ?? q.time_taken_seconds ?? 0,
     subject: q.subject ?? q.subject_name ?? '',
+    // The published unit the question belongs to, and the category and subtopic under it.
+    unit_id: q.unit_id ?? null,
+    unit_name: q.unit_name ?? null,
+    category: q.category ?? null,
     // `chapter` is what the question bank calls the topic; `topic` is what the
     // Excel importer calls it. Either resolves to the same level of the syllabus.
     topic: q.topic ?? q.chapter ?? q.topic_name ?? null,
@@ -909,7 +942,13 @@ export function buildAttemptReport(
 
   const unattempted = Math.max(0, totalQuestions - overall.attempted);
   const attemptRate = pct(overall.attempted, totalQuestions);
-  const timeUsedSec = stats?.time_taken_seconds ?? null;
+  /*
+   * Time used is the time spent on the questions, where the answers carry it. The attempt's own
+   * start-to-submit span includes every minute it was left open, which is why a 30-question set
+   * read as nearly four hours. The span is the fallback where the answers carry no times.
+   */
+  const timeOnQuestions = questions.reduce((n, q) => n + (q.time_spent_seconds > 0 ? q.time_spent_seconds : 0), 0);
+  const timeUsedSec = timeOnQuestions > 0 ? Math.round(timeOnQuestions) : stats?.time_taken_seconds ?? null;
 
   // ── Timing bands, relative to the student's own median (§9) ──
   const times = questions.filter(q => isAttempted(q) && q.time_spent_seconds > 0).map(q => q.time_spent_seconds);
@@ -969,8 +1008,23 @@ export function buildAttemptReport(
    * 20-question total, so a 200-question paper reported 220. Resolving against
    * the exam's syllabus first means the two tags land in one group.
    */
+  /*
+   * A paper whose every question names its published unit is reported by unit: each unit is a row, its
+   * categories are the topics under it, and the subtopics under those. Otherwise the subject groups as before.
+   */
+  // A paper is reported by unit when at least half of its questions name theirs; the rest fall back to their
+  // subject, as before, so one untagged question does not turn a unit report back into a subject one.
+  const unitTagged = questions.filter(q => !!q.unit_id).length;
+  const byUnit = questions.length > 0 && unitTagged * 2 >= questions.length;
   const bySubject = new Map<string, { name: string; items: QuestionReviewItem[] }>();
   for (const q of questions) {
+    if (byUnit && q.unit_id) {
+      const id = `unit:${q.unit_id}`;
+      const entry = bySubject.get(id) ?? { name: (q.unit_name ?? '').trim() || String(q.unit_id), items: [] };
+      entry.items.push(q);
+      bySubject.set(id, entry);
+      continue;
+    }
     const name = (q.subject ?? '').trim() || 'Untagged';
     const node = matchTaxonomy(exam, q.subject_id, name, q as any);
     const id = node?.id ?? taxonomyKey(q.subject_id, name);
@@ -1019,7 +1073,9 @@ export function buildAttemptReport(
   /** Marks rows that describe a group already holding questions, beyond the one it claimed. */
   const extraRows = new Map<string, SubjectBreakdown[]>();
 
-  for (const row of breakdown?.subject_breakdown ?? []) {
+  // A unit report has no subject rows to fold the server's per-subject marks into: they are shared out among
+  // the units below instead, and folding a whole subject's marks into whichever unit came first inflated it.
+  for (const row of byUnit ? [] : breakdown?.subject_breakdown ?? []) {
     if (claimedRows.has(row.subject)) continue;
     const node = matchTaxonomy(exam, null, row.subject);
     const key = node?.id ?? slug(row.subject);
@@ -1064,19 +1120,72 @@ export function buildAttemptReport(
     if (row) marksRowQuestions.set(row.subject, (marksRowQuestions.get(row.subject) ?? 0) + items.length);
   }
 
+  /**
+   * Marks for a unit report. The server scores by subject and a question carries no marks of its own, so a
+   * unit gets its share of each subject row its questions belong to: the subject's marks by question count for
+   * what was available, and by the unit's share of the subject's correct answers for what was earned. The shares
+   * add back up to the subject's own figures.
+   */
+  const subjectRowOf = (q: QuestionReviewItem): SubjectBreakdown | null => {
+    const subjectName = (q.subject ?? '').trim() || 'Untagged';
+    const node = matchTaxonomy(exam, q.subject_id, subjectName, q as any);
+    return marksRowFor(node?.id ?? taxonomyKey(q.subject_id, subjectName), subjectName);
+  };
+  const subjectRowTotals = new Map<string, { questions: number; correct: number }>();
+  if (byUnit) {
+    for (const q of questions) {
+      const row = subjectRowOf(q);
+      if (!row) continue;
+      const t = subjectRowTotals.get(row.subject) ?? { questions: 0, correct: 0 };
+      t.questions += 1;
+      if (isAttempted(q) && q.is_correct) t.correct += 1;
+      subjectRowTotals.set(row.subject, t);
+    }
+  }
+  const unitMarks = (items: QuestionReviewItem[]): { earned: number; available: number } | null => {
+    const perRow = new Map<string, { row: SubjectBreakdown; n: number; correct: number }>();
+    for (const q of items) {
+      const row = subjectRowOf(q);
+      if (!row) continue;
+      const e = perRow.get(row.subject) ?? { row, n: 0, correct: 0 };
+      e.n += 1;
+      if (isAttempted(q) && q.is_correct) e.correct += 1;
+      perRow.set(row.subject, e);
+    }
+    if (perRow.size === 0) return null;
+    let earned = 0;
+    let available = 0;
+    for (const { row, n, correct } of perRow.values()) {
+      const all = subjectRowTotals.get(row.subject);
+      const total = Math.max(row.total_questions, all?.questions ?? 0);
+      if (total > 0) available += (row.max_marks * n) / total;
+      if ((all?.correct ?? 0) > 0) earned += row.estimated_marks * (correct / all!.correct);
+    }
+    return { earned: round1(earned), available: round1(available) };
+  };
+
   const subjects: SubjectNode[] = [...bySubject.entries()].map(([subjectId, { name, items }]) => {
     const m = metricsFor(items);
-    const primary = marksRowFor(subjectId, name);
-    const extras = extraRows.get(subjectId) ?? [];
+    // In a unit report the server's subject rows are not matched to a group: marks come from `unitMarks`.
+    const primary = byUnit ? null : marksRowFor(subjectId, name);
+    const extras = byUnit ? [] : (extraRows.get(subjectId) ?? []);
     // A row shared with another group is split by question share below, and adding
     // rows on top of a split would be arithmetic on a number already divided.
     const marks =
       extras.length > 0 && (!primary || (marksRowClaims.get(primary.subject) ?? 1) === 1)
         ? mergeMarkRows(primary, extras)
         : primary;
-    const labels = subjectLabels(exam, items[0], name);
+    // A unit row is named for the unit. Resolving it as a subject would rename every unit after its subject.
+    const labels = subjectId.startsWith('unit:') ? { name, nameLocal: null } : subjectLabels(exam, items[0], name);
 
-    if (marks) {
+    if (byUnit) {
+      const um = unitMarks(items);
+      if (um) {
+        m.marksEarned = um.earned;
+        m.marksAvailable = um.available;
+        m.scoreEfficiency = um.available > 0 ? pct(um.earned, um.available) : null;
+      }
+    } else if (marks) {
       const claims = marksRowClaims.get(marks.subject) ?? 1;
       /**
        * A row describing one subject gives up its marks whole. A row shared by
@@ -1135,7 +1244,19 @@ export function buildAttemptReport(
     };
   });
 
-  subjects.sort((a, b) => b.metrics.questions - a.metrics.questions || a.name.localeCompare(b.name));
+  if (byUnit) {
+    // A unit report reads in the order of the paper: Tamil units, then General Studies, then Aptitude.
+    const sectionOf = new Map<string, number>();
+    for (const [id, { items }] of bySubject) sectionOf.set(id, paperSection(items[0]));
+    subjects.sort(
+      (a, b) =>
+        (sectionOf.get(a.subjectId) ?? 1) - (sectionOf.get(b.subjectId) ?? 1) ||
+        b.metrics.questions - a.metrics.questions ||
+        a.name.localeCompare(b.name),
+    );
+  } else {
+    subjects.sort((a, b) => b.metrics.questions - a.metrics.questions || a.name.localeCompare(b.name));
+  }
 
   /**
    * The backend generates this once, lazily — see `factsFromModel` below and
@@ -1215,6 +1336,7 @@ export function buildAttemptReport(
     unattempted,
     attemptRate,
     accuracy: overall.accuracy,
+    correctPct: overall.correctPct,
     timeUsedSec,
     timeAllowedSec: exam?.durationSec ?? null,
     avgTimePerAttemptedSec: overall.avgTimeSec,
@@ -1236,7 +1358,11 @@ export function buildAttemptReport(
   // Only subjects that actually cost marks, heaviest first.
   const errorFocus = subjectShares.filter(r => r.incorrect > 0).sort((a, b) => b.incorrect - a.incorrect);
   const timeRows = timeBandRows(questions, medianSec, cfg);
-  const coverage = buildCoverage(subjects, exam, cfg);
+  // A unit's marks are a share of a subject row, which can price one unit's questions below another's. A skipped
+  // question is worth the same wherever it sits, so a unit report prices them at the paper's own rate.
+  const maxScore = detail.attempt?.max_score ?? 0;
+  const flatRate = byUnit && maxScore > 0 && questions.length > 0 ? maxScore / questions.length : null;
+  const coverage = buildCoverage(subjects, exam, cfg, flatRate);
   if (cachedInsights?.coverage) {
     const covCache = cachedInsights.coverage;
     coverage.whatThisMeans = withCached(covCache.overall, coverage.whatThisMeans);
@@ -1303,7 +1429,7 @@ export function buildAttemptReport(
   return {
     meta: {
       attemptId: detail.attempt?.attempt_id ?? '',
-      testName: detail.attempt?.test_name ?? 'Test attempt',
+      testName: displayTitle(detail.attempt?.assessment_title ?? detail.attempt?.test_name) || 'Test attempt',
       examName: detail.attempt?.subject ?? null,
       mode: detail.attempt?.test_mode ?? null,
       date: detail.attempt?.start_time ?? null,
@@ -1317,7 +1443,7 @@ export function buildAttemptReport(
     radar: subjects.map(s => ({
       subjectId: s.subjectId,
       label: s.name,
-      value: s.state === 'NOT_ASSESSED' ? null : s.metrics.accuracy,
+      value: s.metrics.correctPct,
       evidenceCount: s.metrics.attempted,
       correct: s.metrics.correct,
       questions: s.metrics.questions,
@@ -1331,6 +1457,7 @@ export function buildAttemptReport(
         ? cachedInsights.radar_interpretation
         : buildRadarInterpretation(subjects, cfg),
     subjects,
+    groupedBy: byUnit ? 'unit' : 'subject',
     analyses: {
       bySubject: {
         state: subjectShares.length > 0 ? 'AVAILABLE' : 'DATA_UNAVAILABLE',
@@ -1700,10 +1827,10 @@ function buildDiagnostics(
       );
     const topicPart =
       weakTopic && (weakTopic.metrics.accuracy ?? 0) < cfg.targetAccuracy
-        ? ` Within it, ${weakTopic.name} is the softest spot at ${weakTopic.metrics.accuracy}% (${weakTopic.metrics.correct}/${weakTopic.metrics.attempted}) — the narrowest place to start revising.`
+        ? ` Within it, ${weakTopic.name} is the softest spot at ${weakTopic.metrics.correctPct}% (${weakTopic.metrics.correct}/${weakTopic.metrics.questions}) — the narrowest place to start revising.`
         : '';
     out.push({
-      text: `${weakest.name} is the weakest measured subject at ${weakest.metrics.accuracy}% (${weakest.metrics.correct}/${weakest.metrics.attempted}), across ${weakest.metrics.questions} questions in this paper.${topicPart}`,
+      text: `${weakest.name} is the weakest measured subject at ${weakest.metrics.correctPct}% (${weakest.metrics.correct}/${weakest.metrics.questions}), across ${weakest.metrics.questions} questions in this paper.${topicPart}`,
       evidence: [`${weakest.metrics.correct}/${weakest.metrics.attempted} correct`, `${weakest.metrics.questions} questions available`],
       confidence: weakest.confidence,
       basis: basisFromSample(weakest.metrics.attempted, cfg, `answered ${weakest.name} questions`),
@@ -1768,7 +1895,7 @@ function buildDiagnostics(
   );
   if (strongest && (strongest.metrics.accuracy ?? 0) >= cfg.targetAccuracy) {
     out.push({
-      text: `${strongest.name} is holding up at ${strongest.metrics.accuracy}% (${strongest.metrics.correct}/${strongest.metrics.attempted}) — enough evidence to treat it as a strength to maintain rather than rebuild.`,
+      text: `${strongest.name} is holding up at ${strongest.metrics.correctPct}% (${strongest.metrics.correct}/${strongest.metrics.questions}) — enough evidence to treat it as a strength to maintain rather than rebuild.`,
       evidence: [`${strongest.metrics.correct}/${strongest.metrics.attempted} correct`],
       confidence: strongest.confidence,
       basis: basisFromSample(strongest.metrics.attempted, cfg, `answered ${strongest.name} questions`),
@@ -1816,18 +1943,18 @@ function buildRadarInterpretation(subjects: SubjectNode[], cfg: ReportConfig): s
     return lines;
   }
 
-  const sorted = [...measured].sort((a, b) => (b.metrics.accuracy ?? 0) - (a.metrics.accuracy ?? 0));
+  const sorted = [...measured].sort((a, b) => (b.metrics.correctPct ?? 0) - (a.metrics.correctPct ?? 0));
   const best = sorted[0];
   const worst = sorted[sorted.length - 1];
-  const atTarget = measured.filter(s => (s.metrics.accuracy ?? 0) >= cfg.targetAccuracy);
-  const below = measured.filter(s => (s.metrics.accuracy ?? 0) < cfg.targetAccuracy);
+  const atTarget = measured.filter(s => (s.metrics.correctPct ?? 0) >= cfg.targetAccuracy);
+  const below = measured.filter(s => (s.metrics.correctPct ?? 0) < cfg.targetAccuracy);
 
   lines.push(
-    `Strongest measured area: ${best.name} at ${best.metrics.accuracy}% (${best.metrics.correct} of ${best.metrics.attempted} attempted).`,
+    `Strongest measured area: ${best.name} at ${best.metrics.correctPct}% (${best.metrics.correct} of ${best.metrics.questions} questions correct).`,
   );
   if (worst.subjectId !== best.subjectId) {
     lines.push(
-      `Weakest measured area: ${worst.name} at ${worst.metrics.accuracy}% (${worst.metrics.correct} of ${worst.metrics.attempted}) — a ${Math.round((best.metrics.accuracy ?? 0) - (worst.metrics.accuracy ?? 0))}-point spread across the shape.`,
+      `Weakest measured area: ${worst.name} at ${worst.metrics.correctPct}% (${worst.metrics.correct} of ${worst.metrics.questions}) — a ${Math.round((best.metrics.correctPct ?? 0) - (worst.metrics.correctPct ?? 0))}-point spread across the shape.`,
     );
   }
 
@@ -1840,14 +1967,14 @@ function buildRadarInterpretation(subjects: SubjectNode[], cfg: ReportConfig): s
   if (below.length > 0) {
     const worstThree = below.slice(-3).reverse();
     lines.push(
-      `Inside the ring: ${worstThree.map(s => `${s.name} (${s.metrics.accuracy}%)`).join(', ')} — the distance from the ring is the marks available.`,
+      `Inside the ring: ${worstThree.map(s => `${s.name} (${s.metrics.correctPct}%)`).join(', ')} — the distance from the ring is the marks available.`,
     );
   }
 
   if (notAssessed.length > 0) {
     const blank = notAssessed.reduce((n, s) => n + s.metrics.questions, 0);
     lines.push(
-      `${notAssessed.length} axis${notAssessed.length === 1 ? '' : 'es'} carry no point because nothing was attempted there (${blank} questions in ${notAssessed.slice(0, 2).map(s => s.name).join(', ')}${notAssessed.length > 2 ? ' and others' : ''}). That is missing evidence, not a score of zero.`,
+      `${notAssessed.length} axis${notAssessed.length === 1 ? '' : 'es'} sit${notAssessed.length === 1 ? 's' : ''} at 0% because nothing was attempted there (${blank} questions in ${notAssessed.slice(0, 2).map(s => s.name).join(', ')}${notAssessed.length > 2 ? ' and others' : ''}).`,
     );
   }
   if (thin.length > 0) {
@@ -1883,6 +2010,7 @@ function difficultyRows(questions: QuestionReviewItem[]): DifficultyRow[] {
         attempted: m.attempted,
         correct: m.correct,
         accuracy: m.accuracy,
+        correctPct: m.correctPct,
       };
     });
 }
@@ -1945,21 +2073,22 @@ function typeRowsFor(questions: QuestionReviewItem[]): TypeRow[] {
         attempted: m.attempted,
         correct: m.correct,
         accuracy: m.accuracy,
+        correctPct: m.correctPct,
       };
     })
     .sort((a, b) => b.questions - a.questions);
 }
 
 function typeNarrative(rows: TypeRow[]): string {
-  const scored = rows.filter(r => r.accuracy != null);
-  if (scored.length === 0) return 'No attempted question carries a format tag.';
+  const scored = rows.filter(r => r.correctPct != null);
+  if (scored.length === 0) return 'No question carries a format tag.';
   if (scored.length === 1) {
     const only = scored[0];
-    return `Every question in this paper is a ${only.label} — ${only.correct}/${only.attempted} correct (${only.accuracy}%). With one format there is nothing to compare against.`;
+    return `Every question in this paper is a ${only.label} — ${only.correct}/${only.questions} correct (${only.correctPct}%). With one format there is nothing to compare against.`;
   }
-  const best = scored.reduce((hi, r) => ((r.accuracy ?? 0) > (hi.accuracy ?? 0) ? r : hi));
-  const worst = scored.reduce((lo, r) => ((r.accuracy ?? 0) < (lo.accuracy ?? 0) ? r : lo));
-  return `Strongest on ${best.label} (${best.accuracy}%); weakest on ${worst.label} (${worst.accuracy}%).`;
+  const best = scored.reduce((hi, r) => ((r.correctPct ?? 0) > (hi.correctPct ?? 0) ? r : hi));
+  const worst = scored.reduce((lo, r) => ((r.correctPct ?? 0) < (lo.correctPct ?? 0) ? r : lo));
+  return `Strongest on ${best.label} (${best.correctPct}%); weakest on ${worst.label} (${worst.correctPct}%).`;
 }
 
 /** Per-subject shares of the paper's errors and skips. */
@@ -1980,6 +2109,7 @@ function shareRows(subjects: SubjectNode[], overall: NodeMetrics): SubjectShareR
         incorrect: m.incorrect,
         skipped: m.skipped,
         accuracy: m.accuracy,
+        correctPct: m.correctPct,
         shareOfErrors: overall.incorrect > 0 ? pct(m.incorrect, overall.incorrect) : null,
         shareOfSkipped: overall.skipped > 0 ? pct(m.skipped, overall.skipped) : null,
         marksUncollected,
@@ -2067,6 +2197,7 @@ function buildCoverage(
   subjects: SubjectNode[],
   exam: ExamContext | null,
   cfg: ReportConfig,
+  flatRate: number | null = null,
 ): AttemptReportModel['coverage'] {
   /** Syllabus topics per subject, matched on the configured name. */
   const topicsBySubject = new Map<string, string[]>();
@@ -2105,7 +2236,7 @@ function buildCoverage(
       // Marks per question in this subject, so skipped questions can be priced.
       // Falls back to the paper's rate where this subject carries no marks row.
       const perQuestion =
-        m.marksAvailable != null && m.questions > 0 ? m.marksAvailable / m.questions : paperRate;
+        flatRate ?? (m.marksAvailable != null && m.questions > 0 ? m.marksAvailable / m.questions : paperRate);
       const marksAtStake = perQuestion != null ? Math.round(perQuestion * m.skipped * 10) / 10 : null;
       const state: CoverageRow['state'] = m.attempted === 0 ? 'NOT_ASSESSED' : 'PARTIAL';
       const topics = topicsBySubject.get(s.subjectId) ?? topicsBySubject.get(slug(s.name)) ?? [];

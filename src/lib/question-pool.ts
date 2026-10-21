@@ -66,7 +66,7 @@ export function poolDifficulty(
 ): QuestionDifficulty | null {
   if (tag.track === 'mock') return null;
   if (tag.track === 'practice') {
-    if (tag.scope === 'unit' && tag.level) return asQuestionDifficulty(toStored(tag.level)) ?? null;
+    if ((tag.scope === 'unit' || tag.scope === 'topic') && tag.level) return asQuestionDifficulty(toStored(tag.level)) ?? null;
     return null;
   }
   return fallback && fallback !== 'all' ? (asQuestionDifficulty(fallback) ?? null) : null;

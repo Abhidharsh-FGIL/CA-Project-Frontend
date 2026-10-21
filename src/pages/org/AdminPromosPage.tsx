@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useAdminPlans } from '@/hooks/use-admin-plans';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { GenVerseShell } from '@/components/layout/GenVerseShell';
 import { PageHeader } from '@/components/layout/AppShell';
@@ -42,7 +43,6 @@ import { useAdminPromos, useAdminPromoActions } from '@/hooks/use-admin-promos';
 import { type PromoCodeOut, type PromoScope, type PromoStatus } from '@/lib/adminApi';
 import {
   PROMO_BILLING_OPTIONS,
-  PROMO_PLAN_OPTIONS,
   limitsPlans,
   restrictionLabel,
   toCreatePayload,
@@ -199,9 +199,7 @@ export default function AdminPromosPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Filter className="w-4 h-4 text-gray-400" />
               <Chip active={scopeFilter === 'all'} onClick={() => setScopeFilter('all')}>All Scopes</Chip>
-              <Chip active={scopeFilter === 'test'} onClick={() => setScopeFilter('test')}>Test</Chip>
               <Chip active={scopeFilter === 'subscription'} onClick={() => setScopeFilter('subscription')}>Subscription</Chip>
-              <Chip active={scopeFilter === 'platform'} onClick={() => setScopeFilter('platform')}>Platform</Chip>
               <span className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
               <Chip active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>All Status</Chip>
               <Chip active={statusFilter === 'active'} onClick={() => setStatusFilter('active')}>Active</Chip>
@@ -434,13 +432,20 @@ function PromoEditor({
   saving: boolean;
 }) {
   const isNew = !promo;
+  // The plans a code can be limited to are the plans on sale, as the server has them — not a fixed list.
+  const { data: plansData } = useAdminPlans();
+  const paidPlans = useMemo(
+    () => (plansData ?? []).filter(p => p.name !== 'free' && p.active).map(p => p.name),
+    [plansData],
+  );
   const [form, setForm] = useState<PromoCodeOut>(
     promo || {
       code_id: `pc_${Date.now().toString(36)}`,
       code_string: '',
-      scope: 'test',
+      scope: 'subscription',
       discount_pct: 100,
       max_uses: 100,
+      max_uses_per_user: 1,
       used_count: 0,
       expiry_date: new Date(Date.now() + 30 * 86_400_000).toISOString().split('T')[0],
       created_by: null,
@@ -525,48 +530,11 @@ function PromoEditor({
             </FormField>
           </div>
 
-          <FormField label="Scope">
-            <div className="flex gap-2">
-              {(Object.keys(SCOPE_META) as PromoScope[]).map(s => {
-                const meta = SCOPE_META[s];
-                const Icon = meta.icon;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setForm(f => ({ ...f, scope: s }))}
-                    className={cn(
-                      'flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition-all',
-                      form.scope === s
-                        ? 'bg-gradient-to-r from-brand-600 to-brand-400 text-white border-transparent shadow-sm'
-                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300',
-                    )}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {meta.label}
-                  </button>
-                );
-              })}
-            </div>
-          </FormField>
-
-          {form.scope === 'test' && (
-            <FormField label="Test ID">
-              <input
-                type="text"
-                value={form.test_id || ''}
-                onChange={e => setForm(f => ({ ...f, test_id: e.target.value || null }))}
-                placeholder="e.g. test_found_mock_2"
-                className="w-full px-3 py-2 text-sm font-mono border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-brand-700"
-              />
-            </FormField>
-          )}
-
           {limitsPlans(form.scope) && (
             <>
               <FormField label="Plans (none selected = every paid plan)">
                 <div className="flex flex-wrap gap-2">
-                  {PROMO_PLAN_OPTIONS.map(plan => (
+                  {paidPlans.map(plan => (
                     <LimitChip
                       key={plan}
                       active={!!form.applies_to_tiers?.includes(plan)}
@@ -593,7 +561,7 @@ function PromoEditor({
             </>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <FormField label="Max Uses (blank = unlimited)">
               <input
                 type="number"
@@ -603,6 +571,21 @@ function PromoEditor({
                   setForm(f => ({
                     ...f,
                     max_uses: e.target.value === '' ? -1 : parseInt(e.target.value),
+                  }))
+                }
+                placeholder="Unlimited"
+                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-brand-700"
+              />
+            </FormField>
+            <FormField label="Uses per user (blank = unlimited)">
+              <input
+                type="number"
+                min={1}
+                value={(form.max_uses_per_user ?? -1) > 0 ? form.max_uses_per_user ?? '' : ''}
+                onChange={e =>
+                  setForm(f => ({
+                    ...f,
+                    max_uses_per_user: e.target.value === '' ? -1 : parseInt(e.target.value),
                   }))
                 }
                 placeholder="Unlimited"

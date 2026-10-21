@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, Navigate, useLocation, Link, Outlet } from "react-router-dom";
-import { getToken } from "@/lib/api";
+import { getToken, getUserToken } from "@/lib/api";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
@@ -17,6 +17,7 @@ import AdminLoginPage from "@/pages/org/AdminLoginPage";
 import LandingPage from "@/pages/landing/LandingPage";
 import TermsPage from "@/pages/landing/TermsPage";
 import PrivacyPage from "@/pages/landing/PrivacyPage";
+import RefundPage from "@/pages/landing/RefundPage";
 import AdminDashboardPage from "@/pages/org/AdminDashboardPage";
 import AdminPaymentsPage from "@/pages/org/AdminPaymentsPage";
 import AdminCoursesPage from "@/pages/org/AdminCoursesPage";
@@ -54,6 +55,7 @@ import UserTrackPage from "@/pages/user/UserTrackPage";
 import UserPerformancePage from "@/pages/user/UserPerformancePage";
 import UserProgressPage from "@/pages/user/UserProgressPage";
 import UserSavedPage from "@/pages/user/UserSavedPage";
+import UserAboutPage from "@/pages/user/UserAboutPage";
 import PlanNoticeHost from "@/components/user/PlanNoticeHost";
 import SessionExpiredHost from "@/components/SessionExpiredHost";
 import { announcePlanNotice } from "@/lib/plan-notice-bus";
@@ -100,6 +102,13 @@ function UserGuard() {
   }
 
   return isAuthenticated ? <Outlet /> : <Navigate to="/user/login" replace />;
+}
+
+/** The public landing page — but a signed-in aspirant opening the site goes straight to their dashboard. */
+function LandingGate() {
+  // The user provider only mounts under /user/*, so this reads the stored session directly. A stale token is
+  // sent on to the login page by UserGuard.
+  return getUserToken() ? <Navigate to="/user/dashboard" replace /> : <LandingPage />;
 }
 
 function ScrollToTop() {
@@ -204,6 +213,7 @@ function UserPortalRoutes() {
           <Route path="subscription" element={<SubscriptionPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="billing" element={<PaymentHistoryPage />} />
+          <Route path="about" element={<UserAboutPage />} />
           <Route path="assessment/:assessmentId" element={<UserEvalAssessmentPage />} />
         </Route>
       </Routes>
@@ -215,9 +225,10 @@ function AppRoutes() {
   return (
     <Routes>
       {/* The public landing page. The old two-door chooser (aspirant / admin) is kept at /portals. */}
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={<LandingGate />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/refund" element={<RefundPage />} />
       <Route path="/portals" element={<HomePage />} />
       <Route path="/adminlogin" element={<AdminLoginPage />} />
       <Route element={<AdminGuard />}>

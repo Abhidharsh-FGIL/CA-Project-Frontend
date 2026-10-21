@@ -40,12 +40,12 @@ describe('composeByGroups', () => {
     expect(r.short).toEqual([]);
   });
 
-  it('applies the 20/30/50 blend inside each group, so the whole paper follows it too', () => {
+  it('applies the 30/30/40 blend inside each group, so the whole paper follows it too', () => {
     const r = composeByGroups(pool, groups, classify, weights, 200, { blend: true, random: seeded(2) });
     const count = (d: string) => r.picked.filter(q => q.difficulty === d).length;
-    // 20/30/50 of 200 is 40/60/100. Rounding inside small groups (a 25-question group cannot
-    // split into 5 / 7.5 / 12.5) can move a band by a question or two, not more.
-    for (const [band, target] of [['easy', 40], ['medium', 60], ['hard', 100]] as const) {
+    // 30/30/40 of 200 is 60/60/80. Rounding inside small groups (a 25-question group cannot
+    // split into 7.5 / 7.5 / 10) can move a band by a question or two, not more.
+    for (const [band, target] of [['easy', 60], ['medium', 60], ['hard', 80]] as const) {
       expect(Math.abs(count(band) - target)).toBeLessThanOrEqual(2);
     }
   });

@@ -13,16 +13,15 @@ import { distributeQuestions } from '@/lib/distribution-utils';
 import { asQuestionDifficulty, type QuestionDifficulty } from '@/lib/eval-difficulty';
 
 /**
- * 20 / 30 / 50 — Simple, Medium, Complex.
+ * 30 / 30 / 40 — Simple, Medium, Complex.
  *
- * Weighted towards the harder end on purpose: a paper that mirrors the exam has
- * to discriminate at the top, and a set that is mostly Simple flatters everyone
- * who sits it.
+ * Weighted towards the harder end, though less than it was: a paper that mirrors the exam has to
+ * discriminate at the top, and a set that is mostly Simple flatters everyone who sits it.
  */
 export const FULL_PAPER_BLEND: Record<QuestionDifficulty, number> = {
-  easy: 20,
+  easy: 30,
   medium: 30,
-  hard: 50,
+  hard: 40,
 };
 
 /** How many of each difficulty a paper of `total` questions should hold. */

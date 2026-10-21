@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { here } from '@/lib/report-origin';
 import { UserShell } from '@/components/user/UserShell';
 import { useTnpscCatalog, useTnpscMockTests, useTnpscPracticeTests } from '@/hooks/use-tnpsc';
 import {
@@ -15,6 +16,7 @@ import {
   findStage,
   isTamilOnlySection,
   negativeMarkingLabel,
+  unitDisplayName,
   answeredCount,
   questionCountLabel,
   sectionSyllabus,
@@ -25,9 +27,19 @@ import {
   type TnpscSyllabusUnit,
   type TnpscTopic,
 } from '@/config/tnpsc';
+import { ExamLanguageNote } from '@/components/user/ExamLanguageNote';
+import { useExamLanguage } from '@/hooks/use-exam-language';
+import { hasLanguageChoice } from '@/lib/exam-language';
 import { attemptsUsed } from '@/lib/plan-notice';
 import { showPlanNotice } from '@/lib/plan-notice-bus';
 import { fullSetFor } from '@/lib/tnpsc-full-set';
+import {
+  buildKeyTopicSections,
+  isKeyTopicPaper,
+  sameLabel,
+  type KeyTopicRow,
+  type KeyTopicSection,
+} from '@/lib/key-topic-sections';
 import { unitChipLabel } from '@/lib/unit-chip';
 import { levelStats, type LevelKey, type LevelStat } from '@/lib/unit-levels';
 import { testHref, type TnpscLevelGroup, type TnpscTest } from '@/lib/tnpscApi';
@@ -43,6 +55,7 @@ import {
   FlaskConical,
   Globe2,
   Landmark,
+  KeyRound,
   Languages,
   Layers,
   ListChecks,
@@ -62,9 +75,10 @@ import { cn } from '@/lib/utils';
 /**
  * /user/exams/:groupId/:stageId
  *
- * Two tracks for a stage, both organised by the *published syllabus unit* rather
- * than by whatever the test catalog happens to be grouped by: Practice (untimed
- * sets, card grid) and Exam (full-length papers by level, list rows).
+ * Three tracks for a stage: Practice (untimed sets by the *published syllabus unit*
+ * rather than by whatever the test catalog happens to be grouped by), Exam
+ * (full-length papers by level, list rows) and Key Topics (a short paper on one topic
+ * of a unit, opened from a dropdown per section).
  *
  * The unit is the organising idea on this screen. It is what the commission
  * publishes question counts against, it is what the syllabus panel on the left
@@ -73,7 +87,7 @@ import { cn } from '@/lib/utils';
  * sit underneath it.
  */
 
-type Tab = 'practice' | 'exam';
+type Tab = 'practice' | 'exam' | 'topics';
 
 // ─── Unit presentation ────────────────────────────────────────────────────────
 
@@ -122,27 +136,6 @@ interface UnitRowModel {
   topics: TnpscTopic[];
   /** Papers that belong to this unit, from whichever track is on screen. */
   tests: TnpscTest[];
-}
-
-/** Letters only, lowercased — ids, Tamil labels and titles all normalise to this. */
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
-
-/**
- * Whether two labels name the same thing.
- *
- * Exact after normalising, or one contained in the other once both are long
- * enough for containment to mean something — "Reading Comprehension" is the unit
- * the topic `comprehension` belongs to, but a 3-letter overlap would match
- * anything. Five is the shortest length where a false positive stops being likely.
- */
-function sameLabel(a: string, b: string): boolean {
-  const x = norm(a);
-  const y = norm(b);
-  if (!x || !y) return false;
-  if (x === y) return true;
-  const short = x.length <= y.length ? x : y;
-  const long = short === x ? y : x;
-  return short.length >= 5 && long.includes(short);
 }
 
 /**
@@ -235,13 +228,18 @@ export default function TnpscStagePage() {
   const { groupId, stageId } = useParams<{ groupId: string; stageId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { groups } = useTnpscCatalog();
+  // The catalog as this aspirant sees it — Group 4 lists the language paper they sit, not both —
+  // and the whole one, to know whether the stage offers the choice at all.
+  const { groups } = useTnpscCatalog({ forMyLanguage: true });
+  const { groups: allGroups } = useTnpscCatalog();
+  const language = useExamLanguage();
 
   const found = findStage(groupId, stageId, groups);
+  const offersLanguageChoice = hasLanguageChoice(findStage(groupId, stageId, allGroups)?.stage);
   // Practice leads now: it is the everyday screen, and a full paper is the
   // occasional event rather than the default thing to open.
   const tabParam = searchParams.get('tab');
-  const tab: Tab = tabParam === 'exam' || tabParam === 'mock' ? 'exam' : 'practice';
+  const tab: Tab = tabParam === 'exam' || tabParam === 'mock' ? 'exam' : tabParam === 'topics' ? 'topics' : 'practice';
   const setTab = (t: Tab) => {
     setSearchParams(t === 'practice' ? {} : { tab: t }, { replace: true });
     // The drill belongs to the Practice track; carrying it into Exam would leave
@@ -266,20 +264,34 @@ export default function TnpscStagePage() {
    */
   const [syllabusOpen, setSyllabusOpen] = useState(true);
   const [unitFilter, setUnitFilter] = useState<string | null>(null);
+  /** The Key Topics sections that are open — a dropdown each, so several can be. */
+  const [openTopicSections, setOpenTopicSections] = useState<string[]>([]);
+  const toggleTopicSection = (key: string, only?: 'open') =>
+    setOpenTopicSections(prev =>
+      prev.includes(key) ? (only ? prev : prev.filter(k => k !== key)) : [...prev, key],
+    );
 
-  const mock = useTnpscMockTests(groupId, stageId);
-  const practice = useTnpscPracticeTests(groupId, stageId);
+  const mock = useTnpscMockTests(groupId, stageId, language);
+  const practice = useTnpscPracticeTests(groupId, stageId, language);
 
   const stage = found?.stage;
   const group = found?.group;
 
+  const practiceTests = useMemo<TnpscTest[]>(() => practice.subjects.flatMap(s => s.tests), [practice.subjects]);
+
   /** Every paper in the active track, flattened — units pick from this. */
   const trackTests = useMemo<TnpscTest[]>(
     () =>
-      tab === 'practice'
-        ? practice.subjects.flatMap(s => s.tests)
-        : mock.levels.flatMap(l => l.tests),
-    [tab, practice.subjects, mock.levels],
+      tab === 'exam'
+        ? mock.levels.flatMap(l => l.tests)
+        : // Key-topic papers are listed under Key Topics, not as a unit's own sets.
+          practiceTests.filter(t => !isKeyTopicPaper(t)),
+    [tab, practiceTests, mock.levels],
+  );
+
+  const keyTopicSections = useMemo<KeyTopicSection[]>(
+    () => (stage ? buildKeyTopicSections(stage, practiceTests.filter(isKeyTopicPaper)) : []),
+    [stage, practiceTests],
   );
 
   const sections = useMemo<SectionModel[]>(() => {
@@ -372,10 +384,10 @@ export default function TnpscStagePage() {
     );
   }
 
-  const isLoading = tab === 'practice' ? practice.isLoading : mock.isLoading;
-  const error = (tab === 'practice' ? practice.error : mock.error) as Error | null;
+  const isLoading = tab === 'exam' ? mock.isLoading : practice.isLoading;
+  const error = (tab === 'exam' ? mock.error : practice.error) as Error | null;
   const drill = drillKey ? (sections.find(x => x.key === drillKey) ?? null) : null;
-  const verb = tab === 'practice' ? 'Practice' : 'Exam';
+  const verb = tab === 'exam' ? 'Exam' : 'Practice';
 
   const openDrill = (key: string) => {
     setDrillKey(key);
@@ -393,6 +405,8 @@ export default function TnpscStagePage() {
 
       <StageHero stage={stage} groupName={group.name} accent={group.accent} />
 
+      {offersLanguageChoice && <ExamLanguageNote className="mb-4 sm:mb-5" />}
+
       {/* Syllabus beside the papers, so what's in the exam stays in view while
           picking one — a third of the width open, a rail when folded. */}
       <div
@@ -403,19 +417,33 @@ export default function TnpscStagePage() {
       >
         <SyllabusPanel
           sections={sections}
-          drill={drill}
+          drill={tab === 'topics' ? null : drill}
           collapsed={!syllabusOpen}
           onCollapsedChange={v => setSyllabusOpen(!v)}
-          onOpen={k => (k ? openDrill(k) : setDrillKey(null))}
+          // Opening a section here only opens its dropdown; the right-hand pane changes when a
+          // section's own card is chosen. On Key Topics the dropdown is the right-hand list's own.
+          onOpen={tab === 'topics' ? k => toggleTopicSection(k, 'open') : undefined}
+          onBack={() => setDrillKey(null)}
         />
 
         <div className="min-w-0 space-y-4">
           <TrackTabs tab={tab} onChange={setTab} />
 
           {isLoading ? (
-            <LoadingRow label={tab === 'practice' ? 'Loading practice tests…' : 'Loading exam papers…'} />
+            <LoadingRow
+              label={tab === 'exam' ? 'Loading exam papers…' : tab === 'topics' ? 'Loading key topics…' : 'Loading practice tests…'}
+            />
           ) : error ? (
             <ErrorRow message={error.message} />
+          ) : tab === 'topics' ? (
+            <>
+              <TrackBanner tab={tab} />
+              <KeyTopicsTrack
+                sections={keyTopicSections}
+                open={openTopicSections}
+                onToggle={k => toggleTopicSection(k)}
+              />
+            </>
           ) : tab === 'exam' ? (
             // Ahead of the sections guard: a mock belongs to no section, so a
             // stage whose syllabus has not been published still has mocks to sit.
@@ -471,6 +499,119 @@ export default function TnpscStagePage() {
         </div>
       </div>
     </UserShell>
+  );
+}
+
+// ─── Key topics track ─────────────────────────────────────────────────────────
+
+/**
+ * Key topics: each printed section is a dropdown, and opening it lists the topics that have a paper.
+ *
+ * A topic with one paper is itself the way in — pressing it starts the paper, with the lock and
+ * attempts-spent rules the other lists have. A topic with several (different difficulties) lists
+ * them under its name.
+ */
+function KeyTopicsTrack({
+  sections,
+  open,
+  onToggle,
+}: {
+  sections: KeyTopicSection[];
+  open: string[];
+  onToggle: (key: string) => void;
+}) {
+  if (sections.length === 0) return <EmptyRow label="No sections are published for this stage yet." />;
+
+  const tests = sections.reduce((n, sec) => n + sec.testCount, 0);
+
+  return (
+    <>
+      {tests === 0 && (
+        <EmptyRow label="Key-topic tests are on the way. Each one covers a single topic of the syllabus." />
+      )}
+      <div className="space-y-2.5">
+        {sections.map((sec, i) => {
+          const a = accentFor(i);
+          const available = sec.topicCount > 0;
+          const isOpen = available && open.includes(sec.key);
+          return (
+            <section
+              key={sec.key}
+              className={cn(
+                'rounded-2xl border overflow-hidden transition-colors',
+                isOpen ? cn(a.ring, a.soft) : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900',
+              )}
+            >
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                disabled={!available}
+                onClick={() => onToggle(sec.key)}
+                className="w-full flex items-center gap-3 p-4 text-left disabled:cursor-default"
+              >
+                <SectionGlyph name={sec.name} badge={a.badge} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">{sec.name}</h3>
+                    {sec.alternativeTo && (
+                      <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 bg-white/70 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded-full">
+                        or {sec.alternativeTo}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mt-0.5">
+                    {available
+                      ? `${sec.topicCount} key topic${sec.topicCount === 1 ? '' : 's'} · ${sec.testCount} test${sec.testCount === 1 ? '' : 's'}`
+                      : 'Coming soon'}
+                  </p>
+                </div>
+                {available && (
+                  <ChevronDown
+                    className={cn('w-5 h-5 flex-shrink-0 text-gray-400 transition-transform', isOpen && 'rotate-180')}
+                    aria-hidden
+                  />
+                )}
+              </button>
+
+              {isOpen && (
+                <div className="px-4 pb-4 space-y-4">
+                  {sec.groups.map(g => (
+                    <div key={g.key}>
+                      {/* A section with one unit needs no unit heading; with several, the unit says where a topic sits. */}
+                      {sec.groups.length > 1 && (
+                        <p className={cn('mb-2 text-[11px] font-bold uppercase tracking-wider', a.text)}>
+                          {g.label ? `Unit ${g.label} · ` : ''}
+                          {g.name}
+                        </p>
+                      )}
+                      <div className="space-y-2">
+                        {g.topics.map((r, ri) => (
+                          <KeyTopicItem key={r.topic.id} row={r} index={ri} />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function KeyTopicItem({ row, index }: { row: KeyTopicRow; index: number }) {
+  const { topic, tests } = row;
+  // One paper: the topic is the paper, so pressing it starts it.
+  if (tests.length === 1) return <PaperRow test={tests[0]} index={index} label={topic.name} />;
+  return (
+    <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 space-y-2">
+      <p className="text-[13px] font-bold text-gray-900 dark:text-gray-100">{topic.name}</p>
+      {tests.map((t, i) => (
+        <PaperRow key={t.test_id} test={t} index={i} />
+      ))}
+    </div>
   );
 }
 
@@ -625,17 +766,6 @@ function LevelSection({ group }: { group: TnpscLevelGroup }) {
           </div>
         </div>
 
-        <div className="text-right flex-shrink-0">
-          <p className="text-xs font-bold text-gray-900 dark:text-gray-100">
-            {group.tests_completed}/{group.tests_total} cleared
-          </p>
-          <p className="text-[11px] text-gray-500 dark:text-gray-400">
-            {group.best_percentage != null
-              ? `Best ${Math.round(group.best_percentage)}%`
-              : 'Not attempted'}
-            {LEVEL_GATE_ENABLED && !group.is_completed && ` · pass ${group.required_percentage}%`}
-          </p>
-        </div>
       </div>
 
       {locked ? (
@@ -935,7 +1065,7 @@ function ActionTile({
 
   if (to && !disabled) {
     return (
-      <Link to={to} className={shell}>
+      <Link to={to} state={{ from: here() }} className={shell}>
         {body}
       </Link>
     );
@@ -1052,6 +1182,7 @@ function TrackTabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) 
   const items: Array<{ key: Tab; label: string; icon: React.ReactNode }> = [
     { key: 'practice', label: 'Practice', icon: <Pencil className="w-4 h-4" /> },
     { key: 'exam', label: 'Exam', icon: <FileText className="w-4 h-4" /> },
+    { key: 'topics', label: 'Key Topics', icon: <KeyRound className="w-4 h-4" /> },
   ];
 
   return (
@@ -1086,6 +1217,7 @@ function TrackTabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) 
 
 function TrackBanner({ tab }: { tab: Tab }) {
   const practice = tab === 'practice';
+  const topics = tab === 'topics';
   return (
     <div className="relative overflow-hidden rounded-2xl border border-blue-100 dark:border-blue-900/60 bg-gradient-to-r from-blue-50/80 to-violet-50/60 dark:from-blue-950/30 dark:to-violet-950/20 p-4">
       <div className="relative flex items-start gap-3">
@@ -1094,11 +1226,12 @@ function TrackBanner({ tab }: { tab: Tab }) {
         </span>
         <div className="min-w-0">
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-            {practice ? 'Choose Your Practice' : 'Choose Your Exam'}
+            {topics ? 'Choose a Key Topic' : practice ? 'Choose Your Practice' : 'Choose Your Exam'}
           </p>
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 leading-relaxed">
-            Select a subject to start unit-wise {practice ? 'practice' : 'papers'}, or try the full set for
-            a complete {practice ? 'revision' : 'sitting'}.
+            {topics
+              ? 'Open a section, pick a key topic and take a short test on just that topic.'
+              : `Select a subject to start unit-wise ${practice ? 'practice' : 'papers'}, or try the full set for a complete ${practice ? 'revision' : 'sitting'}.`}
           </p>
         </div>
       </div>
@@ -1251,6 +1384,7 @@ function LevelButton({ stat }: { stat: LevelStat }) {
   return (
     <Link
       to={locked ? '/user/subscription' : testHref(test)}
+      state={{ from: here() }}
       title={locked ? (test.lock_reason ?? 'Upgrade to unlock') : test.title}
       className={className}
     >
@@ -1267,21 +1401,25 @@ function FullSetBar({ section, verb }: { section: SectionModel; verb: string }) 
   if (!test) return null;
 
   return (
-    <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex items-center gap-3 flex-wrap">
-      <span className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
-        <Layers className="w-5 h-5" />
-      </span>
-
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Full Set {verb}</p>
-        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-          Take the complete set of questions from all units in one sitting.
-        </p>
+    // On a phone the icon and text sit on one row and the button takes the full width beneath them;
+    // side by side only from `sm` up. (Side by side on a narrow screen squeezed the text into a sliver.)
+    <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex items-start gap-3 min-w-0 flex-1">
+        <span className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+          <Layers className="w-5 h-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Full Set {verb}</p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
+            Take the complete set of questions from all units in one sitting.
+          </p>
+        </div>
       </div>
 
       <Link
         to={test.is_locked ? '/user/subscription' : testHref(test)}
-        className="inline-flex items-center gap-2.5 rounded-xl bg-brand-600 px-3.5 py-2.5 text-white transition-all hover:bg-brand-700 hover:shadow-md flex-shrink-0"
+        state={{ from: here() }}
+        className="inline-flex w-full sm:w-auto items-center justify-between sm:justify-start gap-2.5 rounded-xl bg-brand-600 px-3.5 py-2.5 text-white transition-all hover:bg-brand-700 hover:shadow-md flex-shrink-0"
       >
         <span className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
           {test.is_locked ? <Lock className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
@@ -1310,9 +1448,12 @@ function PaperRow({
   test,
   index,
   passPercentage,
+  label,
 }: {
   test: TnpscTest;
   index: number;
+  /** What the row is called, when that is not the paper's own title — a key topic is named for its topic. */
+  label?: string;
   /** Shown alongside a below-par best score. Omitted for ungated practice sets. */
   passPercentage?: number;
 }) {
@@ -1324,8 +1465,8 @@ function PaperRow({
     <>
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-2">
-          <p className="text-[13px] font-bold text-gray-900 dark:text-gray-100 line-clamp-2 min-w-0">
-            {test.title}
+          <p className="text-[15px] font-extrabold text-gray-900 dark:text-gray-100 line-clamp-2 min-w-0">
+            {label ?? test.title}
           </p>
           {test.is_completed && (
             <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full flex-shrink-0">
@@ -1383,13 +1524,18 @@ function PaperRow({
           <Lock className="w-3 h-3" /> No attempts left
         </span>
       ) : (
-        <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 flex-shrink-0" />
+        <span className="inline-flex items-center gap-1 h-8 px-3 rounded-lg bg-orange-500 group-hover/paper:bg-orange-600 text-white text-xs font-bold shadow-sm flex-shrink-0">
+          Start <ChevronRight className="w-3.5 h-3.5" />
+        </span>
       )}
     </>
   );
 
   const shell = cn(
-    'flex items-center gap-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 animate-slideUp',
+    'flex items-center gap-3 rounded-xl border-2 p-4 animate-slideUp',
+    test.is_locked || exhausted
+      ? 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900'
+      : 'border-orange-200 dark:border-orange-900/60 bg-gradient-to-r from-orange-50/70 to-white dark:from-orange-950/20 dark:to-gray-900 shadow-sm',
   );
 
   if (exhausted) {
@@ -1410,7 +1556,8 @@ function PaperRow({
   return (
     <Link
       to={test.is_locked ? '/user/subscription' : testHref(test)}
-      className={cn(shell, 'transition-all hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800')}
+      state={{ from: here() }}
+      className={cn(shell, 'group/paper transition-all hover:shadow-md hover:border-orange-400 dark:hover:border-orange-700')}
       style={{ animationDelay: `${index * 0.04}s` }}
     >
       {inner}
@@ -1427,21 +1574,52 @@ function PaperRow({
  * and drilling in on the right switches this panel to that section's units and
  * their printed topics.
  */
+/** The phone's way to open the syllabus, which starts folded. Not shown on desktop, where the panel is always open. */
+function MobileSyllabusToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      className="lg:hidden w-full flex items-center justify-between gap-3 px-4 py-3 text-left"
+    >
+      <span className="inline-flex items-center gap-1.5 text-sm font-bold text-gray-900 dark:text-gray-100">
+        <BookOpen className="w-4 h-4 text-blue-500" />
+        Syllabus
+      </span>
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400">
+        {open ? 'Hide' : 'Show'}
+        <ChevronDown className={cn('w-4 h-4 transition-transform', open && 'rotate-180')} />
+      </span>
+    </button>
+  );
+}
+
 function SyllabusPanel({
   sections,
   drill,
   collapsed,
   onCollapsedChange,
   onOpen,
+  onBack,
 }: {
   sections: SectionModel[];
   /** The section being worked through, if any — this panel follows it. */
   drill: SectionModel | null;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
-  onOpen: (key: string | null) => void;
+  /** Set on Key Topics, where a section's dropdown is the right-hand list's own. Otherwise the dropdown opens here. */
+  onOpen?: (key: string) => void;
+  /** Leaves the drill-down the right-hand pane is showing. */
+  onBack: () => void;
 }) {
   const [expandAll, setExpandAll] = useState(false);
+  // Which sections' dropdowns are open here. Kept apart from the right-hand pane, so opening one does not move it.
+  const [openKeys, setOpenKeys] = useState<string[]>([]);
+  const toggleOpen = (key: string) =>
+    setOpenKeys(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
+  // On a phone the syllabus starts folded, so the papers are what the page opens on. Desktop ignores this.
+  const [mobileOpen, setMobileOpen] = useState(false);
   if (sections.length === 0) return null;
 
   // ── Folded: a rail that says what it is and opens on a click ─────────────
@@ -1474,7 +1652,8 @@ function SyllabusPanel({
   if (drill) {
     return (
       <aside className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden lg:sticky lg:top-4">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+        <MobileSyllabusToggle open={mobileOpen} onToggle={() => setMobileOpen(v => !v)} />
+        <div className={cn(mobileOpen ? 'flex' : 'hidden', 'lg:flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800')}>
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100 inline-flex items-center gap-1.5 min-w-0">
             <BookOpen className="w-4 h-4 text-blue-500 flex-shrink-0" />
             <span className="truncate">Syllabus</span>
@@ -1485,7 +1664,7 @@ function SyllabusPanel({
             </span>
             <button
               type="button"
-              onClick={() => onOpen(null)}
+              onClick={onBack}
               aria-label="Back to all sections"
               className="p-1 rounded-lg text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
@@ -1502,7 +1681,7 @@ function SyllabusPanel({
           </div>
         </div>
 
-        <ul className="max-h-[calc(100vh-13rem)] overflow-y-auto scrollbar-thin p-2.5 space-y-2">
+        <ul className={cn(mobileOpen ? 'block' : 'hidden', 'lg:block max-h-[calc(100vh-13rem)] overflow-y-auto scrollbar-thin p-2.5 space-y-2')}>
           {drill.units.map((u, i) => (
             <SyllabusRow
               key={u.key}
@@ -1517,7 +1696,7 @@ function SyllabusPanel({
           ))}
         </ul>
 
-        <div className="border-t border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/30 px-4 py-3 flex items-start gap-2">
+        <div className={cn(mobileOpen ? 'flex' : 'hidden', 'lg:flex border-t border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/30 px-4 py-3 items-start gap-2')}>
           <BookOpen className="w-4 h-4 text-blue-400 flex-shrink-0 mt-px" />
           <p className="text-[10px] leading-snug text-gray-500 dark:text-gray-400">
             You can expand each unit to view the topics under it and start practising.
@@ -1530,7 +1709,8 @@ function SyllabusPanel({
   // ── Top level: one card per section ──────────────────────────────────────
   return (
     <aside className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden lg:sticky lg:top-4">
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+        <MobileSyllabusToggle open={mobileOpen} onToggle={() => setMobileOpen(v => !v)} />
+      <div className={cn(mobileOpen ? 'flex' : 'hidden', 'lg:flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800')}>
         <p className="text-sm font-bold text-gray-900 dark:text-gray-100 inline-flex items-center gap-1.5">
           <BookOpen className="w-4 h-4 text-blue-500" />
           Syllabus
@@ -1555,10 +1735,10 @@ function SyllabusPanel({
         </div>
       </div>
 
-      <div className="max-h-[calc(100vh-13rem)] overflow-y-auto scrollbar-thin p-2.5 space-y-2">
+      <div className={cn(mobileOpen ? 'block' : 'hidden', 'lg:block max-h-[calc(100vh-13rem)] overflow-y-auto scrollbar-thin p-2.5 space-y-2')}>
         {sections.map((sec, i) => {
           const a = accentFor(i);
-          const isOpen = expandAll;
+          const isOpen = expandAll || openKeys.includes(sec.key);
 
           return (
             <div
@@ -1570,7 +1750,8 @@ function SyllabusPanel({
             >
               <button
                 type="button"
-                onClick={() => onOpen(sec.key)}
+                onClick={() => (onOpen ? onOpen(sec.key) : toggleOpen(sec.key))}
+                aria-expanded={isOpen}
                 className={cn(
                   'w-full flex items-center gap-2.5 p-2.5 text-left transition-colors',
                   isOpen ? a.soft : 'hover:bg-gray-50 dark:hover:bg-gray-800/50',

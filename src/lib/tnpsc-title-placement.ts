@@ -22,14 +22,24 @@ import {
   MIXED_LABEL,
   stageUnits,
   unitDisplayName,
+  unitTopics,
   type TnpscLevel,
   type TnpscStage,
+  type TnpscTopic,
 } from '@/config/tnpsc';
 
 export interface TitlePlacement {
   unit_id: string;
   /** The difficulty button; null for the all-difficulties ("Mixed") set. */
   level: TnpscLevel | null;
+  /**
+   * The unit's printed topic the title names ("Indian Polity: Fundamental Rights"), or null.
+   *
+   * A key-topic paper is saved as a unit paper naming its topic, but the server only accepts topics it
+   * has a row for, and its list is not the printed one. Where it refuses, the paper is saved as a plain
+   * unit paper and the title is what remembers the topic.
+   */
+  topic: TnpscTopic | null;
 }
 
 const LEVELS: Record<string, TnpscLevel> = { simple: 'simple', medium: 'medium', complex: 'complex' };
@@ -58,27 +68,47 @@ export function placementFromTitle(
   else if (levelPart === key(MIXED_LABEL) || levelPart === 'full unit') level = null;
   else return null;
 
-  const unitPart = key(rest.slice(0, dot).split(':')[0]);
+  const head = rest.slice(0, dot);
+  const colon = head.indexOf(':');
+  const unitPart = key(colon < 0 ? head : head.slice(0, colon));
   if (!unitPart) return null;
 
   const hits = stageUnits(stage).filter(({ unit }) => key(unitDisplayName(stage, unit)) === unitPart);
-  return hits.length === 1 ? { unit_id: hits[0].unit.id, level } : null;
+  if (hits.length !== 1) return null;
+
+  // What follows the colon is a topic only if it is one of this unit's printed topics, exactly.
+  const topicPart = colon < 0 ? '' : key(head.slice(colon + 1));
+  const topic = topicPart ? (unitTopics(stage, hits[0].unit).find(t => key(t.name) === topicPart) ?? null) : null;
+  return { unit_id: hits[0].unit.id, level, topic };
 }
 
 /**
- * Fill in `unit_id` and `level` on practice papers the server did not place.
+ * Fill in `unit_id`, `level` and the key topic on practice papers the server did not place.
  *
  * Only ever adds: a paper that already carries a unit keeps it, and one that carries a
- * level keeps that too.
+ * level keeps that too. A paper the server did place as a unit paper still gets its topic from the
+ * title when the title names one of that unit's topics — that is the key-topic paper the server had no
+ * topic row for.
  */
 export function withTitlePlacement<
-  T extends { title: string; test_type?: string | null; unit_id?: string | null; level?: TnpscLevel | null },
+  T extends {
+    title: string;
+    test_type?: string | null;
+    unit_id?: string | null;
+    level?: TnpscLevel | null;
+    topic_id?: string | null;
+    topic_name?: string | null;
+  },
 >(stage: TnpscStage | undefined, tests: T[]): T[] {
   if (!stage) return tests;
   return tests.map(t => {
-    if (t.unit_id || (t.test_type && t.test_type !== 'practice')) return t;
+    if (t.test_type && t.test_type !== 'practice') return t;
     const placed = placementFromTitle(stage, t.title);
     if (!placed) return t;
-    return { ...t, unit_id: placed.unit_id, level: t.level ?? placed.level };
+    const topic = !t.topic_id && placed.topic && placed.unit_id === (t.unit_id ?? placed.unit_id) ? placed.topic : null;
+    const topicFields = topic ? { topic_id: topic.id, topic_name: topic.name } : {};
+    // A paper the server placed keeps its unit and level; only an unplaced one takes them from the title.
+    if (t.unit_id) return topic ? { ...t, ...topicFields } : t;
+    return { ...t, unit_id: placed.unit_id, level: t.level ?? placed.level, ...topicFields };
   });
 }

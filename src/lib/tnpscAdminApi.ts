@@ -69,8 +69,14 @@ export interface TnpscTagValue {
   language: TnpscExamLanguage | null;
 }
 
-/** Practice covers one unit, or a whole printed section. */
-export type TnpscScope = 'unit' | 'section';
+/**
+ * Practice covers a whole printed section, one unit, or one key topic of a unit.
+ *
+ * `topic` exists in the form and the portal, not on the wire: the server knows a unit paper that
+ * names a topic (`scope: 'unit'` with a `topic_id`), and that is what a key-topic paper is saved as.
+ * `toPayload` writes it that way and `readTnpscTag` reads it back.
+ */
+export type TnpscScope = 'unit' | 'section' | 'topic';
 
 export type TnpscExamLanguage = 'tamil' | 'english';
 
@@ -126,11 +132,13 @@ function toPayload(tag: TnpscTagValue): TnpscTagPayload {
     // was never asked — the form no longer does while the portal shows a single
     // level — is filed under the lowest, which is the group that is shown.
     level: tag.track === 'mock' ? (tag.level ?? 'simple') : tag.level,
-    // A unit belongs to a unit-scoped practice paper and nothing else.
-    unit_id: tag.track === 'practice' && tag.scope === 'unit' ? tag.unit_id : null,
+    // A unit belongs to a unit- or topic-scoped practice paper and nothing else.
+    unit_id: tag.track === 'practice' && (tag.scope === 'unit' || tag.scope === 'topic') ? tag.unit_id : null,
     subject_id: tag.track === 'practice' ? derivedSubject : null,
-    topic_id: tag.track === 'practice' && tag.scope === 'unit' ? tag.topic_id : null,
-    scope: tag.track === 'practice' ? tag.scope : null,
+    // A whole-unit paper has no topic; the topic is what makes a paper a key-topic paper.
+    topic_id: tag.track === 'practice' && tag.scope === 'topic' ? tag.topic_id : null,
+    // A key-topic paper is saved as a unit paper that names its topic.
+    scope: tag.track === 'practice' ? (tag.scope === 'topic' ? 'unit' : tag.scope) : null,
     section_name: tag.track === 'practice' && tag.scope === 'section' ? tag.section_name : null,
     language: tag.track === 'mock' ? tag.language : null,
   };
@@ -153,11 +161,13 @@ export function readTnpscTag(row: any): TnpscTagValue {
   const language = (row.tnpsc_language ?? row.language ?? null) as TnpscExamLanguage | null;
   // A row from before scopes existed still knows which it is: a unit id means
   // unit-scoped, a section name means section-scoped.
-  const scope = (row.tnpsc_scope ?? row.scope ?? (unit_id ? 'unit' : section_name ? 'section' : null)) as
+  const rawScope = (row.tnpsc_scope ?? row.scope ?? (unit_id ? 'unit' : section_name ? 'section' : null)) as
     | TnpscScope
     | null;
   const subject_id = row.tnpsc_subject_id ?? row.subject_id ?? null;
   const topic_id = row.tnpsc_topic_id ?? row.topic_id ?? null;
+  // A unit paper that names a topic is a key-topic paper.
+  const scope: TnpscScope | null = rawScope === 'unit' && topic_id ? 'topic' : rawScope;
   const group_id = row.tnpsc_group_id ?? row.group_id ?? groupOfStage(stage_id);
   return {
     group_id,
@@ -214,7 +224,12 @@ export function describeTag(tag: TnpscTagValue): string | null {
   const parts: string[] = [stageLabel, trackLabel];
   if (tag.track === 'practice') {
     const unit = found ? findUnit(found.stage, tag.unit_id) : undefined;
-    const where = (unit && unitDisplayName(found?.stage, unit)) || subjectName(tag) || tag.subject_id;
+    const unitLabel = (unit && unitDisplayName(found?.stage, unit)) || subjectName(tag) || tag.subject_id;
+    const topic =
+      tag.scope === 'topic' && tag.topic_id && found && unit
+        ? unitTopics(found.stage, unit).find(t => t.id === tag.topic_id)?.name
+        : undefined;
+    const where = topic && unitLabel ? `${unitLabel}: ${topic}` : unitLabel;
     if (where) parts.push(where);
     parts.push(levelLabel ?? MIXED_LABEL);
   } else if (levelLabel && !LEVELS_HIDDEN) {
@@ -273,8 +288,9 @@ export function suggestAssessmentTitle(tag: TnpscTagValue): string | null {
   } else {
     const unit = findUnit(stage, tag.unit_id);
     if (!unit) return null;
+    // A key topic is named by its bank category, which is not always a printed topic.
     const topic = tag.topic_id
-      ? unitTopics(stage, unit).find(t => t.id === tag.topic_id)?.name
+      ? (unitTopics(stage, unit).find(t => t.id === tag.topic_id)?.name ?? tag.topic_id)
       : undefined;
     const unitName = unitDisplayName(stage, unit);
     parts.push(topic ? `${unitName}: ${topic}` : unitName);
@@ -341,7 +357,7 @@ export function validateTnpscTag(tag: TnpscTagValue, questionCount?: number): Ta
   }
 
   if (tag.track === 'practice') {
-    if (!tag.scope) errors.push('Choose whether this covers one unit or a whole section.');
+    if (!tag.scope) errors.push('Choose whether this covers one unit, one key topic or a whole section.');
   }
 
   if (tag.track === 'practice' && tag.scope === 'section') {
@@ -355,7 +371,7 @@ export function validateTnpscTag(tag: TnpscTagValue, questionCount?: number): Ta
     }
   }
 
-  if (tag.track === 'practice' && tag.scope === 'unit') {
+  if (tag.track === 'practice' && (tag.scope === 'unit' || tag.scope === 'topic')) {
     // The unit is what the portal lists unit-wise practice by, so it is required.
     // `subject_id` is derived from it and still checked, because the backend's
     // practice endpoints filter on the subject.
@@ -375,11 +391,14 @@ export function validateTnpscTag(tag: TnpscTagValue, questionCount?: number): Ta
     const unit = tag.unit_id && found ? findUnit(found.stage, tag.unit_id) : undefined;
     // A level is optional on practice: without one the set covers the whole unit
     // and sits behind "Full Unit" rather than a difficulty button.
-    if (unit && questionCount != null && questionCount < unit.questions) {
+    if (unit && tag.scope === 'unit' && questionCount != null && questionCount < unit.questions) {
       warnings.push(
         `${unitDisplayName(found?.stage, unit)} carries ${unit.questions} questions in the real paper — this set has ${questionCount}.`,
       );
     }
+    // A key-topic paper is a small set by nature, so the unit's size says nothing about it. Its topic is the
+    // bank category it is drawn from, so it only has to be named.
+    if (tag.scope === 'topic' && !tag.topic_id) errors.push('Pick the category this paper is drawn from.');
     if (questionCount != null && (questionCount < PRACTICE_MIN_QUESTIONS || questionCount > PRACTICE_MAX_QUESTIONS)) {
       // A warning, not a rule — "must" promised an enforcement that is not there.
       warnings.push(
@@ -423,6 +442,36 @@ export function describeTagError(err: any, tag: TnpscTagValue): string {
   }
 
   return message || 'The placement could not be saved.';
+}
+
+/** Whether the server refused a topic because it has no row for it under the subject. */
+export function isUnknownTopicError(err: any): boolean {
+  const message: string = typeof err?.message === 'string' ? err.message : '';
+  const code: string | undefined = err?.code ?? err?.detail?.error_code;
+  return code === 'TNPSC_TOPIC_MISMATCH' || code === 'TOPIC_NOT_FOUND' || /has no topic/i.test(message);
+}
+
+/**
+ * Place an assessment, keeping a key-topic paper that the server will not take as one.
+ *
+ * The server checks a topic against its own list for the subject, and that list is not the syllabus's
+ * printed topics ("Forest and wildlife" is not among Geography of India's five). Refusing the whole
+ * placement left a paper created and placed nowhere. Instead a refused key topic is saved as a plain
+ * unit paper, and its title — "Geography: Forest and wildlife" — is what carries the topic; the portal
+ * reads it back from there (`tnpsc-title-placement.ts`). `topicInTitleOnly` says that happened.
+ */
+export async function tagAssessmentKeepingTopic(
+  assessmentId: string,
+  tag: TnpscTagValue,
+): Promise<{ topicInTitleOnly: boolean }> {
+  try {
+    await tagAssessment(assessmentId, tag);
+    return { topicInTitleOnly: false };
+  } catch (err) {
+    if (tag.scope !== 'topic' || !isUnknownTopicError(err)) throw err;
+    await tagAssessment(assessmentId, { ...tag, scope: 'unit', topic_id: null });
+    return { topicInTitleOnly: true };
+  }
 }
 
 /** PATCH the TNPSC tags onto an Evaluation-Hub assessment. */

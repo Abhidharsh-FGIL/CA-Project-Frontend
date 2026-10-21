@@ -47,6 +47,13 @@ export interface ApiAttempt {
   test_name: string | null;
   /** Test mode: 'practice' | 'mock' — populated by history endpoint. */
   test_mode: string | null;
+  /**
+   * The paper's track — what the aspirant sees it under: 'practice' for a unit, section or key-topic
+   * paper, 'mock' for an exam. Present on a server that returns the placement. `test_mode` is the raw
+   * assessment flag instead (a timed practice paper is "exam" there, so reads as 'mock'), which is
+   * why anything that must agree with the Exams screens reads this first.
+   */
+  mode?: string | null;
   /** Course UUID — populated by history endpoint. */
   course_id: string | null;
 }
@@ -121,7 +128,14 @@ export interface QuestionReviewItem {
    * first lights up the topic breakdown without another client change.
    */
   topic?: string | null;
+  /** The question's category, as the bank tags it (e.g. அணியிலக்கணம்). Shown in place of the topic on reports. */
+  category?: string | null;
+  /** The published syllabus unit the question belongs to, and its printed name. */
+  unit_id?: string | null;
+  unit_name?: string | null;
   subtopic?: string | null;
+  /** The subtopic's name as the paper gives it. */
+  subtopic_name?: string | null;
   /** The question bank's own name for `topic`. */
   chapter?: string | null;
   /**
@@ -585,6 +599,8 @@ export interface AttemptDetailResponse {
   attempt: {
     attempt_id: string;
     test_name: string | null;
+    /** The assessment's own title, as the admin named it — what a report is headed with. */
+    assessment_title?: string | null;
     test_mode: string | null;
     course_id: string | null;
     subject: string | null;
@@ -814,6 +830,8 @@ export interface ApiEvalAssessment {
    */
   tnpsc_unit_id?: string | null;
   tnpsc_section_name?: string | null;
+  /** The language paper a mock is sat in — "tamil" | "english" — when the placement says. */
+  tnpsc_language?: string | null;
 }
 
 /**
@@ -962,7 +980,7 @@ export function submitEvalAttempt(
   attemptId: string,
   responses: Array<{ question_id: string; answer: any }>,
   autoSubmitted = false,
-  proctoring?: { tab_violations?: number; submit_reason?: SubmitReason },
+  proctoring?: { tab_violations?: number; submit_reason?: SubmitReason; active_seconds?: number },
 ): Promise<SubmitAttemptResponse> {
   return userApi.post<SubmitAttemptResponse>(
     `/api/v1/user/eval-assessments/${assessmentId}/attempts/${attemptId}/submit`,
@@ -975,6 +993,9 @@ export function submitEvalAttempt(
       // every report reads "Tab / window switches: 0" no matter what happened.
       tab_violations: proctoring?.tab_violations ?? 0,
       submit_reason: proctoring?.submit_reason ?? (autoSubmitted ? 'time_expired' : 'manual'),
+      // Seconds the candidate was on the questions (page open and visible). The attempt's own start-to-submit
+      // span includes any time it was left open or resumed later, so the report reads this figure instead.
+      active_seconds: proctoring?.active_seconds ?? null,
     },
   );
 }

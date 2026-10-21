@@ -39,6 +39,7 @@ import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { resolveLanguage, translationOf, type LangMode } from '@/lib/question-language';
 import { downloadQuestionCsv } from '@/lib/question-export';
+import { canDownloadQuestions } from '@/lib/download-access';
 import { ReportLanguageProvider, type ReportLanguage } from '@/components/user/report-ui';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -53,12 +54,11 @@ import { SHOW_STUDY_PLAN } from '@/config/features';
 const QUESTIONS_PER_PAGE = 25;
 import {
   AttemptSummary,
-  CoverageAnalysis,
+  OverallScoreSummary,
   QuestionInsightsTable,
   ReportCover,
   ReportTitleRow,
   PerformanceSnapshot,
-  QuestionErrorAnalysis,
   QuestionInsightsToolbar,
   StrengthsAndGaps,
   SubjectPerformance,
@@ -192,7 +192,8 @@ function QuestionCard({
     options: q.options,
     explanation: q.explanation ?? null,
   });
-  const stemText = shown.text;
+  // A passage's paragraph breaks are part of the question, so they are kept here as on the test screen.
+  const stemText = normaliseLineBreaks(shown.text);
 
   /**
    * Every option the question offered.
@@ -235,7 +236,7 @@ function QuestionCard({
         </span>
         <div className="flex-1 min-w-0">
           {stemText && (
-            <p className={`text-sm text-gray-800 leading-snug ${isOpen ? 'whitespace-pre-wrap' : 'line-clamp-2'}`}>
+            <p className={`text-sm text-gray-800 dark:text-gray-100 leading-snug whitespace-pre-line ${isOpen ? '' : 'line-clamp-2'}`}>
               <MathText text={stemText} />
             </p>
           )}
@@ -244,11 +245,11 @@ function QuestionCard({
               toggle the stem above is already in the chosen language. */}
           {showPrimary && tr?.text && tr.text.trim() && (
             <p
-              className={`text-sm leading-snug text-gray-500 mt-1 ${
-                isOpen ? 'whitespace-pre-wrap' : 'line-clamp-2'
+              className={`text-sm leading-snug whitespace-pre-line text-gray-500 dark:text-gray-400 mt-1 ${
+                isOpen ? '' : 'line-clamp-2'
               }`}
             >
-              <MathText text={tr.text} />
+              <MathText text={normaliseLineBreaks(tr.text)} />
             </p>
           )}
           {/* Shown whenever there is one — a question can have both a stem and a
@@ -261,9 +262,21 @@ function QuestionCard({
             />
           )}
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-            {q.subject && (
+            {/* The category and the subtopic under it. The subject only where a question has no category. */}
+            {q.category ? (
               <span className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded font-medium">
-                {q.subject}
+                {q.category}
+              </span>
+            ) : (
+              q.subject && (
+                <span className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded font-medium">
+                  {q.subject}
+                </span>
+              )
+            )}
+            {(q.subtopic ?? q.subtopic_name) && (
+              <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.5 rounded font-medium">
+                {q.subtopic ?? q.subtopic_name}
               </span>
             )}
             {q.time_spent_seconds > 0 && (
@@ -897,6 +910,7 @@ export function AttemptReport({
       <ReportLanguageProvider language={language}>
         <UnitPracticeReport
           model={model}
+          examName={examContext?.examName ?? null}
           retryHref={attempt.test_id ? `/user/test/${attempt.test_id}/start` : undefined}
           unitHref={examContext?.examId && examContext?.stageId
             ? `/user/exams/${examContext.examId}/${examContext.stageId}`
@@ -934,6 +948,8 @@ export function AttemptReport({
             />
           )}
 
+          <OverallScoreSummary model={model} />
+
           <AttemptSummary model={model} />
 
           {depth !== 'full' && (
@@ -964,12 +980,6 @@ export function AttemptReport({
               </div>
             </>
           )}
-
-          {/* Coverage compares what was tested against the whole syllabus — only
-              a full-length paper is measured against that. */}
-          {showsPanel(depth, 'diagnostics') && <CoverageAnalysis model={model} />}
-
-          {showsPanel(depth, 'errorAnalysis') && <QuestionErrorAnalysis model={model} />}
 
           {showsPanel(depth, 'diagnostics') && <StrengthsAndGaps model={model} />}
         </div>
@@ -1002,7 +1012,7 @@ export function AttemptReport({
             </span>
             {/* The whole paper, not the filtered view — the count is in the label
                 so there is no doubt about what the file will contain. */}
-            {model && (
+            {model && canDownloadQuestions(planUser?.email) && (
               <div className="ml-auto flex items-center gap-1.5">
                 <select
                   value={exportFormat}
@@ -1033,7 +1043,7 @@ export function AttemptReport({
               onClick={() => setExpandAll(v => !v)}
               className={cn(
                 'text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400',
-                !model && 'ml-auto',
+                !(model && canDownloadQuestions(planUser?.email)) && 'ml-auto',
               )}
             >
               {expandAll ? 'Collapse all' : 'Expand all'}

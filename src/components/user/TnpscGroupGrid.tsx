@@ -145,7 +145,7 @@ function CardFrame({
       to={to}
       className={cn(
         base,
-        'group border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl hover:shadow-blue-100/50 dark:hover:shadow-black/50 transition-all duration-300 hover-lift',
+        'group border-2 border-teal-400/70 dark:border-teal-500/60 ring-4 ring-teal-100/70 dark:ring-teal-500/10 bg-gradient-to-b from-teal-50/70 to-white dark:from-teal-500/10 dark:to-gray-900 shadow-lg shadow-teal-100/60 dark:shadow-black/40 hover:shadow-xl hover:shadow-teal-200/60 dark:hover:shadow-black/50 transition-all duration-300 hover-lift',
       )}
       style={style}
     >
@@ -168,11 +168,17 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
 
   return (
     <CardFrame to={`/user/exams/${group.id}`} disabled={comingSoon} index={index}>
-      <div className={cn('h-[3px] w-full', tone.bar)} />
+      <div className={cn(comingSoon ? 'h-[3px]' : 'h-1.5', 'w-full', tone.bar)} />
 
       <div className="p-5 flex-1 flex flex-col">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
+            {!comingSoon && (
+              <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                Open now
+              </span>
+            )}
             <p className={cn('text-[10px] font-bold uppercase tracking-[0.18em]', tone.eyebrow)}>{group.authority}</p>
             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1.5">{group.name}</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{group.tagline}</p>
@@ -203,13 +209,25 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
               {shownSubjects.map(name => (
                 <span
                   key={name}
-                  className="text-[11px] bg-white dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-full"
+                  className={cn(
+                    'text-[11px] border px-2.5 py-1 rounded-full',
+                    comingSoon
+                      ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700'
+                      : 'bg-white dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700',
+                  )}
                 >
                   {name}
                 </span>
               ))}
               {hiddenSubjects > 0 && (
-                <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-full">
+                <span
+                  className={cn(
+                    'text-[11px] font-semibold border px-2.5 py-1 rounded-full',
+                    comingSoon
+                      ? 'text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                      : 'text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700',
+                  )}
+                >
                   +{hiddenSubjects} more
                 </span>
               )}
@@ -247,8 +265,8 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
               : `${group.stages.length} stage${group.stages.length !== 1 ? 's' : ''} · ${activeStages.length} open now`}
           </span>
           {!comingSoon && (
-            <span className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-brand-500 group-hover:bg-brand-600 text-white text-sm font-bold shadow-sm transition-colors">
-              Open <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            <span className="inline-flex items-center gap-1.5 h-10 px-5 rounded-lg bg-brand-500 group-hover:bg-brand-600 text-white text-sm font-bold shadow-md shadow-orange-200/60 dark:shadow-none transition-colors">
+              Start Preparing <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </span>
           )}
         </div>

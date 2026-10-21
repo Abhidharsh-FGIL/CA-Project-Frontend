@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
  * entered on a chosen track — the stage page reads `?tab=` and opens there.
  */
 export default function UserTrackPage({ track }: { track: 'mock' | 'practice' }) {
-  const { groups } = useTnpscCatalog();
+  const { groups } = useTnpscCatalog({ forMyLanguage: true });
   const isMock = track === 'mock';
 
   const stages = groups.flatMap(g =>

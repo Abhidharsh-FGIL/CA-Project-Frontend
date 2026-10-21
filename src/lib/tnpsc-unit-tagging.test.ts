@@ -234,7 +234,7 @@ describe('the placement cascade', () => {
   it('asks practice what it covers before anything else', () => {
     const { ok, errors } = validateTnpscTag(practiceTag({ scope: null }));
     expect(ok).toBe(false);
-    expect(errors.join(' ')).toMatch(/one unit or a whole section/i);
+    expect(errors.join(' ')).toMatch(/one unit, one key topic or a whole section/i);
   });
 
   it('accepts a section-wise paper with no unit', () => {
@@ -377,5 +377,143 @@ describe('listReportsPlacement', () => {
     const { listReportsPlacement } = await import('@/lib/tnpscAdminApi');
     expect(listReportsPlacement([{ id: 'a' }, { id: 'b', tnpsc_stage_id: 'group-4-written' }])).toBe(true);
     expect(listReportsPlacement([{ id: 'a', track: 'practice' }])).toBe(true);
+  });
+});
+
+describe('a key-topic paper', () => {
+  const topicTag = (over: Partial<TnpscTagValue> = {}): TnpscTagValue =>
+    practiceTag({ scope: 'topic', topic_id: 'citizenship-rights-duties', level: 'simple', ...over });
+
+  it('is valid with a unit and one of that unit’s topics', () => {
+    expect(validateTnpscTag(topicTag()).ok).toBe(true);
+  });
+
+  it('needs a category', () => {
+    const { ok, errors } = validateTnpscTag(topicTag({ topic_id: null }));
+    expect(ok).toBe(false);
+    expect(errors.join(' ')).toMatch(/pick the category/i);
+  });
+
+  it('takes the bank category as its topic, whether or not the syllabus prints it', () => {
+    expect(validateTnpscTag(topicTag({ topic_id: 'அணியிலக்கணம்' })).ok).toBe(true);
+  });
+
+  it('still needs a unit', () => {
+    expect(validateTnpscTag(topicTag({ unit_id: null })).ok).toBe(false);
+  });
+
+  it('does not compare its size to the whole unit’s', () => {
+    expect(validateTnpscTag(topicTag(), 10).warnings.join(' ')).not.toMatch(/carries \d+ questions in the real paper/);
+  });
+
+  it('is named for its unit and topic in the placement badge', () => {
+    expect(describeTag(topicTag())).toContain('Indian Polity: Citizenship, Fundamental Rights and Fundamental Duties');
+  });
+
+  /** The server knows unit papers; a key topic is one that names its topic. */
+  it('goes out as a unit paper that names its topic', async () => {
+    const calls: any[] = [];
+    const api = await import('@/lib/api');
+    const original = api.api.patch;
+    (api.api as any).patch = (_p: string, body: any) => {
+      calls.push(body);
+      return Promise.resolve({});
+    };
+    try {
+      const { tagAssessment } = await import('@/lib/tnpscAdminApi');
+      await tagAssessment('k1', topicTag());
+      expect(calls[0]).toMatchObject({ scope: 'unit', unit_id: 'g4-gs-indian-polity', topic_id: 'citizenship-rights-duties' });
+    } finally {
+      (api.api as any).patch = original;
+    }
+  });
+
+  it('sends no topic for a whole-unit paper', async () => {
+    const calls: any[] = [];
+    const api = await import('@/lib/api');
+    const original = api.api.patch;
+    (api.api as any).patch = (_p: string, body: any) => {
+      calls.push(body);
+      return Promise.resolve({});
+    };
+    try {
+      const { tagAssessment } = await import('@/lib/tnpscAdminApi');
+      await tagAssessment('u1', practiceTag({ scope: 'unit', topic_id: 'citizenship-rights-duties' }));
+      expect(calls[0].scope).toBe('unit');
+      expect(calls[0].topic_id).toBeNull();
+    } finally {
+      (api.api as any).patch = original;
+    }
+  });
+
+  it('is read back as a key topic: a unit paper with a topic', async () => {
+    const { readTnpscTag } = await import('@/lib/tnpscAdminApi');
+    const read = readTnpscTag({ tnpsc_stage_id: 'group-4-written', track: 'practice', tnpsc_scope: 'unit', tnpsc_unit_id: 'g4-gs-indian-polity', tnpsc_topic_id: 'directive-principles' });
+    expect(read).toMatchObject({ scope: 'topic', unit_id: 'g4-gs-indian-polity', topic_id: 'directive-principles' });
+    const whole = readTnpscTag({ tnpsc_stage_id: 'group-4-written', track: 'practice', tnpsc_scope: 'unit', tnpsc_unit_id: 'g4-gs-indian-polity' });
+    expect(whole.scope).toBe('unit');
+  });
+});
+
+describe('a key topic the server has no row for', () => {
+  const topicTag = practiceTag({ unit_id: 'g4-gs-geography', subject_id: 'geography', scope: 'topic', topic_id: 'forest-wildlife', level: null });
+
+  it('recognises the refusal by its message and by its code', async () => {
+    const { isUnknownTopicError } = await import('@/lib/tnpscAdminApi');
+    expect(isUnknownTopicError({ message: "'Geography of India' has no topic 'forest-wildlife'." })).toBe(true);
+    expect(isUnknownTopicError({ code: 'TNPSC_TOPIC_MISMATCH', message: 'x' })).toBe(true);
+    expect(isUnknownTopicError({ message: 'Server error' })).toBe(false);
+    expect(isUnknownTopicError(null)).toBe(false);
+  });
+
+  it('is saved as a plain unit paper when the server refuses the topic, and says so', async () => {
+    const calls: any[] = [];
+    const api = await import('@/lib/api');
+    const original = api.api.patch;
+    (api.api as any).patch = (_p: string, body: any) => {
+      calls.push(body);
+      return body.topic_id
+        ? Promise.reject(Object.assign(new Error("'Geography of India' has no topic 'forest-wildlife'."), { status: 404 }))
+        : Promise.resolve({});
+    };
+    try {
+      const { tagAssessmentKeepingTopic } = await import('@/lib/tnpscAdminApi');
+      const result = await tagAssessmentKeepingTopic('a1', topicTag);
+      expect(result).toEqual({ topicInTitleOnly: true });
+      expect(calls).toHaveLength(2);
+      expect(calls[1]).toMatchObject({ scope: 'unit', unit_id: 'g4-gs-geography', topic_id: null });
+    } finally {
+      (api.api as any).patch = original;
+    }
+  });
+
+  it('is left alone when the server takes the topic', async () => {
+    const calls: any[] = [];
+    const api = await import('@/lib/api');
+    const original = api.api.patch;
+    (api.api as any).patch = (_p: string, body: any) => {
+      calls.push(body);
+      return Promise.resolve({});
+    };
+    try {
+      const { tagAssessmentKeepingTopic } = await import('@/lib/tnpscAdminApi');
+      expect(await tagAssessmentKeepingTopic('a2', topicTag)).toEqual({ topicInTitleOnly: false });
+      expect(calls).toHaveLength(1);
+      expect(calls[0].topic_id).toBe('forest-wildlife');
+    } finally {
+      (api.api as any).patch = original;
+    }
+  });
+
+  it('does not hide any other failure', async () => {
+    const api = await import('@/lib/api');
+    const original = api.api.patch;
+    (api.api as any).patch = () => Promise.reject(Object.assign(new Error('boom'), { status: 500 }));
+    try {
+      const { tagAssessmentKeepingTopic } = await import('@/lib/tnpscAdminApi');
+      await expect(tagAssessmentKeepingTopic('a3', topicTag)).rejects.toThrow('boom');
+    } finally {
+      (api.api as any).patch = original;
+    }
   });
 });

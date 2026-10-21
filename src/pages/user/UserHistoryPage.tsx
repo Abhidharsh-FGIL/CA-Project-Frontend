@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect, type ReactNode } from 'react';
+import { displayTitle } from '@/lib/display-title';
 import { Link } from 'react-router-dom';
+import { here } from '@/lib/report-origin';
 import { UserShell } from '@/components/user/UserShell';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useReportGate } from '@/hooks/use-report-gate';
@@ -332,6 +334,8 @@ function AttemptRow({
 }) {
   const outcome = attemptOutcome(a);
   const started = new Date(a.start_time);
+  const endedAt = a.end_time ? new Date(a.end_time) : null;
+  const ended = endedAt && !Number.isNaN(endedAt.getTime()) ? endedAt : null;
   const duration = durationLabel(a);
   const flags = Array.isArray(a.malpractice_events) ? a.malpractice_events.length : 0;
   const mode = TEST_MODES[a.test_mode ?? ''] ?? TEST_MODES.other;
@@ -354,7 +358,7 @@ function AttemptRow({
         </span>
         <div className="min-w-0">
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-2 leading-snug">
-            {a.test_name ?? 'Test Attempt'}
+            {displayTitle(a.test_name) ?? 'Test Attempt'}
           </p>
           <div className="mt-1 flex items-center gap-2 flex-wrap">
             {a.test_mode && (
@@ -370,12 +374,22 @@ function AttemptRow({
       {/* Date */}
       <Cell label="Date">
         <p className="text-sm text-gray-700 dark:text-gray-200">
-          {started.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+          {(outcome === 'unfinished' ? started : (ended ?? started)).toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          })}
         </p>
-        {outcome === 'unfinished' && (
+        {outcome === 'unfinished' ? (
           <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
             Started {started.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
           </p>
+        ) : (
+          ended && (
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+              Submitted {ended.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          )
         )}
       </Cell>
 
@@ -426,6 +440,7 @@ function AttemptRow({
           // shareable, which the drawer never was.
           <Link
             to={`/user/report/${a.attempt_id}`}
+            state={{ from: here() }}
             onClick={gateReport(a.test_mode)}
             className="group inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-brand-300 bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-900 hover:bg-blue-50 dark:hover:bg-blue-950/40 px-3 py-1.5 rounded-lg transition-colors press"
           >

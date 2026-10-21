@@ -22,7 +22,7 @@ import { paperStructure } from '@/lib/paper-structure';
 export default function TnpscGroupPage() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
-  const { groups } = useTnpscCatalog();
+  const { groups } = useTnpscCatalog({ forMyLanguage: true });
   const group = findGroup(groupId, groups);
 
   if (!group) return <Navigate to="/user/exams" replace />;

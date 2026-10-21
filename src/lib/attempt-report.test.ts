@@ -114,10 +114,10 @@ describe('§18 no false zero', () => {
     expect(polity.metrics.accuracy).toBeNull();
   });
 
-  it('keeps an unassessed subject off the radar polygon rather than plotting zero', () => {
+  it('plots an unassessed subject at 0% — none of its questions are correct — and still marks it unassessed', () => {
     const m = buildAttemptReport(detail([...block('Tamil', 8, 2, 0), ...block('Polity', 0, 0, 20)]));
     const point = m.radar.find(r => r.label === 'Polity')!;
-    expect(point.value).toBeNull();
+    expect(point.value).toBe(0);
     expect(point.state).toBe('NOT_ASSESSED');
   });
 
@@ -837,10 +837,10 @@ describe('subject labels', () => {
 // ─── What the radar plots ──────────────────────────────────────────────────────
 
 describe('proficiency radar', () => {
-  it('plots accuracy, and carries share-of-marks beside it', () => {
-    // 20 questions, 10 answered, 2 right. Accuracy is 20%; the subject earned
-    // 2 of 20 marks, so its share of the marks is 10% — two different numbers,
-    // and the tooltip has to be able to name both.
+  it('plots correct out of all questions, and carries share-of-marks beside it', () => {
+    // 20 questions, 10 answered, 2 right. Out of all 20 questions that is 10% correct (accuracy on
+    // the answered ones would be 20%, and is still on the metrics); the subject earned 2 of 20
+    // marks, so its share of the marks is also 10%.
     const m = buildAttemptReport(
       detail(block('Polity', 2, 8, 10), {
         performance_breakdown: {
@@ -861,7 +861,9 @@ describe('proficiency radar', () => {
       } as any),
     );
     const row = m.radar[0];
-    expect(row.value).toBe(20);
+    expect(row.value).toBe(10);
+    expect(m.subjects[0].metrics.accuracy).toBe(20);
+    expect(m.subjects[0].metrics.correctPct).toBe(10);
     expect(row.correct).toBe(2);
     expect(row.evidenceCount).toBe(10);
     expect(row.questions).toBe(20);
@@ -870,9 +872,9 @@ describe('proficiency radar', () => {
     expect(row.marksAvailable).toBe(20);
   });
 
-  it('plots nothing for an unassessed subject rather than a zero', () => {
+  it('plots an unassessed subject at 0%, as nothing in it is correct', () => {
     const m = buildAttemptReport(detail(block('Polity', 0, 0, 12)));
-    expect(m.radar[0].value).toBeNull();
+    expect(m.radar[0].value).toBe(0);
     expect(m.radar[0].state).toBe('NOT_ASSESSED');
     expect(m.radar[0].questions).toBe(12);
   });

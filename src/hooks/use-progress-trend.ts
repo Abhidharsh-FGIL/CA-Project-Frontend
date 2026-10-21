@@ -96,67 +96,38 @@ export const GROUP_OPTIONS: FilterOption<GroupKey>[] = [
   ...EXAM_GROUP_OPTIONS,
 ];
 
-/** Longest gap worth filling; beyond this the axis is drawn from active days only. */
-const MAX_FILLED_DAYS = 400;
-
 /**
- * Collapse an attempt-per-point series into one point per calendar day.
+ * One point per calendar day: the average score of the attempts taken on that day.
  *
- * The server emits one point per attempt, so five tests on 31 Aug produce five points
- * all labelled "31 Aug" — the axis reads as a repeated date and the spacing implies
- * time passing when it isn't. One point per day, holding the running average across
- * quiet days, makes the x-axis an actual timeline.
+ * Not a running average — each point is that day's own result, so a bad day shows as a dip and a good
+ * one as a peak, instead of being smoothed into everything that came before. A day with no test has no
+ * point; the chart joins the days that have one, and the tooltip says how many tests make up each.
  */
-export function toDailySeries(points: TrendPoint[]): TrendPoint[] {
-  const dated = points.filter(p => !!p.date);
-  if (dated.length === 0) return points;
-
-  const byDate = new Map<string, { value: number; names: string[] }>();
-  for (const p of dated) {
-    // Points arrive oldest-first, so the last of a day is that day's closing average.
-    const entry = byDate.get(p.date) ?? { value: p.value, names: [] };
-    entry.value = p.value;
-    if (p.name) entry.names.push(p.name);
-    byDate.set(p.date, entry);
+export function toDailyAverages(attempts: Array<Pick<ApiAttempt, 'start_time' | 'percentage' | 'test_name'>>): TrendPoint[] {
+  const byDay = new Map<string, { sum: number; n: number; names: string[] }>();
+  for (const h of attempts) {
+    if (h.percentage == null) continue;
+    const day = isoDay(new Date(h.start_time));
+    const entry = byDay.get(day) ?? { sum: 0, n: 0, names: [] };
+    entry.sum += h.percentage;
+    entry.n += 1;
+    if (h.test_name) entry.names.push(h.test_name);
+    byDay.set(day, entry);
   }
 
-  const days = [...byDate.keys()].sort();
-  const first = new Date(`${days[0]}T00:00:00`);
-  const last = new Date(`${days[days.length - 1]}T00:00:00`);
-  const span = Math.round((last.getTime() - first.getTime()) / 864e5) + 1;
-
-  const label = (d: Date) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-  const point = (date: string, value: number, names: string[], tests: number): TrendPoint => ({
-    date,
-    label: label(new Date(`${date}T00:00:00`)),
-    value,
-    tests,
-    name: names.length === 1 ? names[0] : names.length > 1 ? `${names.length} tests` : undefined,
-  });
-
-  if (span > MAX_FILLED_DAYS) {
-    return days.map(d => {
-      const e = byDate.get(d)!;
-      return point(d, e.value, e.names, e.names.length);
-    });
-  }
-
-  const out: TrendPoint[] = [];
-  let carried = byDate.get(days[0])!.value;
-  for (let i = 0; i < span; i++) {
-    const d = new Date(first.getTime() + i * 864e5);
-    const key = isoDay(d);
-    const entry = byDate.get(key);
-    if (entry) carried = entry.value;
-    // A quiet day still belongs on a timeline; the average simply doesn't move.
-    out.push(point(key, carried, entry?.names ?? [], entry?.names.length ?? 0));
-  }
-  return out;
+  return [...byDay.entries()]
+    .sort(([x], [y]) => (x < y ? -1 : 1))
+    .map(([date, e]) => ({
+      date,
+      label: new Date(`${date}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+      value: Math.round((e.sum / e.n) * 10) / 10,
+      tests: e.n,
+      name: e.n === 1 ? e.names[0] : `${e.n} tests`,
+    }));
 }
 
 /**
- * Tooltip heading for a daily point: the date, plus what happened that day. A day the
- * average was carried across says so rather than implying a test was taken.
+ * Tooltip heading for a daily point: the date, plus what was taken that day.
  */
 export function formatTrendLabel(label: any, payload: any): string {
   const p = payload?.[0]?.payload;
@@ -249,28 +220,9 @@ export function useProgressTrend({ analytics, history, group, track, range }: Ar
     [history, matches],
   );
 
-  const points = useMemo<TrendPoint[]>(() => {
-    // Unfiltered by group/track, the server's trend is richer than history — it isn't
-    // capped at 50 attempts — so date-only filtering trims that rather than rebuilding.
-    if (!dimensionFiltered) {
-      return toDailySeries((analytics?.progress_trend ?? []).filter(p => inRange(p.date, range)));
-    }
-
-    let sum = 0;
-    const perAttempt = [...attempts]
-      .reverse()
-      .map((h, i) => {
-        sum += h.percentage ?? 0;
-        const d = new Date(h.start_time);
-        return {
-          date: isoDay(d),
-          label: d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
-          value: Math.round((sum / (i + 1)) * 10) / 10,
-          name: h.test_name ?? undefined,
-        };
-      });
-    return toDailySeries(perAttempt);
-  }, [analytics?.progress_trend, dimensionFiltered, attempts, range]);
+  // Each day's own average, from the attempts that pass every filter. (The server's trend is a running
+  // average per attempt, so a day's own result cannot be read back out of it.)
+  const points = useMemo<TrendPoint[]>(() => toDailyAverages(attempts), [attempts]);
 
   /** States exactly what's plotted, so a filtered chart can't read as the whole picture. */
   const caption = useMemo(() => {
@@ -279,7 +231,7 @@ export function useProgressTrend({ analytics, history, group, track, range }: Ar
       track === 'all' ? null : TRACK_OPTIONS.find(o => o.value === track)?.label,
       rangeLabel(range).toLowerCase(),
     ].filter(Boolean);
-    return `Rolling average score by day · ${bits.join(' · ')}`;
+    return `Average score by day · ${bits.join(' · ')}`;
   }, [group, track, range]);
 
   return { points, caption, attempts, matches, filtersActive, isLoading, ceiling: trendCeiling(points) };

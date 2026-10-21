@@ -35,11 +35,15 @@ import {
   Info,
   Layers,
   Lightbulb,
+  ListChecks,
   Minus,
+  MinusCircle,
   Share2,
   Target,
   TrendingDown,
   TrendingUp,
+  Trophy,
+  XCircle,
   Zap,
 } from 'lucide-react';
 import { LogoMark, Wordmark } from '@/components/brand/Brand';
@@ -82,6 +86,7 @@ import {
   type LangMode,
 } from '@/lib/question-language';
 import type { ExamContext } from '@/lib/exam-report-config';
+import { groupUnitsBySubject } from '@/lib/unit-hierarchy';
 
 const fmtPct = (v: number | null) => (v == null ? '—' : `${v}%`);
 const fmtSec = (v: number | null) => (v == null ? '—' : `${Math.round(v)}s`);
@@ -427,10 +432,149 @@ export function ReportTitleRow({
   );
 }
 
+// ─── Overall score summary ─────────────────────────────────────────────────────
+
+/**
+ * The score at a glance, ahead of the detailed summary.
+ *
+ * A bold score card with the percentage as a ring; beside it, how the paper split (a bar of correct,
+ * incorrect and unattempted) and the four counts, each with its share of the paper.
+ */
+export function OverallScoreSummary({ model }: { model: AttemptReportModel }) {
+  const s = model.summary;
+  const pct = s.percentage ?? (s.score != null && s.maxMarks ? Math.round((s.score / s.maxMarks) * 1000) / 10 : null);
+  const total = s.totalQuestions;
+  const share = (n: number) => (total > 0 ? Math.round((n / total) * 1000) / 10 : 0);
+
+  // The ring: a white arc on a faint track, as long as the percentage.
+  const R = 52;
+  const C = 2 * Math.PI * R;
+  const arc = (Math.min(100, Math.max(0, pct ?? 0)) / 100) * C;
+
+  const tiles: Array<{ label: string; value: number; icon: React.ReactNode; wrap: string; chip: string; text: string }> = [
+    {
+      label: 'Total Questions',
+      value: total,
+      icon: <ListChecks className="w-4 h-4" />,
+      wrap: 'bg-slate-50 border-slate-200 dark:bg-slate-900/40 dark:border-slate-700',
+      chip: 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
+      text: 'text-slate-900 dark:text-slate-100',
+    },
+    {
+      label: 'Correct Answers',
+      value: s.correct,
+      icon: <CheckCircle2 className="w-4 h-4" />,
+      wrap: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-900',
+      chip: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300',
+      text: 'text-emerald-700 dark:text-emerald-300',
+    },
+    {
+      label: 'Incorrect Answers',
+      value: s.incorrect,
+      icon: <XCircle className="w-4 h-4" />,
+      wrap: 'bg-rose-50 border-rose-200 dark:bg-rose-950/30 dark:border-rose-900',
+      chip: 'bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300',
+      text: 'text-rose-700 dark:text-rose-300',
+    },
+    {
+      label: 'Unattempted',
+      value: s.unattempted,
+      icon: <MinusCircle className="w-4 h-4" />,
+      wrap: 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900',
+      chip: 'bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300',
+      text: 'text-amber-700 dark:text-amber-300',
+    },
+  ];
+
+  const segments = [
+    { label: 'Correct', n: s.correct, cls: 'bg-emerald-500' },
+    { label: 'Incorrect', n: s.incorrect, cls: 'bg-rose-500' },
+    { label: 'Unattempted', n: s.unattempted, cls: 'bg-amber-400' },
+  ];
+
+  return (
+    <ReportCard>
+      <SectionHeader icon={<Trophy className="w-4 h-4" />} title="Overall Score Summary" />
+
+      <div className="grid lg:grid-cols-[minmax(0,330px)_minmax(0,1fr)] gap-3 sm:gap-4">
+        {/* The score */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-500 to-brand-600 p-5 text-white shadow-lg shadow-brand-500/20">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-12 -left-8 h-36 w-36 rounded-full bg-black/10 blur-2xl" />
+          <div className="relative flex items-center gap-5">
+            <div className="relative h-[116px] w-[116px] flex-shrink-0">
+              <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90" aria-hidden>
+                <circle cx="60" cy="60" r={R} fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="11" />
+                <circle
+                  cx="60"
+                  cy="60"
+                  r={R}
+                  fill="none"
+                  stroke="#fff"
+                  strokeWidth="11"
+                  strokeLinecap="round"
+                  strokeDasharray={`${arc} ${C}`}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-extrabold tabular-nums leading-none">{pct == null ? '—' : `${pct}%`}</span>
+                <span className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/80">Score</span>
+              </div>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/85">Total Score</p>
+              <p className="mt-1 text-4xl font-extrabold tabular-nums leading-none">{s.score != null ? s.score : '—'}</p>
+              {s.maxMarks != null && <p className="mt-1.5 text-sm font-medium text-white/85">out of {s.maxMarks} marks</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* The split of the paper, and the counts */}
+        <div className="flex flex-col gap-3">
+          <div>
+            <div className="flex h-3.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800" role="img" aria-label="Correct, incorrect and unattempted questions">
+              {segments.map(seg => (
+                <div key={seg.label} className={cn('h-full', seg.cls)} style={{ width: `${share(seg.n)}%` }} title={`${seg.label}: ${seg.n}`} />
+              ))}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+              {segments.map(seg => (
+                <span key={seg.label} className="inline-flex items-center gap-1.5">
+                  <span className={cn('h-2 w-2 rounded-full', seg.cls)} />
+                  {seg.label} {share(seg.n)}%
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+            {tiles.map(t => (
+              <div key={t.label} className={cn('rounded-2xl border px-3.5 py-3', t.wrap)}>
+                <span className={cn('inline-flex h-7 w-7 items-center justify-center rounded-full', t.chip)}>{t.icon}</span>
+                <p className={cn('mt-2 text-2xl font-extrabold tabular-nums leading-none', t.text)}>{t.value}</p>
+                <p className="mt-1 text-[11px] font-semibold text-gray-600 dark:text-gray-300">{t.label}</p>
+                {t.label !== 'Total Questions' && (
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">{share(t.value)}% of the paper</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </ReportCard>
+  );
+}
+
 // ─── Attempt summary (reference screen 2) ──────────────────────────────────────
 
 export function AttemptSummary({ model }: { model: AttemptReportModel }) {
   const s = model.summary;
+  // Seconds per attempted question: the recorded per-question times when the attempt has them, otherwise the
+  // time taken spread over the questions attempted.
+  const avgSec =
+    s.avgTimePerAttemptedSec ?? (s.timeUsedSec != null && s.attempted > 0 ? s.timeUsedSec / s.attempted : null);
+  const avgLabel =
+    avgSec == null ? '—' : avgSec >= 60 ? `${Math.round((avgSec / 60) * 10) / 10} min` : `${Math.round(avgSec * 10) / 10} sec`;
 
   /**
    * `model.verdict` is server-generated (cached at submission time, grounded
@@ -455,70 +599,53 @@ export function AttemptSummary({ model }: { model: AttemptReportModel }) {
           .join(' · ')}
       />
 
-      {/* Stacked on mobile the ring leads the block, so it aligns left; side by side
-          it reads as the row's anchor, so it centres against the tiles — which are
-          taller than it whenever a verdict carries a note. */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <ScoreRing
-            percent={s.percentage}
-            primary={s.score != null ? s.score : fmtPct(s.percentage)}
-            secondary={s.maxMarks != null ? `/ ${s.maxMarks}` : undefined}
-          />
-          <div className="sm:hidden">
-            <StatusPill tone={verdictStyle.tone}>{verdict.label}</StatusPill>
+      {/* The five figures of the attempt. The score itself, with its ring, is in the Overall Score
+          Summary above, so it is not repeated here. */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
+        {[
+          {
+            icon: <ListChecks className="w-3.5 h-3.5" />,
+            label: 'Total Questions',
+            value: String(s.totalQuestions),
+            hint: 'Questions in test',
+          },
+          {
+            icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+            label: 'Attempted',
+            value: String(s.attempted),
+            hint: s.attemptRate == null ? undefined : `${s.attemptRate}% of questions`,
+          },
+          {
+            icon: <Target className="w-3.5 h-3.5" />,
+            label: 'Attempt Accuracy',
+            value: s.accuracy == null ? '—' : `${s.accuracy}%`,
+            hint: s.accuracy == null ? 'No questions attempted' : `${s.correct} correct / ${s.attempted} attempted`,
+          },
+          {
+            icon: <Clock className="w-3.5 h-3.5" />,
+            label: 'Time Taken',
+            value: mins(s.timeUsedSec),
+            hint: s.timeAllowedSec != null ? `of ${mins(s.timeAllowedSec)} allowed` : undefined,
+          },
+          {
+            icon: <Zap className="w-3.5 h-3.5" />,
+            label: 'Avg. Time / Question',
+            value: avgLabel,
+            hint: avgSec == null ? undefined : `${Math.round(avgSec * 10) / 10} sec per attempted question`,
+          },
+        ].map(t => (
+          <div key={t.label} className="rounded-xl border border-gray-200 dark:border-gray-700 px-3.5 py-3">
+            <p className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+              {t.icon}
+              {t.label}
+            </p>
+            <p className="mt-1.5 text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100">{t.value}</p>
+            {t.hint && <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{t.hint}</p>}
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 flex-1 w-full">
-          <StatTile
-            icon={<Target className="w-3.5 h-3.5" />}
-            accent="emerald"
-            value={s.accuracy == null ? 'Not assessed' : `${s.accuracy}%`}
-            label="Accuracy"
-            hint={s.accuracy == null ? 'No questions attempted' : `${s.correct} / ${s.attempted} attempted`}
-          />
-          <StatTile
-            icon={<Zap className="w-3.5 h-3.5" />}
-            accent="indigo"
-            value={fmtPct(s.attemptRate)}
-            label="Attempt rate"
-            hint={`${s.attempted} / ${s.totalQuestions}`}
-          />
-          <StatTile
-            icon={<Clock className="w-3.5 h-3.5" />}
-            accent="sky"
-            value={mins(s.timeUsedSec)}
-            label="Time taken"
-            hint={
-              s.timeAllowedSec != null
-                ? `of ${mins(s.timeAllowedSec)} allowed`
-                : s.avgTimePerAttemptedSec != null
-                  ? `${fmtSec(s.avgTimePerAttemptedSec)} / question`
-                  : undefined
-            }
-          />
-          <StatTile
-            icon={<Minus className="w-3.5 h-3.5" />}
-            accent="amber"
-            value={
-              s.totalQuestions > 0 ? `${Math.round((s.unattempted / s.totalQuestions) * 100)}%` : String(s.unattempted)
-            }
-            label="Unattempted"
-            hint={`${s.unattempted} of ${s.totalQuestions}`}
-          />
-          <StatTile
-            icon={<AlertTriangle className="w-3.5 h-3.5" />}
-            accent={verdictStyle.accent}
-            value={verdict.label}
-            label="Verdict"
-            hint={verdict.note}
-            emphasis
-          />
-        </div>
+        ))}
       </div>
 
-      {/* The verdict tile is a label; this is the reasoning behind it. */}
+      {/* The verdict, with the reasoning behind it. */}
       <div className={cn('mt-3 rounded-xl px-3.5 py-3', ACCENT[verdictStyle.accent].wash)}>
         <p className={cn('text-[11px] font-bold', ACCENT[verdictStyle.accent].text)}>{verdict.label}</p>
         <p className="text-[11px] leading-relaxed text-gray-700 dark:text-gray-200 mt-1">{verdict.detail}</p>
@@ -578,16 +705,16 @@ export function PerformanceSnapshot({
       <ReportCard>
         <SectionHeader
           icon={<Target className="w-4 h-4" />}
-          title="Subject Proficiency Radar"
-          subtitle="Accuracy on the questions you answered, against target"
+          title={model.groupedBy === 'unit' ? 'Unit Proficiency Radar' : 'Subject Proficiency Radar'}
+          subtitle="Questions answered correctly out of all questions, against target"
         />
         {plotted.length < 3 ? (
           <NotAvailable
-            reason={`Only ${plotted.length} subject${plotted.length === 1 ? '' : 's'} were attempted, which is too few to plot a proficiency shape. The table below carries the same figures.`}
+            reason={`Only ${plotted.length} ${model.groupedBy === 'unit' ? 'unit' : 'subject'}${plotted.length === 1 ? '' : 's'} were attempted, which is too few to plot a proficiency shape. The table below carries the same figures.`}
           />
         ) : (
           <>
-            <div className="h-[320px]">
+            <div className="h-[340px] sm:h-[380px]">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart
                   data={model.radar.map(r => ({
@@ -598,8 +725,8 @@ export function PerformanceSnapshot({
                     value: r.value,
                     target,
                   }))}
-                  outerRadius="62%"
-                  margin={{ top: 20, right: 40, bottom: 20, left: 40 }}
+                  outerRadius="72%"
+                  margin={{ top: 24, right: 48, bottom: 24, left: 48 }}
                 >
                   <PolarGrid stroke="#e5e7eb" />
                   {/* Each axis carries its own figure, so the shape can be read
@@ -672,19 +799,19 @@ function buildTakeaways(model: AttemptReportModel): Array<{ text: string; accent
 
     if (s.status === 'STRONG') {
       out.push({
-        text: `${s.name} is a strength (${acc}% accuracy).`,
+        text: `${s.name} is a strength (${s.metrics.correctPct}% correct).`,
         accent: 'emerald',
         icon: <CheckCircle2 className="w-3 h-3" />,
       });
     } else if (acc >= cfg.developingAccuracy) {
       out.push({
-        text: `${s.name} shows moderate performance (${acc}%).`,
+        text: `${s.name} shows moderate performance (${s.metrics.correctPct}% correct).`,
         accent: 'amber',
         icon: <TrendingUp className="w-3 h-3" />,
       });
     } else if (acc > 0) {
       out.push({
-        text: `${s.name} shows potential but needs work (${acc}% accuracy).`,
+        text: `${s.name} shows potential but needs work (${s.metrics.correctPct}% correct).`,
         accent: 'rose',
         icon: <TrendingDown className="w-3 h-3" />,
       });
@@ -753,7 +880,7 @@ function RadarAxisTick({ x, y, payload, textAnchor, rows }: any) {
     lines[1] = `${lines[1].slice(0, 14)}…`;
   }
 
-  const measured = row.state !== 'NOT_ASSESSED' && row.value != null;
+  const measured = row.value != null;
   const below = y > 0;
 
   return (
@@ -799,7 +926,7 @@ function RadarAxisTick({ x, y, payload, textAnchor, rows }: any) {
  */
 function radarExplanation(model: AttemptReportModel, target: number): string {
   const cfg = model.config;
-  const measured = model.subjects.filter(s => s.state === 'MEASURED' && s.metrics.accuracy != null);
+  const measured = model.subjects.filter(s => s.state === 'MEASURED' && s.metrics.correctPct != null);
   const thin = model.subjects.filter(s => s.state === 'INSUFFICIENT_EVIDENCE');
   const blank = model.subjects.filter(s => s.state === 'NOT_ASSESSED');
 
@@ -810,23 +937,23 @@ function radarExplanation(model: AttemptReportModel, target: number): string {
       : `Nothing was attempted, so there is no shape to read. ${available} questions across ${blank.length} subject${blank.length === 1 ? '' : 's'} are waiting on a first attempt.`;
   }
 
-  const sorted = [...measured].sort((a, b) => (b.metrics.accuracy ?? 0) - (a.metrics.accuracy ?? 0));
+  const sorted = [...measured].sort((a, b) => (b.metrics.correctPct ?? 0) - (a.metrics.correctPct ?? 0));
   const best = sorted[0];
   const worst = sorted[sorted.length - 1];
-  const spread = Math.round((best.metrics.accuracy ?? 0) - (worst.metrics.accuracy ?? 0));
-  const atTarget = measured.filter(s => (s.metrics.accuracy ?? 0) >= target);
+  const spread = Math.round((best.metrics.correctPct ?? 0) - (worst.metrics.correctPct ?? 0));
+  const atTarget = measured.filter(s => (s.metrics.correctPct ?? 0) >= target);
   const sentences: string[] = [];
 
   // 1. The shape itself — and whether its lopsidedness is the story or not.
   if (measured.length === 1) {
-    sentences.push(`Only ${best.name} has enough answers to plot, at ${best.metrics.accuracy}% — one point is a line, not yet a shape.`);
+    sentences.push(`Only ${best.name} has enough answers to plot, at ${best.metrics.correctPct}% — one point is a line, not yet a shape.`);
   } else if (spread >= 20) {
     sentences.push(
-      `The shape stretches furthest on ${best.name} (${best.metrics.accuracy}%) and pulls in tightest on ${worst.name} (${worst.metrics.accuracy}%) — a ${spread}-point spread, so your preparation is uneven rather than uniformly short.`,
+      `The shape stretches furthest on ${best.name} (${best.metrics.correctPct}%) and pulls in tightest on ${worst.name} (${worst.metrics.correctPct}%) — a ${spread}-point spread, so your preparation is uneven rather than uniformly short.`,
     );
   } else {
     sentences.push(
-      `The shape is fairly even: ${best.name} leads at ${best.metrics.accuracy}% and ${worst.name} trails at ${worst.metrics.accuracy}%, only ${spread} points apart, so no single subject is dragging it down — the level is what it is across the board.`,
+      `The shape is fairly even: ${best.name} leads at ${best.metrics.correctPct}% and ${worst.name} trails at ${worst.metrics.correctPct}%, only ${spread} points apart, so no single subject is dragging it down — the level is what it is across the board.`,
     );
   }
 
@@ -840,19 +967,19 @@ function radarExplanation(model: AttemptReportModel, target: number): string {
   // 3. What closing the nearest gap is worth — the sentence that makes the chart
   //    actionable. Priced in marks where subject marks are known, in questions
   //    otherwise, and skipped when everything already clears the ring.
-  const gapTargets = measured.filter(s => (s.metrics.accuracy ?? 0) < target);
+  const gapTargets = measured.filter(s => (s.metrics.correctPct ?? 0) < target);
   if (gapTargets.length > 0) {
     // Nearest to the ring, not weakest — the cheapest one to convert.
-    const nearest = gapTargets.reduce((hi, s) => ((s.metrics.accuracy ?? 0) > (hi.metrics.accuracy ?? 0) ? s : hi));
+    const nearest = gapTargets.reduce((hi, s) => ((s.metrics.correctPct ?? 0) > (hi.metrics.correctPct ?? 0) ? s : hi));
     const m = nearest.metrics;
-    const extraCorrect = Math.round(((target - (m.accuracy ?? 0)) / 100) * m.attempted);
+    const extraCorrect = Math.round(((target - (m.correctPct ?? 0)) / 100) * m.questions);
     if (extraCorrect >= 1) {
       const perQuestion = m.marksAvailable != null && m.questions > 0 ? m.marksAvailable / m.questions : null;
       const worth = perQuestion != null ? Math.round(extraCorrect * perQuestion * 10) / 10 : null;
       sentences.push(
         worth != null
-          ? `${nearest.name} is the closest to the ring at ${m.accuracy}% — converting ${extraCorrect} more of the ${m.attempted} you answered there would push it to target and is worth about ${worth} marks, which makes it the cheapest gap on this chart to close.`
-          : `${nearest.name} is the closest to the ring at ${m.accuracy}% — ${extraCorrect} more correct out of the ${m.attempted} you answered there would reach target, which makes it the cheapest gap on this chart to close.`,
+          ? `${nearest.name} is the closest to the ring at ${m.correctPct}% — getting ${extraCorrect} more of its ${m.questions} questions right would push it to target and is worth about ${worth} marks, which makes it the cheapest gap on this chart to close.`
+          : `${nearest.name} is the closest to the ring at ${m.correctPct}% — ${extraCorrect} more correct out of its ${m.questions} questions would reach target, which makes it the cheapest gap on this chart to close.`,
       );
     }
   }
@@ -861,7 +988,7 @@ function radarExplanation(model: AttemptReportModel, target: number): string {
   if (blank.length > 0) {
     const q = blank.reduce((n, s) => n + s.metrics.questions, 0);
     sentences.push(
-      `${blank.length} ax${blank.length === 1 ? 'is carries' : 'es carry'} no point because nothing was attempted there — ${q} question${q === 1 ? '' : 's'} in ${blank.slice(0, 2).map(s => s.name).join(', ')}${blank.length > 2 ? ' and others' : ''}. Read those as unknown, not as zero; they need a diagnostic before they can be planned around.`,
+      `${blank.length} ax${blank.length === 1 ? 'is sits' : 'es sit'} at 0% because nothing was attempted there — ${q} question${q === 1 ? '' : 's'} in ${blank.slice(0, 2).map(s => s.name).join(', ')}${blank.length > 2 ? ' and others' : ''}.`,
     );
   }
 
@@ -884,8 +1011,7 @@ function RadarTooltip({ active, payload, rows, target }: any) {
       <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-snug">{row.label}</p>
       {row.state === 'NOT_ASSESSED' ? (
         <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-          Not assessed — none of its {row.questions} questions were answered, so there is no accuracy to plot. That
-          is missing evidence, not a score of zero.
+          Nothing attempted — none of its {row.questions} questions were answered, so 0 of {row.questions} are correct.
         </p>
       ) : (
         <>
@@ -893,9 +1019,10 @@ function RadarTooltip({ active, payload, rows, target }: any) {
               a rate. The measure is now named, and the arithmetic behind it is
               spelled out so there is nothing left to infer. */}
           <p className="text-[11px] mt-1 tabular-nums">
-            <span className="font-bold text-gray-900 dark:text-gray-100">Accuracy {row.value}%</span>
+            <span className="font-bold text-gray-900 dark:text-gray-100">Correct {row.value}%</span>
             <span className="block text-[10px] text-gray-500 dark:text-gray-400">
-              {row.correct} correct of {row.evidenceCount} answered
+              {row.correct} correct of {row.questions} questions
+              {row.questions > row.evidenceCount && ` (${row.questions - row.evidenceCount} not attempted)`}
             </span>
           </p>
           {/* The other number a reader may be looking for: what the subject
@@ -911,7 +1038,7 @@ function RadarTooltip({ active, payload, rows, target }: any) {
             </p>
           )}
           <p className="text-[10px] text-gray-400 mt-1.5 pt-1.5 border-t border-gray-100 dark:border-gray-800 tabular-nums">
-            Plotted: accuracy. Target {target}% ·{' '}
+            Plotted: correct out of all questions. Target {target}% ·{' '}
             {row.value != null && row.value >= target
               ? 'at or above'
               : `${Math.round(target - (row.value ?? 0))} points below`}
@@ -932,36 +1059,136 @@ export function SubjectPerformance({
   expanded,
   onToggle,
   onViewQuestions,
+  categoriesOnly = false,
+  title,
+  subtitle,
+  footnote,
 }: {
   model: AttemptReportModel;
   expanded: string | null;
   onToggle: (id: string) => void;
   onViewQuestions?: (id: string) => void;
+  /**
+   * For a model pooled across attempts: a unit opens to its categories and sub-categories only. Per-question
+   * insights, comparison and a score belong to one paper, not to a pool of them.
+   */
+  categoriesOnly?: boolean;
+  title?: string;
+  subtitle?: string;
+  footnote?: React.ReactNode;
 }) {
   const label = useLabel();
+  const byUnit = model.groupedBy === 'unit';
+
+  // A unit report reads as a tree: subjects at the top, their units under them, and each unit's own
+  // categories and sub-categories in its detail. Subjects start folded, so the page opens on the
+  // handful of subjects rather than on every unit.
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set());
+  const toggleGroup = (key: string) =>
+    setOpenGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  const tree = byUnit ? groupUnitsBySubject(model.subjects.map((subject, index) => ({ subject, index })), x => x.subject.subjectId) : null;
+
+  // Status judges a unit, so the column is there only while unit rows are: on the subject rows alone it
+  // would be a column of dashes.
+  const showStatus = !tree || openGroups.size > 0;
 
   const headers: Array<{ label: string; note?: string; align?: 'right' }> = [
-    { label: 'Subject' },
+    { label: byUnit ? 'Subject / Unit' : 'Subject' },
     { label: 'Qs', align: 'right' },
-    { label: 'Attempted', align: 'right' },
     { label: 'Correct', align: 'right' },
     { label: 'Incorrect', align: 'right' },
     { label: 'Skipped', align: 'right' },
-    { label: 'Accuracy', note: 'on attempted', align: 'right' },
+    { label: 'Correct %', note: 'of all questions', align: 'right' },
     // Score is hidden: the marks per subject are a projection, and shown beside
     // the real counts they read as an awarded result. The counts and accuracy
     // are what this table is for. Its cell below is commented out to match.
-    { label: 'Status' },
+    ...(showStatus ? [{ label: 'Status' }] : []),
     { label: 'Action' },
   ];
+
+  const unitRow = (s: (typeof model.subjects)[number], i: number, nested: boolean) => {
+    const m = s.metrics;
+    const open = expanded === s.subjectId;
+    return (
+      <Fragment key={s.subjectId}>
+        <tr
+          onClick={() => onToggle(s.subjectId)}
+          className={cn(
+            'border-b border-gray-50 dark:border-gray-800/60 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/40',
+            open && 'bg-blue-50/40 dark:bg-blue-950/20',
+          )}
+        >
+          <td className={cn('py-2.5 font-semibold text-gray-900 dark:text-gray-100', nested ? 'pl-9 pr-3' : 'px-3')}>
+            <span className="inline-flex items-center gap-2">
+              <span
+                className="w-6 h-6 rounded-md flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white"
+                style={{ background: subjectHue(i) }}
+                aria-hidden
+              >
+                {label(s).trim().charAt(0).toUpperCase()}
+              </span>
+              <span
+                className="truncate max-w-[14rem] text-[#122447] dark:text-gray-100"
+                title={[s.name, s.nameLocal].filter(Boolean).join(' · ')}
+              >
+                {label(s)}
+              </span>
+            </span>
+          </td>
+          <td className="px-3 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-300">{m.questions}</td>
+          <td className="px-3 py-2.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{m.correct}</td>
+          <td className="px-3 py-2.5 text-right tabular-nums text-rose-600 dark:text-rose-400">{m.incorrect}</td>
+          <td className="px-3 py-2.5 text-right tabular-nums text-gray-400">{m.skipped}</td>
+          <td className="px-3 py-2.5 text-right tabular-nums font-bold text-[#122447] dark:text-gray-100">
+            {m.correctPct == null ? <span className="font-normal text-gray-400">—</span> : `${m.correctPct}%`}
+          </td>
+          {showStatus && (
+            <td className="px-3 py-2.5">
+              <StatusPill tone={STATUS_TONE[s.status]}>{STATUS_LABEL[s.status]}</StatusPill>
+            </td>
+          )}
+          <td className="px-3 py-2.5">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 bg-white dark:bg-gray-900 rounded-lg px-2 py-1 whitespace-nowrap">
+              View
+              <ChevronDown className={cn('w-3 h-3 transition-transform', open && 'rotate-180')} />
+            </span>
+          </td>
+        </tr>
+        {open && (
+          <tr className="bg-gray-50/60 dark:bg-gray-800/30">
+            <td colSpan={headers.length} className="px-3 py-3">
+              <SubjectDeepDive
+                subject={s}
+                model={model}
+                index={i}
+                onViewQuestions={onViewQuestions}
+                onCollapse={() => onToggle(s.subjectId)}
+                categoriesOnly={categoriesOnly}
+              />
+            </td>
+          </tr>
+        )}
+      </Fragment>
+    );
+  };
 
   return (
     <ReportCard flush>
       <div className="p-4 sm:p-5 pb-0">
         <SectionHeader
           icon={<BarChart3 className="w-4 h-4" />}
-          title="Subject-wise performance"
-          subtitle="Click a subject to open its detail here"
+          title={title ?? (model.groupedBy === 'unit' ? 'Unit-wise performance' : 'Subject-wise performance')}
+          subtitle={
+            subtitle ??
+            (byUnit
+              ? 'Open a subject to see its units, then a unit for its categories and sub-categories'
+              : 'Click a subject to open its detail here')
+          }
         />
       </div>
       <div className="overflow-x-auto">
@@ -987,78 +1214,66 @@ export function SubjectPerformance({
             </tr>
           </thead>
           <tbody>
-            {model.subjects.map((s, i) => {
-              const m = s.metrics;
-              const open = expanded === s.subjectId;
-              return (
-                <Fragment key={s.subjectId}>
-                  <tr
-                    onClick={() => onToggle(s.subjectId)}
-                    className={cn(
-                      'border-b border-gray-50 dark:border-gray-800/60 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/40',
-                      open && 'bg-blue-50/40 dark:bg-blue-950/20',
-                    )}
-                  >
-                    <td className="px-3 py-2.5 font-semibold text-gray-900 dark:text-gray-100">
-                      <span className="inline-flex items-center gap-2">
-                        <span
-                          className="w-6 h-6 rounded-md flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white"
-                          style={{ background: subjectHue(i) }}
-                          aria-hidden
-                        >
-                          {label(s).trim().charAt(0).toUpperCase()}
-                        </span>
-                        <span
-                          className="truncate max-w-[14rem] text-[#122447] dark:text-gray-100"
-                          title={[s.name, s.nameLocal].filter(Boolean).join(' · ')}
-                        >
-                          {label(s)}
-                        </span>
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-300">{m.questions}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{m.attempted}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{m.correct}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-rose-600 dark:text-rose-400">{m.incorrect}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-gray-400">{m.skipped}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums font-bold text-[#122447] dark:text-gray-100">
-                      {m.accuracy == null ? <span className="font-normal text-gray-400">—</span> : `${m.accuracy}%`}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <StatusPill tone={STATUS_TONE[s.status]}>{STATUS_LABEL[s.status]}</StatusPill>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 bg-white dark:bg-gray-900 rounded-lg px-2 py-1 whitespace-nowrap">
-                        View
-                        <ChevronDown className={cn('w-3 h-3 transition-transform', open && 'rotate-180')} />
-                      </span>
-                    </td>
-                  </tr>
-                  {open && (
-                    <tr className="bg-gray-50/60 dark:bg-gray-800/30">
-                      <td colSpan={headers.length} className="px-3 py-3">
-                        <SubjectDeepDive
-                          subject={s}
-                          model={model}
-                          index={i}
-                          onViewQuestions={onViewQuestions}
-                          onCollapse={() => onToggle(s.subjectId)}
-                        />
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              );
-            })}
+            {tree
+              ? tree.map(group => {
+                  const key = group.subject ?? '__other';
+                  const open = openGroups.has(key);
+                  const total = group.items.reduce(
+                    (t, { subject }) => ({
+                      questions: t.questions + subject.metrics.questions,
+                      correct: t.correct + subject.metrics.correct,
+                      incorrect: t.incorrect + subject.metrics.incorrect,
+                      skipped: t.skipped + subject.metrics.skipped,
+                    }),
+                    { questions: 0, correct: 0, incorrect: 0, skipped: 0 },
+                  );
+                  const correctPct = total.questions > 0 ? Math.round((total.correct / total.questions) * 1000) / 10 : null;
+                  return (
+                    <Fragment key={key}>
+                      <tr
+                        onClick={() => toggleGroup(key)}
+                        className="border-b border-gray-100 dark:border-gray-800 cursor-pointer bg-gray-50/80 dark:bg-gray-800/40 hover:bg-gray-100/80 dark:hover:bg-gray-800/70"
+                        aria-expanded={open}
+                      >
+                        <td className="px-3 py-3 font-bold text-[#122447] dark:text-gray-100">
+                          <span className="inline-flex items-center gap-2">
+                            <ChevronRight className={cn('w-4 h-4 text-gray-400 transition-transform', open && 'rotate-90')} />
+                            {group.subject ?? 'Other units'}
+                            <span className="text-[10px] font-medium text-gray-400">
+                              {group.items.length} unit{group.items.length === 1 ? '' : 's'}
+                            </span>
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-right tabular-nums font-semibold text-gray-700 dark:text-gray-200">{total.questions}</td>
+                        <td className="px-3 py-3 text-right tabular-nums font-semibold text-emerald-600 dark:text-emerald-400">{total.correct}</td>
+                        <td className="px-3 py-3 text-right tabular-nums font-semibold text-rose-600 dark:text-rose-400">{total.incorrect}</td>
+                        <td className="px-3 py-3 text-right tabular-nums font-semibold text-gray-400">{total.skipped}</td>
+                        <td className="px-3 py-3 text-right tabular-nums font-bold text-[#122447] dark:text-gray-100">
+                          {correctPct == null ? '\u2014' : `${correctPct}%`}
+                        </td>
+                        {showStatus && <td className="px-3 py-3" />}
+                        <td className="px-3 py-3">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg px-2 py-1 whitespace-nowrap">
+                            {open ? 'Collapse' : 'Expand'}
+                            <ChevronDown className={cn('w-3 h-3 transition-transform', open && 'rotate-180')} />
+                          </span>
+                        </td>
+                      </tr>
+                      {open && group.items.map(({ subject, index }) => unitRow(subject, index, true))}
+                    </Fragment>
+                  );
+                })
+              : model.subjects.map((subject, index) => unitRow(subject, index, false))}
           </tbody>
         </table>
       </div>
       <div className="px-4 sm:px-5 pb-4 sm:pb-5">
         <WhatThisMeans>
-          Accuracy counts only attempted questions. A subject with nothing attempted reads{' '}
-          <span className="font-semibold">Not assessed</span> rather than 0% — this attempt says nothing about it
-          either way.
+          Correct % is the questions you got right out of all the questions in the {model.groupedBy === 'unit' ? 'unit' : 'subject'},
+          the ones you left unattempted included. The status beside it still judges how well you did on the questions
+          you did answer.
         </WhatThisMeans>
+        {footnote}
       </div>
     </ReportCard>
   );
@@ -1118,18 +1333,16 @@ function TaxonomyRow({
       <td
         className={cn(
           'px-3 py-2 text-right tabular-nums font-bold',
-          m.accuracy == null
+          m.correctPct == null
             ? ''
-            : m.accuracy >= 70
+            : m.correctPct >= 70
               ? 'text-emerald-600 dark:text-emerald-400'
-              : m.accuracy >= 40
+              : m.correctPct >= 40
                 ? 'text-amber-600 dark:text-amber-400'
                 : 'text-rose-600 dark:text-rose-400',
         )}
       >
-        {/* Never 0% for an untouched row — that would read as ability rather than
-            as an absence of evidence. */}
-        {m.accuracy == null ? dash : `${m.accuracy}%`}
+        {m.correctPct == null ? dash : `${m.correctPct}%`}
       </td>
       <td className="px-3 py-2 text-right tabular-nums text-gray-500 dark:text-gray-400">
         {m.avgTimeSec == null ? dash : `${Math.round(m.avgTimeSec)} sec`}
@@ -1172,12 +1385,14 @@ function SubjectDeepDive({
   index,
   onViewQuestions,
   onCollapse,
+  categoriesOnly = false,
 }: {
   subject: SubjectNode;
   model: AttemptReportModel;
   index: number;
   onViewQuestions?: (id: string) => void;
   onCollapse?: () => void;
+  categoriesOnly?: boolean;
 }) {
   const [tab, setTab] = useState<DiveTab>('subtopics');
   const label = useLabel();
@@ -1190,28 +1405,36 @@ function SubjectDeepDive({
     { value: m.incorrect, label: 'Incorrect', tone: 'text-rose-600 dark:text-rose-400' },
     { value: m.skipped, label: 'Skipped', tone: 'text-[#122447] dark:text-gray-100' },
     {
-      value: m.accuracy == null ? '—' : `${m.accuracy}%`,
-      label: 'Accuracy',
+      value: m.correctPct == null ? '—' : `${m.correctPct}%`,
+      label: 'Correct %',
       tone:
-        m.accuracy == null
+        m.correctPct == null
           ? 'text-gray-400'
-          : m.accuracy >= 70
+          : m.correctPct >= 70
             ? 'text-emerald-600 dark:text-emerald-400'
-            : m.accuracy >= 40
+            : m.correctPct >= 40
               ? 'text-amber-600 dark:text-amber-400'
               : 'text-rose-600 dark:text-rose-400',
     },
-    {
-      value: m.marksEarned != null && m.marksAvailable != null ? `${m.marksEarned} / ${m.marksAvailable}` : '—',
-      label: 'Score',
-      tone: 'text-[#122447] dark:text-gray-100',
-    },
+    ...(categoriesOnly
+      ? []
+      : [
+          {
+            value: m.marksEarned != null && m.marksAvailable != null ? `${m.marksEarned} / ${m.marksAvailable}` : '—',
+            label: 'Score',
+            tone: 'text-[#122447] dark:text-gray-100',
+          },
+        ]),
   ];
 
   const tabs: Array<{ value: DiveTab; label: string }> = [
-    { value: 'subtopics', label: subject.topics.length > 0 ? 'Sub-topic Analysis' : 'Analysis' },
-    { value: 'questions', label: 'Question Insights' },
-    { value: 'trends', label: 'Comparison & Trends' },
+    { value: 'subtopics', label: subject.topics.length > 0 ? (model.groupedBy === 'unit' ? 'Category Analysis' : 'Sub-topic Analysis') : 'Analysis' },
+    ...(categoriesOnly
+      ? []
+      : [
+          { value: 'questions' as const, label: 'Question Insights' },
+          { value: 'trends' as const, label: 'Comparison & Trends' },
+        ]),
   ];
 
   const taggedQuestions = subject.topics.reduce((n, t) => n + t.metrics.questions, 0);
@@ -1235,7 +1458,9 @@ function SubjectDeepDive({
           >
             {label(subject)}
           </p>
-          <p className="text-[10px] text-gray-400">{m.questions} questions in this paper</p>
+          <p className="text-[10px] text-gray-400">
+            {m.questions} questions {categoriesOnly ? 'across your attempts' : 'in this paper'}
+          </p>
         </div>
         <StatusPill tone={STATUS_TONE[subject.status]}>{STATUS_LABEL[subject.status]}</StatusPill>
         {onCollapse && (
@@ -1252,7 +1477,12 @@ function SubjectDeepDive({
 
       {/* The six figures, given room. Each keeps the colour it wears in the table
           above, so the eye carries the meaning down from the row it opened. */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 divide-x divide-gray-100 dark:divide-gray-800 border-b border-gray-100 dark:border-gray-800">
+      <div
+        className={cn(
+          'grid divide-x divide-gray-100 dark:divide-gray-800 border-b border-gray-100 dark:border-gray-800',
+          categoriesOnly ? 'grid-cols-5' : 'grid-cols-3 sm:grid-cols-6',
+        )}
+      >
         {stats.map(st => (
           <div key={st.label} className="px-3 py-2.5 text-center">
             <p className={cn('text-base font-bold leading-none tabular-nums', st.tone)}>{st.value}</p>
@@ -1261,11 +1491,13 @@ function SubjectDeepDive({
         ))}
       </div>
 
-      <div className="px-3.5 pt-2.5">
-        {/* Explicit type argument: the options array's string literals would
-            otherwise widen T to `string` and lose the union. */}
-        <UnderlineTabs<DiveTab> value={tab} onChange={setTab} options={tabs} />
-      </div>
+      {tabs.length > 1 && (
+        <div className="px-3.5 pt-2.5">
+          {/* Explicit type argument: the options array's string literals would
+              otherwise widen T to `string` and lose the union. */}
+          <UnderlineTabs<DiveTab> value={tab} onChange={setTab} options={tabs} />
+        </div>
+      )}
 
       <div className="px-3.5 pb-3.5 pt-2.5">
         {tab === 'subtopics' &&
@@ -1276,13 +1508,22 @@ function SubjectDeepDive({
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-800/50 text-left">
                       {[
-                        { label: subject.topics.some(t => t.subtopics.length > 0) ? 'Topic / Sub-topic' : 'Topic' },
+                        {
+                          label:
+                            model.groupedBy === 'unit'
+                              ? subject.topics.some(t => t.subtopics.length > 0)
+                                ? 'Category / Sub-category'
+                                : 'Category'
+                              : subject.topics.some(t => t.subtopics.length > 0)
+                                ? 'Topic / Sub-topic'
+                                : 'Topic',
+                        },
                         { label: 'Qs', align: 'right' as const },
                         { label: 'Attempted', align: 'right' as const },
                         { label: 'Correct', align: 'right' as const },
                         { label: 'Incorrect', align: 'right' as const },
                         { label: 'Skipped', align: 'right' as const },
-                        { label: 'Accuracy', align: 'right' as const },
+                        { label: 'Correct %', align: 'right' as const },
                         { label: 'Avg. Time/Q', align: 'right' as const },
                         { label: 'Status' },
                       ].map(h => (
@@ -1358,14 +1599,14 @@ function SubjectDeepDive({
                 rather than drawing a one-point line and calling it a trend. */}
             <div className="space-y-2">
               <MeterRow
-                label={`${subject.name} accuracy`}
-                value={m.accuracy}
-                right={m.accuracy == null ? 'Not assessed' : `${m.accuracy}%`}
+                label={`${subject.name} correct`}
+                value={m.correctPct}
+                right={m.correctPct == null ? '—' : `${m.correctPct}%`}
               />
               <MeterRow
-                label="Whole paper accuracy"
-                value={model.summary.accuracy}
-                right={model.summary.accuracy == null ? 'Not assessed' : `${model.summary.accuracy}%`}
+                label="Whole paper correct"
+                value={model.summary.correctPct}
+                right={model.summary.correctPct == null ? '—' : `${model.summary.correctPct}%`}
               />
               <MeterRow
                 label={`${subject.name} coverage`}
@@ -1387,8 +1628,8 @@ function SubjectDeepDive({
                     <MeterRow
                       key={d.label}
                       label={d.label}
-                      value={d.accuracy}
-                      right={`${d.correct}/${d.attempted} of ${d.questions} · ${fmtPct(d.accuracy)}`}
+                      value={d.correctPct}
+                      right={`${d.correct} of ${d.questions} · ${fmtPct(d.correctPct)}`}
                     />
                   ))}
                 </div>
@@ -1413,9 +1654,9 @@ function topicNarrative(subject: SubjectNode): string {
   const parts: string[] = [];
 
   if (measured.length > 0) {
-    const weakest = measured.reduce((lo, t) => ((t.metrics.accuracy ?? 0) < (lo.metrics.accuracy ?? 0) ? t : lo));
+    const weakest = measured.reduce((lo, t) => ((t.metrics.correctPct ?? 0) < (lo.metrics.correctPct ?? 0) ? t : lo));
     parts.push(
-      `${weakest.name} is the weakest measured topic at ${weakest.metrics.accuracy}% (${weakest.metrics.correct} of ${weakest.metrics.attempted} answered), and it carries ${weakest.metrics.questions} questions in this paper — the most marks any single topic here is costing you.`,
+      `${weakest.name} is the weakest measured topic at ${weakest.metrics.correctPct}% (${weakest.metrics.correct} of ${weakest.metrics.questions} questions correct), and it carries ${weakest.metrics.questions} questions in this paper — the most marks any single topic here is costing you.`,
     );
   } else {
     parts.push(
@@ -1436,21 +1677,21 @@ function topicNarrative(subject: SubjectNode): string {
 /** Reads the comparison bars: is this subject ahead of or behind the paper? */
 function comparisonNarrative(subject: SubjectNode, model: AttemptReportModel): string {
   const m = subject.metrics;
-  const paperAcc = model.summary.accuracy;
+  const paperAcc = model.summary.correctPct;
   const paperCov = model.summary.attemptRate;
   const parts: string[] = [];
 
-  if (m.accuracy != null && paperAcc != null) {
-    const d = Math.round(m.accuracy - paperAcc);
+  if (m.correctPct != null && paperAcc != null) {
+    const d = Math.round(m.correctPct - paperAcc);
     parts.push(
       d === 0
-        ? `${subject.name} is answering exactly in line with the paper as a whole (${m.accuracy}%).`
+        ? `${subject.name} is scoring exactly in line with the paper as a whole (${m.correctPct}% correct).`
         : d > 0
-          ? `${subject.name} is answering ${d} points above your paper average (${m.accuracy}% against ${paperAcc}%), so it is carrying the score rather than dragging it.`
-          : `${subject.name} is answering ${Math.abs(d)} points below your paper average (${m.accuracy}% against ${paperAcc}%), so it is one of the places the score is being lost.`,
+          ? `${subject.name} is ${d} points above your paper average (${m.correctPct}% correct against ${paperAcc}%), so it is carrying the score rather than dragging it.`
+          : `${subject.name} is ${Math.abs(d)} points below your paper average (${m.correctPct}% correct against ${paperAcc}%), so it is one of the places the score is being lost.`,
     );
   } else {
-    parts.push(`Nothing was attempted in ${subject.name}, so there is no accuracy to compare against the paper.`);
+    parts.push(`There is nothing to compare ${subject.name} against the paper with.`);
   }
 
   if (m.coverage != null && paperCov != null) {
@@ -1501,10 +1742,10 @@ export function QuestionErrorAnalysis({ model }: { model: AttemptReportModel }) 
                   <span className={cn('text-[11px] font-bold', ACCENT[accent].text)}>{d.label}</span>
                   <span className="text-right leading-tight">
                     <span className={cn('block text-sm font-bold tabular-nums', ACCENT[accent].text)}>
-                      {fmtPct(d.accuracy)}
+                      {fmtPct(d.correctPct)}
                     </span>
                     <span className="block text-[9px] text-gray-500 dark:text-gray-400 tabular-nums">
-                      {d.correct} of {d.attempted} correct
+                      {d.correct} of {d.questions} correct
                     </span>
                   </span>
                 </div>
@@ -1646,17 +1887,17 @@ export function QuestionErrorAnalysis({ model }: { model: AttemptReportModel }) 
                       {t.label}
                     </span>
                     <span className="font-bold tabular-nums text-[#122447] dark:text-gray-100 flex-shrink-0">
-                      {fmtPct(t.accuracy)}
+                      {fmtPct(t.correctPct)}
                     </span>
                   </div>
                   <div className="mt-1 h-1.5 rounded bg-gray-100 dark:bg-gray-800 overflow-hidden">
                     <div
                       className="h-full rounded"
-                      style={{ width: `${t.accuracy ?? 0}%`, background: subjectHue(i) }}
+                      style={{ width: `${t.correctPct ?? 0}%`, background: subjectHue(i) }}
                     />
                   </div>
                   <p className="text-[9px] text-gray-400 tabular-nums mt-0.5">
-                    {t.correct} correct of {t.attempted} answered
+                    {t.correct} correct of {t.questions} questions
                     {t.questions > t.attempted && <> · {t.questions - t.attempted} unanswered</>}
                   </p>
                 </div>
@@ -1687,7 +1928,7 @@ export function QuestionErrorAnalysis({ model }: { model: AttemptReportModel }) 
           quarter-width column cut "Indian Economy & Development" to nine
           characters — and it is the breakdown the rest of the section explains. */}
       <Panel
-        title="Performance by Subject"
+        title={model.groupedBy === 'unit' ? 'Performance by Unit' : 'Performance by Subject'}
         note={`${model.summary.attempted} of ${model.summary.totalQuestions} attempted`}
       >
         {bySubject.state === 'AVAILABLE' ? (
@@ -1702,20 +1943,20 @@ export function QuestionErrorAnalysis({ model }: { model: AttemptReportModel }) 
                         {r.name}
                       </span>
                       <span className="font-bold tabular-nums text-[#122447] dark:text-gray-100 flex-shrink-0">
-                        {fmtPct(r.accuracy)}
+                        {fmtPct(r.correctPct)}
                       </span>
                     </div>
                     <div className="mt-1 h-1.5 rounded bg-gray-100 dark:bg-gray-800 overflow-hidden">
                       <div
                         className="h-full rounded"
-                        style={{ width: `${r.accuracy ?? 0}%`, background: subjectHue(i) }}
+                        style={{ width: `${r.correctPct ?? 0}%`, background: subjectHue(i) }}
                       />
                     </div>
                     {/* "14/100 attempted of 100" read as "14 of 100 attempted".
                         The first number is correct answers, so each figure now
                         carries its own noun instead of sharing one. */}
                     <p className="text-[9px] text-gray-400 tabular-nums mt-0.5">
-                      {r.correct} correct of {r.attempted} answered
+                      {r.correct} correct of {r.questions} questions
                       {r.questions > r.attempted && <> · {r.questions - r.attempted} unanswered</>}
                     </p>
                   </div>
@@ -1960,7 +2201,7 @@ export function CoverageAnalysis({ model }: { model: AttemptReportModel }) {
         <StatTile
           accent="amber"
           value={String(c.rows.filter(r => r.state === 'NOT_ASSESSED').length)}
-          label="Subjects untouched"
+          label={model.groupedBy === 'unit' ? 'Units untouched' : 'Subjects untouched'}
           hint="Need a diagnostic first"
         />
       </div>

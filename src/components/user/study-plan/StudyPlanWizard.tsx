@@ -37,6 +37,8 @@ import {
   type Weekday,
 } from '@/lib/studyPlanApi';
 import { useFeasibility } from '@/hooks/use-study-plan';
+import { useExamLanguage } from '@/hooks/use-exam-language';
+import { subjectLanguage, type ExamLanguage } from '@/lib/exam-language';
 import { PanelHeader, VERDICT, VerdictPill, fmtDate, fmtHours, fmtMinutes, todayISO } from './plan-ui';
 
 /** The selected-state ring shared by the wizard's choice cards. */
@@ -110,6 +112,9 @@ export function StudyPlanWizard({
   const [highYield, setHighYield] = useState(false);
 
   const feas = useFeasibility();
+  // The language paper they said at sign-up: it settles the "General Tamil or General English"
+  // question below, so the plan is built around it without asking again.
+  const language = useExamLanguage();
 
   // Seed from the server's own suggestions once they land, so the wizard opens on
   // sensible defaults for *this* exam rather than on 3 hours a day for everything.
@@ -126,13 +131,14 @@ export function StudyPlanWizard({
       setBasisKind(options.attempts_available > 2 ? 'progress' : 'attempt');
       setAttemptId(options.latest_attempt.attempt_id);
     }
-    // One option per mutually-exclusive group is pre-chosen; the user can switch.
+    // One option per mutually-exclusive group is pre-chosen — their own language paper where they
+    // have said which, otherwise the first; the user can switch.
     setOptionalSubjects(
       options.optional_subject_groups
-        .map(g => g.options[0]?.subject_id)
+        .map(g => (g.options.find(o => language && subjectLanguage(o.subject_id) === language) ?? g.options[0])?.subject_id)
         .filter((id): id is string => !!id),
     );
-  }, [options]);
+  }, [options, language]);
 
   const intake = useMemo<StudyPlanIntake>(() => {
     const basis: StudyPlanIntake['basis'] = { kind: basisKind };
@@ -705,6 +711,12 @@ function BasisStep({
   const attempts = options?.attempts_available ?? 0;
   const latest = options?.latest_attempt ?? null;
 
+  const language: ExamLanguage | null = useExamLanguage();
+  /** The either/or questions still open: one whose answer is their language paper is already settled. */
+  const askedGroups = (options?.optional_subject_groups ?? []).filter(
+    g => !language || !g.options.some(o => subjectLanguage(o.subject_id) === language),
+  );
+
   const choices: Array<{
     kind: BasisKind;
     label: string;
@@ -789,15 +801,16 @@ function BasisStep({
         )}
       </ReportCard>
 
-      {/* Group 4 sits General Tamil *or* General English — never both. */}
-      {options && options.optional_subject_groups.length > 0 && (
+      {/* Group 4 sits General Tamil *or* General English — never both. Someone who has said which
+          at sign-up is not asked again: it is already chosen above, and the other is left out. */}
+      {options && askedGroups.length > 0 && (
         <ReportCard className="sm:p-6">
           <PanelHeader
             icon={<Target className="w-4 h-4" />}
             title="Which optional subject do you sit?"
             subtitle="The one you do not choose is left out of the plan entirely"
           />
-          {options.optional_subject_groups.map((g, gi) => (
+          {askedGroups.map((g, gi) => (
             <div key={gi} className="grid sm:grid-cols-2 gap-2">
               {g.options.map(o => {
                 const active = optionalSubjects.includes(o.subject_id);

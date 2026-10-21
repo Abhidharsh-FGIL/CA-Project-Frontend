@@ -97,6 +97,8 @@ interface FieldProps {
   inputMode?: 'text' | 'numeric' | 'tel' | 'email';
   /** Something at the right edge of the box — a show / hide button. */
   trailing?: ReactNode;
+  /** When the box loses focus — what a form uses to start checking a field once it has been visited. */
+  onBlur?: () => void;
 }
 
 export function AuthField({
@@ -113,6 +115,7 @@ export function AuthField({
   autoComplete,
   inputMode,
   trailing,
+  onBlur,
 }: FieldProps) {
   const id = useId();
   return (
@@ -136,6 +139,7 @@ export function AuthField({
           aria-label={label ? undefined : placeholder}
           aria-invalid={error ? true : undefined}
           onChange={e => onChange(e.target.value)}
+          onBlur={onBlur}
         />
         {trailing && <span className="mge-input-trailing">{trailing}</span>}
       </div>

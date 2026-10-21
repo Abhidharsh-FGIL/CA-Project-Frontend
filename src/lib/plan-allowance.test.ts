@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SUBSCRIPTION_PLANS } from '@/data/userPortalSampleData';
-import { planAllowance } from '@/lib/plan-allowance';
+import { billingCycleOf, planAllowance, planCardState } from '@/lib/plan-allowance';
 
 const plan = (tier: string) => SUBSCRIPTION_PLANS.find(p => p.tier === tier)!;
 const withFeatures = (tier: string, features: Record<string, unknown>) => {
@@ -44,5 +44,41 @@ describe('planAllowance', () => {
   it('reads "none" as a limit of zero', () => {
     const none = withFeatures('free', { mock_tests_per_month: 'none' });
     expect(planAllowance(none, 'mock', [])).toEqual({ limit: 0, used: 0, left: 0 });
+  });
+});
+
+describe('billingCycleOf', () => {
+  it('reads a 30-day subscription as monthly and a 365-day one as yearly', () => {
+    expect(billingCycleOf('2026-10-12', '2026-11-11')).toBe('monthly');
+    expect(billingCycleOf('2026-10-12', '2027-10-12')).toBe('yearly');
+  });
+
+  it('is null for dates that are not real or run backwards', () => {
+    expect(billingCycleOf('junk', '2026-11-11')).toBeNull();
+    expect(billingCycleOf('2026-11-11', '2026-10-12')).toBeNull();
+  });
+});
+
+describe('planCardState', () => {
+  it('marks the held plan current only on the cycle it was bought for', () => {
+    expect(planCardState('ultimate', 'ultimate', 'monthly', 'monthly')).toBe('current');
+    expect(planCardState('ultimate', 'ultimate', 'yearly', 'monthly')).toBe('switch');
+    expect(planCardState('ultimate', 'ultimate', 'monthly', 'yearly')).toBe('switch');
+    expect(planCardState('ultimate', 'ultimate', 'yearly', 'yearly')).toBe('current');
+  });
+
+  it('falls back to the tier alone when the cycle is not known', () => {
+    expect(planCardState('ultimate', 'ultimate', 'yearly', null)).toBe('current');
+    expect(planCardState('ultimate', 'ultimate', 'monthly', null)).toBe('current');
+  });
+
+  it('never marks a different plan current', () => {
+    expect(planCardState('free', 'ultimate', 'monthly', 'monthly')).toBe('other');
+    expect(planCardState('standard', 'ultimate', 'yearly', 'yearly')).toBe('other');
+  });
+
+  it('a Free plan has no cycle, so it is current on both tabs', () => {
+    expect(planCardState('free', 'free', 'yearly', 'monthly')).toBe('current');
+    expect(planCardState('free', 'free', 'monthly', null)).toBe('current');
   });
 });

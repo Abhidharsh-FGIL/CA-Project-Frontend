@@ -1750,7 +1750,19 @@ export function sectionForSubject(
  * Section A subject and 3 for a Section B one.
  */
 export function marksForSubject(stage: TnpscStage | undefined, subject?: string | null): number | undefined {
-  return sectionForSubject(stage, subject)?.marks_per_question;
+  return sectionForSubject(stage, subject)?.marks_per_question ?? uniformMarksPerQuestion(stage);
+}
+
+/**
+ * The mark each question is worth when the whole paper is weighted alike: its total marks over its
+ * questions. TNPSC Group 4 and Group 1 Prelims are 300 marks over 200 questions, so 1.5 each. Undefined
+ * when a stage's sections are weighted differently (GAT-B), where the section decides.
+ */
+export function uniformMarksPerQuestion(stage: TnpscStage | undefined): number | undefined {
+  const p = stage?.pattern;
+  if (!p || !p.total_questions || !p.total_marks) return undefined;
+  if (p.sections.some(sec => sec.marks_per_question != null)) return undefined;
+  return p.total_marks / p.total_questions;
 }
 
 /**

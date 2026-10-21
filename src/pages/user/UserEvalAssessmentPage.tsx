@@ -1,5 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+﻿import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { isMobileDevice } from '@/lib/device';
+import { displayTitle } from '@/lib/display-title';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { originOf } from '@/lib/report-origin';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -9,6 +12,7 @@ import { showPlanNotice } from '@/lib/plan-notice-bus';
 import { reportIsLocked } from '@/lib/report-access';
 import { planAllowance } from '@/lib/plan-allowance';
 import { getCurrentSubscription } from '@/lib/subscriptionApi';
+import { getTopUpBalance } from '@/lib/topup-api';
 import { getPlan } from '@/data/userPortalSampleData';
 import { useQuery } from '@tanstack/react-query';
 import { MathText } from '@/components/ui/MathText';
@@ -353,8 +357,9 @@ function ActiveQuestionCard({
   const options = displayOptions(question.options, tr?.options);
   // Defensive: papers saved before the generator fix may still carry the choices
   // inside the stem. Display-only — the stored answer still comes from `options`.
-  const stemText = stripInlineOptions(question.text, question.options);
-  const trText = tr?.text ? stripInlineOptions(tr.text, tr.options) : null;
+  // Line breaks are part of a passage (a newspaper report is several paragraphs), so they are kept.
+  const stemText = normaliseLineBreaks(stripInlineOptions(question.text, question.options));
+  const trText = tr?.text ? normaliseLineBreaks(stripInlineOptions(tr.text, tr.options)) : null;
   const hasText = !!(stemText && String(stemText).trim());
   // Same shapes as the options: a plain URL field, or a stringified dict.
   const questionImage =
@@ -382,7 +387,7 @@ function ActiveQuestionCard({
         </div>
         <div className="flex-1 min-w-0">
           {showPrimary && hasText && (
-            <div className="text-sm sm:text-[15px] font-medium text-gray-900 leading-relaxed">
+            <div className="text-sm sm:text-[15px] font-medium text-gray-900 leading-relaxed whitespace-pre-line">
               <MathText text={stemText} />
             </div>
           )}
@@ -395,8 +400,8 @@ function ActiveQuestionCard({
             <div
               className={
                 showPrimary && hasText
-                  ? 'text-sm sm:text-[15px] text-gray-600 leading-relaxed mt-1.5 pt-1.5 border-t border-dashed border-gray-200'
-                  : 'text-sm sm:text-[15px] font-medium text-gray-900 leading-relaxed'
+                  ? 'text-sm sm:text-[15px] text-gray-600 leading-relaxed whitespace-pre-line mt-1.5 pt-1.5 border-t border-dashed border-gray-200'
+                  : 'text-sm sm:text-[15px] font-medium text-gray-900 leading-relaxed whitespace-pre-line'
               }
             >
               <MathText text={trText} />
@@ -407,17 +412,15 @@ function ActiveQuestionCard({
           )}
           {/* Tags */}
           <div className="flex flex-wrap items-center gap-1.5 mt-3">
-            <span className="text-[11px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-medium">
-              {question.marks} mark{question.marks !== 1 ? 's' : ''}
-            </span>
             {negative_marking && negative_mark_value != null && (
               <span className="text-[11px] bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded font-medium">
                 -{negative_mark_value} negative
               </span>
             )}
-            {question.subject && (
+            {/* The chapter the question belongs to, e.g. சொல்லிலக்கணம். */}
+            {question.chapter && (
               <span className="text-[11px] bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded font-medium">
-                {question.subject}
+                {question.chapter}
               </span>
             )}
             {/*
@@ -806,12 +809,32 @@ function QuestionView({
 export function UserEvalAssessmentPage() {
   const { assessmentId } = useParams<{ assessmentId: string }>();
   const navigate = useNavigate();
-  const { user, history, refreshHistory } = useUserPortal();
+  const location = useLocation();
+  /**
+   * Back goes to the page the paper was opened from. Without one (a link that did not record it), it goes
+   * to the stage the paper belongs to, which is where a paper is always reached from.
+   */
+  const goBack = () => {
+    const from = originOf(location.state);
+    if (from) return navigate(from);
+    const stage = stageForTitle(assessment?.title);
+    if (stage) return navigate(`/user/exams/${stage.group_id}/${stage.id}`);
+    navigate(-1);
+  };
+  const { user, history, assessments, refreshHistory } = useUserPortal();
   // When the current plan began — attempts before it were made under another plan and do not count against this one.
   const { data: currentSub } = useQuery({
     queryKey: ['subscription', 'current'],
     queryFn: getCurrentSubscription,
     staleTime: 5 * 60 * 1000,
+  });
+  // Top-up tests the person has bought and not yet used. They carry on once the plan's own run out.
+  // Keyed under 'topup', so the top-up purchase's invalidation refreshes it straight away.
+  const { data: topUp } = useQuery({
+    queryKey: ['topup', 'balance'],
+    queryFn: getTopUpBalance,
+    staleTime: 60 * 1000,
+    enabled: !!user,
   });
 
   const [pageState, setPageState] = useState<PageState>('loading');
@@ -1023,6 +1046,15 @@ export function UserEvalAssessmentPage() {
   /** The choice section whose quota has just been met — drives the centre dialog. */
   const [quotaReached, setQuotaReached] = useState<TnpscPatternSection | null>(null);
   const tabSwitchRef = useRef(0);
+  /** Seconds spent on the questions: counted while the test is open and the tab is visible. */
+  const activeSecondsRef = useRef(0);
+  useEffect(() => {
+    if (pageState !== 'active') return;
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') activeSecondsRef.current += 1;
+    }, 1000);
+    return () => clearInterval(id);
+  }, [pageState]);
   const submittedRef = useRef(false);
   // When our own dialogs are open we must not count a violation
   const suppressViolationsRef = useRef(false);
@@ -1099,6 +1131,7 @@ export function UserEvalAssessmentPage() {
           // Read the ref, not the state: an auto-submit fires from inside the
           // violation handler, before the matching setState has re-rendered.
           tab_violations: tabSwitchRef.current,
+          active_seconds: activeSecondsRef.current,
           submit_reason: reason,
         });
         toast.success('Assessment submitted successfully!');
@@ -1152,6 +1185,8 @@ export function UserEvalAssessmentPage() {
   }, [showConfirmSubmit, showTabWarning, quotaReached]);
   useEffect(() => {
     if (pageState !== 'active') return;
+    // No tab-switch limit on phones and tablets — leaving the app there is not a sign of anything.
+    if (isMobileDevice()) return;
 
     // Debounce so a single tab switch (which fires visibilitychange + blur) is
     // counted only once.
@@ -1272,7 +1307,7 @@ export function UserEvalAssessmentPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50 dark:bg-gray-950">
         <p className="text-gray-600 dark:text-gray-400">{error}</p>
-        <Button variant="outline" onClick={() => navigate(-1)}>
+        <Button variant="outline" onClick={goBack}>
           Go Back
         </Button>
       </div>
@@ -1287,13 +1322,16 @@ export function UserEvalAssessmentPage() {
     // attempts is enforced all the same (the notice below), it just is not the number on the chip.
     const plan = user ? getPlan(user.subscription_tier) : null;
     const allowance = plan
-      ? planAllowance(plan, isMock ? 'mock' : 'practice', history, currentSub?.status === 'active' ? currentSub.start_date : null)
+      ? planAllowance(plan, isMock ? 'mock' : 'practice', history, currentSub?.status === 'active' ? currentSub.start_date : null, assessments)
       : null;
+    // What the top-up tests add. Plan tests go first; a top-up is used once they are gone.
+    const topUpLeft = topUp ? (isMock ? topUp.mock : topUp.practice) : 0;
+    const totalLeft = allowance?.left == null ? null : allowance.left + topUpLeft;
 
     return (
       <UserShell>
         <button
-          onClick={() => navigate(-1)}
+          onClick={goBack}
           className="group inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 mb-4 transition-colors animate-fadeIn"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" /> Back
@@ -1325,7 +1363,7 @@ export function UserEvalAssessmentPage() {
                     )}
                   </div>
                   <h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">
-                    {assessment.title}
+                    {displayTitle(assessment.title)}
                   </h1>
                   <p className="text-xs sm:text-sm opacity-90 mt-2 font-serif italic">
                     {isMock
@@ -1337,11 +1375,16 @@ export function UserEvalAssessmentPage() {
                 <div className="flex-shrink-0 self-start bg-white/15 backdrop-blur border border-white/25 rounded-xl px-3 py-2 text-right">
                   <p className="text-[9px] uppercase tracking-widest opacity-80">Attempts</p>
                   <p className="text-lg font-bold leading-tight">
-                    {allowance?.left == null ? 'Unlimited' : `${allowance.left} left`}
+                    {totalLeft == null ? 'Unlimited' : `${totalLeft} left`}
                   </p>
-                  {plan && allowance?.limit != null && (
+                  {plan && allowance?.limit != null && topUpLeft === 0 && (
                     <p className="text-[10px] opacity-80 leading-tight mt-0.5">
                       of {allowance.limit} on {plan.name}
+                    </p>
+                  )}
+                  {allowance?.left != null && topUpLeft > 0 && (
+                    <p className="text-[10px] opacity-80 leading-tight mt-0.5">
+                      {allowance.left} plan + {topUpLeft} top-up
                     </p>
                   )}
                 </div>
@@ -1550,7 +1593,7 @@ export function UserEvalAssessmentPage() {
 
           {pageState === 'result' && (
             <div className="flex gap-3 flex-wrap">
-              <Button variant="outline" className="gap-2" onClick={() => navigate(-1)}>
+              <Button variant="outline" className="gap-2" onClick={goBack}>
                 <ChevronLeft className="h-4 w-4" /> Back to Course
               </Button>
               {result.can_retake && (
@@ -1847,7 +1890,7 @@ export function UserEvalAssessmentPage() {
               </p>
             )}
             <p className="text-sm sm:text-[15px] font-bold leading-snug truncate">
-              {assessment?.title}
+              {displayTitle(assessment?.title)}
             </p>
             <p className="text-[11px] text-gray-400 mt-0.5">
               Q {currentIdx + 1} of {totalQ}

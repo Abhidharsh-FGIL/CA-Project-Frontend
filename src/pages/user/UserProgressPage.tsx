@@ -11,6 +11,7 @@ import { UserShell } from '@/components/user/UserShell';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useProgressReport, PROGRESS_WINDOW } from '@/hooks/use-progress-report';
 import { ProgressReportView } from '@/components/user/ProgressReportView';
+import { NoCopy } from '@/components/user/NoCopy';
 import { resolveExamContext } from '@/lib/exam-report-config';
 import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { resolveGroupKey } from '@/hooks/use-progress-trend';
@@ -94,7 +95,9 @@ export default function UserProgressPage() {
         </div>
       )}
       {model ? (
-        <ProgressReportView model={model} studentName={user.name} examName={exam?.examName ?? null} />
+        <NoCopy>
+          <ProgressReportView model={model} studentName={user.name} examName={exam?.examName ?? null} />
+        </NoCopy>
       ) : (
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />

@@ -1,3 +1,4 @@
+﻿import { CurrentPlanCard } from '@/components/user/CurrentPlanCard';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { UserShell } from '@/components/user/UserShell';
@@ -7,6 +8,8 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getPlan } from '@/data/userPortalSampleData';
 import { TNPSC_GROUPS } from '@/config/tnpsc';
+import { EXAM_LANGUAGE_OPTIONS, examLanguageLabel, examLanguageOf } from '@/lib/exam-language';
+import { PASSWORD_HINT, confirmError, passwordError } from '@/lib/password-rules';
 
 /**
  * Exams the portal can prepare for.
@@ -20,10 +23,8 @@ const EXAM_OPTIONS = TNPSC_GROUPS.map(g => ({ value: g.id, label: g.name }));
 
 const examLabel = (id: string) => TNPSC_GROUPS.find(g => g.id === id)?.name ?? id;
 
-const MEDIUM_OPTIONS = [
-  { value: 'English', label: 'English' },
-  { value: 'Tamil', label: 'Tamil' },
-];
+/** General Tamil or General English — stored in `medium`; see `exam-language.ts`. */
+const LANGUAGE_OPTIONS = EXAM_LANGUAGE_OPTIONS.map(o => ({ value: o.value, label: o.label }));
 
 const GENDER_OPTIONS = [
   { value: 'Male', label: 'Male' },
@@ -33,7 +34,7 @@ const GENDER_OPTIONS = [
 
 export default function UserProfilePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = (searchParams.get('tab') as 'profile' | 'security' | 'settings') || 'profile';
+  const tab = 'profile';
   const { user, updateProfile, changePassword, history } = useUserPortal();
 
   if (!user) return null;
@@ -66,26 +67,6 @@ export default function UserProfilePage() {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2 flex-wrap sm:pb-2">
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold',
-                  user.subscription_tier === 'premium'
-                    ? 'bg-gradient-to-r from-amber-200 via-yellow-100 to-amber-200 bg-[length:200%_auto] animate-gradient-x text-amber-900 border border-amber-300 dark:border-amber-700'
-                    : user.subscription_tier === 'ultimate'
-                    ? 'bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/40 dark:to-purple-900/40 text-blue-700 dark:text-brand-300 border border-blue-200 dark:border-blue-800'
-                    : user.subscription_tier === 'standard'
-                    ? 'bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/40 dark:to-cyan-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700',
-                )}
-              >
-                {user.subscription_tier === 'premium' && <Crown className="w-3 h-3" />}
-                {plan.name} Plan
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                {history.length} tests taken
-              </span>
-            </div>
           </div>
 
           {/* Quick info pills */}
@@ -108,11 +89,10 @@ export default function UserProfilePage() {
         {/* Side nav — vertical on lg, horizontal scrollable on mobile */}
         <nav className="lg:space-y-1 -mx-4 px-4 lg:mx-0 lg:px-0 flex lg:block gap-2 overflow-x-auto pb-1 lg:overflow-visible scrollbar-thin">
           <TabBtn icon={<User className="w-4 h-4" />} label="Profile" active={tab === 'profile'} onClick={() => setTab('profile')} />
-          <TabBtn icon={<Lock className="w-4 h-4" />} label="Security" active={tab === 'security'} onClick={() => setTab('security')} />
-          <TabBtn icon={<Bell className="w-4 h-4" />} label="Settings" active={tab === 'settings'} onClick={() => setTab('settings')} />
         </nav>
 
         <div>
+          <CurrentPlanCard />
           {tab === 'profile' && (
             <ProfileSection
               user={user}
@@ -120,8 +100,6 @@ export default function UserProfilePage() {
               autoEdit={searchParams.get('edit') === '1' && !user.preferred_exam}
             />
           )}
-          {tab === 'security' && <SecuritySection changePassword={changePassword} />}
-          {tab === 'settings' && <SettingsSection />}
         </div>
       </div>
     </UserShell>
@@ -301,12 +279,18 @@ function ProfileSection({
               }
             />
             <FormRow
-              label="Medium"
+              label="Language paper"
               value={form.medium}
               editing={editing}
               onChange={v => setForm(f => ({ ...f, medium: v }))}
-              options={MEDIUM_OPTIONS}
-              hint={editing ? 'The language your question papers are set in.' : undefined}
+              options={LANGUAGE_OPTIONS}
+              placeholder="Select General Tamil or General English…"
+              display={examLanguageOf(form.medium) ? examLanguageLabel(examLanguageOf(form.medium)!) : 'Not chosen yet'}
+              hint={
+                editing
+                  ? 'You sit one of the two. Your mock tests, practice sets, syllabus and study plan show only this paper.'
+                  : undefined
+              }
             />
           </div>
         </div>
@@ -392,136 +376,6 @@ function FormRow({
         )}
         {hint && <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">{hint}</p>}
       </div>
-    </div>
-  );
-}
-
-function SecuritySection({
-  changePassword,
-}: {
-  changePassword: ReturnType<typeof useUserPortal>['changePassword'];
-}) {
-  const [form, setForm] = useState({ old: '', newPwd: '', confirm: '' });
-  const [submitting, setSubmitting] = useState(false);
-
-  const submit = async () => {
-    if (form.newPwd.length < 8) return toast.error('Password must be 8+ characters');
-    if (form.newPwd !== form.confirm) return toast.error('Passwords do not match');
-    setSubmitting(true);
-    try {
-      const res = await changePassword(form.old, form.newPwd);
-      if (res.ok) {
-        toast.success('Password updated');
-        setForm({ old: '', newPwd: '', confirm: '' });
-      } else toast.error(res.error || 'Failed');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="space-y-5">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4 sm:p-6">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">Change Password</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
-          Choose a strong password — min 8 chars, 1 uppercase, 1 number, 1 special character.
-        </p>
-        <div className="space-y-3 max-w-md">
-          <input
-            type="password"
-            value={form.old}
-            onChange={e => setForm(f => ({ ...f, old: e.target.value }))}
-            placeholder="Current password"
-            className="w-full px-3 py-2.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-lg text-sm focus:outline-none focus:border-brand-500 dark:focus:border-blue-400"
-          />
-          <input
-            type="password"
-            value={form.newPwd}
-            onChange={e => setForm(f => ({ ...f, newPwd: e.target.value }))}
-            placeholder="New password"
-            className="w-full px-3 py-2.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-lg text-sm focus:outline-none focus:border-brand-500 dark:focus:border-blue-400"
-          />
-          <input
-            type="password"
-            value={form.confirm}
-            onChange={e => setForm(f => ({ ...f, confirm: e.target.value }))}
-            placeholder="Confirm new password"
-            className="w-full px-3 py-2.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-lg text-sm focus:outline-none focus:border-brand-500 dark:focus:border-blue-400"
-          />
-          <button
-            onClick={submit}
-            disabled={submitting}
-            className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
-          >
-            {submitting ? 'Updating...' : 'Update Password'}
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-red-200 dark:border-red-900 p-6">
-        <h2 className="text-lg font-bold text-red-700 dark:text-red-300 mb-1 flex items-center gap-2">
-          <Trash2 className="w-4 h-4" /> Danger Zone
-        </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-          Permanently delete your account and all associated data. You can also request a data export.
-        </p>
-        <div className="flex gap-2">
-          <button
-            onClick={() => toast.info('Data export requested — you will receive an email with your data.')}
-            className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60"
-          >
-            Request Data Export
-          </button>
-          <button
-            onClick={() => toast.error('Account deletion confirmation flow — stub.')}
-            className="px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-900 text-xs font-semibold text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30"
-          >
-            Delete Account
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SettingsSection() {
-  const [emailNotifs, setEmailNotifs] = useState(true);
-  const [inAppNotifs, setInAppNotifs] = useState(true);
-  const [smsNotifs, setSmsNotifs] = useState(false);
-
-  return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4 sm:p-6">
-      <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-5 flex items-center gap-2">
-        <Monitor className="w-5 h-5 text-blue-600 dark:text-blue-400" /> Preferences
-      </h2>
-      <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Notification preferences</p>
-      <div className="space-y-1">
-        <ToggleRow label="In-app notifications" value={inAppNotifs} onChange={setInAppNotifs} />
-        <ToggleRow label="Email notifications" value={emailNotifs} onChange={setEmailNotifs} />
-        <ToggleRow label="SMS notifications" value={smsNotifs} onChange={setSmsNotifs} />
-      </div>
-    </div>
-  );
-}
-
-function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (b: boolean) => void }) {
-  return (
-    <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
-      <p className="text-sm text-gray-700 dark:text-gray-300">{label}</p>
-      <button
-        onClick={() => onChange(!value)}
-        className={cn(
-          'relative inline-flex h-6 w-11 rounded-full transition-colors',
-          value ? 'bg-brand-600' : 'bg-gray-200 dark:bg-gray-700',
-        )}
-      >
-        <span
-          className={cn(
-            'inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform mt-0.5',
-            value ? 'translate-x-5' : 'translate-x-0.5',
-          )}
-        />
-      </button>
     </div>
   );
 }

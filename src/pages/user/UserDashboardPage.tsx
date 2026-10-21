@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { displayTitle } from '@/lib/display-title';
 import { Link } from 'react-router-dom';
+import { here } from '@/lib/report-origin';
 import { useQuery } from '@tanstack/react-query';
 import {
   Area,
@@ -7,13 +9,12 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
+  Line,
+  LineChart,
 } from 'recharts';
 import {
   ArrowRight,
@@ -32,12 +33,15 @@ import {
   Timer,
   TrendingUp,
 } from 'lucide-react';
-import { REPORT_NAVY, UserShell } from '@/components/user/UserShell';
+import { PANEL_SURFACE, UserShell } from '@/components/user/UserShell';
 import { StudyPlanCard } from '@/components/user/study-plan/StudyPlanCard';
 import { SHOW_STUDY_PLAN } from '@/config/features';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useReportGate } from '@/hooks/use-report-gate';
+import { stageForTitle } from '@/config/tnpsc';
 import { useTnpscCatalog } from '@/hooks/use-tnpsc';
+import { useExamLanguage } from '@/hooks/use-exam-language';
+import { papersFor } from '@/lib/exam-language';
 import { FilterSelect } from '@/components/user/FilterSelect';
 import { SubjectBreakdown } from '@/components/user/SubjectBreakdown';
 import { TestScoreCard } from '@/components/user/TestScoreCard';
@@ -73,9 +77,10 @@ const SUBJECT_PREVIEW_COUNT = 6;
 export default function UserDashboardPage() {
   const { user, assessments, history, isLoading } = useUserPortal();
   const gateReport = useReportGate();
-  const { groups } = useTnpscCatalog();
+  const { groups } = useTnpscCatalog({ forMyLanguage: true });
+  const language = useExamLanguage();
   const [range, setRange] = useState<DateRange>(ALL_TIME);
-  const [track, setTrack] = useState<ExamTrackKey>('mock');
+  const [track, setTrack] = useState<ExamTrackKey>('practice');
   const preferredGroup = openGroupKey(user?.preferred_exam);
   const [group, setGroup] = useState<ExamGroupKey>(preferredGroup);
 
@@ -122,7 +127,7 @@ export default function UserDashboardPage() {
     overallAccuracy,
     isLoading: subjectsLoading,
     truncated: subjectsTruncated,
-  } = useSubjectStrengths({ analytics: a, attempts: filteredAttempts, scoped: true });
+  } = useSubjectStrengths({ analytics: a, attempts: filteredAttempts, scoped: true, by: 'unit' });
 
   // The ring and the legend must show the same six subjects — previously the ring drew
   // every subject while the legend listed six, so half the ring had no key.
@@ -139,6 +144,16 @@ export default function UserDashboardPage() {
     if (scored.length < 2) return null;
     return scored.reduce((lo, sub) => (sub.accuracy < lo.accuracy ? sub : lo), scored[0]);
   }, [allSubjects]);
+
+  /** Up to three answered units scoring under 50%, lowest first. */
+  const needsFocus = useMemo(
+    () =>
+      allSubjects
+        .filter(sub => (sub.attempted ?? 0) > 0 && sub.accuracy < 50)
+        .sort((x, y) => x.accuracy - y.accuracy)
+        .slice(0, 3),
+    [allSubjects],
+  );
 
   /** Totals behind the centre figure — shown when nothing is hovered. */
   const answeredTotals = useMemo(() => {
@@ -204,13 +219,21 @@ export default function UserDashboardPage() {
     };
   }, [filteredAttempts]);
 
-  /** Assigned work for the selected track. Assessments carry no group, only a mode. */
+  /**
+   * Assigned work for the selected track. Assessments carry no group, only a mode — and a paper in the
+   * language the aspirant does not sit (a Tamil full mock for an English aspirant) is not theirs to take.
+   */
   const scopedAssessments = useMemo(
-    () => assessments.filter(x => x.mode === track),
-    [assessments, track],
+    () =>
+      papersFor(
+        language,
+        assessments.filter(x => x.mode === track),
+        // GAT-B is not open on the dashboard yet, so its papers are not offered here.
+      ).filter(x => stageForTitle(x.title)?.group_id !== 'gat-b'),
+    [assessments, track, language],
   );
 
-  const recent = useMemo(() => filteredAttempts.slice(0, 3), [filteredAttempts]);
+  const recent = useMemo(() => filteredAttempts.slice(0, 5), [filteredAttempts]);
 
 
   /**
@@ -228,8 +251,32 @@ export default function UserDashboardPage() {
     const peak = chartTrend.reduce((hi, p) => (p.value > hi.value ? p : hi), chartTrend[0]);
     const direction =
       delta > 0.5 ? `up ${delta} points` : delta < -0.5 ? `down ${Math.abs(delta)} points` : 'broadly flat';
-    return `Your rolling average is ${direction} across this period, from ${first.value}% on ${first.label} to ${last.value}% on ${last.label}. Best day so far was ${peak.label} at ${peak.value}%.`;
+    return `Your daily average is ${direction} across this period, from ${first.value}% on ${first.label} to ${last.value}% on ${last.label}. Best day so far was ${peak.label} at ${peak.value}%.`;
   }, [chartTrend]);
+
+  /** The last 7 days that had a test, each at that day's average — as on the Performance screen. */
+  const activeDayBars = useMemo(() => {
+    const dayKey = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const byDay = new Map<string, { sum: number; n: number }>();
+    for (const h of filteredAttempts) {
+      const key = dayKey(new Date(h.start_time));
+      const e = byDay.get(key) ?? { sum: 0, n: 0 };
+      e.sum += h.percentage ?? 0;
+      e.n += 1;
+      byDay.set(key, e);
+    }
+    return [...byDay.entries()]
+      .sort(([x], [y]) => (x < y ? -1 : 1))
+      .slice(-7)
+      .map(([date, e]) => ({
+        day: new Date(`${date}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+        value: Math.round(e.sum / e.n),
+      }));
+  }, [filteredAttempts]);
+  const activeDayAverage = filteredAttempts.length
+    ? Math.round(filteredAttempts.reduce((sum, h) => sum + (h.percentage ?? 0), 0) / filteredAttempts.length)
+    : 0;
 
   /** Same idea for the weekly bars, which otherwise show a number with no reading. */
   const weeklyNote = useMemo(() => {
@@ -304,15 +351,14 @@ export default function UserDashboardPage() {
               tone="emerald"
               value={stats.attempted}
               label={`${trackNoun}s Attempted`}
-              delta={stats.attemptedDelta}
+              delta={null}
             />
             <StatCard
               icon={<TrendingUp className="w-5 h-5" />}
               tone="amber"
               value={`${stats.average}%`}
               label="Average Score"
-              hint={averageMarks}
-              delta={stats.averageDelta}
+              delta={null}
             />
             <StatCard
               icon={<LineChartIcon className="w-5 h-5" />}
@@ -331,7 +377,9 @@ export default function UserDashboardPage() {
               <Card className="h-full">
                 <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Overall Preparation Progress</p>
+                    <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                      Score trend <span className="font-normal text-gray-400">(%)</span>
+                    </p>
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{trendCaption}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -358,13 +406,7 @@ export default function UserDashboardPage() {
                             <stop offset="100%" stopColor="#2f7fe0" stopOpacity={0} />
                           </linearGradient>
                         </defs>
-                        <XAxis
-                          dataKey="label"
-                          tickLine={false}
-                          axisLine={false}
-                          tick={{ fontSize: 10, fill: '#9ca3af' }}
-                          minTickGap={28}
-                        />
+                        <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#9ca3af' }} minTickGap={28} />
                         <YAxis
                           domain={[0, trendMax]}
                           tickFormatter={(v: number) => `${v}%`}
@@ -375,7 +417,7 @@ export default function UserDashboardPage() {
                         />
                         <Tooltip
                           contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
-                          formatter={(v: any) => [`${v}%`, 'Rolling average']}
+                          formatter={(v: any) => [`${v}%`, 'Average that day']}
                           labelFormatter={formatTrendLabel}
                         />
                         <Area type="monotone" dataKey="value" stroke="#2f7fe0" strokeWidth={2.5} fill="url(#progressFill)" />
@@ -436,12 +478,12 @@ export default function UserDashboardPage() {
 
             <Card className="h-full min-w-0">
               <CardHead
-                title="Strengths by Subject"
+                title="Strength by Units"
                 subtitle={
                   allSubjects.length === 0
                     ? undefined
                     : showAllSubjects || hiddenSubjects === 0
-                      ? `Accuracy on the questions you answered · all ${allSubjects.length} subjects`
+                      ? `Accuracy on the questions you answered · all ${allSubjects.length} unit${allSubjects.length === 1 ? '' : 's'}`
                       : `Accuracy on the questions you answered · your ${topSubjects.length} strongest`
                 }
               />
@@ -451,50 +493,7 @@ export default function UserDashboardPage() {
                 </div>
               ) : allSubjects.length > 0 ? (
                 <>
-                  <div className="flex items-center gap-3">
-                  <div
-                    className="relative w-[120px] h-[120px] flex-shrink-0"
-                    onMouseLeave={() => setActiveSubject(null)}
-                  >
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={topSubjects}
-                          dataKey="accuracy"
-                          nameKey="subject"
-                          innerRadius={38}
-                          outerRadius={56}
-                          paddingAngle={2}
-                          stroke="none"
-                          onMouseEnter={(_, i) => setActiveSubject(i)}
-                        >
-                          {topSubjects.map((_, i) => (
-                            <Cell
-                              key={i}
-                              fill={SUBJECT_COLORS[i % SUBJECT_COLORS.length]}
-                              // Dim the rest rather than move the slice — the ring keeps
-                              // its shape, so nothing appears to change value on hover.
-                              opacity={activeSubject == null || activeSubject === i ? 1 : 0.28}
-                              style={{ transition: 'opacity 120ms', cursor: 'pointer' }}
-                            />
-                          ))}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-4">
-                      <span className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-none">
-                        {activeSubject != null
-                          ? `${Math.round(topSubjects[activeSubject].accuracy)}%`
-                          : overallAccuracy != null
-                            ? `${overallAccuracy}%`
-                            : '—'}
-                      </span>
-                      <span className="text-[9px] text-gray-400 text-center leading-tight mt-0.5">
-                        Accuracy
-                      </span>
-                    </div>
-                  </div>
-                  <ul className="flex-1 space-y-1.5 min-w-0" onMouseLeave={() => setActiveSubject(null)}>
+                  <ul className="space-y-2 min-w-0" onMouseLeave={() => setActiveSubject(null)}>
                     {topSubjects.map((sub, i) => (
                       <li
                         key={sub.subject}
@@ -505,7 +504,7 @@ export default function UserDashboardPage() {
                             : sub.subject
                         }
                         className={cn(
-                          'flex items-center gap-2 text-[11px] rounded-md px-1 -mx-1 py-0.5 cursor-default transition-colors',
+                          'flex items-center gap-2 text-xs rounded-md px-1 -mx-1 py-0.5 cursor-default transition-colors',
                           activeSubject === i && 'bg-gray-50 dark:bg-gray-800',
                         )}
                       >
@@ -532,18 +531,32 @@ export default function UserDashboardPage() {
                           {showAllSubjects ? (
                             <>Show top {SUBJECT_PREVIEW_COUNT} <ChevronUp className="w-3 h-3" /></>
                           ) : (
-                            <>Show all {allSubjects.length} subjects <ChevronDown className="w-3 h-3" /></>
+                            <>Show all {allSubjects.length} units <ChevronDown className="w-3 h-3" /></>
                           )}
                         </button>
                       </li>
                     )}
                   </ul>
-                  </div>
+                  {/* The units that most need work: the lowest scores first, so they are not the last thing in a list
+                      sorted strongest-first. */}
+                  {needsFocus.length > 0 && (
+                    <div className="mt-3 rounded-xl border border-rose-100 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/20 p-3">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">Needs focus</p>
+                      <ul className="mt-1.5 space-y-1">
+                        {needsFocus.map(u => (
+                          <li key={u.subject} className="flex items-center justify-between gap-3 text-xs">
+                            <span className="truncate text-gray-700 dark:text-gray-200">{u.subject}</span>
+                            <span className="font-bold text-rose-600 dark:text-rose-400 tabular-nums">{Math.round(u.accuracy)}%</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   {showAllSubjects && (
                     <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
-                        All {allSubjects.length} subjects · focus areas first
+                        All {allSubjects.length} units · focus areas first
                       </p>
                       <div className="max-h-[220px] overflow-y-auto scrollbar-thin pr-1">
                         <SubjectBreakdown subjects={allSubjects} sort="weakest" />
@@ -584,7 +597,7 @@ export default function UserDashboardPage() {
                         {answeredTotals && (
                           <>
                             {answeredTotals.correct} of {answeredTotals.attempted} answered correctly across{' '}
-                            {allSubjects.length} subjects
+                            {allSubjects.length} units
                             {` in ${groupLabel}`}.{' '}
                             {subjectsTruncated && 'Based on your 25 most recent attempts. '}
                           </>
@@ -631,20 +644,20 @@ export default function UserDashboardPage() {
         {/* ── Right rail ─────────────────────────────────────────────────── */}
         <div className="flex flex-col gap-3 sm:gap-4 min-w-0 lg:self-start xl:self-stretch">
           {/* Recent activity */}
-          <div className="rounded-2xl p-4 text-white" style={{ background: REPORT_NAVY }}>
+          <div className={cn('rounded-2xl p-4 text-gray-900 dark:text-gray-100', PANEL_SURFACE)}>
             <div className="flex items-start justify-between gap-3 mb-3">
               <div className="min-w-0">
                 <p className="text-sm font-bold">Recent Activity</p>
-                <p className="text-[11px] text-blue-200/70 mt-0.5">
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
                   {groupLabel} · {trackNoun.toLowerCase()}s
                 </p>
               </div>
-              <Link to="/user/history" className="text-xs font-semibold text-sky-300 hover:underline whitespace-nowrap">
+              <Link to="/user/history" className="text-xs font-semibold text-brand-600 dark:text-brand-400 underline-offset-2 hover:underline whitespace-nowrap">
                 View all
               </Link>
             </div>
             {recent.length === 0 ? (
-              <p className="py-5 text-center text-xs text-blue-200/60 leading-relaxed">
+              <p className="py-5 text-center text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
                 No {trackNoun.toLowerCase()}s taken under this selection yet.
               </p>
             ) : (
@@ -653,21 +666,22 @@ export default function UserDashboardPage() {
                   <li key={r.attempt_id}>
                     <Link
                       to={`/user/report/${r.attempt_id}`}
+                      state={{ from: here() }}
                       onClick={gateReport(r.test_mode)}
-                      className="flex items-center gap-2.5 rounded-xl bg-white dark:bg-gray-900 px-3 py-2.5 hover:bg-blue-50 dark:hover:bg-gray-800 transition-colors"
+                      className="flex items-center gap-2.5 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/40 px-3 py-2.5 hover:border-orange-200 hover:bg-orange-50 dark:hover:bg-gray-800 transition-colors"
                     >
-                      <span className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center flex-shrink-0">
-                        <ClipboardList className="w-4 h-4 text-blue-500" />
+                      <span className="w-8 h-8 rounded-lg bg-orange-100 dark:bg-brand-950/50 flex items-center justify-center flex-shrink-0">
+                        <ClipboardList className="w-4 h-4 text-brand-600" />
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
-                          {r.test_name ?? 'Test attempt'}
+                          {displayTitle(r.test_name) ?? 'Test attempt'}
                         </span>
                         <span className="block text-[10px] text-gray-400">
                           {new Date(r.start_time).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                         </span>
                       </span>
-                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                      <span className="text-xs font-bold text-brand-700 dark:text-brand-400">
                         {r.percentage != null ? `${Math.round(r.percentage)}%` : '—'}
                       </span>
                     </Link>
@@ -677,92 +691,42 @@ export default function UserDashboardPage() {
             )}
           </div>
 
-          {/* Weekly performance */}
-          <div className="rounded-2xl p-4 text-white" style={{ background: REPORT_NAVY }}>
+          {/* Last 7 active days — from `xl` it takes the height the left column leaves, so both columns end together. */}
+          <div className={cn('rounded-2xl p-4 text-gray-900 dark:text-gray-100 flex flex-col xl:flex-1', PANEL_SURFACE)}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-bold">Weekly Performance</p>
-              <Link to="/user/performance" className="text-xs font-semibold text-sky-300 hover:underline">
+              <p className="text-sm font-bold">Last 7 active days</p>
+              <Link to="/user/performance" className="text-xs font-semibold text-brand-600 dark:text-brand-400 underline-offset-2 hover:underline">
                 View report
               </Link>
             </div>
             <div className="flex items-center gap-4 mb-3">
               <div>
-                <p className="text-2xl font-bold leading-none">{a?.weekly_performance?.average ?? 0}%</p>
-                <p className="text-[10px] text-blue-200/70 mt-1">Average Score (%)</p>
+                <p className="text-2xl font-bold leading-none">{activeDayAverage}%</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                  Average across {filteredAttempts.length} {filteredAttempts.length === 1 ? 'attempt' : 'attempts'}
+                </p>
               </div>
-              {a?.weekly_performance?.improvement != null && (
-                <div className="flex items-center gap-1 text-emerald-400 text-xs font-semibold">
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                  {a.weekly_performance?.improvement > 0 ? '+' : ''}
-                  {a.weekly_performance?.improvement}% Improvement
-                </div>
-              )}
             </div>
-            <div className="h-24 sm:h-28">
+            <div className="h-24 sm:h-28 xl:h-auto xl:flex-1 xl:min-h-[7rem]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={a?.weekly_performance?.days ?? []} barCategoryGap="28%">
-                  <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.08)" />
-                  <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#93a4c8' }} />
+                <BarChart data={activeDayBars} barCategoryGap="28%">
+                  <CartesianGrid vertical={false} stroke="#e9edf3" />
+                  <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#6b7280' }} />
                   <Tooltip
-                    cursor={{ fill: 'rgba(255,255,255,0.06)' }}
-                    contentStyle={{ borderRadius: 10, border: 'none', fontSize: 11, background: '#0b1630', color: '#fff' }}
+                    cursor={{ fill: 'rgba(255,108,36,0.08)' }}
+                    contentStyle={{ borderRadius: 10, border: 'none', fontSize: 11, background: '#111827', color: '#fff' }}
                     formatter={(v: any) => [`${v}%`, 'Average']}
                   />
-                  <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#4d8ef7" />
+                  <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#ff6c24" maxBarSize={44} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            {weeklyNote && (
-              <p className="mt-2 pt-2 border-t border-white/10 text-[10px] leading-relaxed text-blue-200/70">
-                {weeklyNote}
+            {activeDayBars.length > 0 && (
+              <p className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
+                {activeDayBars.length} active day{activeDayBars.length === 1 ? '' : 's'} shown.
               </p>
             )}
           </div>
-
-          {/* Study streak — from `xl`, where the columns beside it are balanced, it takes whatever
-              height they leave so everything ends together; narrower, it keeps its own height. */}
-          <Card className="xl:flex-1">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Study Streak</p>
-                <p className="mt-1 flex items-center gap-1.5 text-lg font-bold text-amber-500">
-                  <Flame className="w-5 h-5" /> {a?.streak?.days ?? 0} {a?.streak?.days === 1 ? 'Day' : 'Days'}
-                </p>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                  Keep it up! Consistency is the key.
-                </p>
-              </div>
-              <Gift className="w-8 h-8 text-rose-400 flex-shrink-0" />
-            </div>
-            <div className="flex items-center justify-between mt-4">
-              {(a?.streak?.week ?? []).map((d, i) => (
-                <div key={d.date ?? i} className="flex flex-col items-center gap-1">
-                  <span
-                    className={cn(
-                      'w-7 h-7 rounded-full flex items-center justify-center',
-                      d.streak
-                        ? 'bg-emerald-500 text-white'
-                        : d.active
-                          // Studied, but the run broke after it — shown so the day isn't
-                          // erased, muted so it can't be mistaken for streak days.
-                          ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-300 dark:text-gray-600',
-                    )}
-                    title={d.active ? `Studied on ${d.date}` : `No activity on ${d.date}`}
-                  >
-                    {d.streak ? (
-                      <Check className="w-3.5 h-3.5" />
-                    ) : d.active ? (
-                      <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                    ) : (
-                      <span className="text-[10px]">·</span>
-                    )}
-                  </span>
-                  <span className="text-[9px] text-gray-400">{d.day.charAt(0)}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
 
           {user.subscription_tier === 'free' && (
             <div className="rounded-2xl bg-gradient-to-br from-brand-500 to-brand-400 p-4 text-white">
@@ -826,52 +790,6 @@ export default function UserDashboardPage() {
             })}
           </div>
         </div>
-
-        {/* Assigned assessments */}
-        <Card>
-          <SectionHead title={`Assigned ${trackNoun}s`} href="/user/exams" />
-          {scopedAssessments.length === 0 ? (
-            <Empty
-              compact
-              text={
-                assessments.length === 0
-                  ? 'Nothing assigned right now — pick an exam above to start a mock or practice test.'
-                  : `Nothing assigned under ${trackNoun.toLowerCase()}s. Switch the test dropdown to see the rest.`
-              }
-            />
-          ) : (
-            <div className="grid xs:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
-              {scopedAssessments.slice(0, 4).map(x => (
-                <Link
-                  key={x.assessment_id}
-                  to={`/user/assessment/${x.assessment_id}`}
-                  className="rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-xs font-bold text-gray-900 dark:text-gray-100 line-clamp-2">{x.title}</p>
-                    <span className={cn(
-                      'text-[8px] font-bold px-1.5 py-0.5 rounded flex-shrink-0',
-                      x.mode === 'mock'
-                        ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-brand-300',
-                    )}>
-                      {x.mode === 'mock' ? 'MOCK' : 'PRACTICE'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2">{x.question_count} questions</p>
-                  <p className="text-[11px] text-gray-400">
-                    {x.time_limit_minutes ? `Max: ${x.time_limit_minutes} Min` : 'Untimed'}
-                  </p>
-                  <p className="text-[11px] text-gray-400">
-                    {x.due_date
-                      ? `Due ${new Date(x.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`
-                      : 'No deadline'}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          )}
-        </Card>
 
         {/* Quick actions */}
         <Card>

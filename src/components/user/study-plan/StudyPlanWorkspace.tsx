@@ -7,6 +7,7 @@
  * same degradation rule the attempt report's LLM insights follow.
  */
 import { useState } from 'react';
+import { displayTitle } from '@/lib/display-title';
 import {
   AlertTriangle,
   BarChart3,
@@ -266,7 +267,7 @@ function Overview({ plan, today }: { plan: StudyPlan; today?: PlanDay | null }) 
                 title="What this plan is aiming at"
                 subtitle={
                   plan.basis.attempt_id
-                    ? `Built from ${plan.basis.test_name ?? 'your last mock'}${plan.basis.percentage != null ? ` (${plan.basis.percentage}%)` : ''}`
+                    ? `Built from ${displayTitle(plan.basis.test_name) ?? 'your last mock'}${plan.basis.percentage != null ? ` (${plan.basis.percentage}%)` : ''}`
                     : 'Built from the exam’s own mark distribution'
                 }
               />

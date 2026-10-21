@@ -27,29 +27,49 @@ interface Args {
   attempts: ApiAttempt[];
   /** False to skip the fetches and use the server aggregate. */
   scoped: boolean;
+  /**
+   * What the rows are: `subject` (the default) or `unit` — the published syllabus unit each question belongs
+   * to. By unit the rows are read off the questions themselves, since the server's breakdown is by subject.
+   */
+  by?: 'subject' | 'unit';
 }
 
-export function useSubjectStrengths({ analytics, attempts, scoped }: Args) {
+export function useSubjectStrengths({ analytics, attempts, scoped, by = 'subject' }: Args) {
   const targets = useMemo(() => attempts.slice(0, MAX_DETAIL_FETCHES), [attempts]);
 
   const details = useQueries({
     queries: targets.map(h => ({
       queryKey: ['attempt-detail', h.attempt_id],
       queryFn: () => getAttemptDetail(h.attempt_id),
-      enabled: scoped,
+      enabled: scoped || by === 'unit',
       // A submitted attempt's breakdown never changes.
       staleTime: Infinity,
       retry: 1,
     })),
   });
 
-  const isLoading = scoped && details.some(d => d.isLoading);
+  const isLoading = (scoped || by === 'unit') && details.some(d => d.isLoading);
 
   const scopedSubjects = useMemo<SubjectStrength[]>(() => {
     if (!scoped) return [];
     const totals = new Map<string, { correct: number; wrong: number; total: number }>();
 
     for (const d of details) {
+      if (by === 'unit') {
+        // Per question: the unit it belongs to, whether it was answered, and whether it was right.
+        for (const q of d.data?.questions ?? []) {
+          const unit = (q.unit_name ?? '').trim();
+          if (!unit) continue;
+          const entry = totals.get(unit) ?? { correct: 0, wrong: 0, total: 0 };
+          entry.total += 1;
+          if (q.user_answer) {
+            if (q.is_correct) entry.correct += 1;
+            else entry.wrong += 1;
+          }
+          totals.set(unit, entry);
+        }
+        continue;
+      }
       const rows = d.data?.performance_breakdown?.subject_breakdown ?? [];
       for (const row of rows) {
         const subject = (row.subject ?? '').trim();
@@ -76,12 +96,13 @@ export function useSubjectStrengths({ analytics, attempts, scoped }: Args) {
       // A 0% over nothing answered is not a weakness — it would top the "needs work" list.
       .filter(s => (s.attempted ?? 0) > 0)
       .sort((x, y) => y.accuracy - x.accuracy);
-  }, [scoped, details]);
+  }, [scoped, details, by]);
 
-  const subjects = scoped ? scopedSubjects : analytics?.subject_strengths ?? [];
+  // By unit there is no server aggregate to fall back to: the rows always come from the attempts.
+  const subjects = scoped || by === 'unit' ? scopedSubjects : analytics?.subject_strengths ?? [];
 
   const overallAccuracy = useMemo(() => {
-    if (!scoped) return analytics?.overall_accuracy ?? null;
+    if (!scoped && by !== 'unit') return analytics?.overall_accuracy ?? null;
     let correct = 0;
     let attempted = 0;
     for (const s of subjects) {

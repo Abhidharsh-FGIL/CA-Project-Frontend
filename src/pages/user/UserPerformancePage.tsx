@@ -1,24 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
+import { displayTitle } from '@/lib/display-title';
 import { Link } from 'react-router-dom';
+import { here } from '@/lib/report-origin';
 import { useQuery } from '@tanstack/react-query';
+import { TestsPerDayChart } from '@/components/user/TestsPerDayChart';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import {
   BarChart3,
-  CalendarDays,
   ChevronRight,
   FileText,
   Info,
   Loader2,
-  Target,
   TrendingUp,
   Trophy,
   type LucideIcon,
 } from 'lucide-react';
-import { REPORT_NAVY, UserShell } from '@/components/user/UserShell';
+import { PANEL_SURFACE, UserShell } from '@/components/user/UserShell';
 import { FilterSelect } from '@/components/user/FilterSelect';
-import { SubjectBreakdown, SubjectKey, sortSubjects, type SubjectSort } from '@/components/user/SubjectBreakdown';
 import { TestScoreCard } from '@/components/user/TestScoreCard';
 import { useSubjectStrengths } from '@/hooks/use-subject-strengths';
+import { usePerformanceReport } from '@/hooks/use-performance-report';
+import { SubjectPerformance } from '@/components/user/AttemptDiagnosticReport';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useReportGate } from '@/hooks/use-report-gate';
 import {
@@ -39,21 +41,14 @@ import {
   maxMarksOf,
   type UserDashboardAnalytics,
 } from '@/lib/userDashboardApi';
-import type { FilterOption } from '@/components/user/FilterSelect';
 import { cn } from '@/lib/utils';
-
-const SORT_OPTIONS: FilterOption<SubjectSort>[] = [
-  { value: 'weakest', label: 'Focus areas', hint: 'Revise these first' },
-  { value: 'strongest', label: 'Top subjects', hint: 'Your best scoring' },
-  { value: 'most-answered', label: 'Most answered', hint: 'Best evidence' },
-];
 
 /** The "View detailed report" destination — trend, subject breakdown, every attempt. */
 export default function UserPerformancePage() {
   const { user, assessments, history, isLoading } = useUserPortal();
   const gateReport = useReportGate();
   const [range, setRange] = useState<DateRange>(ALL_TIME);
-  const [track, setTrack] = useState<ExamTrackKey>('mock');
+  const [track, setTrack] = useState<ExamTrackKey>('practice');
   const preferredGroup = openGroupKey(user?.preferred_exam);
   const [group, setGroup] = useState<ExamGroupKey>(preferredGroup);
 
@@ -69,7 +64,6 @@ export default function UserPerformancePage() {
     setPinned(true);
     setGroup(v);
   };
-  const [subjectSort, setSubjectSort] = useState<SubjectSort>('weakest');
   const [showAllAttempts, setShowAllAttempts] = useState(false);
 
   const { data: a } = useQuery<UserDashboardAnalytics>({
@@ -97,28 +91,24 @@ export default function UserPerformancePage() {
   const trackNoun = track === 'mock' ? 'Mock Test' : 'Practice Test';
   const trackHref = `/user/exams/${group}/${GROUP_STAGE[group]}?tab=${track}`;
 
-  const isDefaultView = group === preferredGroup && track === 'mock' && !rangeNarrowed;
+  const isDefaultView = group === preferredGroup && track === 'practice' && !rangeNarrowed;
   // Reset releases the pin too, so the view goes back to following the profile.
   const resetView = () => {
     setPinned(false);
     setGroup(preferredGroup);
-    setTrack('mock');
+    setTrack('practice');
     setRange(ALL_TIME);
   };
 
-  // With any filter on, subject figures are re-aggregated from those attempts' own
-  // breakdowns — otherwise the card would contradict everything above it.
-  const {
-    subjects,
-    isLoading: subjectsLoading,
-    truncated: subjectsTruncated,
-  } = useSubjectStrengths({ analytics: a, attempts: done, scoped: true });
+  // Subject figures are re-aggregated from the attempts shown, for the "answered N of M" panel — otherwise
+  // it would contradict everything above it.
+  const { subjects } = useSubjectStrengths({ analytics: a, attempts: done, scoped: true });
 
-  const subjectColumns = useMemo(() => {
-    const ordered = sortSubjects(subjects, subjectSort);
-    const half = Math.ceil(ordered.length / 2);
-    return [ordered.slice(0, half), ordered.slice(half)];
-  }, [subjects, subjectSort]);
+  // The unit table is the mock test report's own, built over the questions of the same attempts.
+  const perfReport = usePerformanceReport(done);
+  const [openUnit, setOpenUnit] = useState<string | null>(null);
+  // A row opened under one selection means nothing under another.
+  useEffect(() => setOpenUnit(null), [group, track, range]);
 
   /**
    * Where the marks actually went. Average score divides by every question in the
@@ -167,15 +157,9 @@ export default function UserPerformancePage() {
   );
 
   /**
-   * The dark panel and the last tile both describe the selection rather than the
-   * account: a global "this week" average or a current streak would contradict the
-   * scoped figures beside them.
+   * The dark panel describes the selection rather than the account: a global "this week" average or a
+   * current streak would contradict the scoped figures beside it.
    */
-  const activeDays = useMemo(
-    () => new Set(done.map(h => isoDay(new Date(h.start_time)))).size,
-    [done],
-  );
-
   const rangeBars = useMemo(() => {
     const byDay = new Map<string, { sum: number; n: number }>();
     for (const h of done) {
@@ -204,7 +188,7 @@ export default function UserPerformancePage() {
     const peak = trend.reduce((hi, p) => (p.value > hi.value ? p : hi), trend[0]);
     const move =
       delta > 0.5 ? `risen ${delta} points` : delta < -0.5 ? `fallen ${Math.abs(delta)} points` : 'stayed broadly flat';
-    return `Across ${trend.length} points your rolling average has ${move}, ${first.value}% on ${first.label} to ${last.value}% on ${last.label}. Peak was ${peak.value}% on ${peak.label}.`;
+    return `Across ${trend.length} days your daily average has ${move}, ${first.value}% on ${first.label} to ${last.value}% on ${last.label}. Best day was ${peak.label} at ${peak.value}%.`;
   }, [trend]);
 
   const rangeNote = useMemo(() => {
@@ -257,7 +241,7 @@ export default function UserPerformancePage() {
         {done.length === 1 ? 'attempt' : 'attempts'} · {groupLabel} · {trackLabel} · {rangeLabel(range)}
       </p>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3 mb-3 sm:mb-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 mb-3 sm:mb-4">
         <Tile
           icon={BarChart3}
           tone="orange"
@@ -266,28 +250,17 @@ export default function UserPerformancePage() {
           hint={marksLabel(averageMarks, paperMax) ?? 'of all marks'}
         />
         <Tile
-          icon={Target}
-          tone="blue"
-          label="Accuracy"
-          value={totals ? `${totals.accuracy}%` : '—'}
-          // Subject data is aggregated server-side across every attempt; it carries no
-          // group or date dimension, so this tile can't follow the filters. Say so.
-          hint="of questions you answered"
-        />
-        <Tile
           icon={Trophy}
           tone="green"
           label="Best Score"
           value={`${Math.round(best)}%`}
           hint={bestAttempt ? marksLabel(bestAttempt.score, maxMarksOf(bestAttempt) ?? paperMax) ?? undefined : undefined}
         />
-        <Tile icon={FileText} tone="purple" label={`${trackNoun}s Taken`} value={done.length} />
         <Tile
-          icon={CalendarDays}
-          tone="amber"
-          label="Days Active"
-          value={`${activeDays} ${activeDays === 1 ? 'day' : 'days'}`}
-          hint={rangeNarrowed ? 'in this range' : 'in this selection'}
+          icon={FileText}
+          tone="purple"
+          label={`${trackNoun}s Taken`}
+          value={done.length}
           className="col-span-2 lg:col-span-1"
         />
       </div>
@@ -324,14 +297,58 @@ export default function UserPerformancePage() {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-3 sm:gap-4">
+      {/* ── Unit-wise performance — the mock test report's own table, over these attempts ───────────── */}
+      <div>
+        {perfReport.isLoading && !perfReport.model ? (
+          <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 py-10 flex items-center justify-center">
+            <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+          </div>
+        ) : !perfReport.model ? (
+          <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Unit-wise performance</p>
+            <p className="py-8 text-center text-xs text-gray-400">
+              {done.length === 0
+                ? `Take a ${groupLabel} ${trackNoun.toLowerCase()} to see where your marks are coming from.`
+                : 'No unit data for the attempts in this selection.'}
+            </p>
+          </div>
+        ) : (
+          <SubjectPerformance
+            model={perfReport.model}
+            expanded={openUnit}
+            onToggle={id => setOpenUnit(cur => (cur === id ? null : id))}
+            categoriesOnly
+            title="Unit-wise performance"
+            subtitle={`Open a subject for its units, then a unit for its categories and sub-categories. ${groupLabel} · ${trackNoun.toLowerCase()}s · ${rangeLabel(range).toLowerCase()} — ${perfReport.attemptCount} ${perfReport.attemptCount === 1 ? 'attempt' : 'attempts'}${perfReport.truncated ? ' (the most recent)' : ''}.`}
+            footnote={
+              perfReport.untagged > 0 ? (
+                <p className="mt-2 text-[11px] text-gray-400">
+                  {perfReport.untagged} {perfReport.untagged === 1 ? 'question is' : 'questions are'} not tagged to a unit
+                  (mostly older attempts) and not counted here.
+                </p>
+              ) : null
+            }
+          />
+        )}
+      </div>
+
+      <TestScoreCard
+        attempts={done}
+        scopeLabel={`${groupLabel} · ${trackNoun.toLowerCase()}s`}
+        trackNoun={trackNoun}
+        takeHref={trackHref}
+        isLoading={trendLoading}
+        className="mt-3 sm:mt-4"
+      />
+
+      <div className="grid lg:grid-cols-3 gap-3 sm:gap-4 mt-3 sm:mt-4">
         <div className="lg:col-span-2 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
           <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
             <div className="min-w-0">
-              <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                Score trend <span className="font-normal text-gray-400">(%)</span>
+              <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Daily Test Activity</p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                Tests taken each day · {groupLabel} · {trackNoun.toLowerCase()}s
               </p>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{trendCaption}</p>
             </div>
           </div>
 
@@ -339,50 +356,8 @@ export default function UserPerformancePage() {
             <div className="h-64 flex items-center justify-center">
               <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
             </div>
-          ) : trend.length > 0 ? (
-            <div className="-ml-2">
-              <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trend}>
-                  <defs>
-                    <linearGradient id="perfFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#2f7fe0" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#2f7fe0" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="#eef1f6" />
-                  <XAxis
-                    dataKey="label"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 10, fill: '#9ca3af' }}
-                    minTickGap={28}
-                  />
-                  {/* Scaled to the data: a fixed 0–100 axis draws early scores as a flat
-                      line on the baseline, which reads as a broken chart. */}
-                  <YAxis
-                    domain={[0, trendMax]}
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 10, fill: '#9ca3af' }}
-                    tickFormatter={(v: number) => `${v}%`}
-                    width={40}
-                  />
-                  <Tooltip
-                    contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
-                    formatter={(v: any) => [`${v}%`, 'Rolling average']}
-                    labelFormatter={formatTrendLabel}
-                  />
-                  <Area type="monotone" dataKey="value" stroke="#2f7fe0" strokeWidth={2} fill="url(#perfFill)" />
-                </AreaChart>
-              </ResponsiveContainer>
-              </div>
-              {trendNote && (
-                <p className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
-                  {trendNote}
-                </p>
-              )}
-            </div>
+          ) : done.length > 0 ? (
+            <TestsPerDayChart attempts={done} className="h-64" />
           ) : (
             <div className="h-64 flex flex-col items-center justify-center gap-2 text-center">
               <TrendingUp className="w-5 h-5 text-gray-300" />
@@ -408,120 +383,49 @@ export default function UserPerformancePage() {
           )}
         </div>
 
-        <div className="rounded-2xl p-4 text-white" style={{ background: REPORT_NAVY }}>
+        <div className={cn('rounded-2xl p-4 text-gray-900 dark:text-gray-100', PANEL_SURFACE)}>
           <p className="text-sm font-bold mb-3">{rangeNarrowed ? rangeLabel(range) : 'Last 7 active days'}</p>
           <div className="flex items-center gap-4 mb-3">
             <div>
               <p className="text-2xl font-bold leading-none">{averageValue}%</p>
-              <p className="text-[10px] text-blue-200/70 mt-1">
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
                 Average across {done.length} {done.length === 1 ? 'attempt' : 'attempts'}
               </p>
             </div>
           </div>
           <div className="h-40">
             {rangeBars.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-[11px] text-blue-200/60">
+              <div className="h-full flex items-center justify-center text-[11px] text-gray-500 dark:text-gray-400">
                 No attempts in this range.
               </div>
             ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={rangeBars} barCategoryGap="28%">
-                <CartesianGrid stroke="rgba(255,255,255,0.08)" />
-                <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#93a4c8' }} />
+                <CartesianGrid stroke="#e9edf3" />
+                <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#6b7280' }} />
                 <YAxis
                   tickLine={false}
                   axisLine={false}
-                  tick={{ fontSize: 9, fill: '#93a4c8' }}
+                  tick={{ fontSize: 9, fill: '#6b7280' }}
                   tickFormatter={(v: number) => `${v}%`}
                   width={30}
                 />
                 <Tooltip
-                  cursor={{ fill: 'rgba(255,255,255,0.06)' }}
-                  contentStyle={{ borderRadius: 10, border: 'none', fontSize: 11, background: '#0b1630', color: '#fff' }}
+                  cursor={{ fill: 'rgba(255,108,36,0.08)' }}
+                  contentStyle={{ borderRadius: 10, border: 'none', fontSize: 11, background: '#111827', color: '#fff' }}
                   formatter={(v: any) => [`${v}%`, 'Average']}
                 />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#4d8ef7" maxBarSize={44} />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#ff6c24" maxBarSize={44} />
               </BarChart>
             </ResponsiveContainer>
             )}
           </div>
           {rangeNote && (
-            <p className="mt-2 pt-2 border-t border-white/10 text-[11px] leading-relaxed text-blue-200/70">
+            <p className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
               {rangeNote}
             </p>
           )}
         </div>
-      </div>
-
-      <TestScoreCard
-        attempts={done}
-        scopeLabel={`${groupLabel} · ${trackNoun.toLowerCase()}s`}
-        trackNoun={trackNoun}
-        takeHref={trackHref}
-        isLoading={trendLoading}
-        className="mt-3 sm:mt-4"
-      />
-
-      {/* ── Subject breakdown — the richest data the portal has ──────────────── */}
-      <div className="mt-3 sm:mt-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-        <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Subject breakdown</p>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-              {/* When empty, the body below carries the message — don't say it twice. */}
-              {subjects.length === 0
-                ? ''
-                : `${subjects.length} subjects across the ${done.length} ${done.length === 1 ? 'attempt' : 'attempts'} shown.` +
-                  (subjectsTruncated ? ' Based on the 25 most recent.' : '')}
-            </p>
-          </div>
-          {subjects.length > 0 && (
-            <div className="flex items-center gap-4 flex-wrap">
-              <SubjectKey />
-              {subjects.length > 1 && (
-                <FilterSelect
-                  value={subjectSort}
-                  options={SORT_OPTIONS}
-                  onChange={v => setSubjectSort(v)}
-                  size="sm"
-                  ariaLabel="Sort subjects"
-                />
-              )}
-            </div>
-          )}
-        </div>
-
-        {subjectsLoading ? (
-          <div className="py-8 flex items-center justify-center">
-            <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
-          </div>
-        ) : subjects.length === 0 ? (
-          <p className="py-8 text-center text-xs text-gray-400">
-            {done.length === 0
-              ? `Take a ${groupLabel} ${trackNoun.toLowerCase()} to see where your marks are coming from.`
-              : 'No subject data for the attempts in this selection.'}
-          </p>
-        ) : (
-          <>
-            {/* Two columns so thirteen subjects don't become a very long scroll; the
-                chosen order reads down the left column, then the right. */}
-            <div className="grid sm:grid-cols-2 gap-x-6">
-              <SubjectBreakdown subjects={subjectColumns[0]} composition showKey={false} sort={subjectSort} />
-              <SubjectBreakdown
-                subjects={subjectColumns[1]}
-                composition
-                showKey={false}
-                sort={subjectSort}
-                className="mt-2.5 sm:mt-0"
-              />
-            </div>
-            <p className="mt-4 flex items-start gap-2 rounded-xl border border-blue-100 dark:border-blue-900/50 bg-blue-50/60 dark:bg-brand-500/10 px-3 py-2.5 text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">
-              <Info className="w-3.5 h-3.5 mt-0.5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
-              Accuracy counts only the questions you answered. A subject with a handful answered can show a
-              high percentage on very little evidence — the counts under each bar say how much.
-            </p>
-          </>
-        )}
       </div>
 
       {/* ── Attempts ─────────────────────────────────────────────────────────── */}
@@ -550,6 +454,7 @@ export default function UserPerformancePage() {
                   <li key={h.attempt_id}>
                     <Link
                       to={`/user/report/${h.attempt_id}`}
+                      state={{ from: here() }}
                       onClick={gateReport(h.test_mode)}
                       className="group flex items-center gap-3 rounded-xl border border-gray-100 dark:border-gray-800 px-3 py-2.5 hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-50/30 dark:hover:bg-gray-800/40 transition-colors"
                     >
@@ -558,7 +463,7 @@ export default function UserPerformancePage() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
-                          {h.test_name ?? 'Test attempt'}
+                          {displayTitle(h.test_name) ?? 'Test attempt'}
                         </span>
                         <span className="block text-[10px] text-gray-400 capitalize">
                           {new Date(h.start_time).toLocaleDateString('en-IN', {

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, Info, Layers, ListChecks, Lock, Target } from 'lucide-react';
+import { AlertCircle, Info, KeyRound, Layers, ListChecks, Lock, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   LEVELS_HIDDEN,
@@ -36,6 +36,12 @@ interface Props {
   questionCount?: number;
   /** Hide the Track selector when the parent already drives it from the mode. */
   hideTrack?: boolean;
+  /**
+   * What the question bank can supply for each topic of the chosen unit, by topic id - null until the
+   * bank has loaded or when the caller has none. Shown beside each key topic so an admin picks one
+   * the bank can fill.
+   */
+  categoryOptions?: Array<{ name: string; count: number }> | null;
   className?: string;
 }
 
@@ -43,6 +49,7 @@ interface Props {
  * Where a paper lands in the aspirant portal, asked as a cascade.
  *
  *   Exam group → Stage → Track → ┬ Practice → Scope → ┬ Unit → Level
+ *                                │                    ├ Key topic → Unit → Topic → Level
  *                                │                    └ Section
  *                                └ Exam → Language → Level
  *
@@ -55,7 +62,7 @@ interface Props {
  * mock — is composed to the 20 / 30 / 50 blend rather than filtered to one
  * difficulty, and the panel says so before it is created.
  */
-export function TnpscTagFields({ value, onChange, questionCount, hideTrack, className }: Props) {
+export function TnpscTagFields({ value, onChange, questionCount, hideTrack, categoryOptions, className }: Props) {
   const group = TNPSC_GROUPS.find(g => g.id === value.group_id);
   const stage = useMemo(
     () => findStage(value.group_id ?? undefined, value.stage_id ?? undefined)?.stage,
@@ -79,7 +86,10 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, clas
   const isWholePaper =
     value.track === 'mock' ||
     (value.track === 'practice' && value.scope === 'section') ||
-    (value.track === 'practice' && value.scope === 'unit' && !value.level);
+    (value.track === 'practice' && (value.scope === 'unit' || value.scope === 'topic') && !value.level);
+
+  /** A unit paper and a key-topic paper are both filed under a unit; only the second names a topic. */
+  const inUnitFlow = value.track === 'practice' && (value.scope === 'unit' || value.scope === 'topic');
 
   const setGroup = (groupId: string) => {
     const g = TNPSC_GROUPS.find(x => x.id === groupId);
@@ -128,11 +138,12 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, clas
       scope,
       // The two scopes describe a paper differently; carrying one into the other
       // leaves a unit on a section paper, which the portal would file twice.
-      unit_id: scope === 'unit' ? value.unit_id : null,
-      topic_id: scope === 'unit' ? value.topic_id : null,
-      level: scope === 'unit' ? value.level : null,
+      unit_id: scope !== 'section' ? value.unit_id : null,
+      // Only a key topic names a topic; a whole-unit paper covers all of them.
+      topic_id: scope === 'topic' ? value.topic_id : null,
+      level: scope !== 'section' ? value.level : null,
       section_name: scope === 'section' ? value.section_name : null,
-      subject_id: scope === 'unit' ? value.subject_id : null,
+      subject_id: scope !== 'section' ? value.subject_id : null,
     });
 
   /**
@@ -228,13 +239,20 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, clas
       {value.track === 'practice' && (
         <div className="space-y-1.5">
           <Label className="text-xs font-medium">Covers <span className="text-red-500">*</span></Label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid gap-2 sm:grid-cols-3">
             <ChoiceCard
               active={value.scope === 'unit'}
               onClick={() => setScope('unit')}
               icon={<ListChecks className="h-4 w-4" />}
               title="One unit"
               detail="Appears under that unit, at one difficulty"
+            />
+            <ChoiceCard
+              active={value.scope === 'topic'}
+              onClick={() => setScope('topic')}
+              icon={<KeyRound className="h-4 w-4" />}
+              title="A key topic"
+              detail="One topic of a unit - appears under Key Topics"
             />
             <ChoiceCard
               active={value.scope === 'section'}
@@ -275,9 +293,9 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, clas
       )}
 
       {/* ── 4a. Unit, and the difficulty it sits behind ────────────────── */}
-      {value.track === 'practice' && value.scope === 'unit' && (
+      {inUnitFlow && (
         <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className={cn('grid gap-3', value.scope === 'topic' && 'sm:grid-cols-2')}>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Syllabus Unit <span className="text-red-500">*</span></Label>
               <Select value={value.unit_id ?? undefined} onValueChange={setUnit} disabled={!stage}>
@@ -298,25 +316,40 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, clas
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">
-                Topic <span className="font-normal text-muted-foreground">(optional)</span>
-              </Label>
-              <Select
-                value={value.topic_id ?? undefined}
-                onValueChange={v => onChange({ ...value, topic_id: v })}
-                disabled={!unit || topics.length === 0}
-              >
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder={unit ? 'Whole unit' : 'Pick a unit first'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {topics.map(t => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {value.scope === 'topic' && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">
+                  Key Topic <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={value.topic_id ?? undefined}
+                  onValueChange={v => onChange({ ...value, topic_id: v })}
+                  disabled={!unit || !categoryOptions || categoryOptions.length === 0}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue
+                      placeholder={
+                        !unit
+                          ? 'Pick a unit first'
+                          : categoryOptions && categoryOptions.length > 0
+                            ? 'Select category…'
+                            : 'The bank has no categories for this unit'
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(categoryOptions ?? []).map(c => (
+                      <SelectItem key={c.name} value={c.name}>
+                        <span className="flex items-center gap-1.5">
+                          <span>{c.name}</span>
+                          <span className="text-[10px] text-muted-foreground">· {c.count} in bank</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -404,6 +437,18 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, clas
       )}
 
       {/* ── Where it will appear ───────────────────────────────────────── */}
+      {value.track === 'practice' && value.scope === 'topic' && unit && (
+        <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+          <Info className="mt-px h-3.5 w-3.5 shrink-0" />
+          Appears under <span className="font-semibold">Key Topics</span> →{' '}
+          <span className="font-semibold">
+            {unit.label ? `Unit ${unit.label}: ` : ''}{unitDisplayName(stage, unit)}
+          </span>
+          {value.topic_id ? `: ${value.topic_id}` : ''}.{' '}
+          If the server has no such topic yet it is kept in the paper’s title, so leave the “Unit: Topic” part of the
+          suggested title as it is.
+        </p>
+      )}
       {value.track === 'practice' && value.scope === 'unit' && unit && (
         <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
           <Info className="mt-px h-3.5 w-3.5 shrink-0" />

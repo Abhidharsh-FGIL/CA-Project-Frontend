@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserShell } from '@/components/user/UserShell';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import {
   Check,
   Crown,
+  Gem,
+  Gift,
   Sparkles,
-  Star,
   X,
   Tag,
   CheckCircle2,
@@ -14,220 +15,117 @@ import {
   Loader2,
   BadgePercent,
   IndianRupee,
+  Lock,
   ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { getEffectivePlanPrice, getSubscriptionPlanPrice, type SubscriptionTier, type SubscriptionPlanInfo, type SubscriptionPromoCode, getPlan } from '@/data/userPortalSampleData';
-import { perksFor, planDetails, yearlySavings } from '@/lib/plans';
-import { validatePromo } from '@/lib/subscriptionApi';
+import {
+  getEffectivePlanPrice,
+  getSubscriptionPlanPrice,
+  type SubscriptionTier,
+  type SubscriptionPlanInfo,
+  type SubscriptionPromoCode,
+  getPlan,
+} from '@/data/userPortalSampleData';
+import { costPerMonth, perksFor, validityOf } from '@/lib/plans';
+import { cardFor, cycleShown } from '@/lib/plan-copy';
+import { getCurrentSubscription, validatePromo, type CurrentSubscription, type PromoValidation } from '@/lib/subscriptionApi';
+import { GST_LABEL, breakdownFrom } from '@/lib/gst';
+import { createTopUpOrder, getTopUpBalance, getTopUpPacks, verifyTopUp, type TopUpPack } from '@/lib/topup-api';
+import { purchaseTopUp } from '@/lib/topup-purchase';
+import { openCheckout } from '@/lib/razorpay';
+import type { ApiAttempt, ApiEvalAssessment } from '@/lib/userPortalApi';
+import { billingCycleOf, planAllowance, planCardState } from '@/lib/plan-allowance';
 import type { PurchaseOutcome } from '@/lib/purchase';
 
+type Billing = 'monthly' | 'yearly';
+
+/**
+ * The Plans page, as designed: the current plan at the top, one card per plan and billing cycle, and the
+ * top-up packs with a pay bar. Every figure is the backend's — the plans from `/user/subscription/plans`,
+ * the packs and balances from `/user/topup/*`, the end date from `/user/subscription/current`.
+ */
 export default function SubscriptionPage() {
-  const { user, plans, upgradeSubscription, payForSubscription } = useUserPortal();
-  // The plan popups link here with the cycle they are offering (`?billing=yearly`).
-  const [searchParams] = useSearchParams();
-  const [billing, setBilling] = useState<'monthly' | 'yearly'>(searchParams.get('billing') === 'yearly' ? 'yearly' : 'monthly');
-  const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlanInfo | null>(null);
+  const { user, plans, history, assessments, upgradeSubscription, payForSubscription } = useUserPortal();
+  const [checkout, setCheckout] = useState<{ plan: SubscriptionPlanInfo; billing: Billing } | null>(null);
+
+  // Whether the plan they hold was bought for a month or a year. The subscription record has no cycle of its
+  // own, so the server's stored cycle is used and the length of the subscription is the fallback.
+  const { data: sub } = useQuery({
+    queryKey: ['subscription', 'current'],
+    queryFn: getCurrentSubscription,
+    staleTime: 5 * 60 * 1000,
+    enabled: !!user,
+  });
+  const heldCycle: Billing | null =
+    sub?.status === 'active' ? (sub.billing_cycle ?? billingCycleOf(sub.start_date, sub.end_date)) : null;
 
   if (!user) return null;
 
-  // From the plans' own prices, so the badge never claims a saving the prices do not show.
-  const savings = yearlySavings(plans);
+  const free = plans.filter(p => p.price_monthly === 0);
+  const paid = plans.filter(p => p.price_monthly > 0);
+  // Free first, then each paid plan's monthly and yearly card. A plan with no yearly price has only monthly.
+  const cards: Array<{ plan: SubscriptionPlanInfo; billing: Billing }> = [
+    ...free.map(plan => ({ plan, billing: 'monthly' as Billing })),
+    ...paid.flatMap(plan => [
+      { plan, billing: 'monthly' as Billing },
+      ...(plan.price_yearly > 0 ? [{ plan, billing: 'yearly' as Billing }] : []),
+    ]),
+  ];
 
   return (
     <UserShell>
-      {/* Hero header */}
-      <div className="mb-8 animate-fadeIn">
-        <div className="relative overflow-hidden rounded-2xl border border-blue-100 dark:border-blue-900 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-950/50 dark:via-purple-950/50 dark:to-pink-950/50 bg-[length:200%_auto] animate-gradient-x p-6 sm:p-8 text-center">
-          <div className="absolute -top-16 -right-16 w-48 h-48 bg-purple-300/30 dark:bg-purple-700/20 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-blue-300/30 dark:bg-brand-700/20 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="relative">
-            <div className="inline-flex items-center gap-2 bg-white/80 dark:bg-gray-900/60 backdrop-blur border border-blue-200 dark:border-blue-800 rounded-full px-3 py-1 mb-4">
-              <Sparkles className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-              <p className="text-[10px] uppercase tracking-[0.25em] text-blue-700 dark:text-brand-300 font-bold">
-                Upgrade · Unlock More
-              </p>
-            </div>
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-gray-100">
-              Choose Your <span className="gradient-text-animated">Plan</span>
-            </h1>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-3 max-w-xl mx-auto">
-              Unlock more practice, mock tests, and detailed AI reports. You're currently on{' '}
-              <strong className="text-blue-600 dark:text-blue-400 capitalize">{user.subscription_tier}</strong>.
-            </p>
-          </div>
+      <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between animate-fadeIn">
+        <div>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
+            Choose your <span className="text-orange-600 dark:text-orange-400">plan</span>
+          </h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Start free. Upgrade when you want more tests and detailed reports.
+          </p>
         </div>
       </div>
 
-      {/* Billing toggle */}
-      <div className="text-center mb-6 animate-fadeIn" style={{ animationDelay: '0.1s' }}>
-        <div className="inline-flex items-center bg-gray-100 dark:bg-gray-800 rounded-full p-1 shadow-sm">
-          <button
-            onClick={() => setBilling('monthly')}
-            className={cn(
-              'px-4 py-1.5 rounded-full text-sm font-semibold transition-all',
-              billing === 'monthly'
-                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
-                : 'text-gray-500 dark:text-gray-400',
-            )}
-          >
-            Monthly
-          </button>
-          <button
-            onClick={() => setBilling('yearly')}
-            className={cn(
-              'px-4 py-1.5 rounded-full text-sm font-semibold transition-all flex items-center gap-1.5',
-              billing === 'yearly'
-                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
-                : 'text-gray-500 dark:text-gray-400',
-            )}
-          >
-            Yearly
-            {savings && (
-              <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full">
-                SAVE {savings.min === savings.max ? '' : 'UP TO '}
-                {savings.max}%
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* A retired plan is not on the page, so say where its holder stands rather
-          than showing three plans and none marked as theirs. */}
-      {user && getPlan(user.subscription_tier)?.legacy && (
-        <div className="mb-5 max-w-5xl mx-auto rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/70 dark:bg-amber-950/30 px-4 py-3 text-xs leading-relaxed text-amber-800 dark:text-amber-200">
-          You are on <b>{getPlan(user.subscription_tier).name}</b>, which is no longer sold. It stays
-          active, with everything it includes, until it expires — after that you can choose any of the
-          plans below.
+      {/* A retired plan is not on the page, so say where its holder stands. */}
+      {getPlan(user.subscription_tier)?.legacy && (
+        <div className="mb-5 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/70 dark:bg-amber-950/30 px-4 py-3 text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+          You are on <b>{getPlan(user.subscription_tier).name}</b>, which is no longer sold. It stays active, with
+          everything it includes, until it expires — after that you can choose any of the plans below.
         </div>
       )}
 
-      <div
-        className={cn(
-          'grid sm:grid-cols-2 gap-3 sm:gap-4 lg:pt-3',
-          // Three plans centre in a narrower row; four fill it.
-          plans.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3 lg:max-w-5xl lg:mx-auto',
-        )}
-      >
-        {plans.map((plan, i) => {
-          const isCurrent = plan.tier === user.subscription_tier;
-          const price = getSubscriptionPlanPrice(plan, billing);
-          return (
-            <div
-              key={`${plan.tier}-${billing}`}
-              className={cn('relative animate-slideUp', plan.highlight && 'lg:-translate-y-2')}
-              style={{ animationDelay: `${i * 0.08}s` }}
-            >
-              {plan.highlight && (
-                <>
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-brand-500 via-brand-400 to-pink-500 rounded-2xl opacity-20 blur pointer-events-none" />
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 bg-gradient-to-r from-brand-600 to-brand-400 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-lg shadow-blue-200 dark:shadow-blue-900/40 animate-bounce-soft whitespace-nowrap">
-                    ★ Most Popular
-                  </span>
-                </>
-              )}
-
-              <div
-                className={cn(
-                  'relative flex flex-col bg-white dark:bg-gray-900 rounded-2xl border p-5 sm:p-6 transition-all duration-300 hover-lift card-shine h-full',
-                  plan.highlight
-                    ? 'border-brand-500 dark:border-blue-400 shadow-xl shadow-blue-200 dark:shadow-blue-900/40'
-                    : 'border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-black/50 hover:border-blue-200 dark:hover:border-blue-800',
-                )}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  {plan.tier === 'free' && <Star className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
-                  {plan.tier === 'standard' && <Sparkles className="w-4 h-4 text-blue-500 dark:text-blue-400" />}
-                  {plan.tier === 'ultimate' && <Sparkles className="w-4 h-4 text-blue-500 dark:text-blue-400" />}
-                  {plan.tier === 'premium' && <Crown className="w-4 h-4 text-amber-500 dark:text-amber-400" />}
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{plan.name}</h2>
-                </div>
-                {plan.tagline && (
-                  <p className="-mt-2 mb-3 text-xs text-gray-500 dark:text-gray-400">{plan.tagline}</p>
-                )}
-
-                <div className="mb-5 relative">
-                  {price === 0 ? (
-                    <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">Free</p>
-                  ) : (
-                    <div key={`${plan.tier}-${billing}-price`} className="flex items-baseline gap-1 animate-fadeIn">
-                      <p
-                        className={cn(
-                          'text-3xl font-bold',
-                          plan.highlight ? 'gradient-text' : 'text-gray-900 dark:text-gray-100',
-                        )}
-                      >
-                        ₹{price.toLocaleString('en-IN')}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">/{billing === 'monthly' ? 'mo' : 'yr'}</p>
-                    </div>
-                  )}
-                </div>
-
-                <ul className="space-y-2 mb-5 flex-1">
-                  {perksFor(plan, billing).map((p, idx) => (
-                    <li
-                      key={idx}
-                      className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300 animate-fadeIn"
-                      style={{ animationDelay: `${0.2 + idx * 0.05}s` }}
-                    >
-                      <Check className="w-4 h-4 text-emerald-500 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
-                      {p}
-                    </li>
-                  ))}
-                </ul>
-
-                {/* Everything else the plan data says, for the cycle being looked at. */}
-                <dl className="mb-6 pt-3 border-t border-gray-100 dark:border-gray-800 space-y-1.5 text-xs">
-                  {planDetails(plan, billing).map(row => (
-                    <div key={row.label} className="flex items-baseline justify-between gap-3">
-                      <dt className="text-gray-500 dark:text-gray-400">{row.label}</dt>
-                      <dd className="font-semibold text-right text-gray-700 dark:text-gray-200">{row.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-
-                <button
-                  onClick={() => {
-                    if (isCurrent) return;
-                    if (plan.tier === 'free') {
-                      // Direct downgrade — no payment / no promo needed
-                      handleDirectChange(plan.tier, upgradeSubscription);
-                      return;
-                    }
-                    setCheckoutPlan(plan);
-                  }}
-                  disabled={isCurrent}
-                  className={cn(
-                    'w-full py-2.5 rounded-xl text-sm font-semibold transition-all press',
-                    isCurrent
-                      ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                      : plan.highlight
-                      ? 'bg-gradient-to-r from-brand-600 via-brand-400 to-brand-600 bg-[length:200%_auto] hover:bg-right-bottom text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/40 hover:shadow-xl hover:shadow-blue-300'
-                      : 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 hover:shadow-md',
-                  )}
-                >
-                  {isCurrent ? '✓ Current Plan' : plan.tier === 'free' ? 'Downgrade' : 'Choose Plan'}
-                </button>
-              </div>
-            </div>
-          );
-        })}
+      <div className={cn('grid gap-4 md:grid-cols-2', cards.length >= 3 && 'xl:grid-cols-3')}>
+        {cards.map(({ plan, billing }) => (
+          <OptionCard
+            key={`${plan.tier}-${billing}`}
+            plan={plan}
+            billing={billing}
+            userTier={user.subscription_tier}
+            heldCycle={heldCycle}
+            bestValue={billing === 'yearly' && isBestValue(plan)}
+            onChoose={() => {
+              if (plan.tier === 'free') {
+                // Direct downgrade — no payment / no promo needed.
+                handleDirectChange(plan.tier, upgradeSubscription);
+                return;
+              }
+              setCheckout({ plan, billing });
+            }}
+          />
+        ))}
       </div>
 
+      <TopUpSection customer={{ name: user.name, email: user.email, contact: user.phone }} />
+
       {/* Promo hint strip */}
-      <div className="mt-8 max-w-3xl mx-auto rounded-xl border border-amber-100 dark:border-amber-900 bg-gradient-to-r from-amber-50/80 via-orange-50/80 to-rose-50/80 dark:from-amber-950/30 dark:via-orange-950/30 dark:to-rose-950/30 p-4 sm:p-5 animate-fadeIn">
+      <div className="mt-8 rounded-xl border border-amber-100 dark:border-amber-900 bg-gradient-to-r from-amber-50/80 via-orange-50/80 to-rose-50/80 dark:from-amber-950/30 dark:via-orange-950/30 dark:to-rose-950/30 p-4 sm:p-5">
         <div className="flex items-start gap-3">
           <Tag className="w-5 h-5 text-amber-700 dark:text-amber-400 mt-0.5 flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-amber-900 dark:text-amber-200">
-              Have a promo code? Apply it at checkout.
-            </p>
+            <p className="text-sm font-bold text-amber-900 dark:text-amber-200">Have a promo code? Apply it at checkout.</p>
             <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
-              Click any "Choose Plan" button to open checkout, then enter your code for instant discount.
+              Choose a plan to open checkout, then enter your code for instant discount.
             </p>
           </div>
         </div>
@@ -237,17 +135,26 @@ export default function SubscriptionPage() {
         Payments are processed securely by Razorpay. We never see or store your card details.
       </p>
 
-      {checkoutPlan && (
+      {checkout && (
         <CheckoutModal
-          plan={checkoutPlan}
-          billing={billing}
+          plan={checkout.plan}
+          billing={checkout.billing}
           currentTier={user.subscription_tier}
-          onClose={() => setCheckoutPlan(null)}
-          onConfirm={(plan, promoCode) => payForSubscription(plan, billing, promoCode)}
+          alreadyHeld={planCardState(checkout.plan.tier, user.subscription_tier, checkout.billing, heldCycle) === 'current'}
+          onClose={() => setCheckout(null)}
+          onConfirm={(plan, promoCode) => payForSubscription(plan, checkout.billing, promoCode)}
         />
       )}
     </UserShell>
   );
+}
+
+/** "free" → "Free", "unlimited" → "Unlimited" — the backend's words, with a capital. */
+const capital = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+/** The yearly plan a buyer should take: a plan whose yearly price is below twelve months of monthly. */
+function isBestValue(plan: SubscriptionPlanInfo): boolean {
+  return plan.price_monthly > 0 && plan.price_yearly > 0 && plan.price_yearly < plan.price_monthly * 12;
 }
 
 async function handleDirectChange(
@@ -258,17 +165,372 @@ async function handleDirectChange(
   if (res.ok) toast.success(`Switched to ${tier} plan.`);
 }
 
+/**
+ * One plan in one billing cycle: the price, the card's own words (headline, description, what is included,
+ * what is not, who it is for) and the button for where the buyer stands. The words come from the backend.
+ * A card carries one highlight at most: the best-value card has its ribbon, and the card the buyer holds
+ * says so only when it is not the best-value one.
+ */
+function OptionCard({
+  plan,
+  billing,
+  userTier,
+  heldCycle,
+  bestValue,
+  onChoose,
+}: {
+  plan: SubscriptionPlanInfo;
+  billing: Billing;
+  userTier: SubscriptionTier;
+  heldCycle: Billing | null;
+  bestValue: boolean;
+  onChoose: () => void;
+}) {
+  const cycle = cycleShown(plan, billing);
+  const card = cardFor(plan, billing);
+  const isFree = plan.price_monthly === 0;
+  const price = getSubscriptionPlanPrice(plan, cycle);
+  const state = planCardState(plan.tier, userTier, billing, heldCycle);
+  const holds = userTier === plan.tier;
+  const Icon = isFree ? Gift : bestValue ? Crown : Gem;
+  const months = plan.duration_days_yearly ? Math.round(plan.duration_days_yearly / 30) : null;
+  const priceOfMonths = plan.price_monthly > 0 ? Math.round(plan.price_yearly / plan.price_monthly) : null;
+  const monthlyCost = costPerMonth(plan, cycle);
+  const saving = plan.price_monthly * 12 - plan.price_yearly;
+  // A paid plan is "current" only in the cycle the server says is held. When the cycle is not known, neither
+  // card claims it — both offer to extend or renew instead.
+  const isCurrent = (state === 'current' && (heldCycle !== null || isFree)) || (isFree && userTier === 'free');
+  const showYourPlan = isCurrent && !bestValue;
+
+  const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`;
+  const buyLabel =
+    state === 'switch'
+      ? billing === 'yearly'
+        ? `Upgrade to Yearly — ${fmt(price)}`
+        : `Switch to Monthly — ${fmt(price)}`
+      : (card?.cta || (billing === 'yearly' ? `${holds ? 'Renew' : 'Get'} Yearly — ${fmt(price)}` : `${holds ? 'Extend' : 'Choose'} Monthly — ${fmt(price)}`));
+  const buttonText = isCurrent ? '✓ Current Plan' : buyLabel;
+
+  return (
+    <div className="relative flex flex-col">
+      {showYourPlan && (
+        <span className="absolute right-4 top-4 z-10 rounded-full bg-emerald-600 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-white shadow">
+          Your plan
+        </span>
+      )}
+      {bestValue && months && priceOfMonths && (
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap rounded-full bg-orange-500 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-white shadow">
+          Best value · {months} months for price of {priceOfMonths}
+        </span>
+      )}
+      <div
+        className={cn(
+          'flex flex-1 flex-col rounded-2xl bg-white dark:bg-gray-900 p-5 sm:p-6',
+          bestValue ? 'border-2 border-orange-500 shadow-lg shadow-orange-100 dark:shadow-orange-950/40' : 'border border-gray-200 dark:border-gray-800',
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <span
+            className={cn(
+              'grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl',
+              bestValue ? 'bg-amber-50 text-amber-500 dark:bg-amber-500/10' : isFree ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10' : 'bg-violet-50 text-violet-600 dark:bg-violet-500/10',
+            )}
+          >
+            <Icon className="h-5 w-5" aria-hidden />
+          </span>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+            {isFree ? plan.name : `${plan.name} ${billing === 'yearly' ? 'Yearly' : 'Monthly'}`}
+          </h2>
+        </div>
+
+        <p className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
+          {fmt(price)}
+          {!isFree && <span className="ml-1 text-sm font-semibold text-gray-500 dark:text-gray-400">/ {billing === 'yearly' ? 'year' : 'month'}</span>}
+          {!isFree && <span className="ml-1.5 text-sm font-semibold text-gray-500 dark:text-gray-400">{GST_LABEL}</span>}
+        </p>
+        {bestValue && monthlyCost !== null && saving > 0 && (
+          <p className="mt-2 inline-block rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+            Just {fmt(monthlyCost)} a month · save {fmt(saving)} vs monthly
+          </p>
+        )}
+
+        {card?.headline && <p className="mt-4 text-[15px] font-extrabold leading-snug text-gray-900 dark:text-gray-100">{card.headline}</p>}
+        {card?.description && <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{card.description}</p>}
+
+        {card ? (
+          <>
+            {card.included.length > 0 && (
+              <p className="mt-5 text-[11px] font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400">What’s included</p>
+            )}
+            <ul className="mt-3 flex-1 space-y-3">
+              {card.included.map(item => (
+                <li key={item.title} className="flex items-start gap-2.5 text-sm leading-snug text-gray-700 dark:text-gray-300">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-500 dark:text-emerald-400" aria-hidden />
+                  <span>
+                    <strong className="text-gray-900 dark:text-gray-100">{item.title}</strong>
+                    {item.detail && <> – {item.detail}</>}
+                  </span>
+                </li>
+              ))}
+              {card.excluded.map(item => (
+                <li key={item} className="flex items-start gap-2.5 text-sm leading-snug text-gray-400 dark:text-gray-500">
+                  <Lock className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <ul className="mt-4 mb-5 flex-1 space-y-2.5">
+            {perksFor(plan, billing).map(p => (
+              <li key={p} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-500 dark:text-emerald-400" />
+                {p}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {card?.best_for && (
+          <p className="mt-5 rounded-xl bg-gray-50 dark:bg-gray-800/60 px-3.5 py-3 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
+            <strong className="text-gray-900 dark:text-gray-100">Best for:</strong> {card.best_for}
+          </p>
+        )}
+
+        {/* The free plan has no button: it is what the account starts on, and nothing is bought. */}
+        {!isFree && (
+          <button
+            type="button"
+            onClick={onChoose}
+            disabled={isCurrent}
+            className={cn(
+              'mt-5 w-full rounded-xl py-3 text-sm font-bold transition-all',
+              isCurrent
+                ? 'border border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 cursor-not-allowed'
+                : bestValue
+                  ? 'bg-orange-600 text-white hover:bg-orange-700 shadow-md shadow-orange-200 dark:shadow-orange-950/40'
+                  : 'border-2 border-orange-500 text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-950/30',
+            )}
+          >
+            {buttonText}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** A pack's line under its name: its contents, in the words the design uses. */
+function packContents(p: TopUpPack): string {
+  if (p.mock > 0 && p.practice > 0) return `${p.mock} Mock + ${p.practice} Practice Tests`;
+  if (p.mock > 0) return `${p.mock} Mock Test${p.mock === 1 ? '' : 's'}`;
+  return `${p.practice} Practice Test${p.practice === 1 ? '' : 's'}`;
+}
+
+/**
+ * Top-up packs, under "Need more tests?" — the packs, the saved balance and whether they can buy now come
+ * from `/user/topup/packs`. A pack is chosen, then bought from the bar beneath the packs. The section is left
+ * out while the packs are loading or cannot be fetched, rather than showing a made-up list.
+ */
+function TopUpSection({ customer }: { customer: { name: string; email: string; contact?: string | null } }) {
+  const queryClient = useQueryClient();
+  const { data } = useQuery({ queryKey: ['topup', 'packs'], queryFn: getTopUpPacks, staleTime: 60 * 1000 });
+  const [picked, setPicked] = useState<string | null>(null);
+  const [buying, setBuying] = useState(false);
+
+  if (!data || data.packs.length === 0) return null;
+
+  const combo = data.packs.filter(p => p.mock > 0 && p.practice > 0);
+  const mockPacks = data.packs.filter(p => p.mock > 0 && p.practice === 0);
+  const practicePacks = data.packs.filter(p => p.practice > 0 && p.mock === 0);
+  const other = data.packs.filter(p => p.mock === 0 && p.practice === 0);
+  const columns = [
+    { title: 'Combo packs', packs: combo },
+    { title: 'Mock test packs', packs: mockPacks },
+    { title: 'Practice test packs', packs: practicePacks },
+    ...(other.length ? [{ title: 'Other packs', packs: other }] : []),
+  ].filter(c => c.packs.length > 0);
+
+  // The best-value combo is the pack with the lowest price per test, when there is more than one combo to compare.
+  // It is tagged, and it is the default choice, as in the design.
+  const perTestPrice = (p: TopUpPack) => p.price / Math.max(1, p.mock + p.practice);
+  const bestCombo =
+    combo.length > 1 ? combo.reduce((best, p) => (perTestPrice(p) < perTestPrice(best) ? p : best)) : null;
+
+  // The pack chosen: the one the buyer picked, else the best-value combo, else the first combo, else the first pack.
+  const chosen = data.packs.find(p => p.pack_id === picked) ?? bestCombo ?? combo[0] ?? data.packs[0];
+
+  const buy = async () => {
+    setBuying(true);
+    const outcome = await purchaseTopUp(
+      { packId: chosen.pack_id, packName: chosen.name, customer },
+      { createOrder: createTopUpOrder, verifyPayment: verifyTopUp, openCheckout },
+    );
+    setBuying(false);
+    // The balance (and so the attempts badge) and the purchase list both change with a payment.
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['topup'] }),
+      queryClient.invalidateQueries({ queryKey: ['purchase-history'] }),
+    ]);
+    switch (outcome.kind) {
+      case 'paid':
+        toast.success(`${chosen.name} added. You now have ${outcome.balance.mock} mock and ${outcome.balance.practice} practice tests saved.`);
+        break;
+      case 'cancelled':
+        toast.info('Payment cancelled — you have not been charged.');
+        break;
+      case 'failed':
+        toast.error(outcome.message);
+        break;
+      case 'unconfirmed':
+        toast.warning(outcome.message, { duration: 30_000 });
+        break;
+    }
+  };
+
+  return (
+    <section className="mt-12 animate-fadeIn">
+      <h2 className="border-l-4 border-orange-500 pl-3 text-2xl font-extrabold text-gray-900 dark:text-gray-100">Need more tests?</h2>
+      <p className="mt-1 max-w-xl text-sm text-gray-600 dark:text-gray-400">
+        Add a top-up to your Monthly or Yearly plan. Unused top-up tests are saved and carry forward when you renew.
+      </p>
+
+      {!data.can_purchase && data.reason && (
+        <div className="mt-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/70 dark:bg-amber-950/30 px-4 py-3 text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+          {data.reason}
+        </div>
+      )}
+
+      <div className="mt-6 grid gap-6 md:grid-cols-3">
+        {columns.map(col => (
+          <div key={col.title}>
+            <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">{col.title}</p>
+            <div className="space-y-3">
+              {col.packs.map(pack => {
+                const on = pack.pack_id === chosen.pack_id;
+                return (
+                  <button
+                    key={pack.pack_id}
+                    type="button"
+                    onClick={() => setPicked(pack.pack_id)}
+                    aria-pressed={on}
+                    className={cn(
+                      // Every card is the same height, so the rows line up across the three columns.
+                      'flex min-h-[7.5rem] w-full flex-col rounded-2xl border p-4 text-left transition-all',
+                      on
+                        ? 'border-orange-500 bg-orange-50/70 shadow-md shadow-orange-100 dark:border-orange-500 dark:bg-orange-950/30 dark:shadow-orange-950/40'
+                        : 'border-gray-200 bg-white hover:border-orange-200 dark:border-gray-800 dark:bg-gray-900',
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-900 dark:text-gray-100">
+                          {pack.name}
+                          {bestCombo && pack.pack_id === bestCombo.pack_id && (
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                              Best value
+                            </span>
+                          )}
+                        </p>
+                        <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">{packContents(pack)}</p>
+                        {pack.description && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{pack.description}</p>}
+                      </div>
+                      <div className="flex-shrink-0 text-right">
+                        <p className="text-lg font-extrabold text-gray-900 dark:text-gray-100">₹{pack.price.toLocaleString('en-IN')}</p>
+                        <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">{GST_LABEL}</p>
+                      </div>
+                    </div>
+                    <div className="mt-auto flex justify-end pt-3">
+                      <span
+                        className={cn(
+                          'grid h-5 w-5 place-items-center rounded-full border-2',
+                          on ? 'border-orange-500' : 'border-gray-300 dark:border-gray-600',
+                        )}
+                        aria-hidden
+                      >
+                        {on && <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* The pay bar stays in view while the packs are read, as the design has it at the foot of the screen. */}
+      <div className="mt-6 flex flex-col gap-3 rounded-2xl bg-gray-900 px-5 py-4 text-white shadow-xl sm:flex-row sm:items-center sm:justify-between lg:sticky lg:bottom-4 lg:z-20">
+        <div className="min-w-0">
+          <p className="text-[11px] uppercase tracking-wider text-gray-400">Selected top-up</p>
+          <p className="truncate text-sm font-bold">
+            {chosen.name} <span className="font-normal text-gray-300">· {packContents(chosen)}</span>
+          </p>
+        </div>
+        <div className="flex items-center justify-between gap-4 sm:justify-end">
+          <p className="text-xl font-extrabold">
+            ₹{chosen.price.toLocaleString('en-IN')} <span className="text-xs font-semibold text-gray-400">{GST_LABEL}</span>
+          </p>
+          <button
+            type="button"
+            onClick={buy}
+            disabled={!data.can_purchase || buying}
+            className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {buying ? 'Opening…' : 'Pay now'}
+          </button>
+        </div>
+      </div>
+
+      <HowTopUpsWork />
+    </section>
+  );
+}
+
+/** The four steps, as the design sets them out. */
+function HowTopUpsWork() {
+  const steps = [
+    "Buy a Monthly or Yearly plan first. Top-ups can't be added to Free.",
+    "Your plan's tests are used first. Top-up tests are used after.",
+    "When your plan ends, unused top-up tests are saved. Plan tests expire with the plan.",
+    "Renew any plan and your saved tests unlock again.",
+  ];
+  return (
+    <div className="mt-10 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 sm:p-6">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">How top-ups work</h3>
+      <ol className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {steps.map((step, i) => (
+          <li key={step} className="flex items-start gap-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+            <span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-full bg-orange-100 text-xs font-bold text-orange-600 dark:bg-orange-950/50 dark:text-orange-400">
+              {i + 1}
+            </span>
+            <span>{step}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-5 text-[11px] text-gray-500 dark:text-gray-400">
+        Top-ups are non-refundable and non-transferable. Terms apply.
+      </p>
+    </div>
+  );
+}
+
 interface CheckoutModalProps {
   plan: SubscriptionPlanInfo;
   billing: 'monthly' | 'yearly';
   currentTier: SubscriptionTier;
+  /** The plan, in this billing cycle, is the one they already hold — nothing to buy. */
+  alreadyHeld: boolean;
   onClose: () => void;
   /** Runs the purchase and reports how it ended. */
   onConfirm: (plan: SubscriptionPlanInfo, promoCode?: string) => Promise<PurchaseOutcome>;
 }
 
-function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: CheckoutModalProps) {
+function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onConfirm }: CheckoutModalProps) {
+  const queryClient = useQueryClient();
   const [promoInput, setPromoInput] = useState('');
+  /** The server's priced answer for the code, when it gave GST figures — what the summary shows. */
+  const [quote, setQuote] = useState<PromoValidation | null>(null);
   const [appliedPromo, setAppliedPromo] = useState<SubscriptionPromoCode | null>(null);
   const [paying, setPaying] = useState(false);
   const [checkingPromo, setCheckingPromo] = useState(false);
@@ -280,20 +542,17 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
   const hiddenPerks = perks.length - shownPerks.length;
 
   const basePrice = useMemo(() => getSubscriptionPlanPrice(plan, billing), [plan, billing]);
-  const finalPrice = useMemo(
-    () => getEffectivePlanPrice(plan, billing, appliedPromo),
-    [plan, billing, appliedPromo],
-  );
+  const finalPrice = useMemo(() => getEffectivePlanPrice(plan, billing, appliedPromo), [plan, billing, appliedPromo]);
   const discount = basePrice - finalPrice;
-  const isDowngradeOrSame = plan.tier === currentTier;
+  // The server's own breakdown, GST included. Without it the summary shows the price and says GST is added.
+  const breakdown = appliedPromo ? breakdownFrom(quote) : null;
+  const rs = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   /**
    * Check the code with the server.
    *
-   * The percentage shown here is a preview — the server applies the code again
-   * when it creates the order, and what Razorpay charges is that figure, not this
-   * one. The previous version checked against a list of sample codes bundled with
-   * the app, which the backend has never heard of.
+   * The percentage shown here is a preview — the server applies the code again when it creates the order,
+   * and what Razorpay charges is that figure, not this one.
    */
   const handleApply = async () => {
     const code = promoInput.trim();
@@ -303,16 +562,15 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
     }
     setCheckingPromo(true);
     try {
-      const res = await validatePromo(code);
+      const res = await validatePromo(code, { plan_id: plan.plan_id, billing_cycle: billing });
       if (!res.valid) {
         toast.error(res.message || 'That promo code is not valid.');
         return;
       }
+      setQuote(res);
       setAppliedPromo({ code, discount_pct: res.discount_pct, label: res.message });
       toast.success(
-        res.discount_pct >= 100
-          ? 'Promo applied — this plan is free for this cycle!'
-          : `Promo applied — ${res.discount_pct}% off!`,
+        res.discount_pct >= 100 ? 'Promo applied — this plan is free for this cycle!' : `Promo applied — ${res.discount_pct}% off!`,
       );
     } catch (err: any) {
       toast.error(err?.message || 'Could not check that code. Please try again.');
@@ -322,6 +580,7 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
   };
 
   const handleClearPromo = () => {
+    setQuote(null);
     setAppliedPromo(null);
     setPromoInput('');
   };
@@ -330,14 +589,16 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
     setPaying(true);
     const outcome = await onConfirm(plan, appliedPromo?.code);
     setPaying(false);
+    // A payment that went through changes the purchase list, the top-up balance and the plan held.
+    if (outcome.kind === 'paid' || outcome.kind === 'free' || outcome.kind === 'unconfirmed') {
+      void queryClient.invalidateQueries({ queryKey: ['purchase-history'] });
+      void queryClient.invalidateQueries({ queryKey: ['topup'] });
+      void queryClient.invalidateQueries({ queryKey: ['subscription', 'current'] });
+    }
 
     switch (outcome.kind) {
       case 'paid': {
-        const until = new Date(outcome.result.end_date).toLocaleDateString('en-IN', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-        });
+        const until = new Date(outcome.result.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
         const invoice = outcome.result.invoice_no ? ` Invoice ${outcome.result.invoice_no}.` : '';
         toast.success(`Payment successful — ${plan.name} is active until ${until}.${invoice}`);
         onClose();
@@ -355,8 +616,7 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
         toast.error(outcome.message);
         break;
       case 'unconfirmed':
-        // Money may have moved. This must not read as a failure, and must outlast
-        // a glance — it is the one message here someone may need to act on.
+        // Money may have moved. This must not read as a failure, and must outlast a glance.
         toast.warning(outcome.message, { duration: 30_000 });
         onClose();
         break;
@@ -364,10 +624,7 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn" onClick={onClose}>
       <div
         className="relative w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden animate-scaleIn"
         onClick={e => e.stopPropagation()}
@@ -376,9 +633,7 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
         <div
           className={cn(
             'relative p-5 overflow-hidden text-white',
-            plan.tier === 'premium'
-              ? 'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500'
-              : 'bg-gradient-to-br from-brand-500 via-brand-400 to-pink-500',
+            plan.tier === 'premium' ? 'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500' : 'bg-gradient-to-br from-brand-500 via-brand-400 to-pink-500',
             'bg-[length:200%_auto] animate-gradient-x',
           )}
         >
@@ -400,7 +655,7 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
               {plan.name}
             </h2>
             <p className="text-xs opacity-90 mt-0.5 capitalize">
-              {billing} billing · upgrading from {currentTier}
+              {billing} billing · {plan.tier === currentTier ? `switching your ${currentTier} plan` : `upgrading from ${currentTier}`}
             </p>
           </div>
         </div>
@@ -408,9 +663,7 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
         <div className="p-5 sm:p-6">
           {/* Plan summary */}
           <div className="bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-xl p-3 mb-4">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 mb-1">
-              What you get
-            </p>
+            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 mb-1">What you get</p>
             <ul className="space-y-1">
               {shownPerks.map((p, i) => (
                 <li key={i} className="flex items-start gap-1.5 text-xs text-gray-700 dark:text-gray-300">
@@ -418,11 +671,7 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
                   {p}
                 </li>
               ))}
-              {hiddenPerks > 0 && (
-                <li className="text-[11px] text-gray-500 dark:text-gray-400 italic pl-4">
-                  + {hiddenPerks} more perks
-                </li>
-              )}
+              {hiddenPerks > 0 && <li className="text-[11px] text-gray-500 dark:text-gray-400 italic pl-4">+ {hiddenPerks} more perks</li>}
             </ul>
           </div>
 
@@ -430,9 +679,7 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
           <div className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/60 dark:bg-amber-950/30 p-3 sm:p-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <Tag className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-              <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                Promo code
-              </p>
+              <p className="text-xs font-bold text-amber-900 dark:text-amber-200">Promo code</p>
             </div>
 
             {appliedPromo ? (
@@ -443,9 +690,7 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
                     <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
                       {appliedPromo.code} · {appliedPromo.discount_pct}% off
                     </p>
-                    <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5 truncate">
-                      {appliedPromo.label}
-                    </p>
+                    <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5 truncate">{appliedPromo.label}</p>
                   </div>
                 </div>
                 <button
@@ -477,9 +722,7 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
               </div>
             )}
 
-            <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-2">
-              The final amount is confirmed when you pay.
-            </p>
+            <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-2">The final amount is confirmed when you pay.</p>
           </div>
 
           {/* Price breakdown */}
@@ -489,46 +732,84 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
               <p className="text-xs font-bold text-gray-900 dark:text-gray-100">Order Summary</p>
             </div>
 
-            <div className="space-y-1.5 text-sm">
-              <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
-                <span>
-                  {plan.name} · {billing === 'monthly' ? '1 month' : '1 year'}
-                </span>
-                <span className="tabular-nums">₹{basePrice.toLocaleString('en-IN')}</span>
-              </div>
-
-              {appliedPromo && discount > 0 && (
-                <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 font-medium">
-                  <span className="inline-flex items-center gap-1">
-                    <BadgePercent className="w-3.5 h-3.5" />
-                    Promo ({appliedPromo.discount_pct}%)
-                  </span>
-                  <span className="tabular-nums">−₹{discount.toLocaleString('en-IN')}</span>
+            {breakdown ? (
+              // The server's figures, GST included — nothing here is worked out on this page.
+              <div className="space-y-1.5 text-sm">
+                <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
+                  <span>Plan price</span>
+                  <span className="tabular-nums">{rs(breakdown.base_amount)}</span>
                 </div>
-              )}
-
-              <div className="border-t border-blue-100 dark:border-blue-900 my-2" />
-
-              <div className="flex items-center justify-between text-base font-bold text-gray-900 dark:text-gray-100">
-                <span>Total</span>
-                <span className="inline-flex items-center tabular-nums">
-                  {finalPrice === 0 ? (
-                    <span className="text-emerald-600 dark:text-emerald-400">FREE</span>
-                  ) : (
-                    <>
-                      <IndianRupee className="w-4 h-4" />
-                      {finalPrice.toLocaleString('en-IN')}
-                    </>
-                  )}
-                </span>
+                {breakdown.discount_amount > 0 && (
+                  <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 font-medium">
+                    <span className="inline-flex items-center gap-1">
+                      <BadgePercent className="w-3.5 h-3.5" />
+                      Discount ({appliedPromo?.code})
+                    </span>
+                    <span className="tabular-nums">−{rs(breakdown.discount_amount)}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
+                  <span>Taxable value</span>
+                  <span className="tabular-nums">{rs(breakdown.taxable_amount)}</span>
+                </div>
+                <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
+                  <span>GST @ {breakdown.gst_percent}%</span>
+                  <span className="tabular-nums">{rs(breakdown.gst_amount)}</span>
+                </div>
+                <div className="border-t border-blue-100 dark:border-blue-900 my-2" />
+                <div className="flex items-center justify-between text-base font-bold text-gray-900 dark:text-gray-100">
+                  <span>Total</span>
+                  <span className="tabular-nums">{rs(breakdown.final_amount)}</span>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-1.5 text-sm">
+                <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
+                  <span>
+                    {plan.name} · {billing === 'monthly' ? '1 month' : '1 year'}
+                  </span>
+                  <span className="tabular-nums">₹{basePrice.toLocaleString('en-IN')}</span>
+                </div>
+
+                {appliedPromo && discount > 0 && (
+                  <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 font-medium">
+                    <span className="inline-flex items-center gap-1">
+                      <BadgePercent className="w-3.5 h-3.5" />
+                      Promo ({appliedPromo.discount_pct}%)
+                    </span>
+                    <span className="tabular-nums">−₹{discount.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+
+                <div className="border-t border-blue-100 dark:border-blue-900 my-2" />
+
+                <div className="flex items-center justify-between text-base font-bold text-gray-900 dark:text-gray-100">
+                  <span>{finalPrice === 0 ? 'Total' : 'Price'}</span>
+                  <span className="inline-flex items-baseline gap-1.5 tabular-nums">
+                    {finalPrice === 0 ? (
+                      <span className="text-emerald-600 dark:text-emerald-400">FREE</span>
+                    ) : (
+                      <>
+                        <span className="inline-flex items-center">
+                          <IndianRupee className="w-4 h-4" />
+                          {finalPrice.toLocaleString('en-IN')}
+                        </span>
+                        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{GST_LABEL}</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+                {finalPrice > 0 && (
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">GST is added when you pay; the total is shown on the payment screen.</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Pay button */}
           <button
             onClick={handlePay}
-            disabled={paying || isDowngradeOrSame || !plan.plan_id}
+            disabled={paying || alreadyHeld || !plan.plan_id}
             className="w-full bg-gradient-to-r from-brand-600 via-brand-400 to-brand-600 bg-[length:200%_auto] hover:bg-right-bottom text-white py-3 rounded-xl font-semibold transition-all duration-500 shadow-lg shadow-blue-200 dark:shadow-blue-900/40 hover:shadow-xl hover:shadow-blue-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none press"
           >
             <span className="inline-flex items-center justify-center gap-2">
@@ -545,7 +826,7 @@ function CheckoutModal({ plan, billing, currentTier, onClose, onConfirm }: Check
               ) : (
                 <>
                   <CreditCard className="w-4 h-4" />
-                  Pay ₹{finalPrice.toLocaleString('en-IN')} & Subscribe
+                  {breakdown ? `Pay ${rs(breakdown.final_amount)} & Subscribe` : 'Pay & Subscribe'}
                 </>
               )}
             </span>

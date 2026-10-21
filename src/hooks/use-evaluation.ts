@@ -37,6 +37,11 @@ export interface EvalPaperConfig {
   mcqSubtypes: string[];
   typeWeightage: Record<string, number>;
   subjects: EvalSubjectConfig[];
+  /**
+   * The syllabus unit the collection is mapped to, if the admin chose one. Applies to every question
+   * the collection brings in. Omitted when unmapped, and questions keep the units their own tags name.
+   */
+  placement?: { stageId: string; unitId: string; topicId?: string | null } | null;
 }
 
 export interface EvalSubjectConfig {

@@ -75,7 +75,7 @@ interface UserPortalContextValue {
   sendLoginOtp: (identifier: string) => Promise<{ ok: boolean; message?: string; error?: string }>;
   /** Sign in with that one-time password — the same session `login` starts. */
   loginWithOtp: (identifier: string, otp: string) => Promise<{ ok: boolean; error?: string }>;
-  register: (data: { name: string; email: string; phone: string; password: string } & StudentDetailFields) => Promise<{ ok: boolean; error?: string; otpSentTo?: string }>;
+  register: (data: { name: string; email: string; phone: string } & StudentDetailFields) => Promise<{ ok: boolean; error?: string; otpSentTo?: string }>;
   verifyOtp: (otp: string) => Promise<{ ok: boolean; error?: string }>;
   resendOtp: () => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -318,13 +318,12 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
   );
 
   const register = useCallback(
-    async (data: { name: string; email: string; phone: string; password: string } & StudentDetailFields) => {
+    async (data: { name: string; email: string; phone: string } & StudentDetailFields) => {
       try {
         await registerUser({
           full_name: data.name,
           email_address: data.email,
           mobile_number: data.phone,
-          password: data.password,
           date_of_birth: data.date_of_birth,
           gender: data.gender,
           student_class: data.student_class,

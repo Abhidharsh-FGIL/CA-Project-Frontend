@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   TNPSC_GROUPS,
+  findStage,
+  marksForSubject,
+  uniformMarksPerQuestion,
   orderBySection,
   resolveSubjectId,
   sectionForSubject,
@@ -140,5 +143,19 @@ describe('subject resolution across scripts', () => {
     const out = orderBySection(stage, tags.map((subject, i) => ({ subject, n: i + 1 })), q => q.subject);
     expect(out.slice(0, 100).every(q => q.subject === TAMIL_UNIT)).toBe(true);
     expect(out.slice(100).some(q => q.subject === TAMIL_UNIT)).toBe(false);
+  });
+});
+
+describe('uniformMarksPerQuestion', () => {
+  it('gives TNPSC Group 4 1.5 marks a question, as 300 marks over 200 questions', () => {
+    const stage = findStage('group-4', 'group-4-written', TNPSC_GROUPS)!.stage;
+    expect(uniformMarksPerQuestion(stage)).toBe(1.5);
+    expect(marksForSubject(stage, 'Indian Polity')).toBe(1.5);
+  });
+
+  it('leaves GAT-B to its own section marks', () => {
+    const stage = findStage('gat-b', 'gat-b-exam', TNPSC_GROUPS)!.stage;
+    expect(uniformMarksPerQuestion(stage)).toBeUndefined();
+    expect(marksForSubject(stage, stage!.subjects[0].name)).toBe(1);
   });
 });

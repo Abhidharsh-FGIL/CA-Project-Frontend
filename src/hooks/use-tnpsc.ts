@@ -13,18 +13,37 @@ import {
   type TnpscPracticeSubject,
 } from '@/lib/tnpscApi';
 import { TNPSC_GROUPS, type TnpscGroup } from '@/config/tnpsc';
+import {
+  catalogForLanguage,
+  examLanguageOf,
+  papersFor,
+  subjectLanguage,
+  type ExamLanguage,
+} from '@/lib/exam-language';
 
 const STALE = 5 * 60 * 1000;
 
-/** The TNPSC group → stage catalog (server-driven when available). */
-export function useTnpscCatalog() {
+/**
+ * The TNPSC group → stage catalog (server-driven when available).
+ *
+ * `forMyLanguage` is for the screens an aspirant browses the exam on: Group 4 then lists only the
+ * language paper they sit, General Tamil or General English, and not the other. Anything that reads
+ * the catalog to make sense of an attempt that has already happened — a report, the study-plan
+ * calendar — leaves it off, because that attempt may be on either.
+ */
+export function useTnpscCatalog(opts?: { forMyLanguage?: boolean }) {
+  const { user } = useUserPortal();
   const query = useQuery<TnpscGroup[]>({
     queryKey: ['tnpsc', 'catalog'],
     queryFn: getTnpscCatalog,
     staleTime: STALE,
     placeholderData: TNPSC_GROUPS,
   });
-  return { ...query, groups: query.data ?? TNPSC_GROUPS };
+  const all = query.data ?? TNPSC_GROUPS;
+  const language = examLanguageOf(user?.medium);
+  const forMyLanguage = !!opts?.forMyLanguage;
+  const groups = useMemo(() => (forMyLanguage ? catalogForLanguage(all, language) : all), [all, language, forMyLanguage]);
+  return { ...query, groups };
 }
 
 /** Attempt history reduced to what the level gate needs. */
@@ -43,8 +62,13 @@ function useAttemptSummaries(): AttemptSummary[] {
  * server that flags a failed attempt as "completed" cannot unlock a level it
  * shouldn't. Locally-known attempts are overlaid first, keeping the view correct
  * even before the server has caught up.
+ *
+ * Pass `language` to list only that language paper's mocks (and the ones that name no language).
+ * It is applied before the levels are counted, so "2 of 3 cleared" never counts a paper the
+ * aspirant is not shown. Left off, every paper is listed — which is what matching an attempt to
+ * its exam needs.
  */
-export function useTnpscMockTests(groupId?: string, stageId?: string) {
+export function useTnpscMockTests(groupId?: string, stageId?: string, language?: ExamLanguage | null) {
   const attempts = useAttemptSummaries();
 
   const query = useQuery<TnpscMockOverview>({
@@ -62,16 +86,20 @@ export function useTnpscMockTests(groupId?: string, stageId?: string) {
     );
     const withHistory = data.levels.map(l => ({
       ...l,
-      tests: applyAttemptHistory(l.tests ?? [], attempts, pass),
+      tests: applyAttemptHistory(papersFor(language ?? null, l.tests ?? []), attempts, pass),
     }));
     return normaliseLevelGroups(withHistory, pass);
-  }, [query.data, attempts]);
+  }, [query.data, attempts, language]);
 
   return { ...query, levels };
 }
 
-/** Syllabus-wise practice tests for a stage. */
-export function useTnpscPracticeTests(groupId?: string, stageId?: string) {
+/**
+ * Syllabus-wise practice tests for a stage.
+ *
+ * `language` is as for the mock tests: the other language paper's subject and papers are left out.
+ */
+export function useTnpscPracticeTests(groupId?: string, stageId?: string, language?: ExamLanguage | null) {
   const attempts = useAttemptSummaries();
 
   const query = useQuery<TnpscPracticeSubject[]>({
@@ -83,8 +111,13 @@ export function useTnpscPracticeTests(groupId?: string, stageId?: string) {
 
   const subjects = useMemo(() => {
     if (!query.data) return [];
-    return query.data.map(s => ({ ...s, tests: applyAttemptHistory(s.tests, attempts) }));
-  }, [query.data, attempts]);
+    return query.data
+      .filter(s => {
+        const own = subjectLanguage(s.subject_id);
+        return !language || !own || own === language;
+      })
+      .map(s => ({ ...s, tests: applyAttemptHistory(papersFor(language ?? null, s.tests), attempts) }));
+  }, [query.data, attempts, language]);
 
   return { ...query, subjects };
 }

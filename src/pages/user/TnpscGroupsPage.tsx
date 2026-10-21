@@ -1,17 +1,59 @@
 import { UserShell } from '@/components/user/UserShell';
 import { TnpscGroupGrid } from '@/components/user/TnpscGroupGrid';
 import { useTnpscCatalog } from '@/hooks/use-tnpsc';
-import { Loader2 } from 'lucide-react';
+import { BarChart3, BookOpen, ClipboardList, Database, FileText, Loader2, Users, type LucideIcon } from 'lucide-react';
+import { EXAMS_FEATURES, EXAMS_STATS } from '@/config/exams-page';
+import { SHOW_STUDY_PLAN } from '@/config/features';
+import { cn } from '@/lib/utils';
+
+const FEATURE_ICON: Record<string, LucideIcon> = {
+  pyq: FileText,
+  tests: ClipboardList,
+  ai: BarChart3,
+  plan: BookOpen,
+  topic: BookOpen,
+};
+
+const TONE: Record<string, string> = {
+  rose: 'bg-rose-500',
+  blue: 'bg-blue-500',
+  emerald: 'bg-emerald-500',
+  violet: 'bg-violet-500',
+  amber: 'bg-amber-500',
+};
 
 /** /user/exams — pick an examination from the catalog. */
 export default function TnpscGroupsPage() {
-  const { groups, isLoading } = useTnpscCatalog();
+  const { groups, isLoading } = useTnpscCatalog({ forMyLanguage: true });
 
   return (
     <UserShell>
+      {/* Figures */}
+      <div className="mb-4 grid gap-3 rounded-2xl border border-blue-100 dark:border-blue-900/50 bg-gradient-to-r from-blue-50/70 via-white to-orange-50/60 dark:from-blue-950/20 dark:via-gray-900 dark:to-orange-950/10 p-4 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-blue-100 dark:sm:divide-blue-900/40 animate-fadeIn">
+        <Stat icon={<Database className="w-6 h-6" />} tone="blue" value={EXAMS_STATS.questions} label="Group 4 Questions" sub="with various complexity levels">
+          <span className="mt-1.5 flex gap-1.5">
+            <Level cls="bg-emerald-500">Simple</Level>
+            <Level cls="bg-amber-500">Medium</Level>
+            <Level cls="bg-rose-500">Complex</Level>
+          </span>
+        </Stat>
+        <Stat icon={<Users className="w-6 h-6" />} tone="violet" value={EXAMS_STATS.aspirants} label="Aspirants" sub="currently practising here" />
+        <Stat icon={<FileText className="w-6 h-6" />} tone="sky" value={EXAMS_STATS.newQuestions} label="New Questions" sub="added every week">
+          <span className="mt-1 hidden text-[11px] font-semibold italic text-orange-500 sm:block" style={{ fontFamily: 'Kalam, cursive' }}>
+            Fresh Questions. Better Practice.
+          </span>
+        </Stat>
+      </div>
+
       <div className="mb-6 animate-fadeIn">
         <div className="relative overflow-hidden rounded-2xl border border-orange-100 dark:border-orange-900/40 bg-gradient-to-r from-[#fff0e4] via-[#fff6ee] to-[#f4f2f8] dark:from-orange-950/30 dark:via-gray-900 dark:to-blue-950/30 p-5 sm:p-7">
           <ExamArt className="hidden lg:block absolute right-6 xl:right-12 top-1/2 -translate-y-1/2 h-[88%] w-auto opacity-90 dark:opacity-40 pointer-events-none" />
+          <p
+            className="hidden lg:block absolute right-8 xl:right-16 top-4 max-w-[13rem] text-right text-lg leading-tight text-blue-700/80 dark:text-blue-300/70 pointer-events-none"
+            style={{ fontFamily: 'Kalam, cursive' }}
+          >
+            Your Gateway <br />to a Government Job
+          </p>
           <div className="relative max-w-2xl lg:max-w-[58%] xl:max-w-2xl">
             <p className="text-[10px] uppercase tracking-[0.25em] text-blue-600 dark:text-blue-400 font-bold mb-2">
               Choose your examination
@@ -35,9 +77,66 @@ export default function TnpscGroupsPage() {
       ) : (
         <TnpscGroupGrid groups={groups} />
       )}
+
+      {/* What the portal offers */}
+      <div className="mt-6 grid gap-3 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 sm:grid-cols-2 lg:grid-cols-none lg:grid-flow-col lg:auto-cols-fr">
+        {EXAMS_FEATURES.filter(f => f.key !== 'plan' || SHOW_STUDY_PLAN).map(f => {
+          const Icon = FEATURE_ICON[f.key] ?? BookOpen;
+          return (
+            <div key={f.key} className="flex items-start gap-3">
+              <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white', TONE[f.tone] ?? 'bg-blue-500')}>
+                <Icon className="w-5 h-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-bold leading-snug text-gray-900 dark:text-gray-100">{f.title}</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-gray-500 dark:text-gray-400">{f.detail}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </UserShell>
   );
 }
+
+const STAT_TONE: Record<string, string> = {
+  blue: 'bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300',
+  violet: 'bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300',
+  sky: 'bg-sky-100 text-sky-600 dark:bg-sky-950/50 dark:text-sky-300',
+};
+
+/** One figure in the strip above the banner. */
+function Stat({
+  icon,
+  tone,
+  value,
+  label,
+  sub,
+  children,
+}: {
+  icon: React.ReactNode;
+  tone: string;
+  value: string;
+  label: string;
+  sub: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-3 sm:px-5 sm:first:pl-0">
+      <span className={cn('flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl', STAT_TONE[tone])}>{icon}</span>
+      <div className="min-w-0">
+        <p className="text-2xl font-extrabold leading-none text-gray-900 dark:text-gray-100">{value}</p>
+        <p className="mt-1 text-sm font-bold text-gray-800 dark:text-gray-200">{label}</p>
+        <p className="text-[11px] text-gray-500 dark:text-gray-400">{sub}</p>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const Level = ({ cls, children }: { cls: string; children: React.ReactNode }) => (
+  <span className={cn('rounded-md px-1.5 py-0.5 text-[10px] font-bold text-white', cls)}>{children}</span>
+);
 
 /**
  * The banner's picture: a checklist, a stopwatch and a stack of books, kept pale so it sits

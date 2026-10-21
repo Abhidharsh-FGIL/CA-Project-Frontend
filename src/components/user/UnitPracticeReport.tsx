@@ -1,4 +1,4 @@
-/**
+﻿/**
  * The report for a practice set on one unit.
  *
  * Deliberately not the diagnostic report with panels switched off. A unit set is
@@ -13,17 +13,7 @@
  * to do.
  */
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  ArrowRight,
-  CheckCircle2,
-  Circle,
-  Clock,
-  MinusCircle,
-  RotateCcw,
-  Target,
-  XCircle,
-} from 'lucide-react';
+import { ChevronDown, CheckCircle2, Circle, Clock, MinusCircle, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ACCENT, MeterRow, ReportCard, ScoreRing, StatTile } from '@/components/user/report-ui';
 import { isAttempted, type AttemptReportModel } from '@/lib/attempt-report';
@@ -58,14 +48,14 @@ const fmtTime = (sec: number | null) => {
 
 export function UnitPracticeReport({
   model,
+  examName = null,
   passPercentage = 70,
-  /** Where "Try again" goes — the same paper. */
-  retryHref,
-  /** Where "Back to the unit" goes — the stage page this came from. */
-  unitHref,
 }: {
   model: AttemptReportModel;
+  /** The exam the paper belongs to, e.g. "TNPSC Group 4" — shown above the set's name. */
+  examName?: string | null;
   passPercentage?: number;
+  /** No longer shown — the report ends with the question recap. Kept so existing callers still compile. */
   retryHref?: string;
   unitHref?: string;
 }) {
@@ -75,12 +65,6 @@ export function UnitPracticeReport({
   /** The unit this set came from — one subject, by definition of a unit set. */
   const subject = model.subjects[0];
   const level = model.meta.testName ? inferLevel(model.meta.testName) : null;
-
-  /** Topics inside the unit, where the paper tagged more than one. */
-  const topics = useMemo(
-    () => (subject?.topics ?? []).filter(t => t.metrics.questions > 0),
-    [subject],
-  );
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -97,10 +81,10 @@ export function UnitPracticeReport({
 
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400">
-              Practice set
+              {examName ? `${examName} · Practice set` : 'Practice set'}
             </p>
             <h2 className="mt-0.5 text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
-              {subject?.name ?? model.meta.testName ?? 'Practice'}
+              {model.meta.testName || subject?.name || 'Practice'}
             </h2>
             <div className="mt-1 flex items-center gap-1.5 flex-wrap">
               {level && (
@@ -156,60 +140,12 @@ export function UnitPracticeReport({
         />
       </div>
 
-      {/* ── Topics inside the unit ────────────────────────────────────── */}
-      {topics.length > 1 && (
-        <ReportCard>
-          <p className="mb-2.5 text-sm font-bold text-gray-900 dark:text-gray-100">
-            Within this unit
-          </p>
-          <div className="space-y-2.5">
-            {topics.map(t => (
-              <MeterRow
-                key={t.topicId}
-                label={t.name}
-                value={t.metrics.accuracy}
-                accent={
-                  (t.metrics.accuracy ?? 0) >= passPercentage
-                    ? 'emerald'
-                    : (t.metrics.accuracy ?? 0) >= passPercentage - 15
-                      ? 'amber'
-                      : 'rose'
-                }
-                right={`${t.metrics.correct}/${t.metrics.questions}`}
-              />
-            ))}
-          </div>
-        </ReportCard>
-      )}
+      {/* ── Categories inside the unit, each opening to its subtopics ── */}
+      <CategoryBreakdown questions={model.questions} passPercentage={passPercentage} />
 
       {/* ── Every question ────────────────────────────────────────────── */}
       <QuestionRecap model={model} />
 
-      {/* ── What to do next ───────────────────────────────────────────── */}
-      {(retryHref || unitHref) && (
-        <ReportCard>
-          <p className="mb-2.5 text-sm font-bold text-gray-900 dark:text-gray-100">Next</p>
-          <div className="flex items-center gap-2 flex-wrap">
-            {retryHref && (
-              <Link
-                to={retryHref}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-brand-700"
-              >
-                <RotateCcw className="w-3.5 h-3.5" /> Try this set again
-              </Link>
-            )}
-            {unitHref && (
-              <Link
-                to={unitHref}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60"
-              >
-                <Target className="w-3.5 h-3.5" /> Back to the unit
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            )}
-          </div>
-        </ReportCard>
-      )}
     </div>
   );
 }
@@ -221,8 +157,129 @@ export function UnitPracticeReport({
  * reviewing a practice set is the ones you missed, and making someone scroll
  * past twenty correct answers to find three wrong ones is the wrong default.
  */
+/** The category a question belongs to, and the subtopic under it. */
+const categoryOf = (q: QuestionReviewItem) => (q.category ?? '').trim() || 'Other';
+const subtopicOf = (q: QuestionReviewItem) => (q.subtopic ?? q.subtopic_name ?? '').trim() || 'General';
+
+/**
+ * The unit's categories, each a dropdown that opens to its subtopics.
+ *
+ * Counts come from the questions themselves, so a category that was not in the paper does not appear and
+ * a subtopic shows the number of questions the paper put under it.
+ */
+function CategoryBreakdown({
+  questions,
+  passPercentage,
+}: {
+  questions: QuestionReviewItem[];
+  passPercentage: number;
+}) {
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+
+  const categories = useMemo(() => {
+    const byCat = new Map<string, { name: string; questions: number; correct: number; subs: Map<string, { name: string; questions: number; correct: number }> }>();
+    for (const q of questions) {
+      const cat = categoryOf(q);
+      const sub = subtopicOf(q);
+      let c = byCat.get(cat);
+      if (!c) {
+        c = { name: cat, questions: 0, correct: 0, subs: new Map() };
+        byCat.set(cat, c);
+      }
+      c.questions += 1;
+      if (q.is_correct) c.correct += 1;
+      let sc = c.subs.get(sub);
+      if (!sc) {
+        sc = { name: sub, questions: 0, correct: 0 };
+        c.subs.set(sub, sc);
+      }
+      sc.questions += 1;
+      if (q.is_correct) sc.correct += 1;
+    }
+    return [...byCat.values()].map(c => ({ ...c, subs: [...c.subs.values()] }));
+  }, [questions]);
+
+  if (categories.length === 0) return null;
+
+  return (
+    <ReportCard>
+      <p className="mb-2.5 text-sm font-bold text-gray-900 dark:text-gray-100">Within this unit</p>
+      <div className="space-y-2">
+        {categories.map(c => {
+          const isOpen = !!open[c.name];
+          const accuracy = c.questions > 0 ? (c.correct / c.questions) * 100 : null;
+          return (
+            <div
+              key={c.name}
+              className={cn(
+                'rounded-xl border transition-colors',
+                // An open category is lifted off the page, so its sub-categories read as belonging to it.
+                isOpen
+                  ? 'border-orange-200 bg-orange-50/40 shadow-sm dark:border-orange-900/50 dark:bg-orange-950/10'
+                  : 'border-gray-100 dark:border-gray-800',
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => setOpen(o => ({ ...o, [c.name]: !o[c.name] }))}
+                aria-expanded={isOpen}
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-left"
+              >
+                <div className="min-w-0 flex-1">
+                  <MeterRow
+                    label={c.name}
+                    value={accuracy}
+                    accent={
+                      (accuracy ?? 0) >= passPercentage
+                        ? 'emerald'
+                        : (accuracy ?? 0) >= passPercentage - 15
+                          ? 'amber'
+                          : 'rose'
+                    }
+                    right={`${c.correct}/${c.questions}`}
+                  />
+                </div>
+                <ChevronDown className={cn('h-4 w-4 flex-shrink-0 text-gray-400 transition-transform', isOpen && 'rotate-180')} />
+              </button>
+
+              {isOpen && (
+                <div className="border-t border-orange-100 px-3 pb-3 pt-2.5 dark:border-orange-900/40">
+                  <p className="mb-2 ml-1 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-600/80 dark:text-orange-400/80">
+                    Sub-categories · {c.subs.length}
+                  </p>
+                  {/* Indented behind a guide line: a different level from the category above. */}
+                  <ul className="ml-3 space-y-2 border-l-2 border-orange-300 pl-3 dark:border-orange-700">
+                  {c.subs.map(sub => {
+                    const subAcc = sub.questions > 0 ? (sub.correct / sub.questions) * 100 : null;
+                    return (
+                      <li key={sub.name} className="rounded-lg border border-gray-100 bg-white px-2.5 py-2 dark:border-gray-800 dark:bg-gray-900">
+                        <MeterRow
+                          label={sub.name}
+                          value={subAcc}
+                          accent={
+                            (subAcc ?? 0) >= passPercentage
+                              ? 'emerald'
+                              : (subAcc ?? 0) >= passPercentage - 15
+                                ? 'amber'
+                                : 'rose'
+                          }
+                          right={`${sub.correct}/${sub.questions}`}
+                        />
+                      </li>
+                    );
+                  })}
+                  </ul>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </ReportCard>
+  );
+}
+
 function QuestionRecap({ model }: { model: AttemptReportModel }) {
-  const [onlyWrong, setOnlyWrong] = useState(true);
 
   /**
    * The language the paper can be switched into, or null when it carries one.
@@ -243,37 +300,22 @@ function QuestionRecap({ model }: { model: AttemptReportModel }) {
   const stateOf = (q: QuestionReviewItem): 'correct' | 'incorrect' | 'skipped' =>
     !isAttempted(q) ? 'skipped' : q.is_correct ? 'correct' : 'incorrect';
 
-  const rows = useMemo(() => {
-    const rank = (q: QuestionReviewItem) => {
-      const st = stateOf(q);
-      return st === 'incorrect' ? 0 : st === 'skipped' ? 1 : 2;
-    };
-    const all = [...model.questions].sort(
-      (a, b) => rank(a) - rank(b) || (a.number ?? 0) - (b.number ?? 0),
-    );
-    return onlyWrong ? all.filter(q => stateOf(q) !== 'correct') : all;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model.questions, onlyWrong]);
-
-  const wrongCount = model.questions.filter(q => stateOf(q) !== 'correct').length;
+  /** Every question, in the order the paper printed them. */
+  const rows = useMemo(
+    () => [...model.questions].sort((a, b) => (a.number ?? 0) - (b.number ?? 0)),
+    [model.questions],
+  );
 
   return (
     <ReportCard>
       <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-          {onlyWrong ? 'What you missed' : 'Every question'}
+          All questions <span className="font-normal text-gray-400">({model.questions.length})</span>
         </p>
         <div className="flex items-center gap-3">
           {translation && (
             <LangSwitch value={lang} onChange={setLang} translation={translation} />
           )}
-          <button
-            type="button"
-            onClick={() => setOnlyWrong(v => !v)}
-            className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            {onlyWrong ? `Show all ${model.questions.length}` : `Show only the ${wrongCount} missed`}
-          </button>
         </div>
       </div>
 
@@ -328,9 +370,15 @@ function QuestionRecap({ model }: { model: AttemptReportModel }) {
                     </p>
 
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-                      {(q.topic ?? q.chapter) && (
+                      {/* The category, then the subtopic under it — e.g. அணியிலக்கணம் · உவமை அணி. */}
+                      {q.category && (
                         <span className="rounded bg-gray-50 px-1.5 py-0.5 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                          {q.topic ?? q.chapter}
+                          {q.category}
+                        </span>
+                      )}
+                      {(q.subtopic ?? q.subtopic_name) && (
+                        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                          {q.subtopic ?? q.subtopic_name}
                         </span>
                       )}
                       {q.difficulty && (

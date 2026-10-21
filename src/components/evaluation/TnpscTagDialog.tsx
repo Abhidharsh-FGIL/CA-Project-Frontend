@@ -15,7 +15,7 @@ import { TnpscTagFields } from './TnpscTagFields';
 import {
   EMPTY_TAG,
   readTnpscTag,
-  tagAssessment,
+  tagAssessmentKeepingTopic,
   describeTagError,
   validateTnpscTag,
   type TnpscTagValue,
@@ -44,8 +44,12 @@ export function TnpscTagDialog({ open, onOpenChange, assessment }: Props) {
   const save = async () => {
     setSaving(true);
     try {
-      await tagAssessment(assessment.id, tag);
-      toast.success('Tagged — this paper will now appear in the aspirant portal.');
+      const { topicInTitleOnly } = await tagAssessmentKeepingTopic(assessment.id, tag);
+      toast.success(
+        topicInTitleOnly
+          ? 'Placed under the unit. The server has no such topic yet, so the key topic is read from the title — keep its “Unit: Topic” part as it is.'
+          : 'Tagged — this paper will now appear in the aspirant portal.',
+      );
       qc.invalidateQueries({ queryKey: ['eval-assessments'] });
       onOpenChange(false);
     } catch (err: any) {

@@ -23,12 +23,13 @@ afterEach(() => vi.useRealTimers());
 
 describe('toCreatePayload', () => {
   it('builds the body the backend was shown working', () => {
-    // The Postman call: code, scope, discount, unlimited uses — nothing else.
+    // The Postman call: code, scope, discount, unlimited uses — and unlimited uses per user, stated.
     expect(toCreatePayload(draft())).toEqual({
       code_string: 'SAVE99',
       scope: 'subscription',
       discount_pct: 99,
       max_uses: -1,
+      max_uses_per_user: -1,
     });
   });
 

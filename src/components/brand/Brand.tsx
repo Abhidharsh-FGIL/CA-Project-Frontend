@@ -4,7 +4,7 @@
  * Every place that shows the brand takes it from here, so changing the logo is a change to the
  * files in `public/` (`logo-mark.png`, `logo-full.png`, `favicon.png`, `favicon.ico`) and to the
  * colours below. The pictures have a transparent background; the mark's blue cap disappears into
- * a dark surface, so on the navy bars it sits on a white tile (`LogoTile`).
+ * a dark surface, so on the coloured header bar it sits on a white tile (`LogoTile`).
  */
 import { cn } from '@/lib/utils';
 
@@ -32,7 +32,7 @@ export function LogoFull({ className, alt = 'MyGovExams' }: { className?: string
 }
 
 /**
- * The mark on a white rounded tile — for dark surfaces, where its navy cap would vanish.
+ * The mark on a white rounded tile — for dark or coloured surfaces, where its navy cap would vanish.
  * Size it with `className` (`h-9 w-9`); the mark fills the tile less its padding.
  */
 export function LogoTile({ className }: { className?: string }) {
@@ -45,7 +45,7 @@ export function LogoTile({ className }: { className?: string }) {
 
 /**
  * "MyGovExams" in the logo's colours — blue, orange, blue. `onDark` sets it all in white for the
- * navy bars; otherwise each part lightens a little in dark mode so the blue is never lost on a
+ * coloured header bar; otherwise each part lightens a little in dark mode so the blue is never lost on a
  * dark surface.
  */
 export function Wordmark({ onDark = false, className }: { onDark?: boolean; className?: string }) {

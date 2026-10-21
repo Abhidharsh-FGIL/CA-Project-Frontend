@@ -14,8 +14,7 @@
  * sentence when it does not — the sentence is read for its numbers and never shown.
  */
 import { TIER_ORDER, type SubscriptionPlanInfo, type SubscriptionTier } from '@/data/userPortalSampleData';
-import { PLAN_COPY } from '@/lib/plan-copy';
-import { perksFor } from '@/lib/plans';
+import { perksFor, planCounts } from '@/lib/plans';
 
 /**
  * `ATTEMPTS_USED` is not the plan's doing — a test allows so many attempts and they are spent. The
@@ -287,14 +286,11 @@ function offerPlan(ctx: PlanNoticeContext): SubscriptionPlanInfo | null {
 }
 
 /** How many mock and practice tests a plan includes in a billing cycle — null where the plan data does not say. */
+/** The counts the backend gives for the plan in this cycle — never the copy's, so a change on the server shows here. */
 function counts(plan: SubscriptionPlanInfo | null, cycle: Billing): { mock: number | null; practice: number | null } {
   if (!plan) return { mock: null, practice: null };
-  const copy = PLAN_COPY[plan.tier]?.[cycle];
-  if (copy) return { mock: copy.mock, practice: copy.practice };
-  const n = (v: unknown) => (typeof v === 'number' ? v : null);
-  return cycle === 'monthly'
-    ? { mock: n(plan.features.mock_tests_per_month), practice: n(plan.features.practice_tests_per_month) }
-    : { mock: null, practice: null };
+  const c = planCounts(plan, cycle);
+  return { mock: c.mock, practice: c.practice };
 }
 
 function option(

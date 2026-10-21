@@ -5,12 +5,10 @@ import {
   BarChart3,
   BookOpen,
   Calendar,
+  AlertCircle,
   CheckCircle2,
-  Eye,
-  EyeOff,
   FileText,
   Languages,
-  Lock,
   Mail,
   Phone,
   Target,
@@ -20,6 +18,7 @@ import {
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { TNPSC_GROUPS } from '@/config/tnpsc';
 import { splitExams } from '@/lib/exam-listing';
+import { EXAM_LANGUAGE_OPTIONS } from '@/lib/exam-language';
 import { toast } from 'sonner';
 import { ROUTES } from '@/pages/landing/LandingShell';
 import { ArtImage, AuthField, AuthLayout, AuthModal, AuthSelect } from './auth/AuthShell';
@@ -28,8 +27,6 @@ interface FormErrors {
   name?: string;
   email?: string;
   phone?: string;
-  password?: string;
-  confirmPassword?: string;
   date_of_birth?: string;
   gender?: string;
   student_class?: string;
@@ -53,7 +50,12 @@ const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
  * yet is not offered: signing up for it would land on screens that say it is coming soon.
  */
 const EXAM_OPTIONS = splitExams(TNPSC_GROUPS).open.map(g => ({ value: g.id, label: g.name }));
-const MEDIUM_OPTIONS = ['English', 'Tamil', 'Hindi', 'Telugu', 'Kannada', 'Malayalam', 'Marathi', 'Bengali', 'Gujarati', 'Other'];
+/**
+ * Which language paper they sit — General Tamil or General English. Group 4 has both and a candidate
+ * takes one, so this is what lets every screen after sign-up show only theirs. Stored in `medium`
+ * (see `exam-language.ts`), as "Tamil" or "English".
+ */
+const LANGUAGE_OPTIONS = EXAM_LANGUAGE_OPTIONS.map(o => ({ value: o.value, label: o.label }));
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -72,8 +74,6 @@ export default function RegisterPage() {
     name: '',
     email: '',
     phone: '',
-    password: '',
-    confirmPassword: '',
     date_of_birth: '',
     gender: '',
     student_class: '',
@@ -87,10 +87,11 @@ export default function RegisterPage() {
     preferred_exam: EXAM_OPTIONS.length === 1 ? EXAM_OPTIONS[0].value : '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [showPwd, setShowPwd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [otpModalOpen, setOtpModalOpen] = useState(false);
+  /** A sign-up the server turned down — shown in a popup, so it cannot be missed at the bottom of a long form. */
+  const [registerError, setRegisterError] = useState<string | null>(null);
   const [otp, setOtp] = useState('');
   const [otpSentTo, setOtpSentTo] = useState('');
   const [otpExpiresIn, setOtpExpiresIn] = useState(300);
@@ -112,16 +113,12 @@ export default function RegisterPage() {
     else if (!/^[A-Za-z ]+$/.test(form.name.trim())) e.name = 'Only alphabets and spaces allowed';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Enter a valid email';
     if (!/^\d{10}$/.test(form.phone)) e.phone = 'Enter a valid 10-digit mobile number';
-    if (!/^.{8,}$/.test(form.password)) e.password = 'Minimum 8 characters';
-    else if (!/[A-Z]/.test(form.password) || !/\d/.test(form.password) || !/[^A-Za-z0-9]/.test(form.password))
-      e.password = 'Must include 1 uppercase, 1 number, 1 special character';
-    if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match';
 
     // Aspirant details relevant to competitive exams.
     if (!form.date_of_birth) e.date_of_birth = 'Date of birth is required';
     else if (new Date(form.date_of_birth) > new Date()) e.date_of_birth = 'Date of birth cannot be in the future';
     if (!form.gender) e.gender = 'Select a gender';
-    if (!form.medium) e.medium = 'Select a medium';
+    if (!form.medium) e.medium = 'Choose General Tamil or General English';
     if (!form.preferred_exam) e.preferred_exam = 'Select the exam you are preparing for';
     // Class / Section / Roll No. / School / Teacher / Academic Year are not collected for competitive exams.
 
@@ -131,7 +128,16 @@ export default function RegisterPage() {
 
   const handleSubmit = async (ev: React.FormEvent) => {
     ev.preventDefault();
-    if (!validate()) return;
+    if (!validate()) {
+      // The form is long; take them to the first thing that needs fixing rather than leaving the
+      // error somewhere off screen above the button they just pressed.
+      requestAnimationFrame(() =>
+        document
+          .querySelector<HTMLElement>('.mge-input-error input, .mge-input-error select')
+          ?.focus({ preventScroll: false }),
+      );
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await register(form);
@@ -142,7 +148,7 @@ export default function RegisterPage() {
         setResendCooldown(60);
         toast.success(`OTP sent to ${res.otpSentTo || form.email}. Check your inbox.`);
       } else {
-        toast.error(res.error || 'Registration failed');
+        setRegisterError(res.error || 'Registration failed. Please try again.');
       }
     } finally {
       setSubmitting(false);
@@ -237,35 +243,6 @@ export default function RegisterPage() {
             autoComplete="tel-national"
           />
           <AuthField
-            icon={Lock}
-            type={showPwd ? 'text' : 'password'}
-            value={form.password}
-            onChange={v => setForm(f => ({ ...f, password: v }))}
-            error={errors.password}
-            hint="Min 8 chars, 1 uppercase, 1 number, 1 special character"
-            placeholder="Password"
-            autoComplete="new-password"
-            trailing={
-              <button
-                type="button"
-                className="mge-eye"
-                aria-label={showPwd ? 'Hide password' : 'Show password'}
-                onClick={() => setShowPwd(p => !p)}
-              >
-                {showPwd ? <EyeOff /> : <Eye />}
-              </button>
-            }
-          />
-          <AuthField
-            icon={Lock}
-            type={showPwd ? 'text' : 'password'}
-            value={form.confirmPassword}
-            onChange={v => setForm(f => ({ ...f, confirmPassword: v }))}
-            error={errors.confirmPassword}
-            placeholder="Confirm Password"
-            autoComplete="new-password"
-          />
-          <AuthField
             icon={Calendar}
             type="date"
             label="Date of Birth"
@@ -285,12 +262,12 @@ export default function RegisterPage() {
           />
           <AuthSelect
             icon={Languages}
-            label="Medium"
-            placeholder="Select medium"
+            label="Language paper"
+            placeholder="General Tamil or General English"
             value={form.medium}
             onChange={v => setForm(f => ({ ...f, medium: v }))}
             error={errors.medium}
-            options={MEDIUM_OPTIONS}
+            options={LANGUAGE_OPTIONS}
           />
           <AuthSelect
             icon={Target}
@@ -331,6 +308,19 @@ export default function RegisterPage() {
           <Link to={ROUTES.login}>Login</Link>
         </p>
       </div>
+
+      {registerError && (
+        <AuthModal>
+          <div className="mge-modal-icon mge-tile-orange">
+            <AlertCircle size={30} />
+          </div>
+          <h2>Couldn't create your account</h2>
+          <p>{registerError}</p>
+          <button type="button" className="mge-btn mge-btn-primary mge-auth-submit" onClick={() => setRegisterError(null)} autoFocus>
+            OK
+          </button>
+        </AuthModal>
+      )}
 
       {otpModalOpen && (
         <AuthModal>

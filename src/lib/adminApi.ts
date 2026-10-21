@@ -328,6 +328,8 @@ export interface PromoCodeOut {
   promo_status: PromoStatus;
   applies_to_tiers: string[] | null;
   applies_to_billing: string[] | null;
+  /** How many times one user may redeem the code. -1 = unlimited. Null from a server that predates it. */
+  max_uses_per_user?: number | null;
 }
 
 export interface PromoCreatePayload {
@@ -339,6 +341,7 @@ export interface PromoCreatePayload {
   discount_pct?: number;
   applies_to_tiers?: string[];
   applies_to_billing?: string[];
+  max_uses_per_user?: number;
 }
 
 export interface PromoUpdatePayload {
@@ -349,6 +352,7 @@ export interface PromoUpdatePayload {
   discount_pct?: number;
   applies_to_tiers?: string[] | null;
   applies_to_billing?: string[] | null;
+  max_uses_per_user?: number;
 }
 
 export const promosApi = {

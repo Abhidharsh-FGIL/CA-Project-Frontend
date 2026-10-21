@@ -14,6 +14,7 @@ import {
   SUBSCRIPTION_PLANS,
   TIER_ORDER,
   type PlanFeatures,
+  type PlanCard,
   type PlanLimits,
   type SubscriptionPlanInfo,
   type SubscriptionTier,
@@ -36,6 +37,44 @@ export interface ApiSubscriptionPlan {
   /** The plan's points when billed monthly / yearly. Null where the plan reads the same either way. */
   perks_monthly?: string[] | null;
   perks_yearly?: string[] | null;
+  /** The card's words per billing cycle — see `PlanCard`. */
+  cards?: { monthly?: unknown; yearly?: unknown } | null;
+}
+
+const text = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+
+/** One card's words from the backend, or undefined when it sends nothing usable. */
+export function cardFrom(raw: unknown): PlanCard | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  const included = Array.isArray(r.included)
+    ? r.included.flatMap(item => {
+        const i = (item ?? {}) as Record<string, unknown>;
+        const title = text(i.title);
+        return title ? [{ title, detail: text(i.detail) ?? '' }] : [];
+      })
+    : [];
+  const excluded = Array.isArray(r.excluded) ? r.excluded.map(text).filter((x): x is string => !!x) : [];
+  const headline = text(r.headline) ?? '';
+  const description = text(r.description) ?? '';
+  if (!headline && !description && included.length === 0) return undefined;
+  return {
+    headline,
+    description,
+    included,
+    excluded,
+    best_for: text(r.best_for) ?? '',
+    cta: text(r.cta) ?? '',
+    badge: text(r.badge),
+  };
+}
+
+export function cardsFrom(raw: unknown): SubscriptionPlanInfo['cards'] {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  const monthly = cardFrom(r.monthly);
+  const yearly = cardFrom(r.yearly);
+  return monthly || yearly ? { monthly, yearly } : undefined;
 }
 
 const isTier = (v: string): v is SubscriptionTier => (TIER_ORDER as string[]).includes(v);
@@ -104,6 +143,7 @@ export function planFromApi(p: ApiSubscriptionPlan): SubscriptionPlanInfo | null
     perks: Array.isArray(p.perks) && p.perks.length > 0 ? p.perks : base.perks,
     perks_monthly: pointList(p.perks_monthly),
     perks_yearly: pointList(p.perks_yearly),
+    cards: cardsFrom(p.cards),
     limits_monthly: limitsOf(f.monthly),
     limits_yearly: limitsOf(f.yearly),
     duration_days_monthly: days(p.duration_days_monthly),
@@ -233,4 +273,50 @@ export function planDetails(plan: SubscriptionPlanInfo, billing: 'monthly' | 'ye
   rows.push({ label: 'PDF download', value: plan.features.download_pdf ? 'Included' : 'Not included' });
   rows.push({ label: 'Support', value: sentence(plan.features.support) });
   return rows;
+}
+
+/**
+ * How many mock and practice tests a plan includes in a billing cycle, as the backend sends them: the
+ * cycle's own counts when it has them, else the plan's. Null where the data says nothing — never a
+ * number from the copy, so a change on the server shows everywhere it is read.
+ */
+export function planCounts(
+  plan: SubscriptionPlanInfo,
+  billing: 'monthly' | 'yearly',
+): { mock: number | null; practice: number | null; mockText: string; practiceText: string } {
+  const limits = billing === 'yearly' ? plan.limits_yearly : plan.limits_monthly;
+  const mock = limits?.mock ?? plan.features.mock_tests_per_month;
+  const practice = limits?.practice ?? plan.features.practice_tests_per_month;
+  return {
+    mock: typeof mock === 'number' ? mock : null,
+    practice: typeof practice === 'number' ? practice : null,
+    mockText: countText(mock),
+    practiceText: countText(practice),
+  };
+}
+
+/**
+ * How long a plan lasts in a billing cycle, in the backend's own words: its "Validity: …" point when it
+ * has one ("1 month", "unlimited"), else the length of the cycle in days. Null when the data says neither.
+ */
+export function validityOf(plan: SubscriptionPlanInfo, billing: 'monthly' | 'yearly'): string | null {
+  const point = perksFor(plan, billing).find(p => /^validity\b/i.test(p));
+  if (point) return point.replace(/^validity:?\s*/i, '').trim() || null;
+  const days = billing === 'yearly' ? plan.duration_days_yearly : plan.duration_days_monthly;
+  return plan.price_monthly > 0 && days ? durationText(days) : null;
+}
+
+/** The line under a plan's name: "Lifetime access", or "Valid for 1 month" — from the plan's own validity. */
+export function validityLabel(plan: SubscriptionPlanInfo, billing: 'monthly' | 'yearly'): string | null {
+  const v = validityOf(plan, billing);
+  if (!v) return null;
+  return /^unlimited$/i.test(v) ? 'Lifetime validity' : `Valid for ${v}`;
+}
+
+/** Price per month of a cycle, rounded — "₹167" for the yearly plan. Null for a free plan or a cycle with no length. */
+export function costPerMonth(plan: SubscriptionPlanInfo, billing: 'monthly' | 'yearly'): number | null {
+  const price = billing === 'yearly' ? plan.price_yearly : plan.price_monthly;
+  const days = billing === 'yearly' ? plan.duration_days_yearly : plan.duration_days_monthly;
+  if (!(price > 0) || !days) return null;
+  return Math.round(price / Math.max(1, Math.round(days / 30)));
 }

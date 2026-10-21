@@ -11,6 +11,7 @@
  * them is an error. Dependencies are passed in so every branch can be tested
  * without a browser or a network.
  */
+import { SUPPORT_CONTACT } from '@/config/support';
 import {
   CheckoutDismissed,
   PaymentFailed,
@@ -179,7 +180,7 @@ export async function purchasePlan(req: PurchaseRequest, deps: PurchaseDeps): Pr
       order,
       message:
         'Your payment went through, but we could not confirm your plan yet. Please do not pay again — ' +
-        'it will activate shortly, and if it does not, contact support with your payment ID. ' +
+        'it will activate shortly, and if it does not, contact support (' + SUPPORT_CONTACT + ') with your payment ID. ' +
         message(verifyError, ''),
     };
   }

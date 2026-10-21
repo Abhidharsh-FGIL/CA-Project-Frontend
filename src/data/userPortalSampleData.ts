@@ -162,6 +162,21 @@ export interface PlanFeatures {
   download_pdf: boolean;
 }
 
+/**
+ * The words on a plan's card for one billing cycle, as the backend writes them. Every figure in them is
+ * already filled in by the server.
+ */
+export interface PlanCard {
+  headline: string;
+  description: string;
+  included: Array<{ title: string; detail: string }>;
+  excluded: string[];
+  best_for: string;
+  /** The button text on the card. */
+  cta: string;
+  badge: string | null;
+}
+
 export interface SubscriptionPlanInfo {
   /**
    * The backend's id for this plan — what an order is created against.
@@ -197,6 +212,8 @@ export interface SubscriptionPlanInfo {
   perks_monthly?: string[];
   /** What the plan includes when billed yearly — present when the backend has a list for that cycle. */
   perks_yearly?: string[];
+  /** The card's words for each billing cycle. Absent, the card falls back to the bundled wording. */
+  cards?: { monthly?: PlanCard; yearly?: PlanCard };
   /** The test allowance when billed monthly / yearly, where the backend gives the two separately (`features.monthly` / `features.yearly`). */
   limits_monthly?: PlanLimits;
   limits_yearly?: PlanLimits;
@@ -297,17 +314,24 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlanInfo[] = [
     name: 'Ultimate',
     tagline: 'For the final stretch before the exam',
     price_monthly: 499,
-    price_yearly: 4999,
+    price_yearly: 1999,
     highlight: true,
+    duration_days_monthly: 30,
+    duration_days_yearly: 365,
+    // The counts the backend sends for each billing cycle, mirrored here for the offline fallback only.
+    limits_monthly: { mock: 5, practice: 25 },
+    limits_yearly: { mock: 30, practice: 60 },
     features: {
-      practice_tests_per_month: 'unlimited',
-      mock_tests_per_month: 'unlimited',
+      practice_tests_per_month: 25,
+      mock_tests_per_month: 5,
       ai_report_level: 'detailed',
       history_retention_days: 365,
       support: 'priority email',
       download_pdf: false,
     },
-    perks: ['Unlimited practice tests', 'Unlimited mock tests', 'Detailed AI reports', '1-year history'],
+    perks: ['Monthly ₹499 — 5 mock tests, 25 practice tests, valid 1 month', 'Yearly ₹1999 — 30 mock tests, 60 practice tests, valid 12 months', 'Full reports with AI insights'],
+    perks_monthly: ['5 mock tests', '25 practice tests', 'Full reports with AI insights', 'Validity: 1 month'],
+    perks_yearly: ['30 mock tests', '60 practice tests', 'Full reports with AI insights', 'Validity: 12 months'],
   },
   {
     tier: 'premium',

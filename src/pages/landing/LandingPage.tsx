@@ -43,8 +43,10 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { publicApi } from '@/lib/api';
-import { offeredPlans, perksFor, plansFromApi, yearlySavings } from '@/lib/plans';
-import { PLAN_COPY } from '@/lib/plan-copy';
+import { costPerMonth, offeredPlans, perksFor, plansFromApi, yearlySavings } from '@/lib/plans';
+import { cardFor, cycleShown } from '@/lib/plan-copy';
+import { GST_LABEL } from '@/lib/gst';
+import { topUpPacksFrom, type TopUpPack } from '@/lib/topup-api';
 import { AnnounceIcon, ChooseTestIcon, PlanIcon, PracticeIcon, ReportIcon, type LandingIcon } from './LandingIcons';
 import { ButtonLink, LandingFooter, LandingHeader, ROUTES, SectionLink, scrollToSection } from './LandingShell';
 import './landing.css';
@@ -118,7 +120,16 @@ function Hero() {
             End-to-end AI-powered exam preparation
           </div>
           <h1>
-            Your Government Exam <span>Preparation</span> Starts Here
+            Your Government Exam <span>Preparation</span> Starts Here{' '}
+            {/* Which exam is open today — a sticker that floats beside the last line. (No <span>s
+                inside it: the heading's own `span` rule would colour them orange.) */}
+            <span className="mge-live-chip">
+              <b>TNPSC Group 4</b>
+              <em>
+                <i aria-hidden="true" />
+                Live
+              </em>
+            </span>
           </h1>
           <p className="mge-lead">
             From <span className="mge-nowrap">AI-generated</span> questions to easy-to-understand explanations,
@@ -426,12 +437,69 @@ const rupees = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
 type Billing = 'monthly' | 'yearly';
 
+/**
+ * The top-up packs, read from the packs endpoint. A visitor has no session, so when the server will not
+ * answer them the section is simply left out rather than showing prices it did not give.
+ */
+function TopUps() {
+  const { data } = useQuery({
+    queryKey: ['landing', 'topup-packs'],
+    queryFn: async () => topUpPacksFrom(await publicApi.get<unknown>('/api/v1/user/topup/packs')),
+    staleTime: 10 * 60 * 1000,
+    retry: false,
+  });
+  if (!data || data.packs.length === 0) return null;
+  const contents = (p: TopUpPack) =>
+    p.mock > 0 && p.practice > 0
+      ? `${p.mock} Mock + ${p.practice} Practice Tests`
+      : p.mock > 0
+        ? `${p.mock} Mock Test${p.mock === 1 ? '' : 's'}`
+        : `${p.practice} Practice Test${p.practice === 1 ? '' : 's'}`;
+  const columns = [
+    { title: 'Combo packs', packs: data.packs.filter(p => p.mock > 0 && p.practice > 0) },
+    { title: 'Mock test packs', packs: data.packs.filter(p => p.mock > 0 && p.practice === 0) },
+    { title: 'Practice test packs', packs: data.packs.filter(p => p.practice > 0 && p.mock === 0) },
+  ].filter(c => c.packs.length > 0);
+  return (
+    <div className="mge-topups">
+      <h3>Need more tests?</h3>
+      <p>Add a top-up to your Monthly or Yearly plan. Unused top-up tests are saved and carry forward when you renew.</p>
+      <div className="mge-topup-cols">
+        {columns.map(col => (
+          <div key={col.title}>
+            <h4>{col.title}</h4>
+            {col.packs.map(pack => (
+              <div className="mge-topup-card" key={pack.pack_id}>
+                <div>
+                  <strong>{pack.name}</strong>
+                  <span>{contents(pack)}</span>
+                </div>
+                <div className="mge-topup-price">
+                  {rupees(pack.price)}
+                  <small>{GST_LABEL}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Pricing() {
   const { plans, loading, failed, retry } = useLandingPlans();
-  const [billing, setBilling] = useState<Billing>('monthly');
   const savings = yearlySavings(plans);
-  // No toggle unless a paid plan actually has a yearly price to show.
-  const hasYearly = plans.some(p => p.price_monthly > 0 && p.price_yearly > 0);
+  // The same cards the Subscription page shows: Free, then each paid plan monthly and yearly — nothing to toggle.
+  const cards: Array<{ plan: (typeof plans)[number]; billing: Billing }> = [
+    ...plans.filter(p => p.price_monthly === 0).map(plan => ({ plan, billing: 'monthly' as Billing })),
+    ...plans
+      .filter(p => p.price_monthly > 0)
+      .flatMap(plan => [
+        { plan, billing: 'monthly' as Billing },
+        ...(plan.price_yearly > 0 ? [{ plan, billing: 'yearly' as Billing }] : []),
+      ]),
+  ];
   return (
     <section className="mge-pricing-section" id="pricing">
       <div className="mge-container">
@@ -439,24 +507,6 @@ function Pricing() {
           <h2>Simple Plans for Serious Preparation</h2>
           <p>Choose a plan that fits your goals.</p>
         </div>
-        {hasYearly && (
-          <div className="mge-billing">
-            <div className="mge-billing-toggle" role="group" aria-label="Billing period">
-              <button type="button" aria-pressed={billing === 'monthly'} onClick={() => setBilling('monthly')}>
-                Monthly
-              </button>
-              <button type="button" aria-pressed={billing === 'yearly'} onClick={() => setBilling('yearly')}>
-                Yearly
-                {savings && (
-                  <span className="mge-billing-save">
-                    SAVE {savings.min === savings.max ? '' : 'UP TO '}
-                    {savings.max}%
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
         {loading && (
           <div className="mge-pricing-grid" aria-busy="true" aria-label="Loading plans">
             {[0, 1, 2].map(i => (
@@ -472,43 +522,53 @@ function Pricing() {
             </button>
           </div>
         )}
-        <div className={plans.length >= 4 ? 'mge-pricing-grid mge-pricing-grid-4' : 'mge-pricing-grid'}>
-          {plans.map(p => {
+        <div className={cards.length >= 4 ? 'mge-pricing-grid mge-pricing-grid-4' : 'mge-pricing-grid'}>
+          {cards.map(({ plan: p, billing }) => {
             const free = p.price_monthly === 0;
-            const popular = !!p.highlight;
+            // The yearly card of a plan whose year costs less than twelve months is the one to take.
+            const popular = billing === 'yearly' && p.price_yearly < p.price_monthly * 12;
             const Icon = popular ? Crown : free ? Gift : Gem;
-            // A paid plan with no yearly price keeps showing its monthly one rather than ₹0.
-            const cycle: Billing = billing === 'yearly' && (free || p.price_yearly > 0) ? 'yearly' : 'monthly';
-            // The pitch for this plan and cycle, when there is one; otherwise the plan's own tagline and perks.
-            const copy = PLAN_COPY[p.tier]?.[cycle];
-            const badge = copy?.badge ?? (popular ? 'Most Popular' : null);
+            const cycle: Billing = cycleShown(p, billing);
+            const copy = cardFor(p, billing);
+            const monthlyCost = costPerMonth(p, cycle);
+            const saving = p.price_monthly * 12 - p.price_yearly;
+            const months = p.duration_days_yearly ? Math.round(p.duration_days_yearly / 30) : null;
+            const priceOfMonths = p.price_monthly > 0 ? Math.round(p.price_yearly / p.price_monthly) : null;
+            const badge =
+              popular && months && priceOfMonths ? `Best value · ${months} months for price of ${priceOfMonths}` : copy?.badge ?? null;
             return (
-              <article key={p.tier} className={`mge-price-card ${popular ? 'mge-popular' : ''}`}>
-                {badge && <div className={copy?.badge ? 'mge-popular-label mge-popular-label-wide' : 'mge-popular-label'}>{badge}</div>}
+              <article key={`${p.tier}-${billing}`} className={`mge-price-card ${popular ? 'mge-popular' : ''}`}>
+                {badge && <div className="mge-popular-label mge-popular-label-wide">{badge}</div>}
                 <div className="mge-plan-heading">
                   <div className={`mge-plan-symbol ${popular ? 'mge-sym-gold' : free ? 'mge-sym-green' : 'mge-sym-violet'}`}>
                     <Icon size={30} />
                   </div>
                   <div>
-                    <h3>{p.name}</h3>
-                    <p>{copy ? copy.validity : p.tagline}</p>
+                    <h3>{free ? p.name : `${p.name} ${billing === 'yearly' ? 'Yearly' : 'Monthly'}`}</h3>
+                    {!copy && <p>{p.tagline}</p>}
                   </div>
                 </div>
                 <div className="mge-price">
                   {rupees(cycle === 'yearly' ? p.price_yearly : p.price_monthly)}
                   {/* A free plan's price has no period: its validity line says how long it lasts. */}
                   {!(free && copy) && <span> / {cycle === 'yearly' ? 'year' : 'month'}</span>}
+                  {!free && <span className="mge-price-gst"> {GST_LABEL}</span>}
                 </div>
+                {popular && monthlyCost !== null && saving > 0 && (
+                  <p className="mge-price-save">
+                    Just {rupees(monthlyCost)} a month · save {rupees(saving)} vs monthly
+                  </p>
+                )}
                 {copy && (
                   <>
                     <p className="mge-plan-headline">{copy.headline}</p>
-                    <p className="mge-plan-blurb">{copy.blurb}</p>
+                    <p className="mge-plan-blurb">{copy.description}</p>
                     <p className="mge-included-title">What’s included</p>
                   </>
                 )}
                 <ul>
                   {copy
-                    ? copy.included.map(([title, detail]) => (
+                    ? copy.included.map(({ title, detail }) => (
                         <li key={title}>
                           <CheckCircle2 size={17} />
                           <span>
@@ -523,9 +583,9 @@ function Pricing() {
                         </li>
                       ))}
                 </ul>
-                {copy && (
+                {copy && !free && (
                   <p className="mge-best-for">
-                    <strong>Best for:</strong> {copy.bestFor}
+                    <strong>Best for:</strong> {copy.best_for}
                   </p>
                 )}
                 <ButtonLink
@@ -533,14 +593,17 @@ function Pricing() {
                   secondary={!popular}
                   className="mge-price-btn"
                 >
-                  {copy?.cta ?? (free ? 'Start Free Trial' : `Choose ${p.name}`)}
+                  {copy?.cta || (free ? 'Start Free Trial' : `Choose ${billing === 'yearly' ? 'Yearly' : 'Monthly'}`)}
                 </ButtonLink>
               </article>
             );
           })}
         </div>
+        <TopUps />
         {plans.length > 0 && (
-          <p className="mge-pricing-note">{pricingNote(billing, savings)}</p>
+          <p className="mge-pricing-note">
+            {savings ? `Yearly plans are paid once for the full year — ${savings.min === savings.max ? 'about' : 'up to'} ${savings.max}% less than monthly.` : 'Yearly plans are paid once for the full year.'}
+          </p>
         )}
       </div>
     </section>

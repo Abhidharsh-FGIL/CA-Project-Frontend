@@ -4,12 +4,13 @@ import {
   CalendarCheck,
   ClipboardList,
   Home,
+  Info,
   LineChart,
   LogOut,
   Menu,
   Moon,
   Receipt,
-  Settings,
+  Headset,
   Sparkles,
   Sun,
   User,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 import { LogoMark, LogoTile, Wordmark } from '@/components/brand/Brand';
 import { SHOW_STUDY_PLAN } from '@/config/features';
+import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_LINK } from '@/config/support';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
@@ -42,7 +44,7 @@ const NAV: NavItem[] = [
     : []),
   { to: '/user/history', label: 'History', icon: Receipt },
   // Plans and billing. It is also in the profile menu; this puts it on the bar itself, one click away.
-  { to: '/user/subscription', label: 'Subscription', short: 'Plans', icon: Sparkles },
+  { to: '/user/subscription', label: 'Plans', short: 'Plans', icon: Sparkles },
   // Progress is hidden. /user/progress still resolves and the page is untouched;
   // it is only off the bar.
   //
@@ -73,8 +75,19 @@ const MOBILE_NAV = NAV.filter(n =>
   ].includes(n.to),
 ).slice(0, 5);
 
-/** The chrome navy from the approved design. One definition, used everywhere. */
-export const REPORT_NAVY = '#122447';
+/**
+ * The orange surface of the header bar and the summary panels on the dashboard and performance
+ * pages: the primary orange, darkened a shade from the buttons' (#ff6c24) so white text on it stays
+ * readable, and darker again in dark mode so it does not glare. One definition, used everywhere.
+ */
+export const ORANGE_SURFACE = 'bg-[#dd4914] dark:bg-[#c93f0f]';
+
+/**
+ * The summary panels on the dashboard and performance pages: white cards with a deep, soft shadow and an
+ * orange rule across the top, so they stand off the page without shouting.
+ */
+export const PANEL_SURFACE =
+  'bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 border-t-4 border-t-brand-500 shadow-[0_10px_30px_-12px_rgba(15,23,42,0.25)] dark:shadow-black/40';
 
 const PLAN_LABEL: Record<string, string> = {
   free: 'Free Plan',
@@ -138,15 +151,15 @@ export function UserShell({ children }: UserShellProps) {
     </Link>
   );
 
-  /** The same lockup as `brand`, inverted for the navy bar. */
-  const brandOnNavy = (
+  /** The same lockup as `brand`, inverted for the orange header. */
+  const brandOnHeader = (
     <Link to="/user/dashboard" className="flex items-center gap-2.5 group">
       <LogoTile className="h-9 w-9 transition-transform group-hover:scale-105" />
       <div className="min-w-0 hidden sm:block">
         <p className="text-sm leading-tight whitespace-nowrap">
           <Wordmark onDark />
         </p>
-        <p className="text-[9px] font-semibold text-white/60 uppercase tracking-[0.14em] whitespace-nowrap">
+        <p className="text-[9px] font-semibold text-white/85 uppercase tracking-[0.14em] whitespace-nowrap">
           Practice · Prepare · Succeed
         </p>
       </div>
@@ -195,7 +208,7 @@ export function UserShell({ children }: UserShellProps) {
   );
 
   /**
-   * Horizontal navigation for the navy bar.
+   * Horizontal navigation for the header bar.
    *
    * The approved design puts navigation in the header rather than a left rail, so
    * the report gets the full page width — which the wide subject and question
@@ -211,7 +224,7 @@ export function UserShell({ children }: UserShellProps) {
             to={to}
             className={cn(
               'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors whitespace-nowrap',
-              active ? 'bg-white/15 text-white' : 'text-white/70 hover:text-white hover:bg-white/10',
+              active ? 'bg-white/20 text-white' : 'text-white/90 hover:text-white hover:bg-white/15',
             )}
           >
             <Icon className="w-4 h-4 flex-shrink-0" />
@@ -243,22 +256,17 @@ export function UserShell({ children }: UserShellProps) {
 
       {/* ── Main column ───────────────────────────────────────────────────── */}
       <div className="flex-1 min-w-0 flex flex-col h-full">
-        {/* Navy chrome from the approved design. One token, REPORT_NAVY, so the
-            bar, the drawer head and any print header stay the same colour. */}
-        <header
-          className="z-30 h-16 flex-shrink-0 border-b border-white/10"
-          style={{ background: REPORT_NAVY }}
-        >
+        <header className={cn('z-30 h-16 flex-shrink-0 border-b border-black/10', ORANGE_SURFACE)}>
           <div className="h-full px-3 sm:px-5 flex items-center gap-3">
             <button
               onClick={() => setDrawerOpen(true)}
-              className="lg:hidden p-2 -ml-1 rounded-lg text-white/80 hover:bg-white/10"
+              className="lg:hidden p-2 -ml-1 rounded-lg text-white/90 hover:bg-white/15"
               aria-label="Open menu"
             >
               <Menu className="w-5 h-5" />
             </button>
 
-            <div className="flex-shrink-0 min-w-0">{brandOnNavy}</div>
+            <div className="flex-shrink-0 min-w-0">{brandOnHeader}</div>
 
             <div className="ml-4 hidden lg:block">{topNav}</div>
 
@@ -266,7 +274,7 @@ export function UserShell({ children }: UserShellProps) {
               {isFree && (
                 <Link
                   to="/user/subscription"
-                  className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-white text-blue-700 text-xs font-semibold px-3.5 py-2 hover:bg-white/90 transition-all"
+                  className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-white text-brand-700 text-xs font-semibold px-3.5 py-2 hover:bg-white/90 transition-all"
                 >
                   <Sparkles className="w-3.5 h-3.5" /> Upgrade
                 </Link>
@@ -274,7 +282,7 @@ export function UserShell({ children }: UserShellProps) {
 
               <button
                 onClick={toggleMode}
-                className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                className="p-2 rounded-lg text-white/90 hover:text-white hover:bg-white/15 transition-colors"
                 aria-label="Toggle theme"
                 title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
               >
@@ -285,14 +293,14 @@ export function UserShell({ children }: UserShellProps) {
               <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setMenuOpen(o => !o)}
-                  className="flex items-center gap-2 pl-1 pr-1 sm:pr-2 py-1 rounded-xl hover:bg-white/10 transition-colors"
+                  className="flex items-center gap-2 pl-1 pr-1 sm:pr-2 py-1 rounded-xl hover:bg-white/15 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-bold">
+                  <div className="w-8 h-8 rounded-full bg-white/25 flex items-center justify-center text-white text-sm font-bold">
                     {user.name[0].toUpperCase()}
                   </div>
                   <div className="hidden sm:block text-left leading-tight">
                     <p className="text-xs font-semibold text-white max-w-[110px] truncate">{user.name}</p>
-                    {SHOW_PLAN_UI && <p className="text-[10px] text-white/60">{planLabel}</p>}
+                    {SHOW_PLAN_UI && <p className="text-[10px] text-white/85">{planLabel}</p>}
                   </div>
                 </button>
                 {menuOpen && (
@@ -303,9 +311,9 @@ export function UserShell({ children }: UserShellProps) {
                     </div>
                     {[
                       { to: '/user/profile', label: 'Profile', icon: User },
-                      { to: '/user/profile?tab=settings', label: 'Settings', icon: Settings },
-                      { to: '/user/subscription', label: 'Subscription', icon: Sparkles },
+                      { to: '/user/subscription', label: 'Plans', icon: Sparkles },
                       { to: '/user/billing', label: 'Payment History', icon: Receipt },
+                      { to: '/user/about', label: 'About Us', icon: Info },
                     ].map(({ to, label, icon: Icon }) => (
                       <Link
                         key={label}
@@ -316,6 +324,24 @@ export function UserShell({ children }: UserShellProps) {
                         <Icon className="w-4 h-4 text-gray-400" /> {label}
                       </Link>
                     ))}
+                    {/* Support: where to reach a person, in the menu where Settings used to be. */}
+                    <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-2.5">
+                      <p className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <Headset className="w-4 h-4 text-gray-400" /> Contact Support
+                      </p>
+                      <a
+                        href={`mailto:${SUPPORT_EMAIL}`}
+                        className="mt-1 block pl-6 text-xs text-blue-600 dark:text-blue-400 hover:underline break-all"
+                      >
+                        {SUPPORT_EMAIL}
+                      </a>
+                      <a
+                        href={`tel:${SUPPORT_PHONE_LINK}`}
+                        className="mt-0.5 block pl-6 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        {SUPPORT_PHONE}
+                      </a>
+                    </div>
                     <button
                       onClick={() => {
                         logout();
@@ -343,7 +369,9 @@ export function UserShell({ children }: UserShellProps) {
           <span className="flex items-center divide-x divide-gray-200 dark:divide-gray-800">
             <Link to="/terms" target="_blank" rel="noopener noreferrer" className="px-3 hover:text-gray-600 dark:hover:text-gray-400">Terms &amp; Conditions</Link>
             <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="px-3 hover:text-gray-600 dark:hover:text-gray-400">Privacy Policy</Link>
-            <a href="mailto:admin@futuregeninnovation.com" className="pl-3 hover:text-gray-600 dark:hover:text-gray-400">Support</a>
+            <Link to="/refund" target="_blank" rel="noopener noreferrer" className="px-3 hover:text-gray-600 dark:hover:text-gray-400">Refund Policy</Link>
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="px-3 hover:text-gray-600 dark:hover:text-gray-400">{SUPPORT_EMAIL}</a>
+            <a href={`tel:${SUPPORT_PHONE_LINK}`} className="pl-3 hover:text-gray-600 dark:hover:text-gray-400">{SUPPORT_PHONE}</a>
             </span>
           </footer>
         </div>

@@ -7,9 +7,9 @@
  */
 import { useEffect, type ReactNode } from 'react';
 import { LandingFooter, LandingHeader } from './LandingShell';
+import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_LINK } from '@/config/support';
 import './landing.css';
 
-export const SUPPORT_EMAIL = 'admin@futuregeninnovation.com';
 export const WEBSITE = 'www.mygovexams.com';
 
 export interface LegalSection {
@@ -28,6 +28,9 @@ export function contactSection(intro: string): LegalSection {
       intro,
       <>
         <strong>Email:</strong> <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+      </>,
+      <>
+        <strong>Phone:</strong> <a href={`tel:${SUPPORT_PHONE_LINK}`}>{SUPPORT_PHONE}</a>
       </>,
       <>
         <strong>Website:</strong>{' '}

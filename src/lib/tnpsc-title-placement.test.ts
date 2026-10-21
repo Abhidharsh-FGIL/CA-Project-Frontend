@@ -14,6 +14,7 @@ describe('placementFromTitle', () => {
     expect(placementFromTitle(stage, 'TNPSC Group 4 — இலக்கணம் · Simple')).toEqual({
       unit_id: 'g4-ta-grammar',
       level: 'simple',
+      topic: null,
     });
   });
 
@@ -23,6 +24,7 @@ describe('placementFromTitle', () => {
     expect(placementFromTitle(stage, 'TNPSC Group 4 — Indian Polity · Mixed')).toEqual({
       unit_id: 'g4-gs-indian-polity',
       level: null,
+      topic: null,
     });
   });
 
@@ -30,6 +32,7 @@ describe('placementFromTitle', () => {
     expect(placementFromTitle(stage, 'TNPSC Group 4 — Indian Polity · Full Unit')).toEqual({
       unit_id: 'g4-gs-indian-polity',
       level: null,
+      topic: null,
     });
   });
 
@@ -62,9 +65,41 @@ describe('placementFromTitle', () => {
     for (const unit of units) {
       for (const level of ['simple', 'medium', 'complex', null] as const) {
         const title = suggestAssessmentTitle({ ...base, unit_id: unit.id, level });
-        expect(placementFromTitle(stage, title), title ?? '').toEqual({ unit_id: unit.id, level });
+        expect(placementFromTitle(stage, title), title ?? '').toEqual({ unit_id: unit.id, level, topic: null });
       }
     }
+  });
+});
+
+describe('a key-topic title', () => {
+  const GEOGRAPHY = 'TNPSC Group 4 — Geography: Forest and wildlife · Mixed';
+
+  it('names the unit’s printed topic', () => {
+    expect(placementFromTitle(stage, GEOGRAPHY)).toMatchObject({
+      unit_id: 'g4-gs-geography',
+      level: null,
+      topic: { id: 'forest-wildlife', name: 'Forest and wildlife' },
+    });
+  });
+
+  it('is read back for every printed topic of every unit, as the wizard writes it', () => {
+    const base: TnpscTagValue = { ...EMPTY_TAG, group_id: 'group-4', stage_id: 'group-4-written', track: 'practice', scope: 'topic' };
+    let checked = 0;
+    for (const unit of stage.pattern!.sections.flatMap(s => s.units ?? [])) {
+      for (const topic of unit.topics ?? []) {
+        const title = suggestAssessmentTitle({ ...base, unit_id: unit.id, topic_id: topic.id, level: 'simple' });
+        expect(placementFromTitle(stage, title)?.topic?.id, title ?? '').toBe(topic.id);
+        checked += 1;
+      }
+    }
+    expect(checked).toBeGreaterThan(50);
+  });
+
+  it('ignores a colon part that is not one of the unit’s topics', () => {
+    expect(placementFromTitle(stage, 'TNPSC Group 4 — Geography: Something Else · Mixed')).toMatchObject({
+      unit_id: 'g4-gs-geography',
+      topic: null,
+    });
   });
 });
 
@@ -89,5 +124,34 @@ describe('withTitlePlacement', () => {
   it('leaves a paper it cannot read untouched', () => {
     const other = { ...paper, title: 'Exam-1 General Tamil & General Studies' };
     expect(withTitlePlacement(stage, [other])[0]).toBe(other);
+  });
+
+  describe('the key topic', () => {
+    const keyTopic = { title: 'TNPSC Group 4 — Geography: Forest and wildlife · Mixed', test_type: 'practice', level: null };
+
+    it('is filled in on a paper the server placed as a plain unit paper', () => {
+      const out = withTitlePlacement(stage, [{ ...keyTopic, unit_id: 'g4-gs-geography', topic_id: null, topic_name: null }])[0];
+      expect(out).toMatchObject({ unit_id: 'g4-gs-geography', topic_id: 'forest-wildlife', topic_name: 'Forest and wildlife' });
+    });
+
+    it('is filled in on a paper the server did not place at all', () => {
+      const out = withTitlePlacement(stage, [{ ...keyTopic, unit_id: null, topic_id: null, topic_name: null }])[0];
+      expect(out).toMatchObject({ unit_id: 'g4-gs-geography', topic_id: 'forest-wildlife' });
+    });
+
+    it('never overrides the server’s own topic', () => {
+      const out = withTitlePlacement(stage, [{ ...keyTopic, unit_id: 'g4-gs-geography', topic_id: 'physical-features', topic_name: 'Physical features' }])[0];
+      expect(out.topic_id).toBe('physical-features');
+    });
+
+    it('is not taken from a title that names a different unit than the paper’s', () => {
+      const out = withTitlePlacement(stage, [{ ...keyTopic, unit_id: 'g4-gs-indian-polity', topic_id: null, topic_name: null }])[0];
+      expect(out.topic_id ?? null).toBeNull();
+    });
+
+    it('leaves a placed paper with no topic in its title exactly as it was', () => {
+      const plain = { title: 'TNPSC Group 4 — Geography · Mixed', test_type: 'practice', unit_id: 'g4-gs-geography', level: null, topic_id: null, topic_name: null };
+      expect(withTitlePlacement(stage, [plain])[0]).toBe(plain);
+    });
   });
 });

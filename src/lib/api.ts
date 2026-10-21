@@ -4,6 +4,8 @@
  */
 import { toast } from 'sonner';
 import { announceSessionExpired, rearmSessionExpired, type Portal } from './session-bus';
+import { NetworkError, fetchOrExplain, isNetworkFailure, isServerFault } from './network-error';
+import { filenameFromDisposition } from './content-disposition';
 
 // Backend root URL — read from VITE_API_BASE_URL in .env, no trailing slash.
 export const BASE_URL: string =
@@ -151,7 +153,7 @@ function sessionLapsed(portal: Portal, hadSession: boolean, loginRoute: string):
 
 async function publicApiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const res = await fetch(buildUrl(path), {
+  const res = await fetchOrExplain(buildUrl(path), {
     ...options,
     headers: { ...((options.headers as Record<string, string>) ?? {}), ...headers },
   });
@@ -174,11 +176,11 @@ export const publicApi = {
 
 // ─── Authenticated user-portal client (sends user_access_token) ──────────────
 
-async function userApiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function userApiRequest<T>(path: string, options: RequestInit = {}, parse: 'json' | 'file' = 'json'): Promise<T> {
   const makeUserRequest = (tkn: string | null) => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (tkn) headers['Authorization'] = `Bearer ${tkn}`;
-    return fetch(buildUrl(path), {
+    return fetchOrExplain(buildUrl(path), {
       ...options,
       headers: { ...((options.headers as Record<string, string>) ?? {}), ...headers },
     });
@@ -208,10 +210,19 @@ async function userApiRequest<T>(path: string, options: RequestInit = {}): Promi
     throw toRequestError(err, res.status);
   }
   if (res.status === 204) return undefined as T;
+  if (parse === 'file') {
+    const filename = filenameFromDisposition(res.headers.get('content-disposition'));
+    return { blob: await res.blob(), filename } as T;
+  }
   return res.json() as Promise<T>;
 }
 
 export const userApi = {
+  /**
+   * A file (an invoice PDF): fetched with the bearer token, so a plain link would not do. `filename` is
+   * what the server asked it be saved as, or null when it said nothing (or the browser was not let read it).
+   */
+  getFile: (path: string) => userApiRequest<{ blob: Blob; filename: string | null }>(path, { method: 'GET' }, 'file'),
   get:    <T>(path: string)                   => userApiRequest<T>(path, { method: 'GET' }),
   post:   <T>(path: string, body?: unknown)   => userApiRequest<T>(path, { method: 'POST',   body: JSON.stringify(body ?? {}) }),
   put:    <T>(path: string, body?: unknown)   => userApiRequest<T>(path, { method: 'PUT',    body: JSON.stringify(body ?? {}) }),
@@ -231,24 +242,42 @@ export function refreshAccessToken(): Promise<string | null> {
   return adminRefreshInFlight;
 }
 
-async function requestAdminRefresh(): Promise<string | null> {
-  const refresh = localStorage.getItem(REFRESH_KEY);
+function requestAdminRefresh(): Promise<string | null> {
+  return requestRefresh('/api/v1/admin/auth/refresh', REFRESH_KEY, setTokens, clearTokens);
+}
+
+/**
+ * Ask a refresh endpoint for new tokens.
+ *
+ * `null` means the server refused: the refresh token is spent or expired, so the session is over
+ * and the stored tokens are cleared. Anything short of a refusal — no reply at all, or a server
+ * that failed to answer — says nothing about the session, so it throws a `NetworkError` and leaves
+ * the tokens alone: someone on a bad connection is told to try again, not signed out.
+ */
+async function requestRefresh(
+  endpoint: string,
+  refreshKey: string,
+  save: (access: string, refresh: string) => void,
+  clear: () => void,
+): Promise<string | null> {
+  const refresh = localStorage.getItem(refreshKey);
   if (!refresh) return null;
+  const res = await fetchOrExplain(buildUrl(endpoint), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: refresh }),
+  });
+  if (isServerFault(res.status)) throw new NetworkError();
+  if (!res.ok) {
+    clear();
+    return null;
+  }
   try {
-    const res = await fetch(buildUrl('/api/v1/admin/auth/refresh'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refresh }),
-    });
-    if (!res.ok) {
-      clearTokens();
-      return null;
-    }
     const data = await res.json();
-    setTokens(data.access_token, data.refresh_token);
+    save(data.access_token, data.refresh_token);
     return data.access_token;
   } catch {
-    clearTokens();
+    clear();
     return null;
   }
 }
@@ -269,26 +298,8 @@ export function refreshUserAccessToken(): Promise<string | null> {
   return userRefreshInFlight;
 }
 
-async function requestUserRefresh(): Promise<string | null> {
-  const refresh = localStorage.getItem(USER_REFRESH_KEY);
-  if (!refresh) return null;
-  try {
-    const res = await fetch(buildUrl('/api/v1/user/auth/refresh'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refresh }),
-    });
-    if (!res.ok) {
-      clearUserTokens();
-      return null;
-    }
-    const data = await res.json();
-    setUserTokens(data.access_token, data.refresh_token);
-    return data.access_token;
-  } catch {
-    clearUserTokens();
-    return null;
-  }
+function requestUserRefresh(): Promise<string | null> {
+  return requestRefresh('/api/v1/user/auth/refresh', USER_REFRESH_KEY, setUserTokens, clearUserTokens);
 }
 
 // ─── Custom API error ────────────────────────────────────────────────────────
@@ -433,7 +444,7 @@ export async function apiRequest<T>(
     // "/api/v1/foo/" instead of "/assessment_portal/api/api/v1/foo/"). If we
     // let the browser auto-follow that, it resolves against the bare origin
     // and drops our prefix. We re-prepend BASE_URL and retry manually below.
-    return fetch(targetUrl, { ...options, headers, redirect: 'manual' });
+    return fetchOrExplain(targetUrl, { ...options, headers, redirect: 'manual' });
   };
 
   let res = await makeRequest(url, token);
@@ -559,7 +570,7 @@ export async function apiDownload(path: string): Promise<Blob> {
   const makeRequest = async (tok: string | null): Promise<Response> => {
     const headers: Record<string, string> = {};
     if (tok) headers['Authorization'] = `Bearer ${tok}`;
-    return fetch(url, { method: 'GET', headers });
+    return fetchOrExplain(url, { method: 'GET', headers });
   };
 
   let res = await makeRequest(token);
@@ -671,7 +682,8 @@ export function streamRequest(
       onDone?.();
     } catch (err: unknown) {
       if ((err as Error).name !== 'AbortError') {
-        onError?.(err as Error);
+        // Covers the request failing to start and the connection dropping mid-stream alike.
+        onError?.(isNetworkFailure(err) ? new NetworkError(err) : (err as Error));
       }
     }
   })();

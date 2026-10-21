@@ -40,6 +40,8 @@ import {
 import { EXAMS } from '@/constants';
 import { bilingualLanguageForExamType } from '@/config/tnpsc';
 import { LEVEL_FROM_SHEET, applyLevelChoice, defaultPoints, mapExcelPaper } from '@/lib/excel-paper-map';
+import { CollectionUnitField, NO_PLACEMENT, type CollectionPlacement } from '@/components/evaluation/CollectionUnitField';
+import { stageForExamType } from '@/config/tnpsc';
 import {
   DIFFICULTY_OPTIONS,
   asQuestionDifficulty,
@@ -89,6 +91,8 @@ export function EvalPaperImportPanel({ onImported }: Props) {
   const difficulty = source === 'paper' && levelChoice === LEVEL_FROM_SHEET ? 'medium' : levelChoice;
   /** What a paper is filed at when its questions say nothing of their own. */
   const paperFallback = difficulty === LEVEL_FROM_SHEET ? 'medium' : difficulty;
+  /** The syllabus unit the collection is mapped to. Unmapped by default. */
+  const [placement, setPlacement] = useState<CollectionPlacement>(NO_PLACEMENT);
   const [language, setLanguage] = useState<'en' | 'ta'>('en');
   const [bilingual, setBilingual] = useState(true);
   // Always sent. 200 is a full TNPSC paper; lower it for a quick first run.
@@ -231,6 +235,8 @@ export function EvalPaperImportPanel({ onImported }: Props) {
       questionTypes: ['mcq'],
       mcqSubtypes: ['standard'],
       typeWeightage: { mcq: 100 },
+      // Required: the server files every question in the collection under this unit.
+      placement: { stageId: stageForExamType(examLabel)?.id ?? '', unitId: placement.unitId ?? '', topicId: null },
       subjects: [
         {
           id: crypto.randomUUID(),
@@ -459,6 +465,8 @@ export function EvalPaperImportPanel({ onImported }: Props) {
           )}
         </div>
 
+        <CollectionUnitField examLabel={examLabel} value={placement} onChange={setPlacement} />
+
         {source === 'paper' && (
         <ToggleRow
           checked={bilingual}
@@ -523,7 +531,7 @@ export function EvalPaperImportPanel({ onImported }: Props) {
       <div className="flex justify-end">
         <Button
           onClick={source === 'excel' ? startExcelImport : startExtraction}
-          disabled={!file || (source === 'excel' && !title.trim())}
+          disabled={!file || !placement.unitId || (source === 'excel' && !title.trim())}
           className="gap-1.5"
         >
           <FileUp className="h-4 w-4" />
