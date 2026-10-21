@@ -5,11 +5,15 @@ import { findGroup, questionCountLabel, type TnpscStage } from '@/config/tnpsc';
 import {
   ArrowLeft,
   ArrowRight,
+  BarChart3,
   BookOpen,
+  Check,
   Clock,
   FileText,
   Layers,
   Lock,
+  RefreshCw,
+  Sparkles,
   Target,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -70,6 +74,42 @@ export default function TnpscGroupPage() {
           )}
         </div>
       </div>
+
+      {/* What practising here is like — only for an examination that can be sat today. */}
+      {featured && (
+        <div className="mb-6 rounded-2xl border border-sky-200 dark:border-sky-900/50 bg-gradient-to-b from-sky-50/80 to-white dark:from-sky-950/20 dark:to-gray-900 p-4 sm:p-5 animate-fadeIn">
+          <div className="flex items-start gap-3">
+            <Sparkles className="w-7 h-7 shrink-0 text-orange-500" />
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-extrabold text-gray-900 dark:text-gray-100">Prepare Smarter for {group.name}</h2>
+              <p className="mt-0.5 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                Practice with fresh questions, multiple difficulty levels and AI-powered insights.
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
+            {[
+              { icon: RefreshCw, title: 'Fresh Questions', text: 'Every attempt gets a new set of questions.' },
+              { icon: Layers, title: '3 Difficulty Levels', text: 'Practice from Simple to Complex.' },
+              { icon: BarChart3, title: 'AI Insights', text: 'Know your strengths and areas to improve.' },
+            ].map(f => (
+              <div key={f.title} className="rounded-xl bg-white/80 dark:bg-gray-900/60 border border-sky-100 dark:border-sky-900/40 px-2 py-3 text-center">
+                <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300">
+                  <f.icon className="w-5 h-5" />
+                </span>
+                <p className="mt-2 text-[11px] sm:text-sm font-bold leading-tight text-gray-900 dark:text-gray-100">{f.title}</p>
+                <p className="mt-1 text-[10px] sm:text-xs leading-snug text-gray-500 dark:text-gray-400">{f.text}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2 text-xs sm:text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
+              <Check className="w-3.5 h-3.5" />
+            </span>
+            No repeated questions. Learn better. Score higher.
+          </p>
+        </div>
+      )}
 
       <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-3">
         {group.stages.length > 1 ? 'Select a stage' : 'Examination'}

@@ -1374,18 +1374,18 @@ export function UserEvalAssessmentPage() {
 
                 <div className="flex-shrink-0 self-start bg-white/15 backdrop-blur border border-white/25 rounded-xl px-3 py-2 text-right">
                   <p className="text-[9px] uppercase tracking-widest opacity-80">Attempts</p>
-                  <p className="text-lg font-bold leading-tight">
-                    {totalLeft == null ? 'Unlimited' : `${totalLeft} left`}
-                  </p>
-                  {plan && allowance?.limit != null && topUpLeft === 0 && (
-                    <p className="text-[10px] opacity-80 leading-tight mt-0.5">
-                      of {allowance.limit} on {plan.name}
-                    </p>
-                  )}
-                  {allowance?.left != null && topUpLeft > 0 && (
-                    <p className="text-[10px] opacity-80 leading-tight mt-0.5">
-                      {allowance.left} plan + {topUpLeft} top-up
-                    </p>
+                  {totalLeft == null || allowance?.limit == null ? (
+                    <p className="text-lg font-bold leading-tight">Unlimited</p>
+                  ) : (
+                    <>
+                      {/* Taken of everything they could take: the plan's tests, plus top-up tests used or still saved. */}
+                      <p className="text-lg font-bold leading-tight">
+                        {allowance.used} of {allowance.limit + topUpLeft + Math.max(0, allowance.used - allowance.limit)}
+                      </p>
+                      <p className="text-[10px] opacity-80 leading-tight mt-0.5">
+                        {totalLeft} left{topUpLeft > 0 ? ` · incl. ${topUpLeft} top-up` : plan ? ` on ${plan.name}` : ''}
+                      </p>
+                    </>
                   )}
                 </div>
               </div>
@@ -2023,10 +2023,11 @@ export function UserEvalAssessmentPage() {
               </div>
 
               {/* Action row */}
-              <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+              {/* One row at every width: on a phone the two buttons share it, with smaller text. */}
+              <div className="mt-3 flex items-stretch sm:items-center sm:justify-between gap-2 sm:gap-3">
                 <button
                   onClick={handleMarkForReview}
-                  className={`border text-sm font-semibold px-4 py-2 rounded-xl transition-colors ${
+                  className={`flex-1 sm:flex-none border text-xs sm:text-sm font-semibold px-2.5 sm:px-4 py-2 rounded-xl transition-colors ${
                     markedForReview.has(currentQ.question_id)
                       ? 'border-amber-500 bg-amber-50 text-amber-700'
                       : 'border-amber-400 bg-white text-amber-700 hover:bg-amber-50'
@@ -2045,7 +2046,7 @@ export function UserEvalAssessmentPage() {
                         return next;
                       })
                     }
-                    className="border border-red-400 bg-white text-red-600 hover:bg-red-50 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+                    className="flex-1 sm:flex-none border border-red-400 bg-white text-red-600 hover:bg-red-50 text-xs sm:text-sm font-semibold px-2.5 sm:px-4 py-2 rounded-xl transition-colors"
                   >
                     Clear response
                   </button>

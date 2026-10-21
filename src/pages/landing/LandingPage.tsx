@@ -34,9 +34,11 @@ import {
   FileText,
   Gem,
   Gift,
+  Landmark,
+  Database,
   Rocket,
+  Shuffle,
   Sparkles,
-  Star,
   Target,
   Trophy,
   Users,
@@ -45,13 +47,14 @@ import {
 import { publicApi } from '@/lib/api';
 import { costPerMonth, offeredPlans, perksFor, plansFromApi, yearlySavings } from '@/lib/plans';
 import { cardFor, cycleShown } from '@/lib/plan-copy';
-import { GST_LABEL } from '@/lib/gst';
 import { topUpPacksFrom, type TopUpPack } from '@/lib/topup-api';
 import { AnnounceIcon, ChooseTestIcon, PlanIcon, PracticeIcon, ReportIcon, type LandingIcon } from './LandingIcons';
 import { ButtonLink, LandingFooter, LandingHeader, ROUTES, SectionLink, scrollToSection } from './LandingShell';
 import './landing.css';
 
 /** Where the page's artwork lives — `public/landing/`, so it can be swapped without a build. */
+import { EXAMS_STATS } from '@/config/exams-page';
+
 const ART = `${import.meta.env.BASE_URL}landing/`;
 
 // Update these when the claim or the routes change.
@@ -60,9 +63,8 @@ const CONFIG = {
    * Display claims, taken from the mockup. They are the business's to confirm — none of
    * them is measured by this app — so confirm each before this goes public.
    */
-  students: '5,000+',
-  questionsAddedWeekly: '1000+',
-  satisfaction: '95%',
+  students: EXAMS_STATS.aspirants,
+  questionsAddedWeekly: '1,000+',
   loginPath: ROUTES.login,
   signupPath: ROUTES.signup,
 };
@@ -85,27 +87,27 @@ const features: Array<{ icon: LucideIcon; title: string; desc: string; tone: str
   },
   {
     icon: BookOpen,
-    title: 'Previous-Year Question Papers',
-    desc: 'Practise real previous year questions and get AI-powered explanations to understand exam patterns, important topics and frequently asked questions.',
+    title: 'Previous Year Question Papers',
+    desc: 'Practice questions from previous years’ exams and get AI-powered explanations to understand exam patterns, important topics, and frequently asked questions.',
     tone: 'purple',
   },
   {
     icon: BarChart3,
     title: 'Comprehensive AI Performance Analysis',
-    desc: 'Get detailed AI-driven insights into your score, accuracy, strengths, weak areas and topic-wise performance with clear recommendations on what to focus on next.',
+    desc: 'Get detailed AI-driven insights into your scores, accuracy, strengths, weaknesses, and topic-wise performance, along with clear recommendations on what to focus on next.',
     tone: 'green',
   },
   {
     icon: CalendarDays,
     title: 'AI-Personalized Study Plans',
-    desc: 'Turn your performance insights into a step-by-step study plan. Let AI identify improvement areas, recommend the right topics and create a practical plan to help you succeed faster.',
+    desc: 'Turn your performance insights into a step-by-step study plan. Let AI identify areas for improvement, recommend relevant topics, and create a practical plan to help you prepare more effectively.',
     tone: 'rose',
   },
 ];
 
 const steps: Array<{ name: string; desc: string; icon: LandingIcon }> = [
   { name: 'Choose a Test', desc: 'Take a full mock test or practice by subject, part and unit.', icon: ChooseTestIcon },
-  { name: 'Practice & Learn', desc: 'Attempt questions at Simple, Medium and Complex levels.', icon: PracticeIcon },
+  { name: 'Practice & Learn', desc: 'Attempt questions at Simple, Medium, and Complex difficulty levels.', icon: PracticeIcon },
   { name: 'Get Your AI Report', desc: 'See your score, accuracy, strengths, weak areas and comparisons.', icon: ReportIcon },
   { name: 'Build Your Study Plan', desc: 'Get a personalized plan based on your performance and focus on weak topics.', icon: PlanIcon },
 ];
@@ -132,9 +134,10 @@ function Hero() {
             </span>
           </h1>
           <p className="mge-lead">
-            From <span className="mge-nowrap">AI-generated</span> questions to easy-to-understand explanations,
-            full-length mock tests, personalized performance insights and <span className="mge-nowrap">AI-driven</span>{' '}
-            study plans — everything you need to prepare smarter, all in one platform.
+            Prepare smarter with syllabus-aligned questions and practice tests organised by Unit, Category, and
+            Subcategory, across Simple, Medium, and Complex levels. Take full-length mock exams, learn with clear
+            explanations, and improve with <span className="mge-nowrap">AI-powered</span> performance insights and
+            personalized study plans — all in one place.
           </p>
           <div className="mge-hero-actions">
             <ButtonLink to={CONFIG.signupPath}>
@@ -176,12 +179,53 @@ function Hero() {
   );
 }
 
+/** The "new questions every attempt" promise, with the four things it means. */
+function FreshAttempts() {
+  const points: Array<{ icon: LucideIcon; title: string; tone: string }> = [
+    { icon: Shuffle, title: 'Fresh Question Sets for Every Attempt', tone: 'blue' },
+    { icon: BarChart3, title: 'Multiple Difficulty Levels (Simple to Complex)', tone: 'sky' },
+    { icon: FileText, title: 'AI-Powered Explanations', tone: 'purple' },
+    { icon: Target, title: 'Track Progress & Improve Faster', tone: 'rose' },
+  ];
+  return (
+    <section className="mge-container">
+      <div className="mge-fresh">
+        <div className="mge-fresh-head">
+          <span className="mge-fresh-icon">
+            <Shuffle size={34} aria-hidden="true" />
+          </span>
+          <div>
+            <h2>
+              <em>New</em> New Questions. Every Attempt.
+            </h2>
+            <p>
+              Get a fresh set of questions every time you take a mock test. Practice more, challenge yourself and build
+              exam confidence.
+            </p>
+          </div>
+        </div>
+        <ul className="mge-fresh-points">
+          {points.map(p => (
+            <li key={p.title}>
+              <span className={`mge-stat-icon mge-tone-${p.tone}`}>
+                <p.icon size={24} aria-hidden="true" />
+              </span>
+              {p.title}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 function Stats() {
-  const items: Array<{ icon: LucideIcon; value: string; label: string; tone: string }> = [
-    { icon: Users, value: CONFIG.students, label: 'Students Learning with Us', tone: 'blue' },
-    { icon: FileText, value: CONFIG.questionsAddedWeekly, label: 'Questions Added Every Week', tone: 'sky' },
-    { icon: Star, value: CONFIG.satisfaction, label: 'Student Satisfaction', tone: 'gold' },
-    { icon: BarChart3, value: 'Government Exams', label: 'Focused Preparation', tone: 'green' },
+  // The same figures as the Exams page, so the two never disagree.
+  const items: Array<{ icon: LucideIcon; value: string; label: string; sub?: string; levels?: boolean; tone: string }> = [
+    { icon: Database, value: EXAMS_STATS.questions, label: 'Group 4 Questions', sub: 'with various difficulty levels', levels: true, tone: 'blue' },
+    { icon: Users, value: EXAMS_STATS.aspirants, label: 'Aspirants', sub: 'currently practising here', tone: 'purple' },
+    { icon: FileText, value: EXAMS_STATS.newQuestions, label: 'New Questions', sub: 'added every week', tone: 'sky' },
+    { icon: Landmark, value: 'Government Exams', label: 'Focused Preparation', tone: 'green' },
   ];
   return (
     <section className="mge-container">
@@ -193,7 +237,15 @@ function Stats() {
             </span>
             <div>
               <strong>{s.value}</strong>
-              <span>{s.label}</span>
+              <span className={s.sub ? 'mge-stat-label' : undefined}>{s.label}</span>
+              {s.sub && <span>{s.sub}</span>}
+              {s.levels && (
+                <div className="mge-stat-levels">
+                  <span className="mge-lv-simple">Simple</span>
+                  <span className="mge-lv-medium">Medium</span>
+                  <span className="mge-lv-complex">Complex</span>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -275,7 +327,7 @@ function DemoCards() {
             Next Question <ArrowRight size={12} />
           </div>
         </div>
-        <figcaption>Real exam interface with new questions every time</figcaption>
+        <figcaption>Experience a realistic exam interface with a fresh set of questions for every attempt.</figcaption>
       </figure>
 
       <figure>
@@ -359,7 +411,7 @@ function DemoCards() {
             </div>
           ))}
         </div>
-        <figcaption>Get a smart plan to improve your score step by step</figcaption>
+        <figcaption>Get a personalized study plan to improve your performance step by step.</figcaption>
       </figure>
     </div>
   );
@@ -463,7 +515,7 @@ function TopUps() {
   return (
     <div className="mge-topups">
       <h3>Need more tests?</h3>
-      <p>Add a top-up to your Monthly or Yearly plan. Unused top-up tests are saved and carry forward when you renew.</p>
+      <p>Add a top-up to your Monthly or Yearly plan. Unused top-up tests are saved and carried forward when you renew your subscription.</p>
       <div className="mge-topup-cols">
         {columns.map(col => (
           <div key={col.title}>
@@ -476,7 +528,6 @@ function TopUps() {
                 </div>
                 <div className="mge-topup-price">
                   {rupees(pack.price)}
-                  <small>{GST_LABEL}</small>
                 </div>
               </div>
             ))}
@@ -535,7 +586,7 @@ function Pricing() {
             const months = p.duration_days_yearly ? Math.round(p.duration_days_yearly / 30) : null;
             const priceOfMonths = p.price_monthly > 0 ? Math.round(p.price_yearly / p.price_monthly) : null;
             const badge =
-              popular && months && priceOfMonths ? `Best value · ${months} months for price of ${priceOfMonths}` : copy?.badge ?? null;
+              popular && months && priceOfMonths ? `Best Value · ${months} Months for the Price of ${priceOfMonths}` : copy?.badge ?? null;
             return (
               <article key={`${p.tier}-${billing}`} className={`mge-price-card ${popular ? 'mge-popular' : ''}`}>
                 {badge && <div className="mge-popular-label mge-popular-label-wide">{badge}</div>}
@@ -552,11 +603,10 @@ function Pricing() {
                   {rupees(cycle === 'yearly' ? p.price_yearly : p.price_monthly)}
                   {/* A free plan's price has no period: its validity line says how long it lasts. */}
                   {!(free && copy) && <span> / {cycle === 'yearly' ? 'year' : 'month'}</span>}
-                  {!free && <span className="mge-price-gst"> {GST_LABEL}</span>}
                 </div>
                 {popular && monthlyCost !== null && saving > 0 && (
                   <p className="mge-price-save">
-                    Just {rupees(monthlyCost)} a month · save {rupees(saving)} vs monthly
+                    Just {rupees(monthlyCost)} per month — save {rupees(saving)} compared to the Monthly Plan.
                   </p>
                 )}
                 {copy && (
@@ -654,6 +704,7 @@ export default function LandingPage() {
       <LandingHeader />
       <main>
         <Hero />
+        <FreshAttempts />
         <Stats />
         <Features />
         <ExamBanner />

@@ -93,6 +93,8 @@ interface FieldProps {
   type?: string;
   maxLength?: number;
   required?: boolean;
+  /** Shown but not editable — the email of a Google account, which is what the account is made for. */
+  readOnly?: boolean;
   autoComplete?: string;
   inputMode?: 'text' | 'numeric' | 'tel' | 'email';
   /** Something at the right edge of the box — a show / hide button. */
@@ -112,6 +114,7 @@ export function AuthField({
   type = 'text',
   maxLength,
   required,
+  readOnly,
   autoComplete,
   inputMode,
   trailing,
@@ -133,6 +136,7 @@ export function AuthField({
           value={value}
           maxLength={maxLength}
           required={required}
+          readOnly={readOnly}
           autoComplete={autoComplete}
           inputMode={inputMode}
           placeholder={placeholder}

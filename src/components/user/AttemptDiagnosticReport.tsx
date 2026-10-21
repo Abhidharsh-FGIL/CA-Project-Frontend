@@ -323,7 +323,7 @@ export function ReportCover({
             <p className="text-[12px] font-bold text-[#122447] dark:text-gray-100 leading-tight">
               Every attempt is a step closer to your goal.
             </p>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400">Analyse. Learn. Improve.</p>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">Analyze. Learn. Improve.</p>
           </div>
         </div>
 

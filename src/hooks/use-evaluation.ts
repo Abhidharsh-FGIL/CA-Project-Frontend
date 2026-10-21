@@ -41,7 +41,14 @@ export interface EvalPaperConfig {
    * The syllabus unit the collection is mapped to, if the admin chose one. Applies to every question
    * the collection brings in. Omitted when unmapped, and questions keep the units their own tags name.
    */
-  placement?: { stageId: string; unitId: string; topicId?: string | null } | null;
+  placement?: {
+    stageId: string;
+    unitId: string;
+    topicId?: string | null;
+    /** Stored on the collection itself so the Collections tab can list it under its unit. */
+    groupId?: string;
+    sectionName?: string | null;
+  } | null;
 }
 
 export interface EvalSubjectConfig {

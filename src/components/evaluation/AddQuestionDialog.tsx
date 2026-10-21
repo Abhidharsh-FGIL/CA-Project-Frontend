@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { stageForExamType, stageUnits, unitDisplayName } from '@/config/tnpsc';
 import { Type, ImageIcon, Upload, X, Loader2, Plus, Trash2, CheckCircle2 } from 'lucide-react';
 import { buildUrl } from '@/lib/api';
 import { useCreateEvalQuestion, uploadEvalQuestionImage } from '@/hooks/use-evaluation';
@@ -116,12 +117,15 @@ function MediaField({
 
 export function AddQuestionDialog({
   paperTitle,
+  examType,
   defaultSubject,
   defaultDifficulty,
   open,
   onOpenChange,
 }: {
   paperTitle: string;
+  /** The paper's exam, which decides the syllabus units offered. Group 4 when it is not known. */
+  examType?: string;
   defaultSubject?: string;
   defaultDifficulty?: string;
   open: boolean;
@@ -132,9 +136,15 @@ export function AddQuestionDialog({
   const [correct, setCorrect] = useState(0);
   const [subject, setSubject] = useState(defaultSubject || '');
   const [chapter, setChapter] = useState('');
+  const [unitId, setUnitId] = useState('');
   const [difficulty, setDifficulty] = useState(defaultDifficulty || 'medium');
   const [explanation, setExplanation] = useState('');
   const createQuestion = useCreateEvalQuestion();
+
+  // The question is filed under a syllabus unit. An exam with no units in the catalog keeps the free-text subject.
+  const stage = useMemo(() => stageForExamType(examType) ?? stageForExamType('TNPSC Group 4'), [examType]);
+  const units = useMemo(() => stageUnits(stage), [stage]);
+  const chosenUnit = units.find(u => u.unit.id === unitId);
 
   const reset = () => {
     setQuestion(emptyMedia());
@@ -142,6 +152,7 @@ export function AddQuestionDialog({
     setCorrect(0);
     setSubject(defaultSubject || '');
     setChapter('');
+    setUnitId('');
     setDifficulty(defaultDifficulty || 'medium');
     setExplanation('');
   };
@@ -158,16 +169,19 @@ export function AddQuestionDialog({
     hasContent(question) &&
     filledOptions >= MIN_OPTIONS &&
     hasContent(options[correct]) &&
-    subject.trim().length > 0 &&
+    (units.length > 0 ? !!chosenUnit : subject.trim().length > 0) &&
     chapter.trim().length > 0;
 
   const handleSubmit = async () => {
     if (!canSubmit) {
-      toast.error('Fill the question, at least 2 options (incl. the correct one), subject and topic.');
+      toast.error('Fill the question, at least 2 options (incl. the correct one), unit and topic.');
       return;
     }
     await createQuestion.mutateAsync({
-      subject: subject.trim(),
+      subject: chosenUnit ? chosenUnit.sectionName : subject.trim(),
+      ...(chosenUnit
+        ? { stage_id: stage!.id, unit_id: chosenUnit.unit.id, unit_name: unitDisplayName(stage, chosenUnit.unit) }
+        : {}),
       chapter: chapter.trim(),
       difficulty,
       question_text: question.mode === 'text' ? question.text.trim() || null : null,
@@ -236,8 +250,31 @@ export function AddQuestionDialog({
           {/* Subject + Topic */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Subject <span className="text-destructive">*</span></Label>
-              <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Reasoning Ability" />
+              <Label className="text-xs">{units.length > 0 ? 'Unit' : 'Subject'} <span className="text-destructive">*</span></Label>
+              {units.length > 0 ? (
+                <Select value={unitId || undefined} onValueChange={setUnitId}>
+                  <SelectTrigger className="h-10"><SelectValue placeholder="Choose the unit" /></SelectTrigger>
+                  <SelectContent className="max-h-[60vh]">
+                    {[...new Set(units.map(u => u.sectionName))].map(section => (
+                      <SelectGroup key={section}>
+                        <SelectLabel>{section}</SelectLabel>
+                        {units
+                          .filter(u => u.sectionName === section)
+                          .map(({ unit: u }) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-6 text-[10px] font-bold text-muted-foreground">{u.label ?? '—'}</span>
+                                <span>{unitDisplayName(stage, u)}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Reasoning Ability" />
+              )}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Topic <span className="text-destructive">*</span></Label>

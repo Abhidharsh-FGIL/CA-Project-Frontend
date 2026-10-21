@@ -81,8 +81,7 @@ export function TestScoreCard({
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Score by Test</p>
           {rows.length > 0 && (
             <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-              {scopeLabel} · average across {attempts.length} attempt{attempts.length === 1 ? '' : 's'} on{' '}
-              {rows.length} paper{rows.length === 1 ? '' : 's'}
+              {scopeLabel} · Average Score Across {attempts.length} Attempt{attempts.length === 1 ? '' : 's'}
             </p>
           )}
         </div>
@@ -115,14 +114,14 @@ export function TestScoreCard({
         <>
           <TestScoreChart rows={rows} />
           <p className="mt-2.5 pt-2.5 border-t border-gray-100 dark:border-gray-800 text-[10px] leading-snug text-gray-500 dark:text-gray-400">
-            Hover a bar for every score on that paper.
+            Hover over a bar to view the score for that test.
             {weakest && (
               <>
-                {' '}Lowest average:{' '}
+                {' '}Lowest-scoring test:{' '}
                 <span className="font-semibold text-gray-700 dark:text-gray-200">{weakest.name}</span> (
-                {weakest.average}%) —{' '}
+                {weakest.average}%).{' '}
                 <Link to={takeHref} className="text-blue-600 dark:text-blue-400 hover:underline">
-                  retake it
+                  Consider retaking it
                 </Link>
                 .
               </>

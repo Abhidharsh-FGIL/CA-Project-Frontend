@@ -11,6 +11,7 @@
  *   POST  /api/v1/user/auth/login/              → { email, password }
  *   POST  /api/v1/user/auth/login-otp/send      → { identifier }  (an email ID or a 10-digit mobile number)
  *   POST  /api/v1/user/auth/login-otp/verify    → { identifier, otp }  (answers as /login does)
+ *   POST  /api/v1/user/auth/google              → { id_token, profile? }  (see `googleAuth`)
  *   POST  /api/v1/user/auth/forgot-password/    → { email }
  *   POST  /api/v1/user/auth/reset-password/     → { token, new_password }
  *
@@ -160,6 +161,41 @@ export async function verifyLoginOtp(payload: LoginOtpPayload): Promise<AuthToke
   return keepTokens(await publicApi.post<AuthTokenResponse>('/api/v1/user/auth/login-otp/verify', payload));
 }
 
+/** What a new account needs beyond what Google gives (name and email): the same details the sign-up form asks for. */
+export type GoogleSignUpProfile = StudentDetailFields & {
+  full_name: string;
+  mobile_number: string;
+};
+
+export type GoogleAuthResult =
+  /** Signed in (an existing account), or the account was created from `profile` and signed in. */
+  | { kind: 'signed-in' }
+  /** Google is fine but no account exists yet, and no `profile` was sent to make one with. */
+  | { kind: 'needs-profile'; email: string; name: string };
+
+/**
+ * Sign in or sign up with a Google ID token.
+ *
+ * The token is sent to the backend, which checks Google's signature and that it was issued for this app's
+ * client ID — the page never decides who the person is. An email Google has verified needs no OTP.
+ *
+ *   existing account            → 200 { access_token, refresh_token, token_type }
+ *   no account, no `profile`    → 200 { needs_profile: true, email, name }
+ *   no account, with `profile`  → the account is created, then the same tokens
+ */
+export async function googleAuth(idToken: string, profile?: GoogleSignUpProfile): Promise<GoogleAuthResult> {
+  const res = await publicApi.post<Partial<AuthTokenResponse> & { needs_profile?: boolean; email?: string; name?: string }>(
+    '/api/v1/user/auth/google',
+    { id_token: idToken, ...(profile ? { profile } : {}) },
+  );
+  if (res?.access_token && res?.refresh_token) {
+    keepTokens(res as AuthTokenResponse);
+    return { kind: 'signed-in' };
+  }
+  if (res?.needs_profile) return { kind: 'needs-profile', email: res.email ?? '', name: res.name ?? '' };
+  throw new Error('Google sign-in did not complete. Please try again.');
+}
+
 export function forgotUserPassword(email: string) {
   return publicApi.post<MessageSuccess>('/api/v1/user/auth/forgot-password', { email });
 }
@@ -170,13 +206,18 @@ export function resetUserPassword(payload: ResetPasswordPayload) {
 
 // ─── Authenticated endpoints (userApi — sends user_access_token) ─────────────
 
-export async function logoutUser(): Promise<MessageSuccess> {
-  try {
-    const res = await userApi.post<MessageSuccess>('/api/v1/user/auth/logout');
-    return res;
-  } finally {
-    clearUserTokens();
-  }
+/**
+ * Sign out: tell the server, and forget the tokens *now*.
+ *
+ * The request is started with the token it needs, then the browser drops its tokens at once instead of
+ * when the server answers. Anything that looks at the tokens straight after — the landing page, which
+ * sends a signed-in visitor to the dashboard — must find the person already signed out; waiting for the
+ * reply left a window where it did not, and the first press of Logout bounced back to the dashboard.
+ */
+export function logoutUser(): Promise<MessageSuccess> {
+  const request = userApi.post<MessageSuccess>('/api/v1/user/auth/logout');
+  clearUserTokens();
+  return request;
 }
 
 export function getUserProfile() {

@@ -228,10 +228,10 @@ export function useProgressTrend({ analytics, history, group, track, range }: Ar
   const caption = useMemo(() => {
     const bits = [
       group === 'all' ? null : GROUP_OPTIONS.find(o => o.value === group)?.label,
-      track === 'all' ? null : TRACK_OPTIONS.find(o => o.value === track)?.label,
-      rangeLabel(range).toLowerCase(),
+      track === 'all' ? null : track === 'mock' ? 'Mock Tests' : 'Practice Tests',
+      rangeLabel(range).replace(/\w/g, c => c.toUpperCase()),
     ].filter(Boolean);
-    return `Average score by day · ${bits.join(' · ')}`;
+    return `Average Score by Day · ${bits.join(' · ')}`;
   }, [group, track, range]);
 
   return { points, caption, attempts, matches, filtersActive, isLoading, ceiling: trendCeiling(points) };

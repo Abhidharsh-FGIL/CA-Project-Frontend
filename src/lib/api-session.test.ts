@@ -111,10 +111,10 @@ describe('a signed-in person whose token and refresh have both lapsed', () => {
     expect(told).toEqual(['user', 'user']);
   });
 
-  it('is not told when logging out with a lapsed token', async () => {
+  it('is not told, and not redirected, when logging out with a lapsed token', async () => {
     await expect(userApi.post(LOGOUT)).rejects.toThrow('Session expired');
     expect(told).toEqual([]);
-    expect(win.location.href).toContain('#/user/login');
+    expect(win.location.href).toBe('');
   });
 });
 

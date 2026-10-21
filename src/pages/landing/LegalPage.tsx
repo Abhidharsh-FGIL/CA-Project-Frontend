@@ -6,7 +6,8 @@
  * text, not to markup.
  */
 import { useEffect, type ReactNode } from 'react';
-import { LandingFooter, LandingHeader } from './LandingShell';
+import { ArrowLeft } from 'lucide-react';
+import { ButtonLink, LandingFooter, LandingHeader } from './LandingShell';
 import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_LINK } from '@/config/support';
 import './landing.css';
 
@@ -84,10 +85,15 @@ export default function LegalPage({ title, effective, lead, sections }: LegalPag
                 )}
               </section>
             ))}
+            <div className="mge-legal-back">
+              <ButtonLink to="/" secondary>
+                <ArrowLeft size={18} /> Back to Home
+              </ButtonLink>
+            </div>
           </article>
         </div>
       </main>
-      <LandingFooter />
+      <LandingFooter onLanding={false} />
     </div>
   );
 }

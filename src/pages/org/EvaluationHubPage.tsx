@@ -17,6 +17,7 @@ import { EvalStudentDistributor } from '@/components/evaluation/EvalStudentDistr
 import { EvalAssessmentsList } from '@/components/evaluation/EvalAssessmentsList';
 import { EvalAssessmentReport } from '@/components/evaluation/EvalAssessmentReport';
 import { EvalReportsList } from '@/components/evaluation/EvalReportsList';
+import type { NewAssessmentSeed } from '@/lib/assessment-hierarchy';
 
 const DEFAULT_CONFIG: EvalPaperConfig = {
   title: '',
@@ -49,6 +50,8 @@ export function EvaluationHubPage() {
   // Assessment tab state
   const [assessmentView, setAssessmentView] = useState<AssessmentView>('list');
   const [activeAssessmentId, setActiveAssessmentId] = useState<string | null>(null);
+  /** Where in the assessments tree "New" was pressed — the form starts already placed there. */
+  const [createSeed, setCreateSeed] = useState<NewAssessmentSeed | null>(null);
 
   // Reports tab state
   const [reportAssessmentId, setReportAssessmentId] = useState<string | null>(null);
@@ -173,7 +176,13 @@ export function EvaluationHubPage() {
 
           <TabsContent value="assessments">
             {assessmentView === 'create' ? (
-              <EvalAssessmentConfigPanel onCreated={handleAssessmentCreated} onBack={() => setAssessmentView('list')} />
+              <EvalAssessmentConfigPanel
+                // A new key per seed, so starting from a different spot in the tree starts the form afresh.
+                key={JSON.stringify(createSeed ?? null)}
+                initialTag={createSeed ?? undefined}
+                onCreated={handleAssessmentCreated}
+                onBack={() => setAssessmentView('list')}
+              />
             ) : assessmentView === 'distribute' && activeAssessmentId ? (
               <EvalStudentDistributor
                 assessmentId={activeAssessmentId}
@@ -185,7 +194,10 @@ export function EvaluationHubPage() {
                 <div className="flex justify-end">
                   <button
                     className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-                    onClick={() => setAssessmentView('create')}
+                    onClick={() => {
+                      setCreateSeed(null);
+                      setAssessmentView('create');
+                    }}
                   >
                     <FileText className="h-4 w-4" />
                     Create Assessment
@@ -193,6 +205,10 @@ export function EvaluationHubPage() {
                 </div>
                 <EvalAssessmentsList
                   onDistribute={handleDistribute}
+                  onCreate={seed => {
+                    setCreateSeed(seed);
+                    setAssessmentView('create');
+                  }}
                 />
               </div>
             )}

@@ -601,3 +601,37 @@
     justify-content: flex-start;
   }
 }
+
+/* ── Sign in with Google ── */
+
+.mge .mge-google-wrap {
+  display: grid;
+  gap: 6px;
+}
+
+/* Google draws its own button into this; it only has to give it the row, centred. */
+.mge .mge-google {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.mge .mge-google-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 14px;
+  margin: 0 0 16px;
+  padding: 11px 14px;
+  border: 1px solid #cfe9db;
+  border-radius: 12px;
+  background: #f1fbf6;
+  color: #17603f;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.mge .mge-google-banner strong {
+  word-break: break-all;
+}

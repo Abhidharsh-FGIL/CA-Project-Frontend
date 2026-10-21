@@ -201,73 +201,84 @@ function CategoryBreakdown({
 
   if (categories.length === 0) return null;
 
+  // Green at or above the pass mark, amber within 15 points of it, red below.
+  const toneOf = (accuracy: number | null) =>
+    (accuracy ?? 0) >= passPercentage ? 'emerald' : (accuracy ?? 0) >= passPercentage - 15 ? 'amber' : 'rose';
+  const TONE = {
+    emerald: { pill: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300', bar: 'bg-emerald-500', dot: 'bg-emerald-500' },
+    amber: { pill: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300', bar: 'bg-amber-500', dot: 'bg-amber-500' },
+    rose: { pill: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300', bar: 'bg-rose-500', dot: 'bg-rose-500' },
+  } as const;
+
   return (
     <ReportCard>
-      <p className="mb-2.5 text-sm font-bold text-gray-900 dark:text-gray-100">Within this unit</p>
-      <div className="space-y-2">
+      <div className="mb-3 flex items-baseline justify-between gap-2">
+        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Within this unit</p>
+        <p className="text-[11px] text-gray-500 dark:text-gray-400">
+          {categories.length} categor{categories.length === 1 ? 'y' : 'ies'} · tap one for its sub-categories
+        </p>
+      </div>
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
         {categories.map(c => {
           const isOpen = !!open[c.name];
           const accuracy = c.questions > 0 ? (c.correct / c.questions) * 100 : null;
+          const tone = TONE[toneOf(accuracy)];
           return (
             <div
               key={c.name}
               className={cn(
-                'rounded-xl border transition-colors',
-                // An open category is lifted off the page, so its sub-categories read as belonging to it.
+                'rounded-2xl border bg-white dark:bg-gray-900 transition-shadow',
+                // An open category spans the row, so its sub-categories have room and read as belonging to it.
                 isOpen
-                  ? 'border-orange-200 bg-orange-50/40 shadow-sm dark:border-orange-900/50 dark:bg-orange-950/10'
-                  : 'border-gray-100 dark:border-gray-800',
+                  ? 'sm:col-span-2 lg:col-span-3 border-orange-300 shadow-md shadow-orange-100/60 dark:border-orange-800 dark:shadow-none'
+                  : 'border-gray-100 hover:shadow-sm dark:border-gray-800',
               )}
             >
               <button
                 type="button"
                 onClick={() => setOpen(o => ({ ...o, [c.name]: !o[c.name] }))}
                 aria-expanded={isOpen}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-left"
+                className="w-full p-3.5 text-left"
               >
-                <div className="min-w-0 flex-1">
-                  <MeterRow
-                    label={c.name}
-                    value={accuracy}
-                    accent={
-                      (accuracy ?? 0) >= passPercentage
-                        ? 'emerald'
-                        : (accuracy ?? 0) >= passPercentage - 15
-                          ? 'amber'
-                          : 'rose'
-                    }
-                    right={`${c.correct}/${c.questions}`}
-                  />
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 text-[13px] font-bold leading-snug text-gray-900 dark:text-gray-100">{c.name}</p>
+                  <span className={cn('flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-extrabold', tone.pill)}>
+                    {accuracy == null ? '—' : `${Math.round(accuracy)}%`}
+                  </span>
                 </div>
-                <ChevronDown className={cn('h-4 w-4 flex-shrink-0 text-gray-400 transition-transform', isOpen && 'rotate-180')} />
+                <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                  <div className={cn('h-full rounded-full', tone.bar)} style={{ width: `${accuracy ?? 0}%` }} />
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+                  <span>
+                    <b className="text-gray-800 dark:text-gray-200">{c.correct}</b> of {c.questions} correct
+                    {c.subs.length > 1 && ` · ${c.subs.length} sub-categories`}
+                  </span>
+                  <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />
+                </div>
               </button>
 
               {isOpen && (
-                <div className="border-t border-orange-100 px-3 pb-3 pt-2.5 dark:border-orange-900/40">
-                  <p className="mb-2 ml-1 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-600/80 dark:text-orange-400/80">
+                <div className="border-t border-orange-100 px-3.5 pb-3.5 pt-3 dark:border-orange-900/40">
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-600/80 dark:text-orange-400/80">
                     Sub-categories · {c.subs.length}
                   </p>
-                  {/* Indented behind a guide line: a different level from the category above. */}
-                  <ul className="ml-3 space-y-2 border-l-2 border-orange-300 pl-3 dark:border-orange-700">
-                  {c.subs.map(sub => {
-                    const subAcc = sub.questions > 0 ? (sub.correct / sub.questions) * 100 : null;
-                    return (
-                      <li key={sub.name} className="rounded-lg border border-gray-100 bg-white px-2.5 py-2 dark:border-gray-800 dark:bg-gray-900">
-                        <MeterRow
-                          label={sub.name}
-                          value={subAcc}
-                          accent={
-                            (subAcc ?? 0) >= passPercentage
-                              ? 'emerald'
-                              : (subAcc ?? 0) >= passPercentage - 15
-                                ? 'amber'
-                                : 'rose'
-                          }
-                          right={`${sub.correct}/${sub.questions}`}
-                        />
-                      </li>
-                    );
-                  })}
+                  <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {c.subs.map(sub => {
+                      const subAcc = sub.questions > 0 ? (sub.correct / sub.questions) * 100 : null;
+                      return (
+                        <li
+                          key={sub.name}
+                          className="flex items-center gap-2.5 rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800/60"
+                        >
+                          <span className={cn('h-2.5 w-2.5 flex-shrink-0 rounded-full', TONE[toneOf(subAcc)].dot)} />
+                          <span className="min-w-0 flex-1 text-xs font-medium leading-snug text-gray-800 dark:text-gray-200">{sub.name}</span>
+                          <span className="flex-shrink-0 text-xs font-bold tabular-nums text-gray-700 dark:text-gray-300">
+                            {sub.correct}/{sub.questions}
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               )}

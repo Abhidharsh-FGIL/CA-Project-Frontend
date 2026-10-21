@@ -249,9 +249,13 @@ export default function UserDashboardPage() {
     const last = chartTrend[chartTrend.length - 1];
     const delta = Math.round((last.value - first.value) * 10) / 10;
     const peak = chartTrend.reduce((hi, p) => (p.value > hi.value ? p : hi), chartTrend[0]);
-    const direction =
-      delta > 0.5 ? `up ${delta} points` : delta < -0.5 ? `down ${Math.abs(delta)} points` : 'broadly flat';
-    return `Your daily average is ${direction} across this period, from ${first.value}% on ${first.label} to ${last.value}% on ${last.label}. Best day so far was ${peak.label} at ${peak.value}%.`;
+    const movement =
+      delta > 0.5
+        ? `rose by ${delta} points, from ${first.value}% on ${first.label} to ${last.value}% on ${last.label}`
+        : delta < -0.5
+          ? `fell by ${Math.abs(delta)} points, from ${first.value}% on ${first.label} to ${last.value}% on ${last.label}`
+          : `remained steady at ${last.value}% from ${first.label} to ${last.label}`;
+    return `Your average score ${movement}. Your highest daily average was ${peak.value}%, recorded on ${peak.label}.`;
   }, [chartTrend]);
 
   /** The last 7 days that had a test, each at that day's average — as on the Performance screen. */
@@ -320,7 +324,7 @@ export default function UserDashboardPage() {
             Welcome back, <span className="text-blue-600 dark:text-blue-400">{user.name.split(' ')[0]}</span>! 👋
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">
-            Let's continue your preparation and achieve success.
+            Let's continue your preparation and work towards your goals.
           </p>
         </div>
         {/* These two scope every card below, so they lead the page rather than
@@ -378,7 +382,7 @@ export default function UserDashboardPage() {
                 <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                      Score trend <span className="font-normal text-gray-400">(%)</span>
+                      Score Trend <span className="font-normal text-gray-400">(%)</span>
                     </p>
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{trendCaption}</p>
                   </div>
@@ -470,7 +474,7 @@ export default function UserDashboardPage() {
             <TestScoreCard
               className="h-full min-w-0"
               attempts={filteredAttempts}
-              scopeLabel={`${groupLabel} · ${trackNoun.toLowerCase()}s`}
+              scopeLabel={`${groupLabel} · ${trackNoun}s`}
               trackNoun={trackNoun}
               takeHref={trackHref(track)}
               isLoading={groupIndexLoading}
@@ -478,13 +482,13 @@ export default function UserDashboardPage() {
 
             <Card className="h-full min-w-0">
               <CardHead
-                title="Strength by Units"
+                title="Strengths by Unit"
                 subtitle={
                   allSubjects.length === 0
                     ? undefined
                     : showAllSubjects || hiddenSubjects === 0
-                      ? `Accuracy on the questions you answered · all ${allSubjects.length} unit${allSubjects.length === 1 ? '' : 's'}`
-                      : `Accuracy on the questions you answered · your ${topSubjects.length} strongest`
+                      ? `Accuracy Across Answered Questions · ${allSubjects.length} Unit${allSubjects.length === 1 ? '' : 's'}`
+                      : `Accuracy Across Answered Questions · Your ${topSubjects.length} Strongest Units`
                 }
               />
               {subjectsLoading ? (
@@ -596,8 +600,8 @@ export default function UserDashboardPage() {
                       <>
                         {answeredTotals && (
                           <>
-                            {answeredTotals.correct} of {answeredTotals.attempted} answered correctly across{' '}
-                            {allSubjects.length} units
+                            You answered {answeredTotals.correct} out of {answeredTotals.attempted} questions correctly across{' '}
+                            {allSubjects.length} unit{allSubjects.length === 1 ? '' : 's'}
                             {` in ${groupLabel}`}.{' '}
                             {subjectsTruncated && 'Based on your 25 most recent attempts. '}
                           </>
@@ -606,13 +610,13 @@ export default function UserDashboardPage() {
                             work is the one furthest from view. Call it out regardless. */}
                         {weakestSubject && (
                           <>
-                            Weakest:{' '}
+                            Area for Improvement:{' '}
                             <span className="font-semibold text-gray-700 dark:text-gray-200">
                               {weakestSubject.subject}
                             </span>{' '}
-                            ({Math.round(weakestSubject.accuracy)}%) —{' '}
+                            ({Math.round(weakestSubject.accuracy)}%).{' '}
                             <Link to="/user/practice" className="text-blue-600 dark:text-blue-400 hover:underline">
-                              practise it
+                              Focus on this unit
                             </Link>
                             .
                           </>
@@ -649,7 +653,7 @@ export default function UserDashboardPage() {
               <div className="min-w-0">
                 <p className="text-sm font-bold">Recent Activity</p>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                  {groupLabel} · {trackNoun.toLowerCase()}s
+                  {groupLabel} · {trackNoun}s
                 </p>
               </div>
               <Link to="/user/history" className="text-xs font-semibold text-brand-600 dark:text-brand-400 underline-offset-2 hover:underline whitespace-nowrap">
@@ -694,7 +698,7 @@ export default function UserDashboardPage() {
           {/* Last 7 active days — from `xl` it takes the height the left column leaves, so both columns end together. */}
           <div className={cn('rounded-2xl p-4 text-gray-900 dark:text-gray-100 flex flex-col xl:flex-1', PANEL_SURFACE)}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-bold">Last 7 active days</p>
+              <p className="text-sm font-bold">Last 7 Active Days</p>
               <Link to="/user/performance" className="text-xs font-semibold text-brand-600 dark:text-brand-400 underline-offset-2 hover:underline">
                 View report
               </Link>
@@ -703,7 +707,7 @@ export default function UserDashboardPage() {
               <div>
                 <p className="text-2xl font-bold leading-none">{activeDayAverage}%</p>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                  Average across {filteredAttempts.length} {filteredAttempts.length === 1 ? 'attempt' : 'attempts'}
+                  Average Score Across {filteredAttempts.length} {filteredAttempts.length === 1 ? 'Attempt' : 'Attempts'}
                 </p>
               </div>
             </div>
@@ -723,7 +727,7 @@ export default function UserDashboardPage() {
             </div>
             {activeDayBars.length > 0 && (
               <p className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
-                {activeDayBars.length} active day{activeDayBars.length === 1 ? '' : 's'} shown.
+                Activity shown for {activeDayBars.length} day{activeDayBars.length === 1 ? '' : 's'}.
               </p>
             )}
           </div>
@@ -778,7 +782,7 @@ export default function UserDashboardPage() {
                         </span>
                       ))}
                       <span className="text-[11px] text-gray-500 dark:text-gray-400 ml-1">
-                        {g.stages.length} stage{g.stages.length !== 1 ? 's' : ''} · {open} open now
+                        {g.stages.length} Stage{g.stages.length !== 1 ? 's' : ''} · {open} Currently Available
                       </span>
                     </div>
                   </div>
@@ -795,7 +799,7 @@ export default function UserDashboardPage() {
         <Card>
           <SectionHead title="Quick Actions" />
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
-            <QuickAction to={trackHref('mock')} icon={<Timer className="w-5 h-5" />} label="Take Mock Test" tone="indigo" />
+            <QuickAction to={trackHref('mock')} icon={<Timer className="w-5 h-5" />} label="Take a Mock Test" tone="indigo" />
             <QuickAction to={trackHref('practice')} icon={<BookOpen className="w-5 h-5" />} label="Practice Now" tone="emerald" />
             <QuickAction to="/user/performance" icon={<LineChartIcon className="w-5 h-5" />} label="View Performance" tone="amber" />
             <QuickAction to="/user/history" icon={<Receipt className="w-5 h-5" />} label="Test History" tone="rose" />

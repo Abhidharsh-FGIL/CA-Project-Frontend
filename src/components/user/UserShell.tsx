@@ -10,6 +10,7 @@ import {
   Menu,
   Moon,
   Receipt,
+  History as HistoryIcon,
   Headset,
   Sparkles,
   Sun,
@@ -42,7 +43,7 @@ const NAV: NavItem[] = [
   ...(SHOW_STUDY_PLAN
     ? [{ to: '/user/study-plan', label: 'Study Plan', short: 'Plan', icon: CalendarCheck }]
     : []),
-  { to: '/user/history', label: 'History', icon: Receipt },
+  { to: '/user/history', label: 'History', icon: HistoryIcon },
   // Plans and billing. It is also in the profile menu; this puts it on the bar itself, one click away.
   { to: '/user/subscription', label: 'Plans', short: 'Plans', icon: Sparkles },
   // Progress is hidden. /user/progress still resolves and the page is untouched;

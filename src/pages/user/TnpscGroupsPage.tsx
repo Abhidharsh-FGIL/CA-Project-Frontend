@@ -1,7 +1,7 @@
 import { UserShell } from '@/components/user/UserShell';
 import { TnpscGroupGrid } from '@/components/user/TnpscGroupGrid';
 import { useTnpscCatalog } from '@/hooks/use-tnpsc';
-import { BarChart3, BookOpen, ClipboardList, Database, FileText, Loader2, Users, type LucideIcon } from 'lucide-react';
+import { BarChart3, BookOpen, CheckCircle2, ClipboardList, Database, FileText, Loader2, RefreshCw, Users, type LucideIcon } from 'lucide-react';
 import { EXAMS_FEATURES, EXAMS_STATS } from '@/config/exams-page';
 import { SHOW_STUDY_PLAN } from '@/config/features';
 import { cn } from '@/lib/utils';
@@ -30,7 +30,7 @@ export default function TnpscGroupsPage() {
     <UserShell>
       {/* Figures */}
       <div className="mb-4 grid gap-3 rounded-2xl border border-blue-100 dark:border-blue-900/50 bg-gradient-to-r from-blue-50/70 via-white to-orange-50/60 dark:from-blue-950/20 dark:via-gray-900 dark:to-orange-950/10 p-4 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-blue-100 dark:sm:divide-blue-900/40 animate-fadeIn">
-        <Stat icon={<Database className="w-6 h-6" />} tone="blue" value={EXAMS_STATS.questions} label="Group 4 Questions" sub="with various complexity levels">
+        <Stat icon={<Database className="w-6 h-6" />} tone="blue" value={EXAMS_STATS.questions} label="Group 4 Questions" sub="with various difficulty levels">
           <span className="mt-1.5 flex gap-1.5">
             <Level cls="bg-emerald-500">Simple</Level>
             <Level cls="bg-amber-500">Medium</Level>
@@ -45,6 +45,33 @@ export default function TnpscGroupsPage() {
         </Stat>
       </div>
 
+      {/* The promise behind the figures */}
+      <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-sky-200 dark:border-sky-900/50 bg-gradient-to-r from-sky-50 to-white dark:from-sky-950/20 dark:to-gray-900 p-4 sm:flex-row sm:items-center sm:gap-5 animate-fadeIn">
+        <div className="flex items-center gap-3 sm:flex-1">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300">
+            <RefreshCw className="w-6 h-6" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-base font-extrabold text-gray-900 dark:text-gray-100">Every Attempt Brings New Questions!</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-gray-600 dark:text-gray-400">
+              Practice with a fresh set of questions each time you take a mock test, along with multiple difficulty levels and detailed performance insights.
+            </p>
+          </div>
+        </div>
+        <ul className="space-y-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 sm:border-l sm:border-sky-200 dark:sm:border-sky-900/50 sm:pl-5">
+          {[
+            'Fresh question sets for every attempt',
+            'Multiple difficulty levels (Simple to Complex)',
+            'Detailed explanations and performance analysis',
+          ].map(t => (
+            <li key={t} className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-blue-500" />
+              {t}
+            </li>
+          ))}
+        </ul>
+      </div>
+
       <div className="mb-6 animate-fadeIn">
         <div className="relative overflow-hidden rounded-2xl border border-orange-100 dark:border-orange-900/40 bg-gradient-to-r from-[#fff0e4] via-[#fff6ee] to-[#f4f2f8] dark:from-orange-950/30 dark:via-gray-900 dark:to-blue-950/30 p-5 sm:p-7">
           <ExamArt className="hidden lg:block absolute right-6 xl:right-12 top-1/2 -translate-y-1/2 h-[88%] w-auto opacity-90 dark:opacity-40 pointer-events-none" />
@@ -56,14 +83,14 @@ export default function TnpscGroupsPage() {
           </p>
           <div className="relative max-w-2xl lg:max-w-[58%] xl:max-w-2xl">
             <p className="text-[10px] uppercase tracking-[0.25em] text-blue-600 dark:text-blue-400 font-bold mb-2">
-              Choose your examination
+              Choose Your Examination
             </p>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
               Competitive <span className="text-brand-500">Examinations</span>
             </h1>
             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">
-              Pick the examination you are preparing for. Each one opens into its stages, level-wise
-              mock tests and syllabus-based practice tests.
+              Pick the examination you are preparing for. Each one includes stages, level-wise
+              mock tests, and syllabus-based practice tests.
             </p>
           </div>
         </div>

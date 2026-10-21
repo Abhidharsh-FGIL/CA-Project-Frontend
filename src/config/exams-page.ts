@@ -6,7 +6,7 @@
  */
 export const EXAMS_STATS = {
   questions: '15,000+',
-  aspirants: '5,000+',
+  aspirants: '2,000+',
   newQuestions: '2,000+',
 };
 

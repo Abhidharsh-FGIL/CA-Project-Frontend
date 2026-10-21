@@ -27,6 +27,7 @@ import {
   resendUserOtp,
   loginUser,
   sendLoginOtp as requestLoginOtp,
+  googleAuth,
   verifyLoginOtp,
   logoutUser,
   forgotUserPassword,
@@ -73,6 +74,14 @@ interface UserPortalContextValue {
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   /** Have a one-time password sent to the account behind an email ID or mobile number. `message` says where it went. */
   sendLoginOtp: (identifier: string) => Promise<{ ok: boolean; message?: string; error?: string }>;
+  /**
+   * Sign in, or sign up, with a Google ID token. `needsProfile` means Google is fine but there is no account
+   * yet: ask for the sign-up details and call again with them. Starts the same session `login` does.
+   */
+  signInWithGoogle: (
+    idToken: string,
+    profile?: { name: string; phone: string } & StudentDetailFields,
+  ) => Promise<{ ok: boolean; error?: string; needsProfile?: { email: string; name: string } }>;
   /** Sign in with that one-time password — the same session `login` starts. */
   loginWithOtp: (identifier: string, otp: string) => Promise<{ ok: boolean; error?: string }>;
   register: (data: { name: string; email: string; phone: string } & StudentDetailFields) => Promise<{ ok: boolean; error?: string; otpSentTo?: string }>;
@@ -301,6 +310,38 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
       return { ok: false, error: describeApiError(err, 'Could not send the OTP') };
     }
   }, []);
+
+  const signInWithGoogle = useCallback(
+    async (idToken: string, profile?: { name: string; phone: string } & StudentDetailFields) => {
+      try {
+        const result = await googleAuth(
+          idToken,
+          profile && {
+            full_name: profile.name,
+            mobile_number: profile.phone,
+            date_of_birth: profile.date_of_birth,
+            gender: profile.gender,
+            student_class: profile.student_class,
+            section: profile.section,
+            roll_no: profile.roll_no,
+            school_name: profile.school_name,
+            medium: profile.medium,
+            class_teacher: profile.class_teacher,
+            academic_year: profile.academic_year,
+            preferred_exam: profile.preferred_exam,
+          },
+        );
+        if (result.kind === 'needs-profile') return { ok: false, needsProfile: { email: result.email, name: result.name } };
+        await startSession();
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: describeApiError(err, 'Google sign-in failed') };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [startSession],
+  );
 
   const loginWithOtp = useCallback(
     async (identifier: string, otp: string) => {
@@ -710,6 +751,7 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
     login,
     sendLoginOtp,
     loginWithOtp,
+    signInWithGoogle,
     register,
     verifyOtp,
     resendOtp,

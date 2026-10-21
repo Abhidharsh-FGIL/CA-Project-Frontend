@@ -85,6 +85,11 @@ import { bankCategoryCounts } from '@/lib/key-topics';
 interface Props {
   onCreated: (assessmentId: string) => void;
   onBack?: () => void;
+  /**
+   * A placement to start on — from New beside a spot in the Assessments tree (Mock, Key Topics or Practice, then
+   * subject and unit). The form opens already placed there.
+   */
+  initialTag?: Partial<TnpscTagValue>;
 }
 
 const STEPS = [
@@ -176,7 +181,7 @@ function difficultyOf(questions: Array<{ difficulty?: string | null }>, fallback
   return 'mixed';
 }
 
-export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
+export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag }: Props) {
   const { profileContext } = useWorkspaceContext();
   const createAssessment = useCreateEvalAssessment();
 
@@ -186,7 +191,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
   const [titleEdited, setTitleEdited] = useState(false);
   // TNPSC placement — decides where this paper appears in the aspirant portal.
   // `track` is driven by the assessment mode below, so it is not editable here.
-  const [tnpscTag, setTnpscTag] = useState<TnpscTagValue>({ ...EMPTY_TAG, track: 'mock' });
+  const [tnpscTag, setTnpscTag] = useState<TnpscTagValue>({ ...EMPTY_TAG, track: 'mock', ...initialTag });
   const [sourceType, setSourceType] = useState<'online' | 'text' | 'file' | 'all' | ''>('');
   const [source, setSource] = useState<'bank' | 'paper'>('bank');
   const [paperIds, setPaperIds] = useState<string[]>([]);
@@ -205,7 +210,8 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack }: Props) {
   const [questionCount, setQuestionCount] = useState(20);
   const [selectedTypes] = useState<string[]>(['mcq']);
   const [dueDate, setDueDate] = useState<Date | undefined>();
-  const [mode, setMode] = useState('exam');
+  // The mode follows the track: a practice placement starts the form as a practice assessment.
+  const [mode, setMode] = useState(initialTag?.track === 'practice' ? 'practice' : 'exam');
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<number | undefined>();
   const [negativeMarking, setNegativeMarking] = useState(false);
   /**

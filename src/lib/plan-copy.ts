@@ -47,7 +47,7 @@ const FREE: PlanCopy = {
 };
 
 const ULTIMATE_MONTHLY: PlanCopy = {
-  headline: 'Practice More. Identify Your Weaknesses. Improve Your Scores.',
+  headline: 'Practice More. Identify Your Weaknesses. Improve Your Performance.',
   blurb: 'For focused preparation with regular testing and clear insights into your performance.',
   included: [
     ['{mock} Full-Length Mock Test{mock_s}', 'Assess your exam readiness through complete mock examinations.'],
@@ -55,7 +55,7 @@ const ULTIMATE_MONTHLY: PlanCopy = {
     ['Detailed performance reports', 'Understand your scores, accuracy, and performance across subjects.'],
     ['Strength & weakness analysis', 'Identify areas where you’re performing well and topics that need more attention.'],
     ['Progress tracking', 'Review your test attempts and monitor your improvement.'],
-    ['Can add top-ups any time', 'Buy extra tests whenever you need them.'],
+    ['Add top-ups anytime', 'Buy extra tests whenever you need them.'],
   ],
   bestFor: 'Students preparing for an upcoming exam who want focused practice and regular performance evaluation.',
   cta: 'Choose Monthly Plan',
@@ -70,7 +70,7 @@ const ULTIMATE_YEARLY: PlanCopy = {
     ['Comprehensive performance reports', 'Access detailed insights into test scores, accuracy, and subject-wise performance.'],
     ['Strength & weakness analysis', 'Understand which subjects need additional attention.'],
     ['Progress tracking all year', 'Monitor your performance and improvements across multiple test attempts.'],
-    ['Can add top-ups any time', 'Buy extra tests whenever you need them.'],
+    ['Add top-ups anytime', 'Buy extra tests whenever you need them.'],
   ],
   bestFor: 'Dedicated aspirants who prefer structured, long-term preparation with regular assessments.',
   cta: 'Choose Annual Plan',

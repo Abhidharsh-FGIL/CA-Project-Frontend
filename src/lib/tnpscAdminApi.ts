@@ -504,6 +504,26 @@ export function setPaperClassification(
   return api.patch(`/api/v1/evaluation/papers/${paperId}`, patch);
 }
 
+/**
+ * File a collection under a syllabus unit — the Collections tab's "Move to unit".
+ *
+ * Sent to the same `PATCH /api/v1/evaluation/papers/{id}` the list already renames through. The backend needs to
+ * store `stage_id`, `unit_id` and `section_name` on the collection and return them from the list (see
+ * COLLECTION_HIERARCHY.md). Until it does the call is refused (404/405/422), which callers treat as "not
+ * supported yet" via `isUnsupportedPatch`.
+ */
+export function setPaperPlacement(
+  paperId: string,
+  placement: { groupId: string; stageId: string; unitId: string | null; sectionName: string | null },
+): Promise<any> {
+  return api.patch(`/api/v1/evaluation/papers/${paperId}`, {
+    group_id: placement.groupId,
+    stage_id: placement.stageId,
+    unit_id: placement.unitId,
+    section_name: placement.sectionName,
+  });
+}
+
 export interface BulkTagResult {
   updated: number;
   skipped?: Array<{ id: string; reason: string }>;

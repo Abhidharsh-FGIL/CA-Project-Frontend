@@ -31,7 +31,7 @@ import {
 import { costPerMonth, perksFor, validityOf } from '@/lib/plans';
 import { cardFor, cycleShown } from '@/lib/plan-copy';
 import { getCurrentSubscription, validatePromo, type CurrentSubscription, type PromoValidation } from '@/lib/subscriptionApi';
-import { GST_LABEL, breakdownFrom } from '@/lib/gst';
+import { GST_LABEL, breakdownFrom, isGstInclusive } from '@/lib/gst';
 import { createTopUpOrder, getTopUpBalance, getTopUpPacks, verifyTopUp, type TopUpPack } from '@/lib/topup-api';
 import { purchaseTopUp } from '@/lib/topup-purchase';
 import { openCheckout } from '@/lib/razorpay';
@@ -220,7 +220,7 @@ function OptionCard({
       )}
       {bestValue && months && priceOfMonths && (
         <span className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap rounded-full bg-orange-500 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-white shadow">
-          Best value · {months} months for price of {priceOfMonths}
+          Best Value · {months} Months for the Price of {priceOfMonths}
         </span>
       )}
       <div
@@ -250,7 +250,7 @@ function OptionCard({
         </p>
         {bestValue && monthlyCost !== null && saving > 0 && (
           <p className="mt-2 inline-block rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-            Just {fmt(monthlyCost)} a month · save {fmt(saving)} vs monthly
+            Just {fmt(monthlyCost)} per month — save {fmt(saving)} compared to the Monthly Plan.
           </p>
         )}
 
@@ -392,7 +392,7 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
     <section className="mt-12 animate-fadeIn">
       <h2 className="border-l-4 border-orange-500 pl-3 text-2xl font-extrabold text-gray-900 dark:text-gray-100">Need more tests?</h2>
       <p className="mt-1 max-w-xl text-sm text-gray-600 dark:text-gray-400">
-        Add a top-up to your Monthly or Yearly plan. Unused top-up tests are saved and carry forward when you renew.
+        Add a top-up to your Monthly or Yearly plan. Unused top-up tests are saved and carried forward when you renew your subscription.
       </p>
 
       {!data.can_purchase && data.reason && (
@@ -437,7 +437,6 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
                       </div>
                       <div className="flex-shrink-0 text-right">
                         <p className="text-lg font-extrabold text-gray-900 dark:text-gray-100">₹{pack.price.toLocaleString('en-IN')}</p>
-                        <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">{GST_LABEL}</p>
                       </div>
                     </div>
                     <div className="mt-auto flex justify-end pt-3">
@@ -469,7 +468,7 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
         </div>
         <div className="flex items-center justify-between gap-4 sm:justify-end">
           <p className="text-xl font-extrabold">
-            ₹{chosen.price.toLocaleString('en-IN')} <span className="text-xs font-semibold text-gray-400">{GST_LABEL}</span>
+            ₹{chosen.price.toLocaleString('en-IN')}
           </p>
           <button
             type="button"
@@ -544,7 +543,7 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
   const basePrice = useMemo(() => getSubscriptionPlanPrice(plan, billing), [plan, billing]);
   const finalPrice = useMemo(() => getEffectivePlanPrice(plan, billing, appliedPromo), [plan, billing, appliedPromo]);
   const discount = basePrice - finalPrice;
-  // The server's own breakdown, GST included. Without it the summary shows the price and says GST is added.
+  // The server's own breakdown, GST included. Without it the summary shows the price, inclusive of GST.
   const breakdown = appliedPromo ? breakdownFrom(quote) : null;
   const rs = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -642,7 +641,8 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
 
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur flex items-center justify-center transition-colors"
+            // z-10: the title block after it is also positioned and spans the header, so without this it sits on top and takes the click.
+            className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur flex items-center justify-center transition-colors"
             aria-label="Close"
           >
             <X className="w-4 h-4" />
@@ -653,6 +653,7 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
             <h2 className="text-xl font-bold mt-1 flex items-center gap-2">
               {plan.tier === 'premium' && <Crown className="w-5 h-5" />}
               {plan.name}
+              <span className="rounded-full bg-white/25 px-2.5 py-0.5 text-xs font-bold capitalize">{billing}</span>
             </h2>
             <p className="text-xs opacity-90 mt-0.5 capitalize">
               {billing} billing · {plan.tier === currentTier ? `switching your ${currentTier} plan` : `upgrading from ${currentTier}`}
@@ -732,8 +733,33 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
               <p className="text-xs font-bold text-gray-900 dark:text-gray-100">Order Summary</p>
             </div>
 
-            {breakdown ? (
-              // The server's figures, GST included — nothing here is worked out on this page.
+            {breakdown && isGstInclusive(breakdown) ? (
+              // GST is inside the price: price, less any discount, is the total; the tax is shown as what it contains.
+              <div className="space-y-1.5 text-sm">
+                <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
+                  <span>Plan price (incl. GST)</span>
+                  <span className="tabular-nums">{rs(breakdown.base_amount)}</span>
+                </div>
+                {breakdown.discount_amount > 0 && (
+                  <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 font-medium">
+                    <span className="inline-flex items-center gap-1">
+                      <BadgePercent className="w-3.5 h-3.5" />
+                      Discount ({appliedPromo?.code})
+                    </span>
+                    <span className="tabular-nums">−{rs(breakdown.discount_amount)}</span>
+                  </div>
+                )}
+                <div className="border-t border-blue-100 dark:border-blue-900 my-2" />
+                <div className="flex items-center justify-between text-base font-bold text-gray-900 dark:text-gray-100">
+                  <span>Total</span>
+                  <span className="tabular-nums">{rs(breakdown.final_amount)}</span>
+                </div>
+                <p className="pt-1 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 tabular-nums">
+                  Includes taxable value {rs(breakdown.taxable_amount)} and GST @ {breakdown.gst_percent}% {rs(breakdown.gst_amount)}.
+                </p>
+              </div>
+            ) : breakdown ? (
+              // GST on top of the price (a server that has not changed over yet): the server's figures as they come.
               <div className="space-y-1.5 text-sm">
                 <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
                   <span>Plan price</span>
@@ -794,13 +820,12 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
                           <IndianRupee className="w-4 h-4" />
                           {finalPrice.toLocaleString('en-IN')}
                         </span>
-                        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{GST_LABEL}</span>
                       </>
                     )}
                   </span>
                 </div>
                 {finalPrice > 0 && (
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400">GST is added when you pay; the total is shown on the payment screen.</p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">Price is inclusive of GST.</p>
                 )}
               </div>
             )}

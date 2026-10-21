@@ -1,11 +1,14 @@
 /**
  * GST on what is sold here.
  *
- * Prices from the backend (`/subscription/plans`, `/topup/packs`) are before GST, and GST is added at
- * payment. This file is only the *words* for that — "₹499 + 18% GST". The sums are the server's: the
- * order says the GST and the total, and the checkout shows those, never a figure worked out here.
+ * The prices shown are what the customer pays, GST included: "₹499, inclusive of GST". This file is only
+ * the *words* for that. The sums are the server's: the order says the GST and the total, and the checkout
+ * shows those, never a figure worked out here.
+ *
+ * The backend has to agree: the price it charges for a plan or pack is the listed price. If it still adds
+ * GST on top of the listed price, this label would be untrue.
  */
-export const GST_LABEL = '+ 18% GST';
+export const GST_LABEL = 'Inclusive of GST';
 
 /** The GST breakdown of a priced thing, in the server's own figures. All rupees. */
 export interface PriceBreakdown {
@@ -15,6 +18,16 @@ export interface PriceBreakdown {
   gst_percent: number;
   gst_amount: number;
   final_amount: number;
+}
+
+/**
+ * Whether the server's figures have the GST *inside* the price (the total is the listed price less any
+ * discount) rather than added on top of it. Read from the server's own numbers — the page never works
+ * out GST — so the checkout is right whichever way the backend charges while the two are being brought
+ * into line. Within a paisa, since each is rounded to paise on its own.
+ */
+export function isGstInclusive(b: PriceBreakdown): boolean {
+  return Math.abs(b.final_amount - (b.base_amount - b.discount_amount)) < 0.015;
 }
 
 /**

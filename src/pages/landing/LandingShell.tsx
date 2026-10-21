@@ -8,7 +8,7 @@
  */
 import { useState, type MouseEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Menu, X } from 'lucide-react';
+import { ArrowRight, Mail, Menu, Phone, X } from 'lucide-react';
 import { LogoFull } from '@/components/brand/Brand';
 import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_LINK } from '@/config/support';
 import './landing.css';
@@ -82,21 +82,47 @@ export function ButtonLink({
 }
 
 /** The footer of the public pages — the landing page and the terms page. */
-export function LandingFooter() {
+export function LandingFooter({ onLanding = true }: { onLanding?: boolean }) {
   return (
-    <footer>
-      <div className="mge-container mge-footer-content">
-        <LogoFull className="mge-footer-logo" />
-        <div className="mge-footer-meta">
-          <span>
-            © {new Date().getFullYear()} MyGovExams · <Link to="/terms">Terms &amp; Conditions</Link> ·{' '}
-            <Link to="/privacy">Privacy Policy</Link> ·{' '}
-            <Link to="/refund">Refund Policy</Link>
-          </span>
-          <span>
-            Support: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> · <a href={`tel:${SUPPORT_PHONE_LINK}`}>{SUPPORT_PHONE}</a>
-          </span>
-          <span>Practice • Analyse • Improve</span>
+    <footer className="mge-footer">
+      <div className="mge-container mge-footer-top">
+        <div className="mge-footer-brand">
+          <LogoFull className="mge-footer-logo" />
+          <p className="mge-footer-tagline">Practice • Analyze • Improve</p>
+          <p className="mge-footer-blurb">
+            AI-powered mock tests, unit-wise practice and performance insights for government exam aspirants.
+          </p>
+        </div>
+        <nav className="mge-footer-col" aria-label="Quick links">
+          <h5>Quick Links</h5>
+          <SectionLink to="home" onLanding={onLanding}>
+            Home
+          </SectionLink>
+          <SectionLink to="pricing" onLanding={onLanding}>
+            Pricing
+          </SectionLink>
+          <Link to={ROUTES.login}>Login</Link>
+          <Link to={ROUTES.signup}>Start Free Trial</Link>
+        </nav>
+        <nav className="mge-footer-col" aria-label="Legal">
+          <h5>Legal</h5>
+          <Link to="/terms">Terms &amp; Conditions</Link>
+          <Link to="/privacy">Privacy Policy</Link>
+          <Link to="/refund">Refund Policy</Link>
+        </nav>
+        <div className="mge-footer-col">
+          <h5>Contact Us</h5>
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="mge-footer-contact">
+            <Mail size={16} aria-hidden="true" /> {SUPPORT_EMAIL}
+          </a>
+          <a href={`tel:${SUPPORT_PHONE_LINK}`} className="mge-footer-contact">
+            <Phone size={16} aria-hidden="true" /> {SUPPORT_PHONE}
+          </a>
+        </div>
+      </div>
+      <div className="mge-footer-bottom">
+        <div className="mge-container">
+          <span>© {new Date().getFullYear()} MyGovExams. All rights reserved.</span>
           <span>Powered by FutureGen Innovation Lab Pvt Ltd</span>
         </div>
       </div>
@@ -113,6 +139,9 @@ export function LandingHeader({ onLanding = true }: { onLanding?: boolean }) {
           <LogoFull className="mge-logo-full" />
         </SectionLink>
         <nav className={open ? 'mge-nav-links mge-open' : 'mge-nav-links'} aria-label="Main navigation">
+          <SectionLink to="home" onNavigate={() => setOpen(false)} onLanding={onLanding}>
+            Home
+          </SectionLink>
           <SectionLink to="pricing" onNavigate={() => setOpen(false)} onLanding={onLanding}>
             Pricing
           </SectionLink>

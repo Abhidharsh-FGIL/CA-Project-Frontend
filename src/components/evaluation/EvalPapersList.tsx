@@ -9,12 +9,14 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Search, Trash2, FileText, Hash, Download, Eye, Pencil, Loader2, Plus, ScanLine } from 'lucide-react';
+import { Search, Trash2, FileText, Hash, Download, Eye, Pencil, Loader2, Plus, ScanLine, FolderInput, ListTree, LayoutGrid } from 'lucide-react';
 import { useEvalPapers, useDeleteEvalPaper, useUpdateEvalPaperMeta } from '@/hooks/use-evaluation';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { DownloadDropdown } from './DownloadDropdown';
 import { AddQuestionDialog } from './AddQuestionDialog';
 import { TnpscReclassifyDialog } from './TnpscReclassifyDialog';
+import { CollectionHierarchy } from './CollectionHierarchy';
+import { AssignCollectionDialog } from './AssignCollectionDialog';
 import { isVirtualPaper } from '@/lib/reclassify';
 import { api } from '@/lib/api';
 import { exportAssessment, type ExportFormat, type QuestionData } from '@/lib/eval-export-utils';
@@ -35,6 +37,9 @@ export function EvalPapersList() {
   const [addToPaper, setAddToPaper] = useState<any | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [reclassifyOpen, setReclassifyOpen] = useState(false);
+  /** By syllabus (exam → subject → unit → collections) or the flat list of every collection. */
+  const [view, setView] = useState<'syllabus' | 'all'>('syllabus');
+  const [movePaper, setMovePaper] = useState<any | null>(null);
   const qc = useQueryClient();
 
   // The id itself comes from `reclassify.ts`, which is also where the rule lives
@@ -114,40 +119,7 @@ export function EvalPapersList() {
     );
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search question sets..." className="pl-9" />
-        </div>
-
-        {/* Repairs collections whose stored difficulty and level drifted from the
-            questions they hold — see TnpscReclassifyDialog. */}
-        <Button
-          variant="outline"
-          onClick={() => setReclassifyOpen(true)}
-          disabled={!papers || papers.length === 0}
-        >
-          <ScanLine className="mr-1.5 h-4 w-4" /> Reclassify by difficulty
-        </Button>
-      </div>
-
-      <TnpscReclassifyDialog
-        open={reclassifyOpen}
-        onOpenChange={setReclassifyOpen}
-        papers={(papers as any[]) ?? []}
-        onApplied={() => qc.invalidateQueries({ queryKey: ['eval-papers'] })}
-      />
-
-      {filtered.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <FileText className="h-10 w-10 mx-auto mb-3 opacity-40" />
-          <p className="text-sm">No collections yet. Create your first one.</p>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visiblePapers.map((paper: any) => (
+  const renderCard = (paper: any) => (
             <Card key={paper.id} className={`group hover:shadow-md transition-shadow ${isCustomCollection(paper) ? 'border-primary/40 ring-1 ring-primary/20' : ''}`}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
@@ -193,6 +165,11 @@ export function EvalPapersList() {
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAddToPaper(paper)} title="Add question">
                       <Plus className="h-3.5 w-3.5" />
                     </Button>
+                    {!isCustomCollection(paper) && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setMovePaper(paper)} title="Move to a unit">
+                        <FolderInput className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/org/evaluation/paper/${paper.id}`, { state: { from: '/org/evaluation', tab: 'papers' } })} title="View">
                       <Eye className="h-3.5 w-3.5" />
                     </Button>
@@ -235,11 +212,65 @@ export function EvalPapersList() {
                 </div>
               </CardContent>
             </Card>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search question sets..." className="pl-9" />
+        </div>
+
+        <div className="inline-flex rounded-md border p-0.5" role="group" aria-label="How to list collections">
+          {([
+            ['syllabus', 'By syllabus', ListTree],
+            ['all', 'All', LayoutGrid],
+          ] as const).map(([value, label, Icon]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setView(value)}
+              aria-pressed={view === value}
+              className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+                view === value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" /> {label}
+            </button>
           ))}
         </div>
+
+        {/* Repairs collections whose stored difficulty and level drifted from the
+            questions they hold — see TnpscReclassifyDialog. */}
+        <Button
+          variant="outline"
+          onClick={() => setReclassifyOpen(true)}
+          disabled={!papers || papers.length === 0}
+        >
+          <ScanLine className="mr-1.5 h-4 w-4" /> Reclassify by difficulty
+        </Button>
+      </div>
+
+      <TnpscReclassifyDialog
+        open={reclassifyOpen}
+        onOpenChange={setReclassifyOpen}
+        papers={(papers as any[]) ?? []}
+        onApplied={() => qc.invalidateQueries({ queryKey: ['eval-papers'] })}
+      />
+
+      {view === 'syllabus' ? (
+        <CollectionHierarchy papers={filtered} isCustom={isCustomCollection} renderCard={renderCard} />
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <FileText className="h-10 w-10 mx-auto mb-3 opacity-40" />
+          <p className="text-sm">No collections yet. Create your first one.</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{visiblePapers.map(renderCard)}</div>
       )}
 
-      {filtered.length > 0 && (
+      {view === 'all' && filtered.length > 0 && (
         <>
           <div ref={sentinelRef} className="h-1" />
           <p className="text-center text-xs text-muted-foreground py-2">
@@ -248,10 +279,13 @@ export function EvalPapersList() {
         </>
       )}
 
+      <AssignCollectionDialog paper={movePaper} onClose={() => setMovePaper(null)} />
+
       {/* Add Question Dialog */}
       {addToPaper && (
         <AddQuestionDialog
           paperTitle={addToPaper.title}
+          examType={addToPaper.test_type}
           defaultSubject={addToPaper.subject}
           defaultDifficulty={addToPaper.difficulty}
           open={!!addToPaper}

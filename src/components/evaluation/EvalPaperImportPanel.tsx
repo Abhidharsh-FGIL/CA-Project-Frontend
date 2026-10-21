@@ -41,7 +41,7 @@ import { EXAMS } from '@/constants';
 import { bilingualLanguageForExamType } from '@/config/tnpsc';
 import { LEVEL_FROM_SHEET, applyLevelChoice, defaultPoints, mapExcelPaper } from '@/lib/excel-paper-map';
 import { CollectionUnitField, NO_PLACEMENT, type CollectionPlacement } from '@/components/evaluation/CollectionUnitField';
-import { stageForExamType } from '@/config/tnpsc';
+import { stageForExamType, stageUnits } from '@/config/tnpsc';
 import {
   DIFFICULTY_OPTIONS,
   asQuestionDifficulty,
@@ -236,7 +236,16 @@ export function EvalPaperImportPanel({ onImported }: Props) {
       mcqSubtypes: ['standard'],
       typeWeightage: { mcq: 100 },
       // Required: the server files every question in the collection under this unit.
-      placement: { stageId: stageForExamType(examLabel)?.id ?? '', unitId: placement.unitId ?? '', topicId: null },
+      // The collection itself is filed here too (group, stage, subject and unit), so it appears under its unit on the
+      // Collections tab without anyone moving it.
+      placement: {
+        stageId: stageForExamType(examLabel)?.id ?? '',
+        unitId: placement.unitId ?? '',
+        topicId: null,
+        groupId: stageForExamType(examLabel)?.group_id ?? '',
+        sectionName:
+          stageUnits(stageForExamType(examLabel)).find(u => u.unit.id === placement.unitId)?.sectionName ?? null,
+      },
       subjects: [
         {
           id: crypto.randomUUID(),

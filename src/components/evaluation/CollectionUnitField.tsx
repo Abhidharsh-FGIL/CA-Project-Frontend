@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { findUnit, stageForExamType, stageUnits, unitDisplayName } from '@/config/tnpsc';
 
 export interface CollectionPlacement {
@@ -40,21 +40,29 @@ export function CollectionUnitField({ examLabel, value, onChange }: Props) {
         <SelectTrigger className="h-10">
           <SelectValue placeholder="Choose the unit this sheet is for" />
         </SelectTrigger>
-        <SelectContent>
-          {units.map(({ unit: u, sectionName }) => (
-            <SelectItem key={u.id} value={u.id}>
-              <span className="flex items-center gap-1.5">
-                <span className="w-6 text-[10px] font-bold text-muted-foreground">{u.label ?? '—'}</span>
-                <span>{unitDisplayName(stage, u)}</span>
-                <span className="text-[10px] text-muted-foreground">· {u.questions} Qs · {sectionName}</span>
-              </span>
-            </SelectItem>
+        <SelectContent className="max-h-[60vh]">
+          {/* Subject first, then its units — the same order the Collections tab files them in. */}
+          {[...new Set(units.map(u => u.sectionName))].map(section => (
+            <SelectGroup key={section}>
+              <SelectLabel>{section}</SelectLabel>
+              {units
+                .filter(u => u.sectionName === section)
+                .map(({ unit: u }) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-6 text-[10px] font-bold text-muted-foreground">{u.label ?? '—'}</span>
+                      <span>{unitDisplayName(stage, u)}</span>
+                      <span className="text-[10px] text-muted-foreground">· {u.questions} Qs</span>
+                    </span>
+                  </SelectItem>
+                ))}
+            </SelectGroup>
           ))}
         </SelectContent>
       </Select>
       <p className="text-[11px] text-muted-foreground">
         {unit
-          ? `Every question in this collection is filed under ${unitDisplayName(stage, unit)}.`
+          ? `Every question in this collection is filed under ${unitDisplayName(stage, unit)}, and the collection appears there on the Collections tab.`
           : 'Every question in the collection is filed under the unit you choose here.'}
       </p>
     </div>

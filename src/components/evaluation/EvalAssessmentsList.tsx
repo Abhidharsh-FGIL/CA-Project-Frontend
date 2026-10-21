@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Search, Trash2, FileText, Users, Send, CheckCircle, AlertCircle, TrendingUp, BookOpen, Shuffle, Pin, ChevronDown, ChevronUp, Tag, EyeOff } from 'lucide-react';
+import { Search, Trash2, FileText, Users, Send, CheckCircle, AlertCircle, TrendingUp, BookOpen, Shuffle, Pin, ChevronDown, ChevronUp, Tag, EyeOff, ListTree, LayoutGrid } from 'lucide-react';
 import { useEvalAssessments, useDeleteEvalAssessment, useEvalInvitationStats } from '@/hooks/use-eval-assessments';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { format } from 'date-fns';
@@ -14,10 +14,14 @@ import { TnpscTagDialog } from './TnpscTagDialog';
 import { describeTag, isTagged, listReportsPlacement, readTnpscTag } from '@/lib/tnpscAdminApi';
 import { TNPSC_GROUPS } from '@/config/tnpsc';
 import { difficultyLabel } from '@/lib/eval-difficulty';
+import { AssessmentHierarchy } from './AssessmentHierarchy';
+import type { NewAssessmentSeed } from '@/lib/assessment-hierarchy';
 
 interface Props {
   onDistribute: (assessmentId: string) => void;
   onViewReport?: (assessmentId: string) => void;
+  /** Start a new assessment already placed at a spot in the tree. */
+  onCreate?: (seed: NewAssessmentSeed) => void;
 }
 
 function getDisplayStatus(a: any): 'active' | 'expired' {
@@ -258,8 +262,10 @@ function AssessmentCard({
   );
 }
 
-export function EvalAssessmentsList({ onDistribute, onViewReport }: Props) {
+export function EvalAssessmentsList({ onDistribute, onViewReport, onCreate }: Props) {
   const [search, setSearch] = useState('');
+  /** By syllabus (exam → Mock / Key Topics / Practice → subject → unit) or the flat list. */
+  const [view, setView] = useState<'syllabus' | 'all'>('syllabus');
   const [statusFilter, setStatusFilter] = useState('all');
   const [placementFilter, setPlacementFilter] = useState('all');
 
@@ -273,7 +279,8 @@ export function EvalAssessmentsList({ onDistribute, onViewReport }: Props) {
     if (!assessments) return [];
     let rows = assessments as any[];
     if (statusFilter !== 'all') rows = rows.filter((a: any) => getDisplayStatus(a) === statusFilter);
-    if (placementFilter !== 'all') {
+    // The placement filter belongs to the flat list; the tree files by placement itself.
+    if (view === 'all' && placementFilter !== 'all') {
       rows = rows.filter((a: any) => {
         const t = readTnpscTag(a);
         if (placementFilter === 'untagged') return !isTagged(t);
@@ -282,7 +289,7 @@ export function EvalAssessmentsList({ onDistribute, onViewReport }: Props) {
       });
     }
     return rows;
-  }, [assessments, statusFilter, placementFilter]);
+  }, [assessments, statusFilter, placementFilter, view]);
 
   const placementKnown = useMemo(() => listReportsPlacement(assessments as any[]), [assessments]);
 
@@ -292,6 +299,38 @@ export function EvalAssessmentsList({ onDistribute, onViewReport }: Props) {
   );
 
   const { visible: visibleAssessments, sentinelRef, hasMore, shown, total } = useInfiniteList<any>(filtered as any[], 24);
+
+  const renderCard = (a: any) => {
+        const displayStatus = getDisplayStatus(a);
+        const st = STATUS_CONFIG[displayStatus];
+        const stat = (stats as any)[a.id];
+        const StatusIcon = st.icon;
+        const isExpired = displayStatus === 'expired';
+        const invited = stat?.invited || 0;
+        const submitted = stat?.submitted || 0;
+        const completionPct = invited > 0 ? Math.round((submitted / invited) * 100) : 0;
+        const isConstant = a.shuffle_questions === false;
+        const hasQuestions = isConstant && Array.isArray(a.questions) && a.questions.length > 0;
+
+        return (
+          <AssessmentCard
+            key={a.id}
+            a={a}
+            st={st}
+            StatusIcon={StatusIcon}
+            isExpired={isExpired}
+            invited={invited}
+            submitted={submitted}
+            completionPct={completionPct}
+            isConstant={isConstant}
+            hasQuestions={hasQuestions}
+            stat={stat}
+            placementKnown={placementKnown}
+            onDistribute={onDistribute}
+            onDelete={() => deleteAssessment.mutate(a.id)}
+          />
+        );
+  };
 
   if (isLoading) {
     return (
@@ -318,6 +357,26 @@ export function EvalAssessmentsList({ onDistribute, onViewReport }: Props) {
             <SelectItem value="expired">Expired</SelectItem>
           </SelectContent>
         </Select>
+        <div className="inline-flex rounded-md border p-0.5" role="group" aria-label="How to list assessments">
+          {([
+            ['syllabus', 'By syllabus', ListTree],
+            ['all', 'All', LayoutGrid],
+          ] as const).map(([value, label, Icon]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setView(value)}
+              aria-pressed={view === value}
+              className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+                view === value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" /> {label}
+            </button>
+          ))}
+        </div>
+        {/* The tree already files by placement, so the placement filter is for the flat list. */}
+        {view === 'all' && (
         <Select value={placementFilter} onValueChange={setPlacementFilter}>
           <SelectTrigger className="w-[210px]">
             <SelectValue placeholder="TNPSC placement" />
@@ -340,9 +399,10 @@ export function EvalAssessmentsList({ onDistribute, onViewReport }: Props) {
             )}
           </SelectContent>
         </Select>
+        )}
 
       </div>
-      {untaggedCount > 0 && placementFilter === 'all' && (
+      {view === 'all' && untaggedCount > 0 && placementFilter === 'all' && (
         <button
           onClick={() => setPlacementFilter('untagged')}
           className="w-full flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 p-3 text-left hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
@@ -355,7 +415,13 @@ export function EvalAssessmentsList({ onDistribute, onViewReport }: Props) {
         </button>
       )}
 
-      {filtered.length === 0 ? (
+      {view === 'syllabus' ? (
+        <AssessmentHierarchy
+          assessments={filtered as any[]}
+          renderCard={renderCard}
+          onCreate={seed => onCreate?.(seed)}
+        />
+      ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <FileText className="h-10 w-10 mx-auto mb-3 opacity-40" />
           <p className="text-sm">
@@ -364,41 +430,11 @@ export function EvalAssessmentsList({ onDistribute, onViewReport }: Props) {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {visibleAssessments.map((a: any) => {
-            const displayStatus = getDisplayStatus(a);
-            const st = STATUS_CONFIG[displayStatus];
-            const stat = (stats as any)[a.id];
-            const StatusIcon = st.icon;
-            const isExpired = displayStatus === 'expired';
-            const invited = stat?.invited || 0;
-            const submitted = stat?.submitted || 0;
-            const completionPct = invited > 0 ? Math.round((submitted / invited) * 100) : 0;
-            const isConstant = a.shuffle_questions === false;
-            const hasQuestions = isConstant && Array.isArray(a.questions) && a.questions.length > 0;
-
-            return (
-              <AssessmentCard
-                key={a.id}
-                a={a}
-                st={st}
-                StatusIcon={StatusIcon}
-                isExpired={isExpired}
-                invited={invited}
-                submitted={submitted}
-                completionPct={completionPct}
-                isConstant={isConstant}
-                hasQuestions={hasQuestions}
-                stat={stat}
-                placementKnown={placementKnown}
-                onDistribute={onDistribute}
-                onDelete={() => deleteAssessment.mutate(a.id)}
-              />
-            );
-          })}
+          {visibleAssessments.map(renderCard)}
         </div>
       )}
 
-      {filtered.length > 0 && (
+      {view === 'all' && filtered.length > 0 && (
         <>
           <div ref={sentinelRef} className="h-1" />
           <p className="text-center text-xs text-muted-foreground py-2">

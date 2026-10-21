@@ -15,10 +15,12 @@ import {
 } from 'lucide-react';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { STUDENT_PASSWORD_LOGIN } from '@/config/features';
+import { GOOGLE_ENABLED } from '@/config/google';
 import { toast } from 'sonner';
 import { ROUTES } from '@/pages/landing/LandingShell';
 import { ArtImage, AuthField, AuthLayout, AuthModal } from './auth/AuthShell';
 import { LoginOtpForm } from './auth/LoginOtpForm';
+import { GoogleButton } from './auth/GoogleButton';
 
 /** What the product offers, as a row under the form. */
 const POINTS = [
@@ -30,7 +32,7 @@ const POINTS = [
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, forgotPassword, isAuthenticated } = useUserPortal();
+  const { login, forgotPassword, signInWithGoogle, isAuthenticated } = useUserPortal();
   /**
    * Password is the way in by default, with the OTP form one tap away and back. When password
    * login is switched off (`STUDENT_PASSWORD_LOGIN`) the page opens on the OTP form and stays there.
@@ -50,6 +52,25 @@ export default function LoginPage() {
   }, [isAuthenticated, navigate]);
 
   const locked = failedAttempts >= 5;
+
+  const [googleError, setGoogleError] = useState('');
+  /**
+   * Google gave a token. A known account is signed in; a new one has no details yet, so it goes to the
+   * sign-up form with the Google token and name, to add the rest — not to a dead end.
+   */
+  const googleLogin = async (credential: string) => {
+    setGoogleError('');
+    const res = await signInWithGoogle(credential);
+    if (res.ok) {
+      toast.success('Welcome back!');
+      navigate('/user/dashboard');
+    } else if (res.needsProfile) {
+      toast.info('Almost there — add a few details to create your account.');
+      navigate(ROUTES.signup, { state: { google: { credential, ...res.needsProfile } } });
+    } else {
+      setGoogleError(res.error || 'Google sign-in failed. Please try again.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,6 +197,20 @@ export default function LoginPage() {
             <button type="button" className="mge-auth-alt" onClick={() => setMode('otp')}>
               <KeyRound size={18} aria-hidden="true" /> Login with OTP
             </button>
+          </>
+        )}
+
+        {GOOGLE_ENABLED && (
+          <>
+            <div className="mge-auth-or">
+              <span>or</span>
+            </div>
+            {googleError && (
+              <div className="mge-auth-alert" role="alert" style={{ margin: '0 0 12px' }}>
+                {googleError}
+              </div>
+            )}
+            <GoogleButton text="signin_with" onCredential={googleLogin} />
           </>
         )}
 

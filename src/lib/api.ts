@@ -198,9 +198,10 @@ async function userApiRequest<T>(path: string, options: RequestInit = {}, parse:
       res = await makeUserRequest(newToken);
     } else {
       clearUserTokens();
-      // Signing out with a token that has already lapsed is not news to the person signing out.
-      const signingOut = path.includes('/user/auth/logout');
-      if (sessionLapsed('user', hadSession && !signingOut, '/user/login')) throw new ApiError('Session expired', true);
+      // Signing out with a token that has already lapsed is not news to the person signing out, and they are
+      // on their way somewhere else — no popup, and no redirect to the login page in their way.
+      if (path.includes('/user/auth/logout')) throw new Error('Session expired');
+      if (sessionLapsed('user', hadSession, '/user/login')) throw new ApiError('Session expired', true);
       throw new Error('Session expired');
     }
   }

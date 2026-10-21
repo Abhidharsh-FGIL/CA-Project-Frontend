@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   BarChart3,
@@ -17,11 +17,14 @@ import {
 } from 'lucide-react';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { TNPSC_GROUPS } from '@/config/tnpsc';
+import { GOOGLE_ENABLED } from '@/config/google';
+import { formNameFrom, readGoogleCredential } from '@/lib/google-identity';
 import { splitExams } from '@/lib/exam-listing';
 import { EXAM_LANGUAGE_OPTIONS } from '@/lib/exam-language';
 import { toast } from 'sonner';
 import { ROUTES } from '@/pages/landing/LandingShell';
 import { ArtImage, AuthField, AuthLayout, AuthModal, AuthSelect } from './auth/AuthShell';
+import { GoogleButton } from './auth/GoogleButton';
 
 interface FormErrors {
   name?: string;
@@ -59,7 +62,17 @@ const LANGUAGE_OPTIONS = EXAM_LANGUAGE_OPTIONS.map(o => ({ value: o.value, label
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { register, verifyOtp, resendOtp, isAuthenticated } = useUserPortal();
+  const { register, verifyOtp, resendOtp, signInWithGoogle, isAuthenticated } = useUserPortal();
+  const location = useLocation();
+
+  /**
+   * A Google account this sign-up is being made from: its ID token (which the server checks), and the name
+   * and email Google gave. Arrives from the login page when Google was fine but there was no account yet.
+   * While set, the email is locked to the Google one and no OTP is needed — Google has verified it.
+   */
+  const [google, setGoogle] = useState<{ credential: string; email: string; name: string } | null>(
+    () => (location.state as { google?: { credential: string; email: string; name: string } } | null)?.google ?? null,
+  );
 
   // A brand-new account lands on the exam list — the first thing an aspirant needs is to pick
   // what to prepare for. Someone who is already signed in and merely opens /register goes to the
@@ -71,8 +84,8 @@ export default function RegisterPage() {
   }, [isAuthenticated, navigate]);
 
   const [form, setForm] = useState({
-    name: '',
-    email: '',
+    name: google ? formNameFrom(google.name) : '',
+    email: google?.email ?? '',
     phone: '',
     date_of_birth: '',
     gender: '',
@@ -140,6 +153,19 @@ export default function RegisterPage() {
     }
     setSubmitting(true);
     try {
+      if (google) {
+        // A Google sign-up: the server makes the account from the token and these details, and signs it in.
+        justSignedUp.current = true;
+        const made = await signInWithGoogle(google.credential, form);
+        if (made.ok) {
+          toast.success('Account created successfully!');
+          navigate(FIRST_LANDING, { replace: true });
+        } else {
+          justSignedUp.current = false;
+          setRegisterError(made.error || 'Registration failed. Please try again.');
+        }
+        return;
+      }
       const res = await register(form);
       if (res.ok) {
         setOtpSentTo(res.otpSentTo || form.email);
@@ -153,6 +179,29 @@ export default function RegisterPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  /**
+   * Google gave a token on the sign-up page. If the account already exists it is simply signed in; if not,
+   * the form is filled from Google and the person adds the rest.
+   */
+  const googleSignUp = async (credential: string) => {
+    const res = await signInWithGoogle(credential);
+    if (res.ok) {
+      toast.success('Welcome back!');
+      navigate('/user/dashboard', { replace: true });
+      return;
+    }
+    if (res.needsProfile) {
+      const claims = readGoogleCredential(credential);
+      const email = res.needsProfile.email || claims?.email || '';
+      const name = res.needsProfile.name || claims?.name || '';
+      setGoogle({ credential, email, name });
+      setForm(f => ({ ...f, name: formNameFrom(name) || f.name, email }));
+      setErrors({});
+      return;
+    }
+    setRegisterError(res.error || 'Google sign-in failed. Please try again.');
   };
 
   const handleVerify = async () => {
@@ -213,6 +262,32 @@ export default function RegisterPage() {
         <h1>Create Your Account</h1>
         <p className="mge-auth-sub">Start your journey towards exam success</p>
 
+        {GOOGLE_ENABLED && !google && (
+          <>
+            <GoogleButton text="signup_with" onCredential={googleSignUp} />
+            <div className="mge-auth-or">
+              <span>or sign up with email</span>
+            </div>
+          </>
+        )}
+        {google && (
+          <div className="mge-google-banner">
+            <span>
+              Signed in with Google as <strong>{google.email}</strong>. Add the details below to finish.
+            </span>
+            <button
+              type="button"
+              className="mge-link-btn"
+              onClick={() => {
+                setGoogle(null);
+                setForm(f => ({ ...f, name: '', email: '' }));
+              }}
+            >
+              Use a different account
+            </button>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="mge-auth-form" noValidate>
           <AuthField
             icon={User}
@@ -229,6 +304,7 @@ export default function RegisterPage() {
             onChange={v => setForm(f => ({ ...f, email: v }))}
             error={errors.email}
             placeholder="Email"
+            readOnly={!!google}
             autoComplete="email"
           />
           <AuthField
