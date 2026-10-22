@@ -68,6 +68,28 @@ export function passMarks(mark: PassMark, maxMarks: number | null | undefined): 
 
 export type PassStanding = 'target' | 'pass' | 'close' | 'below';
 
+/** How a score reads against the benchmark, in the words shown to the candidate. */
+export type Performance = 'needs-improvement' | 'passed' | 'strong' | 'excellent';
+
+export const PERFORMANCE_LABEL: Record<Performance, string> = {
+  'needs-improvement': 'Needs Improvement',
+  passed: 'Passed',
+  strong: 'Strong Performance',
+  excellent: 'Excellent',
+};
+
+/**
+ * Below the pass mark -> Needs Improvement; from it to below the target -> Passed; the target to below 90% ->
+ * Strong Performance; 90% and above -> Excellent. `null` when nothing was scored.
+ */
+export function performanceOf(percent: number | null | undefined, mark: PassMark): Performance | null {
+  if (percent == null) return null;
+  if (percent < mark.pass) return 'needs-improvement';
+  if (percent >= 90 && percent >= mark.target) return 'excellent';
+  if (percent >= mark.target) return 'strong';
+  return 'passed';
+}
+
 /** Where a score sits against the benchmark. "Close" is within 15 points under the pass mark. */
 export function standingOf(percent: number | null | undefined, mark: PassMark): PassStanding | null {
   if (percent == null) return null;

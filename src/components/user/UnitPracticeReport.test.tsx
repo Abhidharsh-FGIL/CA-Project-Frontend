@@ -44,7 +44,7 @@ describe('the practice-set report header', () => {
     expect(html).toContain('Pass mark 70%');
     // 40 marks, pass at 70% = 28; 4 scored, so 24 to go
     expect(html).toContain('24 more marks to pass');
-    expect(html).toContain('Needs another look');
+    expect(html).toContain('Needs Improvement');
   });
 
   it('says Passed, with no gap, when the set is over the pass mark', () => {

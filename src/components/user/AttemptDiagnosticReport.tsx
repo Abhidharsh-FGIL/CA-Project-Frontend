@@ -2072,7 +2072,22 @@ export function StrengthsAndGaps({ model }: { model: AttemptReportModel }) {
     improve.push(`Review core concepts in ${names}${model.coverageGaps.length > 3 ? ' and others' : ''} (not attempted)`);
   }
 
-  const quickWins = model.quickWins.map(q => q.title.replace(/^.*?— /, ''));
+  // A hint per subject reads "<name> — attempt more". Stripped of the name, three of them were the same line three
+  // times; they are merged into one that names them, and anything else is listed once.
+  const quickWins: string[] = [];
+  const attemptMore: string[] = [];
+  for (const q of model.quickWins) {
+    const m = /^(.*) — attempt more$/.exec(q.title);
+    if (m) attemptMore.push(m[1]);
+    else quickWins.push(q.title);
+  }
+  if (attemptMore.length > 0) {
+    const list =
+      attemptMore.length === 1
+        ? attemptMore[0]
+        : `${attemptMore.slice(0, -1).join(', ')} and ${attemptMore[attemptMore.length - 1]}`;
+    quickWins.push(`Attempt more questions in ${list} — your accuracy there is already good`);
+  }
   if (model.analyses.difficulty.state === 'AVAILABLE') {
     const weakest = [...model.analyses.difficulty.rows]
       .filter(r => r.accuracy != null)
@@ -2081,6 +2096,13 @@ export function StrengthsAndGaps({ model }: { model: AttemptReportModel }) {
   }
   if (sum.attemptRate != null && sum.attemptRate < model.config.targetCoverage) {
     quickWins.push('Take more full-length papers to build stamina and pacing');
+  }
+  // However they were produced, no line is shown twice.
+  const seenWins = new Set<string>();
+  for (let i = quickWins.length - 1; i >= 0; i--) {
+    const key = quickWins[i].trim().toLowerCase();
+    if (seenWins.has(key)) quickWins.splice(i, 1);
+    else seenWins.add(key);
   }
 
   return (
@@ -2415,22 +2437,14 @@ export function QuestionInsightsTable({
   return (
     <>
       <div className="overflow-x-auto -mx-4 sm:-mx-5">
-        <table className="w-full text-[11px] min-w-[880px]">
+        <table className="w-full text-[11px] min-w-[720px]">
           <thead>
             <tr className="bg-violet-50/70 dark:bg-violet-950/25 text-left">
-              {['Q.No', 'Question Preview', 'Your Answer', 'Correct Answer', 'Result', 'Time', 'Difficulty', 'Type', 'Solution'].map(
-                (h, i) => (
-                  <th
-                    key={h}
-                    className={cn(
-                      'px-3 py-2.5 font-semibold text-[#122447] dark:text-gray-300 whitespace-nowrap',
-                      i === 5 && 'text-right',
-                    )}
-                  >
-                    {h}
-                  </th>
-                ),
-              )}
+              {['Q.No', 'Question Preview', 'Your Answer', 'Correct Answer', 'Result', 'Difficulty', 'Solution'].map(h => (
+                <th key={h} className="px-3 py-2.5 font-semibold text-[#122447] dark:text-gray-300 whitespace-nowrap">
+                  {h}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -2458,15 +2472,7 @@ export function QuestionInsightsTable({
                   <td className="px-3 py-2.5">
                     <StatusPill tone={tone}>{result}</StatusPill>
                   </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums text-gray-500 dark:text-gray-400">
-                    {q.time_spent_seconds > 0 ? `${Math.round(q.time_spent_seconds)}s` : '—'}
-                  </td>
                   <td className="px-3 py-2.5">{difficultyPill((q.difficulty ?? '').trim())}</td>
-                  <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 whitespace-nowrap capitalize">
-                    {(q.question_type ?? '').trim().replace(/[_-]+/g, ' ') || (
-                      <span className="text-gray-300 dark:text-gray-600">&mdash;</span>
-                    )}
-                  </td>
                   <td className="px-3 py-2.5">
                     <button
                       type="button"
@@ -2485,7 +2491,7 @@ export function QuestionInsightsTable({
                 </tr>
                 {isOpen && (
                   <tr className="bg-violet-50/30 dark:bg-violet-950/10">
-                    <td colSpan={9} className="px-3 py-3">
+                    <td colSpan={7} className="px-3 py-3">
                       {renderDetail(q.question_id)}
                     </td>
                   </tr>
@@ -2594,9 +2600,11 @@ export function QuestionInsightsToolbar({
         <select
           value={subject ?? ''}
           onChange={e => onSubject(e.target.value || null)}
-          className="text-[11px] font-semibold px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 outline-none"
+          // A native select is as wide as its longest option; with long (Tamil) unit names that is wider than a
+          // phone, and it dragged the whole page sideways. Capped to the row, longer names are clipped.
+          className="min-w-0 max-w-full sm:max-w-[18rem] truncate text-[11px] font-semibold px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 outline-none"
         >
-          <option value="">All subjects</option>
+          <option value="">{model.groupedBy === 'unit' ? 'All units' : 'All subjects'}</option>
           {model.subjects.map(s => (
             <option key={s.subjectId} value={s.subjectId}>
               {s.name}

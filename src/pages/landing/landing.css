@@ -1266,7 +1266,7 @@
 
 .mge .mge-plan-blurb {
   margin: 0 0 20px;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.6;
   color: var(--mge-text);
 }
@@ -1890,3 +1890,5 @@
   vertical-align: middle;
   white-space: nowrap;
 }
+
+.mge .mge-price-card li span.mge-perk-detail { display: inline; font-size: 13px; }

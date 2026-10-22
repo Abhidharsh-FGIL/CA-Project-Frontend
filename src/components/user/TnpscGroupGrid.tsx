@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, Clock3, Layers, ShieldCheck } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Clock3, Layers, ShieldCheck, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TnpscGroup } from '@/config/tnpsc';
 import { UPCOMING_EXAMS, splitExams, type UpcomingExam } from '@/lib/exam-listing';
@@ -146,7 +146,7 @@ function CardFrame({
       to={to}
       className={cn(
         base,
-        'group border-2 border-teal-400/70 dark:border-teal-500/60 ring-4 ring-teal-100/70 dark:ring-teal-500/10 bg-gradient-to-b from-teal-50/70 to-white dark:from-teal-500/10 dark:to-gray-900 shadow-lg shadow-teal-100/60 dark:shadow-black/40 hover:shadow-xl hover:shadow-teal-200/60 dark:hover:shadow-black/50 transition-all duration-300 hover-lift',
+        'group border-2 border-teal-400/70 dark:border-teal-500/60 bg-white dark:bg-gray-900 shadow-md dark:shadow-black/40 hover:shadow-lg dark:hover:shadow-black/50 transition-all duration-300 hover-lift',
       )}
       style={style}
     >
@@ -190,10 +190,17 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             {!comingSoon && (
-              <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
-                <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-                Open now
-              </span>
+              <div className="mb-2 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                  Open now
+                </span>
+                {/* The one line on the page that is meant to be noticed: it glides in, then a light keeps sweeping across it. */}
+                <span className="mge-journey inline-flex items-center gap-1 text-[12px] font-extrabold tracking-wide">
+                  <Sparkles className="mge-journey-spark h-3.5 w-3.5 text-amber-500" aria-hidden />
+                  <span className="mge-journey-text">Your Success Journey Begins!</span>
+                </span>
+              </div>
             )}
             <p className={cn('text-[10px] font-bold uppercase tracking-[0.18em]', tone.eyebrow)}>{group.authority}</p>
             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1.5">{group.name}</h3>

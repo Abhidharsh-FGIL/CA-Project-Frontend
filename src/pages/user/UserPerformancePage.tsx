@@ -272,7 +272,7 @@ export default function UserPerformancePage() {
 
       {/* ── The headline insight, when the data supports one ─────────────────── */}
       {totals && totals.attemptRate < 70 && (
-        <div className="mb-3 sm:mb-4 rounded-2xl border border-blue-100 dark:border-blue-900/50 bg-blue-50/60 dark:bg-brand-500/10 p-4">
+        <div className="mb-3 sm:mb-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 mt-px text-blue-500 dark:text-blue-400 flex-shrink-0" />
             <div className="min-w-0">
@@ -541,26 +541,26 @@ function Dot({ color, className }: { color?: string; className?: string }) {
 
 type TileTone = 'orange' | 'blue' | 'green' | 'purple' | 'amber';
 
-/** Each tile is tinted to its icon, so the row reads as five distinct figures at a glance. */
+/** Each tile keeps its icon's colour; the card behind it is plain. */
 const TILE_TONES: Record<TileTone, { card: string; icon: string }> = {
   orange: {
-    card: 'border-orange-100 bg-orange-50/60 dark:border-orange-900/40 dark:bg-orange-950/20',
+    card: 'border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900',
     icon: 'bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-300',
   },
   blue: {
-    card: 'border-blue-100 bg-blue-50/60 dark:border-blue-900/40 dark:bg-blue-950/20',
+    card: 'border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900',
     icon: 'bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300',
   },
   green: {
-    card: 'border-emerald-100 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/20',
+    card: 'border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900',
     icon: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300',
   },
   purple: {
-    card: 'border-violet-100 bg-violet-50/60 dark:border-violet-900/40 dark:bg-violet-950/20',
+    card: 'border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900',
     icon: 'bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300',
   },
   amber: {
-    card: 'border-amber-100 bg-amber-50/60 dark:border-amber-900/40 dark:bg-amber-950/20',
+    card: 'border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900',
     icon: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300',
   },
 };

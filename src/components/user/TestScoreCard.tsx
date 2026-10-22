@@ -5,7 +5,7 @@
  * improving over time"; this answers "which paper am I weak on", which the curve
  * can't show because it collapses every test into one running average.
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { displayTitle } from '@/lib/display-title';
 import { Link } from 'react-router-dom';
 import { ClipboardList, Loader2 } from 'lucide-react';
@@ -152,9 +152,14 @@ interface TestRow {
  */
 function TestScoreChart({ rows }: { rows: TestRow[] }) {
   const ceiling = trendCeiling(rows.map(r => ({ value: r.average })));
+  // No scrolling box of its own: a box with a fixed height scrolled by itself inside the page, and the hover card
+  // below, being part of it, made it scroll further. The first few papers show; the rest are one press away.
+  const [showAll, setShowAll] = useState(false);
+  const shown = showAll ? rows : rows.slice(0, VISIBLE_ROWS);
   return (
-    <ul className="max-h-[19rem] space-y-3.5 overflow-y-auto scrollbar-thin pr-1">
-      {rows.map(row => (
+    <>
+    <ul className="space-y-3.5">
+      {shown.map(row => (
         <li key={row.key} className="group relative">
           <div className="flex items-start justify-between gap-3">
             <p
@@ -180,8 +185,21 @@ function TestScoreChart({ rows }: { rows: TestRow[] }) {
         </li>
       ))}
     </ul>
+    {rows.length > VISIBLE_ROWS && (
+      <button
+        type="button"
+        onClick={() => setShowAll(v => !v)}
+        className="mt-3 text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+      >
+        {showAll ? 'Show fewer' : `Show all ${rows.length} tests`}
+      </button>
+    )}
+    </>
   );
 }
+
+/** Papers listed before "Show all". */
+const VISIBLE_ROWS = 5;
 
 /** A single series, so one hue and no legend — the card title names it. */
 const TEST_SERIES = '#ff6c24';
@@ -193,7 +211,7 @@ const dayLabel = (iso: string) =>
 function ScoreHover({ row }: { row: TestRow }) {
   const shown = row.scores.slice(0, 6);
   return (
-    <div className="pointer-events-none absolute left-0 right-0 top-full z-10 hidden max-w-[15rem] rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-lg group-hover:block dark:border-gray-700 dark:bg-gray-900">
+    <div className="pointer-events-none absolute left-0 right-0 top-full z-20 hidden max-w-[15rem] rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-lg group-hover:block dark:border-gray-700 dark:bg-gray-900">
       <p className="text-xs font-bold leading-snug text-gray-900 dark:text-gray-100">{row.name}</p>
       <p className="mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">
         {row.attempts} attempt{row.attempts === 1 ? '' : 's'} · avg {row.average}% · best {row.best}%

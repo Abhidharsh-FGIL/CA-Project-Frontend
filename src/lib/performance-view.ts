@@ -17,14 +17,23 @@ export interface PerformanceView {
 const RANGE_KEYS: DateRangeKey[] = ['all', 'week', 'month', 'quarter', 'custom'];
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
-export function performanceHref(view: PerformanceView): string {
+function viewParams(view: PerformanceView): string {
   const p = new URLSearchParams({ group: view.group, track: view.track });
   if (view.range.key !== 'all') {
     p.set('range', view.range.key);
     if (view.range.from) p.set('from', view.range.from);
     if (view.range.to) p.set('to', view.range.to);
   }
-  return `/user/performance?${p.toString()}`;
+  return p.toString();
+}
+
+export function performanceHref(view: PerformanceView): string {
+  return `/user/performance?${viewParams(view)}`;
+}
+
+/** The Test History page, opened on the same exam, test type and range. */
+export function historyHref(view: PerformanceView): string {
+  return `/user/history?${viewParams(view)}`;
 }
 
 /** Whatever the address names; a value that is missing or not one of the known ones is left out. */

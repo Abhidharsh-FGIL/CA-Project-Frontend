@@ -119,17 +119,19 @@ describe('composePlanNotice — the limit', () => {
       expect(n.usage[0].value).toBe('5/5 Used');
     });
 
-    it('on a paid plan, adds the renew / upgrade cards, and still offers practice', () => {
+    it('on a paid plan that is still running, promotes a top-up instead of renewing, and still offers practice', () => {
       const monthly = composePlanNotice(limit('mock', 5), { current: ultimate, plans, billing: 'monthly', left: { mock: 0, practice: 2 } });
       expect(monthly.title).toBe('Mock Test Limit Reached!');
       expect(monthly.body[1]).toBe(
-        'Good news! You still have **2 Subject-wise Practice Tests** remaining. Continue practising, or choose a plan below to unlock more mock tests.',
+        'Good news! You still have **2 Subject-wise Practice Tests** remaining. Continue practising, or add a top-up to take more mock tests — your plan stays active.',
       );
-      expect(labels(monthly)).toEqual(['Renew Monthly', 'Upgrade to Annual']);
+      expect(monthly.options).toEqual([]);
+      expect(monthly.primary).toEqual({ label: 'Buy a Top-up', to: '/user/subscription?topup=1' });
       expect(monthly.secondary).toEqual({ label: 'Continue with Practice Tests', to: '/user/exams' });
 
       const yearly = composePlanNotice(limit('mock', 30), { current: ultimate, plans, billing: 'yearly', left: { mock: 0, practice: 2 } });
-      expect(labels(yearly)).toEqual(['Renew Annual', 'Switch to Monthly']);
+      expect(yearly.options).toEqual([]);
+      expect(yearly.primary.label).toBe('Buy a Top-up');
     });
 
     it('says the plan has no mock tests when the allowance is zero', () => {
@@ -189,16 +191,15 @@ describe('composePlanNotice — the limit', () => {
   });
 
   describe('a monthly plan used up', () => {
-    it('names what was completed, and offers to renew or go annual', () => {
+    it('names what was completed, and promotes a top-up while the plan is still running', () => {
       const n = composePlanNotice(limit('practice', 25), { current: ultimate, plans, billing: 'monthly' });
       expect(n.title).toBe('Keep Your Preparation Going!');
       expect(n.body).toEqual([
         "You've completed all 5 Mock Tests and 25 Practice Tests in your Ultimate plan.",
-        "You're making progress! Choose a plan to continue practising and improving your performance.",
+        'Your plan is still active — add a top-up pack to keep practising.',
       ]);
-      expect(labels(n)).toEqual(['Renew Monthly', 'Upgrade to Annual']);
-      expect(n.options[0]).toMatchObject({ cta: 'Renew Monthly', validity: '30 days', featured: false });
-      expect(n.options[1]).toMatchObject({ cta: 'Choose Annual', validity: '12 months', featured: true, accent: true, star: false });
+      expect(n.options).toEqual([]);
+      expect(n.primary).toEqual({ label: 'Buy a Top-up', to: '/user/subscription?topup=1' });
     });
 
     it('reads as monthly when the cycle is not known', () => {
@@ -212,22 +213,21 @@ describe('composePlanNotice — the limit', () => {
   });
 
   describe('an annual plan used up', () => {
-    it('names what was used, and offers to renew or step down to monthly', () => {
+    it('names what was used, and promotes a top-up while the plan is still running', () => {
       const n = composePlanNotice(limit('practice', 60), { current: ultimate, plans, billing: 'yearly' });
       expect(n.title).toBe("You've Completed Your Test Allowance!");
       expect(n.body).toEqual([
         "You've used all 30 Mock Tests and 60 Subject-wise Practice Tests included in your Ultimate plan.",
-        'Keep your preparation going! Choose a plan to access more tests and continue tracking your progress.',
+        'Your plan is still active — add a top-up pack to keep practising.',
       ]);
-      expect(labels(n)).toEqual(['Renew Annual', 'Switch to Monthly']);
-      expect(n.options[0]).toMatchObject({ cta: 'Renew Annual', featured: true, accent: false, price: ultimate.price_yearly });
-      expect(n.options[1]).toMatchObject({ cta: 'Choose Monthly', featured: false, price: ultimate.price_monthly });
+      expect(n.options).toEqual([]);
+      expect(n.primary.to).toBe('/user/subscription?topup=1');
     });
   });
 
-  it('renews the plan they held, not another, when more than one is on sale', () => {
+  it('does not offer to renew a plan that has not expired — renewing is the expired popup', () => {
     const n = composePlanNotice(limit('practice', 25), { current: plan('standard'), plans, billing: 'monthly', held: ultimate });
-    expect(n.options[0].price).toBe(ultimate.price_monthly);
+    expect(n.options).toEqual([]);
   });
 
   // "We are not resetting any limit" — and no need to say so either: the popup says nothing about resets, in any form.

@@ -16,3 +16,12 @@ export const SHOW_STUDY_PLAN = false;
  * is a page of its own and is not affected.
  */
 export const STUDENT_PASSWORD_LOGIN = false;
+
+/**
+ * Whether an attempt report has a "Progress" tab beside "This Attempt". Off, the report is the one attempt and
+ * nothing else — no tabs.
+ *
+ * Turned off deliberately rather than deleted: the progress view is untouched, so restoring the tab is this
+ * one line.
+ */
+export const SHOW_PROGRESS_TAB = false;

@@ -9,6 +9,7 @@ import {
   parsePassMarks,
   passMarkFor,
   passMarks,
+  performanceOf,
   resetPassMarks,
   standingOf,
 } from './pass-marks';
@@ -105,5 +106,18 @@ describe('pass marks from the server', () => {
     expect(mockPassPercentage()).toBe(50);
     resetPassMarks();
     expect(mockPassPercentage()).toBe(60);
+  });
+});
+
+describe('performanceOf', () => {
+  const mark = { pass: 70, target: 85 };
+  it('reads a score against the benchmark in four steps', () => {
+    expect(performanceOf(69.9, mark)).toBe('needs-improvement');
+    expect(performanceOf(70, mark)).toBe('passed');
+    expect(performanceOf(84.9, mark)).toBe('passed');
+    expect(performanceOf(85, mark)).toBe('strong');
+    expect(performanceOf(89.9, mark)).toBe('strong');
+    expect(performanceOf(90, mark)).toBe('excellent');
+    expect(performanceOf(null, mark)).toBeNull();
   });
 });

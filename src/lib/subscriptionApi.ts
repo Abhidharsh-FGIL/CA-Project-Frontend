@@ -97,6 +97,43 @@ export interface CurrentSubscription {
   plan_name?: string | null;
   /** 'monthly' | 'yearly' — stored from activation. Null for rows bought before it was stored. */
   billing_cycle?: 'monthly' | 'yearly' | null;
+  /** What the server has counted against this plan, top-up tests included. Absent on an older server. */
+  usage?: SubscriptionUsage | null;
+}
+
+/** The server's own count of tests taken and left on the plan in force. */
+export interface SubscriptionUsage {
+  mock_limit: number | null;
+  mock_used: number;
+  mock_plan_left: number | null;
+  practice_limit: number | null;
+  practice_used: number;
+  practice_plan_left: number | null;
+  can_use_topup?: boolean;
+  topup_mock_left: number;
+  topup_practice_left: number;
+  /** Plan and top-up tests together. */
+  mock_left: number | null;
+  practice_left: number | null;
+}
+
+/** One kind of test, as the server counts it — `null` when the server sent no usage or the plan is unlimited. */
+export function usageFor(
+  sub: CurrentSubscription | null | undefined,
+  kind: 'mock' | 'practice',
+): { used: number; left: number; total: number; planLimit: number | null; topUpLeft: number } | null {
+  const u = sub?.usage;
+  if (!u) return null;
+  const left = kind === 'mock' ? u.mock_left : u.practice_left;
+  if (left == null) return null;
+  const used = kind === 'mock' ? u.mock_used : u.practice_used;
+  return {
+    used,
+    left,
+    total: used + left,
+    planLimit: kind === 'mock' ? u.mock_limit : u.practice_limit,
+    topUpLeft: kind === 'mock' ? u.topup_mock_left : u.topup_practice_left,
+  };
 }
 
 export function createOrder(req: CreateOrderRequest): Promise<CreateOrderResponse> {

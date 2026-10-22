@@ -127,15 +127,15 @@ export function toDailyAverages(attempts: Array<Pick<ApiAttempt, 'start_time' | 
 }
 
 /**
- * Tooltip heading for a daily point: the date, plus what was taken that day.
+ * Tooltip heading for a daily point: the date, plus how many tests were taken that day — a count even for one,
+ * because a single paper's name ran long and made the tooltip a different shape on different days.
  */
 export function formatTrendLabel(label: any, payload: any): string {
   const p = payload?.[0]?.payload;
   if (!p) return String(label ?? '');
   const tests = p.tests ?? (p.name ? 1 : 0);
   if (tests === 0) return `${label} · no tests`;
-  if (tests === 1 && p.name) return `${label} · ${p.name}`;
-  return `${label} · ${tests} tests`;
+  return `${label} · ${tests} test${tests === 1 ? '' : 's'}`;
 }
 
 /**

@@ -7,7 +7,7 @@
 export const EXAMS_STATS = {
   questions: '15,000+',
   aspirants: '2,000+',
-  newQuestions: '2,000+',
+  newQuestions: '1,500+',
 };
 
 /** The feature strip under the exam cards. The study-plan tile follows `SHOW_STUDY_PLAN`. */

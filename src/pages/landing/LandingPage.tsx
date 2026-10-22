@@ -135,9 +135,10 @@ function Hero() {
             </span>
           </h1>
           <p className="mge-lead">
-            From <span className="mge-nowrap">AI-powered</span> questions and easy-to-understand explanations to
-            full-length mock tests, personalized performance insights, and <span className="mge-nowrap">AI-driven</span>{' '}
-            study plans — everything you need to prepare smarter, all in one place.
+            Prepare smarter with syllabus-aligned questions and practice tests organised by Unit, Category, and
+            Subcategory, across Simple, Medium, and Complex levels. Take full-length mock exams, learn with clear
+            explanations, and improve with <span className="mge-nowrap">AI-powered</span> performance insights and
+            personalized study plans — all in one place.
           </p>
           <div className="mge-hero-actions">
             <ButtonLink to={CONFIG.signupPath}>
@@ -630,7 +631,8 @@ function Pricing() {
                         <li key={title}>
                           <CheckCircle2 size={17} />
                           <span>
-                            <strong>{title}</strong> – {detail}
+                            <strong>{title}</strong>
+                            <span className="mge-perk-detail"> – {detail}</span>
                           </span>
                         </li>
                       ))

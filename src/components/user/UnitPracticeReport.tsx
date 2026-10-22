@@ -13,7 +13,7 @@
  * to do.
  */
 import { useMemo, useState } from 'react';
-import { ChevronDown, CheckCircle2, Circle, Clock, MinusCircle, XCircle } from 'lucide-react';
+import { Award, ChevronDown, CheckCircle2, Circle, Clock, MinusCircle, Trophy, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ACCENT, MeterRow, ReportCard } from '@/components/user/report-ui';
 import { OverallScoreSummary } from '@/components/user/AttemptDiagnosticReport';
@@ -23,7 +23,7 @@ import { MathText } from '@/components/ui/MathText';
 import { normaliseLineBreaks, splitExplanationSteps } from '@/lib/question-text';
 import { difficultyLabel } from '@/lib/eval-difficulty';
 import { MIXED_LABEL } from '@/config/tnpsc';
-import { passMarkFor, standingOf, type PassMark } from '@/config/pass-marks';
+import { PERFORMANCE_LABEL, passMarkFor, performanceOf, standingOf, type PassMark } from '@/config/pass-marks';
 import { usePassMarks } from '@/hooks/use-pass-marks';
 import { allOptions, answerKeyOf, resolveAnswerLabel } from '@/lib/question-options';
 import {
@@ -36,11 +36,13 @@ import {
 /** Short, plain, and tied to the pass mark rather than to a mood. The mark depends on the set's difficulty. */
 function verdictFor(pct: number | null, mark: PassMark) {
   const standing = standingOf(pct, mark);
-  if (standing == null) return { title: 'Not scored', note: 'This attempt has no score recorded.', accent: 'slate' as const };
-  if (standing === 'target') return { title: 'Strong pass', note: `You are at or above the ${mark.target}% target. Try the next difficulty up.`, accent: 'emerald' as const };
-  if (standing === 'pass') return { title: 'Passed', note: `Above the ${mark.pass}% pass mark. Aim for ${mark.target}% to have this unit secure.`, accent: 'emerald' as const };
-  if (standing === 'close') return { title: 'Just short', note: `The pass mark is ${mark.pass}%. Review the ones you missed and sit it again.`, accent: 'amber' as const };
-  return { title: 'Needs another look', note: `The pass mark is ${mark.pass}%. Work through the concepts before retrying this set.`, accent: 'rose' as const };
+  if (standing == null) return { title: 'Not scored', performance: null, note: 'This attempt has no score recorded.', accent: 'slate' as const };
+  const performance = performanceOf(pct, mark)!;
+  const title = PERFORMANCE_LABEL[performance];
+  if (standing === 'target') return { title, performance, note: `You are at or above the ${mark.target}% target. Try the next difficulty up.`, accent: 'emerald' as const };
+  if (standing === 'pass') return { title, performance, note: `Above the ${mark.pass}% pass mark. Aim for ${mark.target}% to have this unit secure.`, accent: 'emerald' as const };
+  if (standing === 'close') return { title, performance, note: `The pass mark is ${mark.pass}%. Review the ones you missed and sit it again.`, accent: 'amber' as const };
+  return { title, performance, note: `The pass mark is ${mark.pass}%. Work through the concepts before retrying this set.`, accent: 'rose' as const };
 }
 
 const BAR_FILL = {
@@ -180,7 +182,21 @@ export function UnitPracticeReport({
           )}
           <span className="text-[11px] text-gray-500 dark:text-gray-400">{s.totalQuestions} questions</span>
         </div>
-        <p className={cn('mt-2 text-sm font-bold', ACCENT[verdict.accent].text)}>{verdict.title}</p>
+        {verdict.performance && verdict.performance !== 'needs-improvement' ? (
+          // Passed: the verdict arrives with a pop, a ring of light and a sheen, so a pass feels like one.
+          <p className="verdict-pass mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-sm font-extrabold text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900">
+            {verdict.performance === 'excellent' ? (
+              <Trophy className="h-4 w-4" />
+            ) : verdict.performance === 'strong' ? (
+              <Award className="h-4 w-4" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4" />
+            )}
+            <span className="verdict-shimmer">{verdict.title}</span>
+          </p>
+        ) : (
+          <p className={cn('mt-2 text-sm font-bold', ACCENT[verdict.accent].text)}>{verdict.title}</p>
+        )}
         <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">{verdict.note}</p>
         </div>
         <PassGap
@@ -234,19 +250,21 @@ function CategoryBreakdown({
   questions: QuestionReviewItem[];
   passPercentage: number;
 }) {
-  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [selected, setSelected] = useState<string | null>(null);
 
   const categories = useMemo(() => {
-    const byCat = new Map<string, { name: string; questions: number; correct: number; subs: Map<string, { name: string; questions: number; correct: number }> }>();
+    type Sub = { name: string; questions: number; correct: number };
+    const byCat = new Map<string, { name: string; questions: number; correct: number; results: boolean[]; subs: Map<string, Sub> }>();
     for (const q of questions) {
       const cat = categoryOf(q);
       const sub = subtopicOf(q);
       let c = byCat.get(cat);
       if (!c) {
-        c = { name: cat, questions: 0, correct: 0, subs: new Map() };
+        c = { name: cat, questions: 0, correct: 0, results: [], subs: new Map() };
         byCat.set(cat, c);
       }
       c.questions += 1;
+      c.results.push(!!q.is_correct);
       if (q.is_correct) c.correct += 1;
       let sc = c.subs.get(sub);
       if (!sc) {
@@ -256,7 +274,11 @@ function CategoryBreakdown({
       sc.questions += 1;
       if (q.is_correct) sc.correct += 1;
     }
-    return [...byCat.values()].map(c => ({ ...c, subs: [...c.subs.values()] }));
+    const rate = (c: { questions: number; correct: number }) => (c.questions ? c.correct / c.questions : 0);
+    // Weakest first: the list reads as what to work on, in order.
+    return [...byCat.values()]
+      .map(c => ({ ...c, subs: [...c.subs.values()] }))
+      .sort((a, b) => rate(a) - rate(b) || b.questions - a.questions);
   }, [questions]);
 
   if (categories.length === 0) return null;
@@ -265,86 +287,122 @@ function CategoryBreakdown({
   const toneOf = (accuracy: number | null) =>
     (accuracy ?? 0) >= passPercentage ? 'emerald' : (accuracy ?? 0) >= passPercentage - 15 ? 'amber' : 'rose';
   const TONE = {
-    emerald: { pill: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300', bar: 'bg-emerald-500', dot: 'bg-emerald-500' },
-    amber: { pill: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300', bar: 'bg-amber-500', dot: 'bg-amber-500' },
-    rose: { pill: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300', bar: 'bg-rose-500', dot: 'bg-rose-500' },
+    emerald: { ring: 'stroke-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', stripe: 'bg-emerald-500', dot: 'bg-emerald-500' },
+    amber: { ring: 'stroke-amber-500', text: 'text-amber-600 dark:text-amber-400', stripe: 'bg-amber-500', dot: 'bg-amber-500' },
+    rose: { ring: 'stroke-rose-500', text: 'text-rose-600 dark:text-rose-400', stripe: 'bg-rose-500', dot: 'bg-rose-500' },
   } as const;
+  const pctOf = (c: { questions: number; correct: number }) => (c.questions > 0 ? (c.correct / c.questions) * 100 : null);
+  // The weakest category is open first: it is the one to read.
+  const picked = categories.find(c => c.name === selected) ?? categories[0];
+  const pickedPct = pctOf(picked);
+  const pickedTone = TONE[toneOf(pickedPct)];
+  const wrong = picked.questions - picked.correct;
+
+  // A ring for the picked category: the arc is the share answered correctly.
+  const R = 52;
+  const CIRC = 2 * Math.PI * R;
 
   return (
     <ReportCard>
-      <div className="mb-3 flex items-baseline justify-between gap-2">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Within this unit</p>
         <p className="text-[11px] text-gray-500 dark:text-gray-400">
-          {categories.length} categor{categories.length === 1 ? 'y' : 'ies'} · tap one for its sub-categories
+          {categories.length} categor{categories.length === 1 ? 'y' : 'ies'} · pick one to see how it went
         </p>
       </div>
-      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-        {categories.map(c => {
-          const isOpen = !!open[c.name];
-          const accuracy = c.questions > 0 ? (c.correct / c.questions) * 100 : null;
-          const tone = TONE[toneOf(accuracy)];
-          return (
-            <div
-              key={c.name}
-              className={cn(
-                'rounded-2xl border bg-white dark:bg-gray-900 transition-shadow',
-                // An open category spans the row, so its sub-categories have room and read as belonging to it.
-                isOpen
-                  ? 'sm:col-span-2 lg:col-span-3 border-orange-300 shadow-md shadow-orange-100/60 dark:border-orange-800 dark:shadow-none'
-                  : 'border-gray-100 hover:shadow-sm dark:border-gray-800',
-              )}
-            >
-              <button
-                type="button"
-                onClick={() => setOpen(o => ({ ...o, [c.name]: !o[c.name] }))}
-                aria-expanded={isOpen}
-                className="w-full p-3.5 text-left"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="min-w-0 text-[13px] font-bold leading-snug text-gray-900 dark:text-gray-100">{c.name}</p>
-                  <span className={cn('flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-extrabold', tone.pill)}>
-                    {accuracy == null ? '—' : `${Math.round(accuracy)}%`}
-                  </span>
-                </div>
-                <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                  <div className={cn('h-full rounded-full', tone.bar)} style={{ width: `${accuracy ?? 0}%` }} />
-                </div>
-                <div className="mt-2 flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
-                  <span>
-                    <b className="text-gray-800 dark:text-gray-200">{c.correct}</b> of {c.questions} correct
-                    {c.subs.length > 1 && ` · ${c.subs.length} sub-categories`}
-                  </span>
-                  <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />
-                </div>
-              </button>
 
-              {isOpen && (
-                <div className="border-t border-orange-100 px-3.5 pb-3.5 pt-3 dark:border-orange-900/40">
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-600/80 dark:text-orange-400/80">
-                    Sub-categories · {c.subs.length}
-                  </p>
-                  <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {c.subs.map(sub => {
-                      const subAcc = sub.questions > 0 ? (sub.correct / sub.questions) * 100 : null;
-                      return (
-                        <li
-                          key={sub.name}
-                          className="flex items-center gap-2.5 rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800/60"
-                        >
-                          <span className={cn('h-2.5 w-2.5 flex-shrink-0 rounded-full', TONE[toneOf(subAcc)].dot)} />
-                          <span className="min-w-0 flex-1 text-xs font-medium leading-snug text-gray-800 dark:text-gray-200">{sub.name}</span>
-                          <span className="flex-shrink-0 text-xs font-bold tabular-nums text-gray-700 dark:text-gray-300">
-                            {sub.correct}/{sub.questions}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              )}
+      <div className="grid gap-3 md:grid-cols-[minmax(0,15rem)_1fr]">
+        {/* Picker: a scrolling strip on a phone, a column beside the detail from tablet up. */}
+        <nav className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0" aria-label="Categories">
+          {categories.map(c => {
+            const isPicked = c.name === picked.name;
+            const acc = pctOf(c);
+            return (
+              <button
+                key={c.name}
+                type="button"
+                onClick={() => setSelected(c.name)}
+                aria-current={isPicked}
+                className={cn(
+                  'flex flex-shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold transition md:flex-shrink',
+                  isPicked
+                    ? 'bg-orange-500 text-white shadow-sm'
+                    : 'bg-gray-50 text-gray-700 hover:bg-orange-50 dark:bg-gray-800/60 dark:text-gray-200 dark:hover:bg-gray-800',
+                )}
+              >
+                <span className={cn('h-2 w-2 flex-shrink-0 rounded-full', isPicked ? 'bg-white' : TONE[toneOf(acc)].dot)} />
+                <span className="min-w-0 flex-1 whitespace-nowrap md:whitespace-normal">{c.name}</span>
+                <span className={cn('tabular-nums', isPicked ? 'text-white/90' : 'text-gray-500 dark:text-gray-400')}>
+                  {acc == null ? '—' : `${Math.round(acc)}%`}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="rounded-2xl border border-gray-100 p-4 dark:border-gray-800">
+          <div className="flex items-center gap-4">
+            <div className="relative h-28 w-28 flex-shrink-0">
+              <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90" aria-hidden>
+                <circle cx="60" cy="60" r={R} fill="none" strokeWidth="11" className="stroke-gray-100 dark:stroke-gray-800" />
+                <circle
+                  cx="60"
+                  cy="60"
+                  r={R}
+                  fill="none"
+                  strokeWidth="11"
+                  strokeLinecap="round"
+                  strokeDasharray={`${((pickedPct ?? 0) / 100) * CIRC} ${CIRC}`}
+                  className={cn('transition-all duration-500', pickedTone.ring)}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className={cn('text-2xl font-extrabold tabular-nums leading-none', pickedTone.text)}>
+                  {pickedPct == null ? '—' : `${Math.round(pickedPct)}%`}
+                </span>
+                <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">correct</span>
+              </div>
             </div>
-          );
-        })}
+            <div className="min-w-0">
+              <p className="text-base font-extrabold leading-snug text-gray-900 dark:text-gray-100">{picked.name}</p>
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                <b className="text-emerald-600 dark:text-emerald-400">{picked.correct}</b> right ·{' '}
+                <b className="text-rose-600 dark:text-rose-400">{wrong}</b> wrong or skipped · {picked.questions} question
+                {picked.questions === 1 ? '' : 's'}
+              </p>
+              <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                Pass mark {passPercentage}% ·{' '}
+                {(pickedPct ?? 0) >= passPercentage
+                  ? 'above it'
+                  : `${Math.ceil((passPercentage / 100) * picked.questions - picked.correct)} more right to reach it`}
+              </p>
+            </div>
+          </div>
+
+          {picked.subs.length > 1 && (
+            <div className="mt-4 border-t border-gray-100 pt-3 dark:border-gray-800">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+                Sub-categories
+              </p>
+              <ul className="space-y-2">
+                {picked.subs.map(sub => {
+                  const acc = pctOf(sub) ?? 0;
+                  return (
+                    <li key={sub.name} className="flex items-center gap-3">
+                      <span className="min-w-0 flex-1 text-xs font-medium text-gray-800 dark:text-gray-200">{sub.name}</span>
+                      <div className="h-1.5 w-20 flex-shrink-0 overflow-hidden rounded-full bg-gray-100 sm:w-32 dark:bg-gray-800">
+                        <div className={cn('h-full rounded-full', TONE[toneOf(acc)].stripe)} style={{ width: `${acc}%` }} />
+                      </div>
+                      <span className="w-9 flex-shrink-0 text-right text-xs font-bold tabular-nums text-gray-700 dark:text-gray-300">
+                        {sub.correct}/{sub.questions}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
     </ReportCard>
   );

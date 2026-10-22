@@ -216,7 +216,7 @@ export function UserShell({ children }: UserShellProps) {
    * tables need. The drawer below still carries the same list on small screens.
    */
   const topNav = (
-    <nav className="hidden lg:flex items-center gap-0.5">
+    <nav className="hidden lg:flex items-center gap-0.5 rounded-full bg-white/15 p-1 ring-1 ring-white/25 backdrop-blur-sm">
       {NAV.map(({ to, label, icon: Icon }) => {
         const active = isActive(to);
         return (
@@ -224,8 +224,10 @@ export function UserShell({ children }: UserShellProps) {
             key={to}
             to={to}
             className={cn(
-              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors whitespace-nowrap',
-              active ? 'bg-white/20 text-white' : 'text-white/90 hover:text-white hover:bg-white/15',
+              'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-semibold transition-all whitespace-nowrap',
+              active
+                ? 'bg-white text-[#d8460f] shadow-md shadow-orange-900/20'
+                : 'text-white hover:bg-white/20',
             )}
           >
             <Icon className="w-4 h-4 flex-shrink-0" />
@@ -237,7 +239,7 @@ export function UserShell({ children }: UserShellProps) {
   );
 
   return (
-    <div className="h-[100dvh] flex flex-col overflow-hidden bg-gray-50/70 dark:bg-gray-950">
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-white dark:bg-gray-950">
       {/* ── Drawer (mobile) ───────────────────────────────────────────────── */}
       {drawerOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
@@ -257,11 +259,15 @@ export function UserShell({ children }: UserShellProps) {
 
       {/* ── Main column ───────────────────────────────────────────────────── */}
       <div className="flex-1 min-w-0 flex flex-col h-full">
-        <header className={cn('z-30 h-16 flex-shrink-0 border-b border-black/10', ORANGE_SURFACE)}>
-          <div className="h-full px-3 sm:px-5 flex items-center gap-3">
+        {/* A warm orange gradient with a soft light from the top-left, a lifted edge below, and the navigation in a
+            glass capsule — orange and lively rather than a flat dark block. */}
+        <header className="relative z-30 h-16 flex-shrink-0 bg-gradient-to-r from-[#f57a22] via-[#ec5d1a] to-[#d8460f] dark:from-[#b8420f] dark:via-[#a93a0c] dark:to-[#8f2f0a] shadow-[0_10px_28px_-12px_rgba(216,70,15,0.7)]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.30),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(255,200,120,0.18),transparent_50%)]" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-white/30" />
+          <div className="relative h-full px-3 sm:px-5 flex items-center gap-3">
             <button
               onClick={() => setDrawerOpen(true)}
-              className="lg:hidden p-2 -ml-1 rounded-lg text-white/90 hover:bg-white/15"
+              className="lg:hidden p-2 -ml-1 rounded-full text-white bg-white/15 hover:bg-white/25"
               aria-label="Open menu"
             >
               <Menu className="w-5 h-5" />
@@ -283,7 +289,7 @@ export function UserShell({ children }: UserShellProps) {
 
               <button
                 onClick={toggleMode}
-                className="p-2 rounded-lg text-white/90 hover:text-white hover:bg-white/15 transition-colors"
+                className="p-2 rounded-full text-white bg-white/15 ring-1 ring-white/25 hover:bg-white/25 transition-colors"
                 aria-label="Toggle theme"
                 title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
               >
@@ -294,9 +300,9 @@ export function UserShell({ children }: UserShellProps) {
               <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setMenuOpen(o => !o)}
-                  className="flex items-center gap-2 pl-1 pr-1 sm:pr-2 py-1 rounded-xl hover:bg-white/15 transition-colors"
+                  className="flex items-center gap-2 pl-1 pr-1 sm:pr-3 py-1 rounded-full bg-white/15 ring-1 ring-white/25 hover:bg-white/25 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-white/25 flex items-center justify-center text-white text-sm font-bold">
+                  <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#d8460f] text-sm font-extrabold shadow-sm">
                     {user.name[0].toUpperCase()}
                   </div>
                   <div className="hidden sm:block text-left leading-tight">

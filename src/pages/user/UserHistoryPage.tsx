@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import { displayTitle } from '@/lib/display-title';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { readPerformanceView } from '@/lib/performance-view';
 import { here } from '@/lib/report-origin';
 import { UserShell } from '@/components/user/UserShell';
 import { useUserPortal } from '@/contexts/UserPortalContext';
@@ -17,6 +18,8 @@ import {
   ClipboardList,
   PlayCircle,
   PauseCircle,
+  Clock,
+  ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -35,9 +38,36 @@ const STATUS_OPTIONS: FilterOption<StatusKey>[] = [
   { value: 'unfinished', label: 'Not submitted', hint: 'Started, never finished' },
 ];
 
-/** The six columns of the attempts table; below `md` each attempt is a small card instead. */
-const COLUMNS =
-  'md:grid-cols-[minmax(0,2.5fr)_minmax(96px,0.9fr)_minmax(150px,1.4fr)_minmax(84px,0.8fr)_minmax(124px,1fr)_minmax(112px,0.9fr)]';
+/** The attempts table's columns from `md` up; below it each attempt is a small card. Level only where the group has one. */
+const COLUMNS_WITH_LEVEL =
+  'md:grid-cols-[minmax(0,2.2fr)_minmax(104px,0.9fr)_minmax(72px,0.55fr)_minmax(160px,1.3fr)_minmax(64px,0.55fr)_minmax(118px,0.9fr)_minmax(100px,0.8fr)]';
+const COLUMNS_NO_LEVEL =
+  'md:grid-cols-[minmax(0,2.4fr)_minmax(104px,0.9fr)_minmax(160px,1.3fr)_minmax(64px,0.55fr)_minmax(118px,0.9fr)_minmax(100px,0.8fr)]';
+
+/** A trailing difficulty in a practice paper's name — "இலக்கணம் · Simple" — is a column of its own, not part of the name. */
+const LEVEL_TAIL = /\s*[·•|-]\s*(Simple|Medium|Complex|Mixed|Easy|Hard)\s*$/i;
+function splitLevel(title: string | null): { name: string; level: string | null } {
+  const t = displayTitle(title) ?? 'Test Attempt';
+  const m = t.match(LEVEL_TAIL);
+  if (!m || m.index == null) return { name: t, level: null };
+  return { name: t.slice(0, m.index).trim() || t, level: m[1][0].toUpperCase() + m[1].slice(1).toLowerCase() };
+}
+
+const LEVEL_CHIP: Record<string, string> = {
+  Simple: 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900',
+  Easy: 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900',
+  Medium: 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900',
+  Complex: 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-900',
+  Hard: 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-900',
+  Mixed: 'bg-sky-50 text-sky-700 ring-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:ring-sky-900',
+};
+
+/** The groups the list is cut into, in the order they are shown. */
+const GROUPS: Array<{ key: string; label: string; modes: string[] }> = [
+  { key: 'mock', label: 'Mock tests', modes: ['mock'] },
+  { key: 'practice', label: 'Practice tests', modes: ['practice'] },
+  { key: 'other', label: 'Other tests', modes: [] },
+];
 
 export default function UserHistoryPage() {
   const { history, courses, assessments, refreshHistory } = useUserPortal();
@@ -47,10 +77,13 @@ export default function UserHistoryPage() {
   }, [refreshHistory]);
   const [query, setQuery] = useState('');
   const [courseFilter, setCourseFilter] = useState<string>('all');
-  const [modeFilter, setModeFilter] = useState<TrackKey>('all');
-  const [range, setRange] = useState<DateRange>(ALL_TIME);
+  // The dashboard's "View all" carries the exam, test type and range it was showing; start on those.
+  const [searchParams] = useSearchParams();
+  const fromLink = useMemo(() => readPerformanceView(searchParams), []); // only the view that was opened
+  const [modeFilter, setModeFilter] = useState<TrackKey>(fromLink.track ?? 'all');
+  const [range, setRange] = useState<DateRange>(fromLink.range ?? ALL_TIME);
   const [statusFilter, setStatusFilter] = useState<StatusKey>('all');
-  const [group, setGroup] = useState<GroupKey>('all');
+  const [group, setGroup] = useState<GroupKey>(fromLink.group ?? 'all');
 
   // Attempts carry no group id, so the group's catalog decides which tests belong to it.
   const { matchesGroup, isLoading: groupLoading } = useGroupMatcher(group);
@@ -134,11 +167,30 @@ export default function UserHistoryPage() {
     };
   }, [filtered]);
 
+  // Practice and mock attempts each get a table of their own, so a row never has to say which it is.
+  const grouped = useMemo(() => {
+    const known = new Set(GROUPS.flatMap(g => g.modes));
+    return GROUPS.map(g => ({
+      ...g,
+      rows: filtered.filter(h => (g.modes.length ? g.modes.includes(h.test_mode ?? '') : !known.has(h.test_mode ?? ''))),
+    })).filter(g => g.rows.length > 0);
+  }, [filtered]);
+
+  // One kind of test at a time. Until a tab is picked it follows the newest attempt, so the page opens on what
+  // the student was last doing; a tab that a filter has emptied falls back the same way.
+  const [tab, setTab] = useState<string | null>(fromLink.track ?? null);
+  const activeGroup =
+    grouped.find(g => g.key === tab) ??
+    grouped.find(g => g.rows.includes(filtered[0])) ??
+    grouped[0] ??
+    null;
+  const activeHasLevel = !!activeGroup && activeGroup.rows.some(r => splitLevel(r.test_name).level);
+
   return (
     <UserShell>
       {/* Title on the left; search and filters beside it rather than in a panel of their own. */}
       <div className="mb-5 animate-fadeIn">
-        <div className="relative overflow-hidden rounded-2xl border border-blue-100 dark:border-blue-900 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-950/50 dark:via-purple-950/50 dark:to-pink-950/50 bg-[length:200%_auto] animate-gradient-x p-5 sm:p-6">
+        <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 sm:p-6">
           <div className="absolute -top-16 -right-16 w-48 h-48 bg-purple-300/30 dark:bg-purple-700/20 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-blue-300/30 dark:bg-brand-700/20 rounded-full blur-3xl pointer-events-none" />
           <div className="relative flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -256,52 +308,95 @@ export default function UserHistoryPage() {
         </div>
       )}
 
-      <h2 className="mb-3 text-base font-bold text-gray-900 dark:text-gray-100">
-        All Attempts <span className="font-semibold text-gray-400 dark:text-gray-500">({filtered.length})</span>
-      </h2>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">
+          All Attempts <span className="font-semibold text-gray-400 dark:text-gray-500">({filtered.length})</span>
+        </h2>
+        {grouped.length > 1 && (
+          <div role="tablist" aria-label="Kind of test" className="inline-flex rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+            {grouped.map(g => {
+              const mode = TEST_MODES[g.key] ?? TEST_MODES.other;
+              const TabIcon = mode.icon;
+              const on = g.key === activeGroup?.key;
+              return (
+                <button
+                  key={g.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => setTab(g.key)}
+                  className={cn(
+                    'inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-all',
+                    on
+                      ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-gray-100'
+                      : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200',
+                  )}
+                >
+                  <TabIcon className={cn('h-4 w-4', on ? mode.tile.split(' ').filter(x => x.startsWith('text-') || x.startsWith('dark:text-')).join(' ') : '')} />
+                  {g.label}
+                  <span
+                    className={cn(
+                      'rounded-full px-1.5 text-[11px] font-bold tabular-nums',
+                      on ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200' : 'bg-gray-200/70 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
+                    )}
+                  >
+                    {g.rows.length}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden shadow-sm animate-fadeIn">
-        {groupLoading ? (
-          <div className="p-12 text-center">
-            <Loader2 className="w-6 h-6 text-gray-300 dark:text-gray-600 mx-auto animate-spin" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="p-12 text-center animate-fadeIn">
-            <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3 animate-bounce-soft" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {filtersActive ? 'No attempts match your filters.' : 'No attempts yet.'}
-            </p>
-            {filtersActive && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="mt-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
-        ) : (
-          <>
+      {groupLoading ? (
+        <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center dark:border-gray-800 dark:bg-gray-900">
+          <Loader2 className="w-6 h-6 text-gray-300 dark:text-gray-600 mx-auto animate-spin" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center animate-fadeIn dark:border-gray-800 dark:bg-gray-900">
+          <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3 animate-bounce-soft" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {filtersActive ? 'No attempts match your filters.' : 'No attempts yet.'}
+          </p>
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="mt-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      ) : (
+        activeGroup && (
+          <section
+            key={activeGroup.key}
+            role="tabpanel"
+            className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm animate-fadeIn dark:border-gray-800 dark:bg-gray-900"
+          >
             <div
               className={cn(
-                'hidden md:grid items-center gap-4 px-5 py-3 border-b border-gray-100 dark:border-gray-800',
-                'bg-gray-50/70 dark:bg-gray-800/40 text-xs font-semibold text-gray-500 dark:text-gray-400',
-                COLUMNS,
+                'hidden md:grid items-center gap-3 px-4 py-2 bg-gray-50/70 dark:bg-gray-800/40',
+                'text-[10.5px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500',
+                activeHasLevel ? COLUMNS_WITH_LEVEL : COLUMNS_NO_LEVEL,
               )}
             >
-              <span>Test Name</span>
+              <span>Test</span>
               <span>Date</span>
+              {activeHasLevel && <span>Level</span>}
               <span>Score</span>
-              <span>Time Taken</span>
+              <span>Time</span>
               <span>Status</span>
               <span className="text-right">Report</span>
             </div>
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {filtered.map((a, i) => (
+              {activeGroup.rows.map((a, i) => (
                 <AttemptRow
                   key={a.attempt_id}
                   attempt={a}
+                  hasLevel={activeHasLevel}
                   courseName={a.course_id ? courses.find(c => c.course_id === a.course_id)?.name : undefined}
                   paperMax={stats.paperMax}
                   resumeTarget={a.status === 'in_progress' ? resumeTargetFor(a) : null}
@@ -309,9 +404,8 @@ export default function UserHistoryPage() {
                 />
               ))}
             </div>
-          </>
-        )}
-      </div>
+          </section>
+        )      )}
     </UserShell>
   );
 }
@@ -319,12 +413,15 @@ export default function UserHistoryPage() {
 /** One attempt: a row of the table from `md` up, a small card below it. */
 function AttemptRow({
   attempt: a,
+  hasLevel,
   courseName,
   paperMax,
   resumeTarget,
   index,
 }: {
   attempt: ApiAttempt;
+  /** Whether the group's table has a Level column. */
+  hasLevel: boolean;
   courseName?: string;
   /** The paper size every completed attempt shares — the fallback when one can't give its own. */
   paperMax: number | null;
@@ -338,60 +435,62 @@ function AttemptRow({
   const ended = endedAt && !Number.isNaN(endedAt.getTime()) ? endedAt : null;
   const duration = durationLabel(a);
   const flags = Array.isArray(a.malpractice_events) ? a.malpractice_events.length : 0;
-  const mode = TEST_MODES[a.test_mode ?? ''] ?? TEST_MODES.other;
-  const ModeIcon = mode.icon;
   const gateReport = useReportGate();
+  const { name, level } = splitLevel(a.test_name);
+  const when = outcome === 'unfinished' ? started : (ended ?? started);
+  const time = when.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
   return (
+    <>
+    <AttemptCard
+      attempt={a}
+      name={name}
+      level={level}
+      when={when}
+      time={time}
+      outcome={outcome}
+      duration={duration}
+      flags={flags}
+      paperMax={paperMax}
+      resumeTarget={resumeTarget}
+      index={index}
+    />
     <div
       className={cn(
-        'grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3.5 sm:px-5 md:items-center',
-        'hover:bg-blue-50/40 dark:hover:bg-blue-950/30 transition-colors animate-slideInLeft',
-        COLUMNS,
+        'hidden md:grid grid-cols-2 gap-x-3 gap-y-2 px-4 py-2.5 md:items-center',
+        'hover:bg-orange-50/40 dark:hover:bg-gray-800/40 transition-colors animate-slideInLeft',
+        hasLevel ? COLUMNS_WITH_LEVEL : COLUMNS_NO_LEVEL,
       )}
-      style={{ animationDelay: `${Math.min(index, 10) * 0.04}s` }}
+      style={{ animationDelay: `${Math.min(index, 10) * 0.03}s` }}
     >
       {/* Test name */}
-      <div className="col-span-2 md:col-span-1 flex items-center gap-3 min-w-0">
-        <span className={cn('w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0', mode.tile)}>
-          <ModeIcon className="w-[18px] h-[18px]" />
-        </span>
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-2 leading-snug">
-            {displayTitle(a.test_name) ?? 'Test Attempt'}
-          </p>
-          <div className="mt-1 flex items-center gap-2 flex-wrap">
-            {a.test_mode && (
-              <span className={cn('text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded', mode.badge)}>
-                {a.test_mode}
-              </span>
-            )}
-            {courseName && <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{courseName}</span>}
-          </div>
-        </div>
+      <div className="col-span-2 md:col-span-1 min-w-0">
+        <p className="text-[13px] font-bold text-gray-900 dark:text-gray-100 line-clamp-2 leading-snug">{name}</p>
+        {courseName && <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 truncate">{courseName}</p>}
       </div>
 
       {/* Date */}
       <Cell label="Date">
-        <p className="text-sm text-gray-700 dark:text-gray-200">
-          {(outcome === 'unfinished' ? started : (ended ?? started)).toLocaleDateString('en-IN', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-          })}
+        <p className="text-[13px] text-gray-700 dark:text-gray-200 leading-tight">
+          {when.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
         </p>
-        {outcome === 'unfinished' ? (
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
-            Started {started.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-          </p>
-        ) : (
-          ended && (
-            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
-              Submitted {ended.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-            </p>
-          )
-        )}
+        <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight">
+          {outcome === 'unfinished' ? 'Started' : ended ? 'Submitted' : ''} {time}
+        </p>
       </Cell>
+
+      {/* Level */}
+      {hasLevel && (
+        <Cell label="Level">
+          {level ? (
+            <span className={cn('inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset', LEVEL_CHIP[level] ?? LEVEL_CHIP.Mixed)}>
+              {level}
+            </span>
+          ) : (
+            <span className="text-sm text-gray-300 dark:text-gray-600">—</span>
+          )}
+        </Cell>
+      )}
 
       {/* Score */}
       <Cell label="Score">
@@ -399,8 +498,8 @@ function AttemptRow({
       </Cell>
 
       {/* Time taken */}
-      <Cell label="Time taken">
-        <p className={cn('text-sm', duration ? 'text-gray-700 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500')}>
+      <Cell label="Time">
+        <p className={cn('text-[13px]', duration ? 'text-gray-700 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500')}>
           {duration ?? '—'}
         </p>
       </Cell>
@@ -421,7 +520,7 @@ function AttemptRow({
           resumeTarget ? (
             <Link
               to={`/user/assessment/${resumeTarget}`}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-amber-500 hover:bg-amber-600 px-3 py-1.5 rounded-lg transition-colors press"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-100 ring-1 ring-inset ring-amber-300 hover:bg-amber-200 dark:text-amber-300 dark:bg-amber-950/30 dark:ring-amber-900 px-3 py-1 rounded-full transition-colors press"
             >
               <PlayCircle className="w-3.5 h-3.5" /> Resume
             </Link>
@@ -429,25 +528,166 @@ function AttemptRow({
             // No assessment behind it any more — say why rather than offer a
             // button that would 404.
             <span className="text-[11px] text-gray-400" title="The test behind this attempt is no longer available to you.">
-              Can't resume
+              Can&apos;t resume
             </span>
           )
         ) : (
-          // Its own page rather than a 900px drawer: the report is a
-          // wide document — a nine-column subject table, a radar and a
-          // four-panel analysis — and half a screen made every one of
-          // them scroll sideways. The route already existed and is
-          // shareable, which the drawer never was.
+          // Its own page rather than a 900px drawer: the report is a wide document, and half a screen made
+          // every table in it scroll sideways. The route is shareable, which the drawer never was.
           <Link
             to={`/user/report/${a.attempt_id}`}
             state={{ from: here() }}
             onClick={gateReport(a.test_mode)}
-            className="group inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-brand-300 bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-900 hover:bg-blue-50 dark:hover:bg-blue-950/40 px-3 py-1.5 rounded-lg transition-colors press"
+            className="group inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 ring-1 ring-inset ring-blue-200 dark:bg-blue-950/30 dark:ring-blue-900 hover:bg-blue-100 dark:hover:bg-blue-950/50 px-3 py-1 rounded-full transition-colors press"
           >
             <FileText className="w-3.5 h-3.5" />
-            View Report
+            Report
           </Link>
         )}
+      </div>
+    </div>
+    </>
+  );
+}
+
+/**
+ * One attempt on a phone: a card with a coloured edge for how it ended, the score as a ring on the left, the
+ * name and date beside it, a line of chips, and one clear action. (From `md` up the table row is used instead.)
+ */
+function AttemptCard({
+  attempt: a,
+  name,
+  level,
+  when,
+  time,
+  outcome,
+  duration,
+  flags,
+  paperMax,
+  resumeTarget,
+  index,
+}: {
+  attempt: ApiAttempt;
+  name: string;
+  level: string | null;
+  when: Date;
+  time: string;
+  outcome: AttemptOutcome;
+  duration: string | null;
+  flags: number;
+  paperMax: number | null;
+  resumeTarget: string | null;
+  index: number;
+}) {
+  const gateReport = useReportGate();
+  const pct = a.percentage;
+  const tone = pct === null ? null : SCORE_TONES[scoreTone(pct)];
+  const max = maxMarksOf(a) ?? paperMax;
+  const marks = a.score === null ? null : Math.round(a.score * 10) / 10;
+  const edge = outcome === 'completed' ? 'bg-emerald-500' : outcome === 'auto-submitted' ? 'bg-amber-500' : 'bg-rose-400';
+  const mode = TEST_MODES[a.test_mode ?? ''] ?? TEST_MODES.other;
+  const ModeIcon = mode.icon;
+
+  // The score ring: a circle that fills to the percentage.
+  const R = 21;
+  const C = 2 * Math.PI * R;
+  const ring = (
+    <div className="relative h-[54px] w-[54px] flex-shrink-0">
+      <svg viewBox="0 0 54 54" className="h-full w-full -rotate-90" aria-hidden>
+        <circle cx="27" cy="27" r={R} fill="none" strokeWidth="5" className="stroke-gray-100 dark:stroke-gray-800" />
+        {pct !== null && (
+          <circle
+            cx="27"
+            cy="27"
+            r={R}
+            fill="none"
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeDasharray={`${(Math.max(0, Math.min(100, pct)) / 100) * C} ${C}`}
+            className={tone?.bar.replace('bg-', 'stroke-')}
+          />
+        )}
+      </svg>
+      <span className={cn('absolute inset-0 flex items-center justify-center text-[12px] font-extrabold tabular-nums', tone ? tone.text : 'text-gray-300 dark:text-gray-600')}>
+        {pct === null ? '—' : `${Math.round(pct)}%`}
+      </span>
+    </div>
+  );
+
+  const action =
+    a.status === 'in_progress' ? (
+      resumeTarget ? (
+        <Link
+          to={`/user/assessment/${resumeTarget}`}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-bold text-white shadow-sm active:scale-95 transition-transform"
+        >
+          <PlayCircle className="h-4 w-4" /> Resume
+        </Link>
+      ) : (
+        <span className="text-[11px] text-gray-400">Can&apos;t resume</span>
+      )
+    ) : (
+      <Link
+        to={`/user/report/${a.attempt_id}`}
+        state={{ from: here() }}
+        onClick={gateReport(a.test_mode)}
+        className="inline-flex items-center gap-1 rounded-xl bg-gray-900 px-3.5 py-2 text-xs font-bold text-white shadow-sm active:scale-95 transition-transform dark:bg-gray-100 dark:text-gray-900"
+      >
+        View report <ChevronRight className="h-3.5 w-3.5" />
+      </Link>
+    );
+
+  return (
+    <div
+      className="md:hidden relative overflow-hidden px-4 py-3.5 pl-5 animate-slideUp"
+      style={{ animationDelay: `${Math.min(index, 8) * 0.04}s` }}
+    >
+      <span className={cn('absolute inset-y-3 left-0 w-1 rounded-r-full', edge)} />
+      <div className="flex items-center gap-3">
+        {ring}
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-2">{name}</p>
+          <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+            {when.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} · {time}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+        <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold', mode.badge)}>
+          <ModeIcon className="h-3 w-3" />
+          {a.test_mode === 'mock' ? 'Mock' : a.test_mode === 'practice' ? 'Practice' : 'Test'}
+        </span>
+        <StatusBadge outcome={outcome} />
+        {duration && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+            <Clock className="h-3 w-3" /> {duration}
+          </span>
+        )}
+        {level && (
+          <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset', LEVEL_CHIP[level] ?? LEVEL_CHIP.Mixed)}>
+            {level}
+          </span>
+        )}
+        {flags > 0 && (
+          <span className="inline-flex items-center gap-1 text-[11px] text-red-600 dark:text-red-400">
+            <XCircle className="h-3 w-3" /> {flags} flag{flags !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <p className="text-[12px] text-gray-500 dark:text-gray-400">
+          {marks !== null ? (
+            <>
+              <b className="text-[15px] font-extrabold tabular-nums text-gray-900 dark:text-gray-100">{marks}</b>
+              {max != null ? ` / ${max}` : ''} marks
+            </>
+          ) : (
+            'No score recorded'
+          )}
+        </p>
+        {action}
       </div>
     </div>
   );
@@ -499,22 +739,17 @@ function ScoreBar({ attempt: a, paperMax }: { attempt: ApiAttempt; paperMax: num
   const marks = a.score === null ? null : Math.round(a.score * 10) / 10;
 
   return (
-    <div>
+    <div className="flex items-center gap-2">
       {marks !== null && (
-        <p className="text-sm font-bold tabular-nums text-gray-900 dark:text-gray-100">
+        <span className="min-w-[3.25rem] text-[13px] font-bold tabular-nums text-gray-900 dark:text-gray-100">
           {marks}
-          <span className="font-medium text-gray-400 dark:text-gray-500">{max != null ? ` / ${max}` : ' pts'}</span>
-        </p>
+          <span className="font-medium text-gray-400 dark:text-gray-500">{max != null ? `/${max}` : ''}</span>
+        </span>
       )}
-      <div className="mt-1 flex items-center gap-2">
-        <div className="h-1.5 w-full max-w-[110px] rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
-          <div
-            className={cn('h-full rounded-full', tone.bar)}
-            style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
-          />
-        </div>
-        <span className={cn('text-[11px] font-bold tabular-nums', tone.text)}>{Math.round(pct)}%</span>
+      <div className="h-1.5 w-12 flex-shrink-0 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+        <div className={cn('h-full rounded-full', tone.bar)} style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
       </div>
+      <span className={cn('text-[11px] font-bold tabular-nums', tone.text)}>{Math.round(pct)}%</span>
     </div>
   );
 }
@@ -522,16 +757,16 @@ function ScoreBar({ attempt: a, paperMax }: { attempt: ApiAttempt; paperMax: num
 const STATUS_BADGES: Record<AttemptOutcome, { label: string; className: string; title?: string }> = {
   completed: {
     label: 'Completed',
-    className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+    className: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900',
   },
   'auto-submitted': {
     label: 'Auto-submitted',
-    className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    className: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900',
     title: 'The timer ended this attempt and it was submitted for you.',
   },
   unfinished: {
     label: 'Not submitted',
-    className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    className: 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-900',
     title: 'You started this test but never submitted it, so no score was recorded.',
   },
 };
@@ -541,7 +776,7 @@ function StatusBadge({ outcome }: { outcome: AttemptOutcome }) {
   return (
     <span
       title={badge.title}
-      className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold', badge.className)}
+      className={cn('inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold', badge.className)}
     >
       <span className="w-1.5 h-1.5 rounded-full bg-current" />
       {badge.label}

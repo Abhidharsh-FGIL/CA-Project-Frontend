@@ -36,7 +36,7 @@ function UnitBlock({
   renderCard,
 }: {
   unit: TreeUnitA;
-  onNew: () => void;
+  onNew?: () => void;
   renderCard: (a: Row) => ReactNode;
 }) {
   const [open, setOpen] = useState(unit.items.length > 0);
@@ -53,12 +53,18 @@ function UnitBlock({
         </span>
       }
       meta={<Count n={unit.items.length} />}
-      actions={<NewHere label={`New assessment in ${unit.name}`} onClick={onNew} />}
+      actions={onNew ? <NewHere label={`New assessment in ${unit.name}`} onClick={onNew} /> : undefined}
     >
       <div className="pb-3 pl-6 pr-1 pt-1">
         {empty ? (
           <p className="rounded-lg border border-dashed px-3 py-3 text-xs text-muted-foreground">
-            Nothing here yet. <b>New</b> starts an assessment already placed in this unit.
+            {onNew ? (
+              <>
+                Nothing here yet. <b>New</b> starts an assessment already placed in this unit.
+              </>
+            ) : (
+              'Nothing here yet.'
+            )}
           </p>
         ) : (
           <div className={GRID}>{unit.items.map(a => renderCard(a))}</div>
@@ -76,7 +82,7 @@ function SectionBlock({
 }: {
   section: TreeSectionA;
   kind: AssessmentKind;
-  onNew: (at: { unitId?: string; section?: string }) => void;
+  onNew?: (at: { unitId?: string; section?: string }) => void;
   renderCard: (a: Row) => ReactNode;
 }) {
   const [open, setOpen] = useState(section.total > 0);
@@ -98,16 +104,16 @@ function SectionBlock({
     >
       <div className="space-y-0.5 border-l pb-2 pl-3 ml-3">
         {section.units.map(u => (
-          <UnitBlock key={u.unitId} unit={u} onNew={() => onNew({ unitId: u.unitId })} renderCard={renderCard} />
+          <UnitBlock key={u.unitId} unit={u} onNew={onNew && (() => onNew({ unitId: u.unitId }))} renderCard={renderCard} />
         ))}
         {/* A key topic always sits in a unit; only a practice set can cover a whole subject. */}
-        {kind === 'practice' && (
+        {kind === 'practice' && (onNew || section.whole.length > 0) && (
           <div className="pt-2">
             <div className="flex items-center justify-between px-2 pb-2">
               <p className="text-xs font-semibold text-muted-foreground">
                 Whole {section.name} sets · {section.whole.length}
               </p>
-              <NewHere label={`New whole-subject set for ${section.name}`} onClick={() => onNew({ section: section.name })} />
+              {onNew && <NewHere label={`New whole-subject set for ${section.name}`} onClick={() => onNew({ section: section.name })} />}
             </div>
             {section.whole.length > 0 && <div className={cn(GRID, 'pl-6 pr-1')}>{section.whole.map(a => renderCard(a))}</div>}
           </div>
@@ -125,13 +131,18 @@ export function AssessmentHierarchy({
   assessments,
   renderCard,
   onCreate,
+  kindTabs = false,
 }: {
   assessments: Row[];
   renderCard: (a: Row) => ReactNode;
-  onCreate: (seed: NewAssessmentSeed) => void;
+  /** Without it there are no "New" buttons — the tree is for reading, as on the Reports tab. */
+  onCreate?: (seed: NewAssessmentSeed) => void;
+  /** Mock, Key Topics and Practice as tabs, one at a time, instead of three folds one above another. */
+  kindTabs?: boolean;
 }) {
   const tree = useMemo(() => buildAssessmentTree(assessments), [assessments]);
   const [tab, setTab] = useState('group-4');
+  const [kindTab, setKindTab] = useState<AssessmentKind>('mock');
   const tabs = [
     ...tree.groups.map(g => ({ id: g.id, label: g.name.replace(/^TNPSC\s+/, ''), n: g.total })),
     { id: '__unplaced', label: 'Unplaced', n: tree.unplaced.length },
@@ -162,12 +173,60 @@ export function AssessmentHierarchy({
         ))}
       </div>
 
-      {group && (
+      {group && kindTabs && (
+        <>
+          <div className="flex flex-wrap gap-2 border-b pb-3" role="tablist" aria-label="Test type">
+            {(['mock', 'keytopic', 'practice'] as const).map(k => {
+              const n =
+                k === 'mock'
+                  ? group.mock.length
+                  : (k === 'keytopic' ? group.keyTopics : group.practice).reduce((t, s) => t + s.total, 0);
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  role="tab"
+                  aria-selected={kindTab === k}
+                  onClick={() => setKindTab(k)}
+                  className={cn(
+                    'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors',
+                    kindTab === k ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/60 text-muted-foreground hover:bg-muted',
+                  )}
+                >
+                  {KIND_LABEL[k]}
+                  <span className={cn('rounded-full px-1.5 text-[11px] tabular-nums', kindTab === k ? 'bg-white/20' : 'bg-background')}>{n}</span>
+                </button>
+              );
+            })}
+          </div>
+          {kindTab === 'mock' ? (
+            group.mock.length === 0 ? (
+              <p className="rounded-lg border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">No mock assessments yet.</p>
+            ) : (
+              <div className={GRID}>{group.mock.map(a => renderCard(a))}</div>
+            )
+          ) : (
+            <div className="space-y-2">
+              {(kindTab === 'keytopic' ? group.keyTopics : group.practice).map(s => (
+                <SectionBlock
+                  key={s.name}
+                  section={s}
+                  kind={kindTab}
+                  onNew={onCreate && (at => onCreate(seedFor(group.id, kindTab, at)))}
+                  renderCard={renderCard}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {group && !kindTabs && (
         <div className="space-y-3">
           <KindBlock
             kind="mock"
             count={group.mock.length}
-            onNew={() => onCreate(seedFor(group.id, 'mock'))}
+            onNew={onCreate && (() => onCreate(seedFor(group.id, 'mock')))}
             defaultOpen={group.mock.length > 0}
           >
             {group.mock.length === 0 ? (
@@ -190,7 +249,7 @@ export function AssessmentHierarchy({
                       key={s.name}
                       section={s}
                       kind={kind}
-                      onNew={at => onCreate(seedFor(group.id, kind, at))}
+                      onNew={onCreate && (at => onCreate(seedFor(group.id, kind, at)))}
                       renderCard={renderCard}
                     />
                   ))}

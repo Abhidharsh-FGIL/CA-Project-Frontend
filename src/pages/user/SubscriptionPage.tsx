@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserShell } from '@/components/user/UserShell';
 import { useUserPortal } from '@/contexts/UserPortalContext';
@@ -119,7 +120,7 @@ export default function SubscriptionPage() {
       <TopUpSection customer={{ name: user.name, email: user.email, contact: user.phone }} />
 
       {/* Promo hint strip */}
-      <div className="mt-8 rounded-xl border border-amber-100 dark:border-amber-900 bg-gradient-to-r from-amber-50/80 via-orange-50/80 to-rose-50/80 dark:from-amber-950/30 dark:via-orange-950/30 dark:to-rose-950/30 p-4 sm:p-5">
+      <div className="mt-8 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 sm:p-5">
         <div className="flex items-start gap-3">
           <Tag className="w-5 h-5 text-amber-700 dark:text-amber-400 mt-0.5 flex-shrink-0" />
           <div className="flex-1 min-w-0">
@@ -255,7 +256,7 @@ function OptionCard({
         )}
 
         {card?.headline && <p className="mt-4 text-[15px] font-extrabold leading-snug text-gray-900 dark:text-gray-100">{card.headline}</p>}
-        {card?.description && <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{card.description}</p>}
+        {card?.description && <p className="mt-2 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">{card.description}</p>}
 
         {card ? (
           <>
@@ -268,7 +269,7 @@ function OptionCard({
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-500 dark:text-emerald-400" aria-hidden />
                   <span>
                     <strong className="text-gray-900 dark:text-gray-100">{item.title}</strong>
-                    {item.detail && <> – {item.detail}</>}
+                    {item.detail && <span className="text-[13px]"> – {item.detail}</span>}
                   </span>
                 </li>
               ))}
@@ -338,6 +339,14 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
   const [picked, setPicked] = useState<string | null>(null);
   const [buying, setBuying] = useState(false);
 
+  // "Buy a Top-up" in a plan popup arrives here with `?topup=1`: bring the packs into view once they have loaded.
+  const section = useRef<HTMLElement>(null);
+  const wantsTopUp = new URLSearchParams(useLocation().search).has('topup');
+  const hasPacks = !!data && data.packs.length > 0;
+  useEffect(() => {
+    if (wantsTopUp && hasPacks) section.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [wantsTopUp, hasPacks]);
+
   if (!data || data.packs.length === 0) return null;
 
   const combo = data.packs.filter(p => p.mock > 0 && p.practice > 0);
@@ -389,7 +398,7 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
   };
 
   return (
-    <section className="mt-12 animate-fadeIn">
+    <section ref={section} id="top-ups" className="mt-12 animate-fadeIn scroll-mt-24">
       <h2 className="border-l-4 border-orange-500 pl-3 text-2xl font-extrabold text-gray-900 dark:text-gray-100">Need more tests?</h2>
       <p className="mt-1 max-w-xl text-sm text-gray-600 dark:text-gray-400">
         Add a top-up to your Monthly or Yearly plan. Unused top-up tests are saved and carried forward when you renew your subscription.
@@ -727,7 +736,7 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
           </div>
 
           {/* Price breakdown */}
-          <div className="rounded-xl border border-blue-100 dark:border-blue-900 bg-gradient-to-br from-blue-50/60 via-white to-purple-50/60 dark:from-blue-950/30 dark:via-gray-900 dark:to-purple-950/30 p-4 mb-4">
+          <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <p className="text-xs font-bold text-gray-900 dark:text-gray-100">Order Summary</p>

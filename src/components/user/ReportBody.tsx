@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Download, Sparkles, AlertTriangle, CheckCircle2, XCircle, Brain, Clock, Target, TrendingUp, Trophy } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { useUserPortal } from '@/contexts/UserPortalContext';
+import { useOptionalUserPortal, useUserPortal } from '@/contexts/UserPortalContext';
 import {
   getAttemptDetail,
   requestReportInsights,
@@ -50,7 +50,7 @@ import { UnitPracticeReport } from '@/components/user/UnitPracticeReport';
 import { PassMarkNote } from '@/components/user/PassMarkNote';
 import { getPlan, includesAiInsights } from '@/data/userPortalSampleData';
 import { StudyPlanReportCta } from '@/components/user/study-plan/StudyPlanCard';
-import { SHOW_STUDY_PLAN } from '@/config/features';
+import { SHOW_PROGRESS_TAB, SHOW_STUDY_PLAN } from '@/config/features';
 
 /** Rows per page in the question table — a full 200-question paper needs paging. */
 const QUESTIONS_PER_PAGE = 25;
@@ -295,9 +295,13 @@ function QuestionCard({
               Skipped
             </span>
           ) : q.is_correct ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+            <span className="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full font-bold">
+              Correct
+            </span>
           ) : (
-            <XCircle className="w-5 h-5 text-red-500" />
+            <span className="text-[11px] bg-red-50 text-red-700 border border-red-200 px-2.5 py-1 rounded-full font-bold">
+              Incorrect
+            </span>
           )}
         </div>
       </button>
@@ -706,7 +710,8 @@ export function AttemptReport({
    * A client-side check: the endpoint itself will still answer anyone who calls it
    * directly, so the real boundary belongs server-side (see PLANS.md).
    */
-  const { user: planUser } = useUserPortal();
+  // Also shown to an admin, who has no student portal around it: no plan there, so no AI-wording request.
+  const planUser = useOptionalUserPortal()?.user;
   const planInfo = planUser ? getPlan(planUser.subscription_tier) : undefined;
   const wantsAiInsights = !!planInfo && includesAiInsights(planInfo);
 
@@ -1150,6 +1155,9 @@ export function AttemptReport({
    */
   return (
     <ReportLanguageProvider language={language}>
+      {!SHOW_PROGRESS_TAB ? (
+        attemptContent
+      ) : (
       <Tabs defaultValue="attempt" className="space-y-4">
         <TabsList className="grid w-full grid-cols-2 max-w-md">
           <TabsTrigger value="attempt">This Attempt</TabsTrigger>
@@ -1162,6 +1170,7 @@ export function AttemptReport({
           {progressTab}
         </TabsContent>
       </Tabs>
+      )}
     </ReportLanguageProvider>
   );
 }

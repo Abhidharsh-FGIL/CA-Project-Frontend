@@ -6,6 +6,7 @@
  * design as the landing page, so the three read as one site.
  */
 import { useEffect, useId, useState, type ReactNode } from 'react';
+import { EARLIEST_DOB, PICK_ONLY } from '@/lib/date-pick-only';
 import { ChevronDown, type LucideIcon } from 'lucide-react';
 import { LandingHeader } from '@/pages/landing/LandingShell';
 import '@/pages/landing/landing.css';
@@ -138,6 +139,7 @@ export function AuthField({
           type={type}
           value={value}
           max={max}
+          min={type === 'date' ? EARLIEST_DOB : undefined}
           maxLength={maxLength}
           required={required}
           readOnly={readOnly}
@@ -148,6 +150,8 @@ export function AuthField({
           aria-invalid={error ? true : undefined}
           onChange={e => onChange(e.target.value)}
           onBlur={onBlur}
+          // A date is picked from the calendar, never typed.
+          {...(type === 'date' ? PICK_ONLY : {})}
         />
         {trailing && <span className="mge-input-trailing">{trailing}</span>}
       </div>

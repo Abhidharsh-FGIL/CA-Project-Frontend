@@ -234,6 +234,8 @@ export interface PlanNoticeContext {
 }
 
 const SUBSCRIPTION = '/user/subscription';
+/** The subscription page, scrolled to its top-up packs. */
+const TOPUPS = '/user/subscription?topup=1';
 const EXAMS = '/user/exams';
 
 const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
@@ -464,15 +466,18 @@ export function composePlanNotice(facts: PlanErrorFacts, ctx: PlanNoticeContext)
       body: [
         first,
         `Good news! You still have **${plural(practiceLeft, 'Subject-wise Practice Test')}** remaining. ${
-          onFree ? 'Continue practising or upgrade your plan' : 'Continue practising, or choose a plan below'
-        } to unlock more mock tests.`,
+          onFree
+            ? 'Continue practising or upgrade your plan to unlock more mock tests.'
+            : 'Continue practising, or add a top-up to take more mock tests — your plan stays active.'
+        }`,
       ],
       usage: [
         { label: 'Mock Tests', value: limit === 0 ? 'Not included' : limit != null ? `${facts.used ?? limit}/${limit} Used` : 'All used', tone: 'used' },
         { label: 'Practice Tests', value: `${practiceLeft} Remaining`, tone: 'left' },
       ],
-      options: onFree ? [] : billing === 'yearly' ? fromYearly(plan) : fromMonthly(plan),
-      primary: { label: 'Upgrade Plan', to: SUBSCRIPTION },
+      // A plan that is still running is not renewed: the way to more tests is a top-up on top of it.
+      options: [],
+      primary: onFree ? { label: 'Upgrade Plan', to: SUBSCRIPTION } : { label: 'Buy a Top-up', to: TOPUPS },
       secondary: { label: 'Continue with Practice Tests', to: EXAMS },
     });
   }
@@ -491,29 +496,24 @@ export function composePlanNotice(facts: PlanErrorFacts, ctx: PlanNoticeContext)
   const c = counts(current, billing);
   const both = c.mock != null && c.practice != null;
 
-  if (billing === 'yearly') {
-    return notice({
-      icon: 'graduation',
-      title: "You've Completed Your Test Allowance!",
-      body: [
-        both
-          ? `You've used all ${plural(c.mock!, 'Mock Test')} and ${plural(c.practice!, 'Subject-wise Practice Test')} included in your ${planName} plan.`
-          : `You've used all the tests included in your ${planName} plan.`,
-        'Keep your preparation going! Choose a plan to access more tests and continue tracking your progress.',
-      ],
-      options: fromYearly(plan),
-    });
-  }
-
+  // The plan has time left, so renewing it is not the answer — a top-up adds tests on top of it, and what
+  // is left of the plan's own tests and its validity are kept. (A plan that has run out of time never
+  // gets here: it is the "expired" popup, which is where renewing is offered.)
   return notice({
     icon: 'graduation',
-    title: 'Keep Your Preparation Going!',
+    title: billing === 'yearly' ? "You've Completed Your Test Allowance!" : 'Keep Your Preparation Going!',
     body: [
-      both
-        ? `You've completed all ${plural(c.mock!, 'Mock Test')} and ${plural(c.practice!, 'Practice Test')} in your ${planName} plan.`
-        : `You've used all the tests included in your ${planName} plan.`,
-      "You're making progress! Choose a plan to continue practising and improving your performance.",
+      billing === 'yearly'
+        ? both
+          ? `You've used all ${plural(c.mock!, 'Mock Test')} and ${plural(c.practice!, 'Subject-wise Practice Test')} included in your ${planName} plan.`
+          : `You've used all the tests included in your ${planName} plan.`
+        : both
+          ? `You've completed all ${plural(c.mock!, 'Mock Test')} and ${plural(c.practice!, 'Practice Test')} in your ${planName} plan.`
+          : `You've used all the tests included in your ${planName} plan.`,
+      'Your plan is still active — add a top-up pack to keep practising.',
     ],
-    options: fromMonthly(plan),
+    options: [],
+    primary: { label: 'Buy a Top-up', to: TOPUPS },
+    dismiss: 'Maybe Later',
   });
 }

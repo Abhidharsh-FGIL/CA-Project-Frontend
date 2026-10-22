@@ -57,7 +57,7 @@ import { api } from '@/lib/api';
 import { TnpscTagFields } from '@/components/evaluation/TnpscTagFields';
 import { UnitPoolDiagnosis, UnitPoolPicker } from '@/components/evaluation/UnitPoolPicker';
 import { UnitMappingDialog } from '@/components/evaluation/UnitMappingDialog';
-import { EMPTY_TAG, describeTag, describeTagError, examTypeLabel, suggestAssessmentTitle, tagAssessmentKeepingTopic, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
+import { EMPTY_TAG, describeTag, describeTagError, examTypeLabel, suggestAssessmentTitle, tagAssessmentKeepingTopic, topicIdForUnit, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
 import {
   hasPerSectionNegative,
   leastNegative,
@@ -949,7 +949,11 @@ Create it anyway?`);
       track: tnpscTag.track ?? undefined,
       tnpscLevel: tnpscTag.track === 'mock' ? tnpscTag.level ?? undefined : undefined,
       tnpscSubjectId: tnpscTag.track === 'practice' ? tnpscTag.subject_id ?? undefined : undefined,
-      tnpscTopicId: tnpscTag.track === 'practice' && tnpscTag.scope === 'topic' ? tnpscTag.topic_id ?? undefined : undefined,
+      // The id within the chosen unit — see 	opicIdForUnit; the bare category name can match another unit's topic.
+      tnpscTopicId:
+        tnpscTag.track === 'practice' && tnpscTag.scope === 'topic'
+          ? topicIdForUnit(tnpscStage, tnpscTag.unit_id, tnpscTag.topic_id) ?? undefined
+          : undefined,
       tnpscUnitId:
         tnpscTag.scope === 'unit' || tnpscTag.scope === 'topic' ? tnpscTag.unit_id ?? undefined : undefined,
       // A key topic is saved as a unit paper that names its topic (see `TnpscScope`).

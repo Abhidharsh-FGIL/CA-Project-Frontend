@@ -6,6 +6,7 @@ import { useUserPortal } from '@/contexts/UserPortalContext';
 import { User, Lock, Bell, Monitor, Trash2, Crown, Mail, Phone, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { EARLIEST_DOB, PICK_ONLY } from '@/lib/date-pick-only';
 import { getPlan } from '@/data/userPortalSampleData';
 import { TNPSC_GROUPS } from '@/config/tnpsc';
 import { EXAM_LANGUAGE_OPTIONS, examLanguageLabel, examLanguageOf } from '@/lib/exam-language';
@@ -370,9 +371,12 @@ function FormRow({
               type={type}
               // A date of birth cannot be in the future.
               max={type === 'date' ? new Date().toLocaleDateString('en-CA') : undefined}
+              min={type === 'date' ? EARLIEST_DOB : undefined}
               value={value}
               onChange={e => onChange(e.target.value)}
-              className={field}
+              // A date is picked from the calendar, never typed — typing let a year like 0009 through.
+              {...(type === 'date' ? PICK_ONLY : {})}
+              className={cn(field, type === 'date' && 'cursor-pointer')}
             />
           )
         ) : (

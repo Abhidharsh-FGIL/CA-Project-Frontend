@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { CalendarClock, ClipboardList, Crown, Timer, Wallet } from 'lucide-react';
+import { CalendarClock, ClipboardList, Crown, Timer } from 'lucide-react';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { getPlan } from '@/data/userPortalSampleData';
 import { billingCycleOf, planAllowance } from '@/lib/plan-allowance';
 import { useCurrentPlanPurchase } from '@/hooks/use-plan-purchase';
 import { planCounts } from '@/lib/plans';
 import { getPurchaseHistory } from '@/lib/purchase-history';
-import { getCurrentSubscription } from '@/lib/subscriptionApi';
+import { getCurrentSubscription, usageFor } from '@/lib/subscriptionApi';
 import { cn } from '@/lib/utils';
 
 const day = (iso: string) =>
@@ -25,7 +25,9 @@ export function CurrentPlanCard() {
   const { data: sub } = useQuery({
     queryKey: ['subscription', 'current'],
     queryFn: getCurrentSubscription,
-    staleTime: 5 * 60 * 1000,
+    // Carries the server's count of tests taken, which moves with every attempt.
+    staleTime: 0,
+    refetchOnMount: 'always',
     enabled: !!user,
   });
   // Top-up credits are bought on top of the plan and do not expire.
@@ -122,6 +124,7 @@ export function CurrentPlanCard() {
           limit={limits.mock}
           used={mock.used}
           credits={credits.mock}
+          server={usageFor(active, 'mock')}
         />
         <Usage
           icon={<ClipboardList className="w-4 h-4" />}
@@ -129,6 +132,7 @@ export function CurrentPlanCard() {
           limit={limits.practice}
           used={practice.used}
           credits={credits.practice}
+          server={usageFor(active, 'practice')}
         />
       </div>
     </section>
@@ -139,8 +143,9 @@ function Usage({
   icon,
   label,
   limit,
-  used,
+  used: countedHere,
   credits,
+  server,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -149,9 +154,15 @@ function Usage({
   used: number;
   /** Top-up tests still unused, on top of the plan. */
   credits: number;
+  /** The server's own count, when it sends one — it replaces the figures counted here. */
+  server?: { used: number; left: number; total: number } | null;
 }) {
-  const left = limit == null ? null : Math.max(0, limit - used);
-  const pct = limit && limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+  const used = server ? server.used : countedHere;
+  // Top-up tests are counted in with the plan's: what could be taken in all (the plan's tests, the top-up tests
+  // already used and those still saved), so "included" and "remaining" are one figure each.
+  const total = server ? server.total : limit == null ? null : limit + credits + Math.max(0, used - limit);
+  const left = server ? server.left : total == null ? null : Math.max(0, total - used);
+  const pct = total && total > 0 ? Math.min(100, (used / total) * 100) : 0;
   return (
     <div className="rounded-xl border border-gray-100 dark:border-gray-800 p-3">
       <p className="flex items-center gap-1.5 text-xs font-bold text-gray-700 dark:text-gray-200">
@@ -170,23 +181,13 @@ function Usage({
           <p className="mt-1 text-[10px] text-gray-500">{left == null ? 'unlimited' : 'remaining'}</p>
         </div>
       </div>
-      {limit != null && (
+      {total != null && (
         <>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
             <div className="h-full rounded-full bg-orange-500" style={{ width: `${pct}%` }} />
           </div>
-          <p className="mt-1.5 text-[10px] text-gray-500">Plan includes {limit}</p>
+          <p className="mt-1.5 text-[10px] text-gray-500">Plan includes {total}</p>
         </>
-      )}
-      {credits > 0 && (
-        <div className="mt-2.5 flex items-center justify-between gap-2 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-100 dark:border-violet-900/50 px-2.5 py-1.5">
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-700 dark:text-violet-300">
-            <Wallet className="w-3.5 h-3.5" /> Top-up balance
-          </span>
-          <span className="text-[11px] font-bold text-violet-700 dark:text-violet-300">
-            {credits} test{credits === 1 ? '' : 's'} saved
-          </span>
-        </div>
       )}
     </div>
   );

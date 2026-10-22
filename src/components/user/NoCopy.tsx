@@ -10,7 +10,9 @@ export function NoCopy({ children, className }: { children: ReactNode; className
   const block = (e: { preventDefault: () => void }) => e.preventDefault();
   return (
     <div
-      className={cn('select-none [-webkit-touch-callout:none]', className)}
+      // `clip`, not `hidden`: nothing inside can widen the page sideways, while tables that scroll on their own
+      // still do, and sticky parts keep working.
+      className={cn('select-none [-webkit-touch-callout:none] [overflow-x:clip]', className)}
       onCopy={block}
       onCut={block}
       onContextMenu={block}

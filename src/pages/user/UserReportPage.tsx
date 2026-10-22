@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { originOf } from '@/lib/report-origin';
 import { UserShell } from '@/components/user/UserShell';
@@ -9,6 +9,8 @@ import { NoCopy } from '@/components/user/NoCopy';
 import { reportLocked } from '@/lib/plan-notice';
 import { showPlanNotice } from '@/lib/plan-notice-bus';
 import { reportIsLocked } from '@/lib/report-access';
+import { PassCelebration } from '@/components/user/PassCelebration';
+import { levelFromTitle, passMarkFor, performanceOf } from '@/config/pass-marks';
 
 export default function UserReportPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
@@ -26,6 +28,31 @@ export default function UserReportPage() {
     if (locked) showPlanNotice(reportLocked());
   }, [locked]);
 
+  // Celebrate a pass once, and only when the report is opened right after submitting - not on every visit.
+  const performance = attempt
+    ? performanceOf(
+        attempt.percentage,
+        passMarkFor({ kind: attempt.test_mode === 'mock' ? 'mock' : 'practice', level: levelFromTitle(attempt.test_name) }),
+      )
+    : null;
+  const celebrateKey = attemptId ? `mge:celebrated:${attemptId}` : null;
+  const [celebrate, setCelebrate] = useState(() => {
+    if (!(location.state as { justSubmitted?: boolean } | null)?.justSubmitted || !celebrateKey) return false;
+    try {
+      return !sessionStorage.getItem(celebrateKey);
+    } catch {
+      return true;
+    }
+  });
+  const doneCelebrating = useCallback(() => {
+    setCelebrate(false);
+    try {
+      if (celebrateKey) sessionStorage.setItem(celebrateKey, '1');
+    } catch {
+      /* private window: it may play again on a refresh, which is harmless */
+    }
+  }, [celebrateKey]);
+
   if (!attempt || locked) return <Navigate to="/user/history" replace />;
 
   return (
@@ -36,6 +63,10 @@ export default function UserReportPage() {
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" /> Back
       </button>
+
+      {celebrate && performance && performance !== 'needs-improvement' && attempt.percentage != null && (
+        <PassCelebration performance={performance} percent={attempt.percentage} onDone={doneCelebrating} />
+      )}
 
       <NoCopy>
         <ReportBody attempt={attempt} canDownloadPDF={canDownloadPDF} />

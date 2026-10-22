@@ -13,7 +13,7 @@ import { reportIsLocked } from '@/lib/report-access';
 import { planAllowance } from '@/lib/plan-allowance';
 import { difficultyLabel } from '@/lib/eval-difficulty';
 import { saveProctoringRecord } from '@/lib/proctoring-record';
-import { getCurrentSubscription } from '@/lib/subscriptionApi';
+import { getCurrentSubscription, usageFor } from '@/lib/subscriptionApi';
 import { getTopUpBalance } from '@/lib/topup-api';
 import { getPlan } from '@/data/userPortalSampleData';
 import { useQuery } from '@tanstack/react-query';
@@ -31,6 +31,7 @@ import {
   FileText,
   Clock,
   AlertTriangle,
+  Target,
 } from 'lucide-react';
 import { UserShell } from '@/components/user/UserShell';
 import {
@@ -55,6 +56,8 @@ import { subjectIdForQuestion, unitIdsOf } from '@/lib/unit-pool';
 import { findUnit, stageUnits, unitDisplayName } from '@/config/tnpsc';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useCurrentPlanPurchase } from '@/hooks/use-plan-purchase';
+import { usePassMarks } from '@/hooks/use-pass-marks';
+import { levelFromTitle, passMarkFor, passMarks } from '@/config/pass-marks';
 import {
   getEvalAssessmentDetail,
   startEvalAttempt,
@@ -831,11 +834,14 @@ export function UserEvalAssessmentPage() {
   const { data: currentSub } = useQuery({
     queryKey: ['subscription', 'current'],
     queryFn: getCurrentSubscription,
-    staleTime: 5 * 60 * 1000,
+    // The server's count of tests taken changes with every attempt, so it is read fresh each time this opens.
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
   // The plan purchase in force, with what the server has counted against it — the count that excludes anything
   // taken under an earlier plan, the free one included.
   const planPurchase = useCurrentPlanPurchase();
+  usePassMarks(); // draws again once the server's pass marks arrive
   // Top-up tests the person has bought and not yet used. They carry on once the plan's own run out.
   // Keyed under 'topup', so the top-up purchase's invalidation refreshes it straight away.
   const { data: topUp } = useQuery({
@@ -1180,7 +1186,8 @@ export function UserEvalAssessmentPage() {
           showPlanNotice(reportLocked());
           navigate('/user/history', { replace: true });
         } else {
-          navigate(`/user/report/${attemptId}`, { replace: true });
+          // Tells the report it is being opened straight after a submit, so a pass can be celebrated.
+          navigate(`/user/report/${attemptId}`, { replace: true, state: { justSubmitted: true } });
         }
       } catch {
         toast.error('Failed to submit. Please try again.');
@@ -1354,8 +1361,13 @@ export function UserEvalAssessmentPage() {
       ? planAllowance(plan, isMock ? 'mock' : 'practice', history, currentSub?.status === 'active' ? currentSub.start_date : null, assessments, planPurchase)
       : null;
     // What the top-up tests add. Plan tests go first; a top-up is used once they are gone.
-    const topUpLeft = topUp ? (isMock ? topUp.mock : topUp.practice) : 0;
-    const totalLeft = allowance?.left == null ? null : allowance.left + topUpLeft;
+    // The server's own count (taken, left, top-up) wins when it sends one; the figures counted here are the fallback.
+    const serverUsage = currentSub?.status === 'active' ? usageFor(currentSub, isMock ? 'mock' : 'practice') : null;
+    const topUpLeft = serverUsage ? serverUsage.topUpLeft : topUp ? (isMock ? topUp.mock : topUp.practice) : 0;
+    const totalLeft = serverUsage ? serverUsage.left : allowance?.left == null ? null : allowance.left + topUpLeft;
+    // The paper's own difficulty decides a practice set's pass mark; a mock has one of its own.
+    const passMark = passMarkFor({ kind: isMock ? 'mock' : 'practice', level: levelFromTitle(assessment.title) ?? assessment.difficulty });
+    const passMarksOut = passMarks(passMark, assessment.max_score);
 
     return (
       <UserShell>
@@ -1403,13 +1415,15 @@ export function UserEvalAssessmentPage() {
 
                 <div className="flex-shrink-0 self-start bg-white/15 backdrop-blur border border-white/25 rounded-xl px-3 py-2 text-right">
                   <p className="text-[9px] uppercase tracking-widest opacity-80">Attempts</p>
-                  {totalLeft == null || allowance?.limit == null ? (
+                  {totalLeft == null || (!serverUsage && allowance?.limit == null) ? (
                     <p className="text-lg font-bold leading-tight">Unlimited</p>
                   ) : (
                     <>
                       {/* Taken of everything they could take: the plan's tests, plus top-up tests used or still saved. */}
                       <p className="text-lg font-bold leading-tight">
-                        {allowance.used} of {allowance.limit + topUpLeft + Math.max(0, allowance.used - allowance.limit)}
+                        {serverUsage
+                          ? `${serverUsage.used} of ${serverUsage.total}`
+                          : `${allowance!.used} of ${allowance!.limit! + topUpLeft + Math.max(0, allowance!.used - allowance!.limit!)}`}
                       </p>
                       <p className="text-[10px] opacity-80 leading-tight mt-0.5">
                         {totalLeft} left{topUpLeft > 0 ? ` · incl. ${topUpLeft} top-up` : plan ? ` on ${plan.name}` : ''}
@@ -1421,7 +1435,7 @@ export function UserEvalAssessmentPage() {
             </div>
 
             <div className="p-4 sm:p-6 lg:p-8">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <AssessmentInfoTile
                   icon={<FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
                   label="Questions"
@@ -1436,6 +1450,13 @@ export function UserEvalAssessmentPage() {
                   icon={<Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
                   label="Total Marks"
                   value={String(assessment.max_score)}
+                />
+                {/* The MyGovExams benchmark for this kind of paper (config/pass-marks); not an official TNPSC cut-off. */}
+                <AssessmentInfoTile
+                  icon={<Target className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
+                  label="Pass Mark"
+                  value={`${passMark.pass}%`}
+                  hint={`${passMarksOut ? `${passMarksOut.pass} of ${assessment.max_score} marks · ` : ''}aim ${passMark.target}%`}
                 />
                 <AssessmentInfoTile
                   icon={<AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />}
@@ -2250,11 +2271,14 @@ function AssessmentInfoTile({
   label,
   value,
   valueClass = '',
+  hint,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   valueClass?: string;
+  /** A smaller line under the value. */
+  hint?: string;
 }) {
   return (
     <div className="bg-gradient-to-br from-gray-50 to-gray-100/70 dark:from-gray-800/80 dark:to-gray-800/40 rounded-xl p-3 hover:from-blue-50 hover:to-purple-50 dark:hover:from-blue-950/40 dark:hover:to-purple-950/40 transition-colors duration-300">
@@ -2265,6 +2289,7 @@ function AssessmentInfoTile({
       <p className={`text-base font-bold text-gray-900 dark:text-gray-100 mt-1 ${valueClass}`}>
         {value}
       </p>
+      {hint && <p className="mt-0.5 text-[10px] leading-tight text-gray-500 dark:text-gray-400">{hint}</p>}
     </div>
   );
 }

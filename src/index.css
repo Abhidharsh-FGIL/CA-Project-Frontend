@@ -715,3 +715,153 @@ body, input, textarea, select, button {
 .ebook-chapter-content .katex {
   font-size: 1.1em;
 }
+
+/* "Your Gateway to a Government Job" — meant to be noticed: each word springs in, the colour flows through the
+   line all the time (blue → violet → orange), the whole line floats gently, and an orange stroke draws itself
+   underneath on a loop. Plain, still text for anyone who has asked their system to reduce motion. */
+@keyframes tagline-spring {
+  0% { opacity: 0; transform: translateY(22px) scale(0.7) rotate(-4deg); }
+  60% { opacity: 1; transform: translateY(-5px) scale(1.08) rotate(1deg); }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
+}
+@keyframes tagline-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+@keyframes tagline-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes tagline-draw {
+  0% { stroke-dashoffset: 260; opacity: 0; }
+  10% { opacity: 1; }
+  55%, 85% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+.tagline-block {
+  position: relative;
+  display: inline-block;
+  animation: tagline-float 3.2s ease-in-out 1.4s infinite;
+}
+.tagline-word {
+  display: inline-block;
+  opacity: 0;
+  background-image: linear-gradient(90deg, #1d4ed8, #7c3aed, #f97316, #7c3aed, #1d4ed8);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation:
+    tagline-spring 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+    tagline-flow 4s linear infinite;
+}
+.tagline-underline {
+  position: absolute;
+  left: 0;
+  bottom: -9px;
+  width: 100%;
+  height: 10px;
+  overflow: visible;
+}
+.tagline-underline path {
+  fill: none;
+  stroke: #f97316;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 260;
+  stroke-dashoffset: 260;
+  animation: tagline-draw 3.6s ease-in-out 1s infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tagline-block, .tagline-word, .tagline-underline path { animation: none; }
+  .tagline-word { opacity: 1; background-image: none; -webkit-text-fill-color: currentColor; color: #1d4ed8; }
+  .tagline-underline { display: none; }
+}
+
+/* "Your Success Journey Begins!" on the open exam card: slides in once, then a sheen keeps passing over it. */
+.mge-journey { animation: mge-journey-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.mge-journey-text {
+  background: linear-gradient(100deg, #ea580c 0%, #f59e0b 30%, #fde68a 48%, #f59e0b 66%, #ea580c 100%);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: mge-journey-sheen 3.2s linear 0.7s infinite;
+}
+.mge-journey-spark { animation: mge-journey-twinkle 2.4s ease-in-out infinite; }
+@keyframes mge-journey-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes mge-journey-sheen {
+  from { background-position: 220% center; }
+  to { background-position: -20% center; }
+}
+@keyframes mge-journey-twinkle {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  50% { transform: scale(1.25) rotate(18deg); opacity: 0.75; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mge-journey, .mge-journey-text, .mge-journey-spark { animation: none; }
+  .mge-journey-text { background-position: 40% center; }
+}
+
+/* A passed verdict: pops in, throws a ring of light, and a sheen runs across the words now and then. */
+@keyframes verdict-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes verdict-ring {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+  100% { box-shadow: 0 0 0 14px rgba(16, 185, 129, 0); }
+}
+@keyframes verdict-sheen {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.verdict-pass { animation: verdict-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both, verdict-ring 1.6s ease-out 0.6s 3; }
+.verdict-shimmer {
+  background-image: linear-gradient(100deg, currentColor 40%, #34d399 50%, currentColor 60%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: verdict-sheen 3s linear 1s infinite;
+}
+
+/* Confetti and the congratulations card shown when a report opens straight after a pass. */
+@keyframes confetti-fall {
+  0% { transform: translate3d(0, -12vh, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate3d(var(--dx), 112vh, 0) rotate(var(--rot)); opacity: 1; }
+}
+.confetti-piece {
+  position: fixed;
+  top: 0;
+  z-index: 70;
+  pointer-events: none;
+  border-radius: 2px;
+  animation: confetti-fall var(--dur) cubic-bezier(0.25, 0.6, 0.4, 1) var(--delay) forwards;
+}
+@keyframes congrats-in {
+  0% { transform: translate(-50%, -40%) scale(0.5); opacity: 0; }
+  60% { transform: translate(-50%, -50%) scale(1.06); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+@keyframes congrats-out {
+  to { transform: translate(-50%, -56%) scale(0.96); opacity: 0; }
+}
+.congrats-card { animation: congrats-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.congrats-card.is-leaving { animation: congrats-out 0.5s ease-in forwards; }
+@keyframes trophy-bounce {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  25% { transform: translateY(-10px) rotate(-8deg); }
+  75% { transform: translateY(-5px) rotate(8deg); }
+}
+.congrats-trophy { animation: trophy-bounce 1.2s ease-in-out 0.5s 3; }
+@media (prefers-reduced-motion: reduce) {
+  .verdict-pass, .verdict-shimmer, .congrats-card, .congrats-trophy { animation: none; }
+  .verdict-shimmer { background: none; -webkit-text-fill-color: currentColor; }
+  .confetti-piece { display: none; }
+}

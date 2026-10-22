@@ -2628,7 +2628,7 @@ export const ISSUE_LABEL: Record<PrimaryIssue, string> = {
   ACCURACY: 'Accuracy',
   COVERAGE: 'Coverage',
   TIME: 'Time',
-  MIXED: 'Mixed',
+  MIXED: 'Accuracy and coverage',
   INSUFFICIENT_EVIDENCE: 'Insufficient evidence',
   NONE: '—',
 };

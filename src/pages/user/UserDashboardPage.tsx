@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { displayTitle } from '@/lib/display-title';
 import { Link } from 'react-router-dom';
-import { performanceHref } from '@/lib/performance-view';
+import { historyHref, performanceHref } from '@/lib/performance-view';
 import { here } from '@/lib/report-origin';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -656,7 +656,7 @@ export default function UserDashboardPage() {
                   {groupLabel} · {trackNoun}s
                 </p>
               </div>
-              <Link to="/user/history" className="text-xs font-semibold text-brand-600 dark:text-brand-400 underline-offset-2 hover:underline whitespace-nowrap">
+              <Link to={historyHref({ group, track, range })} className="text-xs font-semibold text-brand-600 dark:text-brand-400 underline-offset-2 hover:underline whitespace-nowrap">
                 View all
               </Link>
             </div>
@@ -751,7 +751,7 @@ export default function UserDashboardPage() {
       {/* ── What to do next ───────────────────────────────────────────────── */}
       <div className="mt-3 sm:mt-4 space-y-3 sm:space-y-4">
         {/* Continue your preparation */}
-        <div className="rounded-2xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/20 p-4">
+        <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
           <SectionHead title="Continue Your Preparation" href="/user/exams" />
           <div className={cn('grid gap-3', visibleGroups.length > 1 && 'lg:grid-cols-2')}>
             {visibleGroups.map(g => {
@@ -802,7 +802,7 @@ export default function UserDashboardPage() {
             <QuickAction to={trackHref('mock')} icon={<Timer className="w-5 h-5" />} label="Take a Mock Test" tone="indigo" />
             <QuickAction to={trackHref('practice')} icon={<BookOpen className="w-5 h-5" />} label="Practice Now" tone="emerald" />
             <QuickAction to={performanceHref({ group, track, range })} icon={<LineChartIcon className="w-5 h-5" />} label="View Performance" tone="amber" />
-            <QuickAction to="/user/history" icon={<HistoryIcon className="w-5 h-5" />} label="Test History" tone="rose" />
+            <QuickAction to={historyHref({ group, track, range })} icon={<HistoryIcon className="w-5 h-5" />} label="Test History" tone="rose" />
           </div>
         </Card>
       </div>
@@ -911,12 +911,12 @@ function StatCard({
   );
 }
 
-/** Each action keeps the tint of its stat tile, so the page reads in one palette. */
+/** Each action keeps the colour of its text and icon; the button behind it is plain. */
 const ACTION_TONE: Record<keyof typeof TONE, string> = {
-  indigo: 'border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100/70 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70',
-  emerald: 'border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/70 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/70',
-  amber: 'border-orange-100 bg-orange-50 text-orange-700 hover:bg-orange-100/70 dark:border-orange-900/50 dark:bg-orange-950/40 dark:text-orange-300 dark:hover:bg-orange-950/70',
-  rose: 'border-pink-100 bg-pink-50 text-pink-700 hover:bg-pink-100/70 dark:border-pink-900/50 dark:bg-pink-950/40 dark:text-pink-300 dark:hover:bg-pink-950/70',
+  indigo: 'border-gray-200 bg-white text-blue-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-blue-300 dark:hover:bg-gray-800',
+  emerald: 'border-gray-200 bg-white text-emerald-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-emerald-300 dark:hover:bg-gray-800',
+  amber: 'border-gray-200 bg-white text-orange-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-orange-300 dark:hover:bg-gray-800',
+  rose: 'border-gray-200 bg-white text-pink-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-pink-300 dark:hover:bg-gray-800',
 };
 
 function QuickAction({

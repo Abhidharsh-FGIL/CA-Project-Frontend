@@ -13,8 +13,14 @@ import {
 } from '@/config/tnpsc';
 import type { TnpscTest } from '@/lib/tnpscApi';
 
-/** Letters only, lowercased — ids, Tamil labels and titles all normalise to this. */
-export const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
+/**
+ * Letters only, lowercased — ids, Tamil labels and titles all normalise to this.
+ *
+ * Letters of any script, plus the combining marks Tamil vowel signs are made of. Keeping only a–z made every
+ * Tamil name normalise to "", so all Tamil topics looked identical: papers matched the wrong topics, and
+ * papers with different titles were collapsed into one.
+ */
+export const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{M}]/gu, '');
 
 /**
  * Whether two labels name the same thing.
@@ -67,14 +73,44 @@ export interface KeyTopicSection {
   testCount: number;
 }
 
-/** The papers for one topic: the unit's own id first, then a topic that is the same by name. */
+/**
+ * Whether a paper's topic label is this topic. Stricter than `sameLabel`: a short label inside a long topic
+ * name is not a match unless it is most of it — "Physics" sits inside "Everyday application of mechanics, …
+ * and nuclear physics", but it is a different topic with a paper of its own.
+ */
+const sameTopic = (a: string, b: string) => {
+  const x = norm(a);
+  const y = norm(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  return sameLabel(a, b) && Math.min(x.length, y.length) / Math.max(x.length, y.length) >= 0.5;
+};
+
+/**
+ * The papers for one topic: the unit's own id first, then a topic that is the same by name.
+ *
+ * A paper filed under a differently-worded copy of the topic ("Letter Writing: Formal and Informal" for
+ * "Letter writing (formal and informal)") belongs to the topic too, so the two are one row. The same
+ * paper listed twice under one title is shown once.
+ */
 export function testsForTopic(unitId: string | undefined, topic: TnpscTopic, tests: TnpscTest[]): TnpscTest[] {
   const inUnit = tests.filter(t => !unitId || !t.unit_id || t.unit_id === unitId);
-  const exact = inUnit.filter(t => t.topic_id === topic.id);
-  if (exact.length > 0) return exact;
-  return inUnit.filter(
-    t => (t.topic_id && sameLabel(topic.id, t.topic_id)) || (t.topic_name && sameLabel(topic.name, t.topic_name)),
-  );
+  const sameName = (t: TnpscTest) => !!t.topic_name && norm(t.topic_name) === norm(topic.name);
+  const exact = inUnit.filter(t => t.topic_id === topic.id || sameName(t));
+  const found =
+    exact.length > 0
+      ? exact
+      : inUnit.filter(
+          t => (t.topic_id && sameTopic(topic.id, t.topic_id)) || (t.topic_name && sameTopic(topic.name, t.topic_name)),
+        );
+  const seen = new Set<string>();
+  return found.filter(t => {
+    // Digits count here: "…File1" and "…File2" are two papers, not one listed twice.
+    const key = `${t.title.toLowerCase().replace(/[^\p{L}\p{M}\p{N}]/gu, '')}|${t.level ?? ''}|${t.test_type}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /**
@@ -87,10 +123,21 @@ export function unitTopicsWithCategories(stage: TnpscStage, unit: { id: string }
   for (const t of tests) {
     const id = (t.topic_id ?? '').trim();
     if (!id || t.unit_id !== unit.id) continue;
-    if (printed.some(p => p.id === id) || extra.has(id)) continue;
-    extra.set(id, { id, name: (t.topic_name ?? '').trim() || id });
+    const name = (t.topic_name ?? '').trim() || id;
+    // A category that only rewords a printed topic is that topic, not a second one.
+    if (printed.some(p => p.id === id || norm(p.name) === norm(name)) || extra.has(id)) continue;
+    if ([...extra.values()].some(e => norm(e.name) === norm(name))) continue;
+    extra.set(id, { id, name });
   }
-  return [...printed, ...extra.values()];
+  const all = [...printed, ...extra.values()];
+  // A syllabus that prints the same topic twice still has one topic.
+  const seen = new Set<string>();
+  return all.filter(t => {
+    const key = norm(t.name) || t.id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /**
@@ -99,7 +146,7 @@ export function unitTopicsWithCategories(stage: TnpscStage, unit: { id: string }
  * Only topics with a paper are listed: a topic is a "key topic" here because someone made a test for
  * it. A section with none is still returned, so the page can show it as coming rather than drop it.
  */
-export function buildKeyTopicSections(stage: TnpscStage, tests: TnpscTest[]): KeyTopicSection[] {
+function buildSections(stage: TnpscStage, tests: TnpscTest[]): KeyTopicSection[] {
   return (stage.pattern?.sections ?? []).map(section => {
     const groups: KeyTopicGroup[] = (
       section.units?.length
@@ -131,5 +178,39 @@ export function buildKeyTopicSections(stage: TnpscStage, tests: TnpscTest[]): Ke
       testCount: rows.reduce((n, r) => n + r.tests.length, 0),
     };
   });
+}
+
+/**
+ * Each paper belongs on exactly one row of the whole page.
+ *
+ * Matching is by id first and by name after it, and two topics can both claim a paper by name — a reworded
+ * topic, or a paper with no unit that two units could take. Left alone the paper is listed under each. So a
+ * paper stays on the row whose topic id it carries, or failing that the first row that matched it.
+ */
+function claimOnce(sections: KeyTopicSection[]): KeyTopicSection[] {
+  const owner = new Map<string, KeyTopicRow>();
+  const rank = (row: KeyTopicRow, t: TnpscTest) => (t.topic_id === row.topic.id ? 0 : 1);
+  for (const row of sections.flatMap(sec => sec.groups.flatMap(g => g.topics))) {
+    for (const t of row.tests) {
+      const current = owner.get(t.test_id);
+      if (!current || rank(row, t) < rank(current, t)) owner.set(t.test_id, row);
+    }
+  }
+  return sections.map(sec => {
+    const groups = sec.groups
+      .map(g => ({
+        ...g,
+        topics: g.topics
+          .map(r => ({ ...r, tests: r.tests.filter(t => owner.get(t.test_id) === r) }))
+          .filter(r => r.tests.length > 0),
+      }))
+      .filter(g => g.topics.length > 0);
+    const rows = groups.flatMap(g => g.topics);
+    return { ...sec, groups, topicCount: rows.length, testCount: rows.reduce((n, r) => n + r.tests.length, 0) };
+  });
+}
+
+export function buildKeyTopicSections(stage: TnpscStage, tests: TnpscTest[]): KeyTopicSection[] {
+  return claimOnce(buildSections(stage, tests));
 }
 

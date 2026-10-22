@@ -780,4 +780,15 @@ export function useUserPortal() {
   return ctx;
 }
 
+/**
+ * The portal's state when there is one, and null outside it.
+ *
+ * For a component that is shared with the admin side — the attempt report is shown there too, to someone
+ * who has no student portal around them — so it can use the student's plan when it exists and carry on
+ * without it when it does not, instead of throwing.
+ */
+export function useOptionalUserPortal() {
+  return useContext(UserPortalContext) ?? null;
+}
+
 export { DEMO_PASSWORD, FIXED_OTP, TIER_ORDER };

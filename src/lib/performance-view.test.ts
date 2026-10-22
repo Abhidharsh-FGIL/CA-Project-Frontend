@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_TIME } from '@/components/user/DateRangeFilter';
-import { performanceHref, readPerformanceView } from './performance-view';
+import { historyHref, performanceHref, readPerformanceView } from './performance-view';
 
 const read = (href: string) => readPerformanceView(new URL(href, 'http://x').searchParams);
 
@@ -26,5 +26,20 @@ describe('performance view in the address', () => {
     expect(read('/user/performance?group=nope&track=all&range=decade&from=yesterday')).toEqual({});
     expect(read('/user/performance?range=week&from=junk').range).toEqual({ key: 'week', from: null, to: null });
     expect(read('/user/performance')).toEqual({});
+  });
+});
+
+describe('the history link', () => {
+  it('opens Test History on the same exam, test type and range', () => {
+    const view = { group: 'group-4', track: 'practice', range: { key: 'week', from: '2026-10-16', to: null } } as const;
+    const href = historyHref(view);
+    expect(href.startsWith('/user/history?')).toBe(true);
+    expect(read(href)).toEqual(view);
+  });
+
+  it('carries only the track and exam when the range is all time', () => {
+    expect(historyHref({ group: 'group-4', track: 'mock', range: { key: 'all', from: null, to: null } })).toBe(
+      '/user/history?group=group-4&track=mock',
+    );
   });
 });

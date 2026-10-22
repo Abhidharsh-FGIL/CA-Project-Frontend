@@ -1,13 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, FileText, Users, CheckCircle, Eye, Download, TrendingUp, BarChart3, AlertCircle } from 'lucide-react';
 import { useEvalAssessments, useEvalInvitationStats } from '@/hooks/use-eval-assessments';
-import { useInfiniteList } from '@/hooks/use-infinite-list';
+import { AssessmentHierarchy } from './AssessmentHierarchy';
 import { DownloadDropdown } from './DownloadDropdown';
 import { api } from '@/lib/api';
 import { exportReport, type ExportFormat, type MetaField, type StudentRow } from '@/lib/eval-export-utils';
@@ -21,19 +20,12 @@ interface Props {
 
 export function EvalReportsList({ onViewReport }: Props) {
   const [search, setSearch] = useState('');
-  const [modeFilter, setModeFilter] = useState('all');
   const { data: assessments, isLoading } = useEvalAssessments({ search });
 
   const assessmentIds = useMemo(() => (assessments || []).map((a: any) => a.id), [assessments]);
   const { data: stats = {} } = useEvalInvitationStats(assessmentIds);
 
-  const filtered = useMemo(() => {
-    if (!assessments) return [];
-    if (modeFilter === 'all') return assessments;
-    return (assessments as any[]).filter((a: any) => a.mode === modeFilter);
-  }, [assessments, modeFilter]);
-
-  const { visible: visibleReports, sentinelRef, hasMore, shown, total } = useInfiniteList<any>(filtered as any[], 24);
+  const filtered = useMemo(() => (assessments ?? []) as any[], [assessments]);
 
   const handleDownload = async (a: any, fmt: ExportFormat) => {
     try {
@@ -102,43 +94,7 @@ export function EvalReportsList({ onViewReport }: Props) {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="grid gap-4 sm:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-40 w-full" />)}
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search assessments..." className="pl-9" />
-        </div>
-        <Select value={modeFilter} onValueChange={setModeFilter}>
-          <SelectTrigger className="w-[120px]">
-            <SelectValue placeholder="Mode" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="exam">Mock test</SelectItem>
-            <SelectItem value="practice">Practice</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {filtered.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <BarChart3 className="h-10 w-10 mx-auto mb-3 opacity-40" />
-          <p className="text-sm">
-            {modeFilter !== 'all' ? `No ${modeFilter} assessments found.` : 'No assessments to report on yet.'}
-          </p>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {visibleReports.map((a: any) => {
+  const renderCard = (a: any): ReactNode => {
             const stat = (stats as any)[a.id];
             const invited = stat?.invited || 0;
             const submitted = stat?.submitted || 0;
@@ -160,9 +116,7 @@ export function EvalReportsList({ onViewReport }: Props) {
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <Badge variant="outline" className={`text-[10px] ${a.mode === 'exam' ? 'border-red-300 text-red-600 dark:border-red-700 dark:text-red-400' : 'border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400'}`}>
-                        {a.mode === 'exam' ? 'Mock test' : 'Practice'}
-                      </Badge>
+                      {/* The tab above already says Mock or Practice, so the card does not repeat it. */}
                       {isExpired && (
                         <Badge variant="outline" className="text-[10px] bg-gray-500/10 text-gray-500">
                           <AlertCircle className="h-3 w-3 mr-0.5" /> Expired
@@ -235,17 +189,33 @@ export function EvalReportsList({ onViewReport }: Props) {
                 </CardContent>
               </Card>
             );
-          })}
-        </div>
-      )}
+  };
 
-      {filtered.length > 0 && (
-        <>
-          <div ref={sentinelRef} className="h-1" />
-          <p className="text-center text-xs text-muted-foreground py-2">
-            {hasMore ? `Loading more… (${shown} of ${total})` : `All ${total} reports loaded`}
-          </p>
-        </>
+  if (isLoading) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-40 w-full" />)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search assessments..." className="pl-9" />
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <BarChart3 className="h-10 w-10 mx-auto mb-3 opacity-40" />
+          <p className="text-sm">No assessments to report on yet.</p>
+        </div>
+      ) : (
+        // The same Group → Mock / Key Topics / Practice → Subject → Unit layout as the Assessments tab, read-only.
+        <AssessmentHierarchy assessments={filtered} renderCard={renderCard} kindTabs />
       )}
     </div>
   );

@@ -37,6 +37,7 @@ import { fullSetFor } from '@/lib/tnpsc-full-set';
 import {
   buildKeyTopicSections,
   isKeyTopicPaper,
+  norm,
   sameLabel,
   type KeyTopicRow,
   type KeyTopicSection,
@@ -99,12 +100,12 @@ type Tab = 'practice' | 'exam' | 'topics';
  * units, and a palette keyed by name would leave a new exam's units uncoloured.
  */
 const UNIT_ACCENT = [
-  { dot: 'bg-blue-500', badge: 'bg-blue-500', soft: 'bg-blue-50 dark:bg-blue-950/40', text: 'text-blue-600 dark:text-blue-400', ring: 'border-blue-200 dark:border-blue-900' },
-  { dot: 'bg-emerald-500', badge: 'bg-emerald-500', soft: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-600 dark:text-emerald-400', ring: 'border-emerald-200 dark:border-emerald-900' },
-  { dot: 'bg-amber-500', badge: 'bg-amber-500', soft: 'bg-amber-50 dark:bg-amber-950/40', text: 'text-amber-600 dark:text-amber-400', ring: 'border-amber-200 dark:border-amber-900' },
-  { dot: 'bg-violet-500', badge: 'bg-violet-500', soft: 'bg-violet-50 dark:bg-violet-950/40', text: 'text-violet-600 dark:text-violet-400', ring: 'border-violet-200 dark:border-violet-900' },
-  { dot: 'bg-rose-500', badge: 'bg-rose-500', soft: 'bg-rose-50 dark:bg-rose-950/40', text: 'text-rose-600 dark:text-rose-400', ring: 'border-rose-200 dark:border-rose-900' },
-  { dot: 'bg-cyan-500', badge: 'bg-cyan-500', soft: 'bg-cyan-50 dark:bg-cyan-950/40', text: 'text-cyan-600 dark:text-cyan-400', ring: 'border-cyan-200 dark:border-cyan-900' },
+  { fill: 'bg-blue-500/30 hover:bg-blue-500/40 dark:bg-blue-500/25', dot: 'bg-blue-500', badge: 'bg-blue-500', soft: 'bg-blue-50 dark:bg-blue-950/40', text: 'text-blue-600 dark:text-blue-400', ring: 'border-blue-200 dark:border-blue-900' },
+  { fill: 'bg-emerald-500/30 hover:bg-emerald-500/40 dark:bg-emerald-500/25', dot: 'bg-emerald-500', badge: 'bg-emerald-500', soft: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-600 dark:text-emerald-400', ring: 'border-emerald-200 dark:border-emerald-900' },
+  { fill: 'bg-amber-500/30 hover:bg-amber-500/40 dark:bg-amber-500/25', dot: 'bg-amber-500', badge: 'bg-amber-500', soft: 'bg-amber-50 dark:bg-amber-950/40', text: 'text-amber-600 dark:text-amber-400', ring: 'border-amber-200 dark:border-amber-900' },
+  { fill: 'bg-violet-500/30 hover:bg-violet-500/40 dark:bg-violet-500/25', dot: 'bg-violet-500', badge: 'bg-violet-500', soft: 'bg-violet-50 dark:bg-violet-950/40', text: 'text-violet-600 dark:text-violet-400', ring: 'border-violet-200 dark:border-violet-900' },
+  { fill: 'bg-rose-500/30 hover:bg-rose-500/40 dark:bg-rose-500/25', dot: 'bg-rose-500', badge: 'bg-rose-500', soft: 'bg-rose-50 dark:bg-rose-950/40', text: 'text-rose-600 dark:text-rose-400', ring: 'border-rose-200 dark:border-rose-900' },
+  { fill: 'bg-cyan-500/30 hover:bg-cyan-500/40 dark:bg-cyan-500/25', dot: 'bg-cyan-500', badge: 'bg-cyan-500', soft: 'bg-cyan-50 dark:bg-cyan-950/40', text: 'text-cyan-600 dark:text-cyan-400', ring: 'border-cyan-200 dark:border-cyan-900' },
 ] as const;
 
 const accentFor = (i: number) => UNIT_ACCENT[i % UNIT_ACCENT.length];
@@ -338,7 +339,13 @@ export default function TnpscStagePage() {
           }));
 
       const subjects = sectionSyllabus(stage, section);
-      const names = (subjects.length ? subjects.map(x => x.name) : units.map(u => u.name)).filter(Boolean);
+      const tamilOnlySection = isTamilOnlySection(section);
+      let names = (subjects.length ? subjects.map(x => x.name) : units.map(u => u.name)).filter(Boolean);
+      // A section whose only subject is the section itself would describe itself: list its units instead,
+      // so every row says what is inside it in the same short form.
+      if (names.length <= 1 && names.every(x => norm(x) === norm(section.name))) {
+        names = units.map(u => (tamilOnlySection && u.nameTa ? u.nameTa : u.name)).filter(Boolean);
+      }
       const blurb =
         names.length > 3 ? `${names.slice(0, 3).join(', ')} and more…` : names.join(', ');
 
@@ -584,11 +591,11 @@ function KeyTopicsTrack({
                           {g.name}
                         </p>
                       )}
-                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                      <ul className="overflow-hidden rounded-xl border border-gray-200 bg-white divide-y divide-gray-100 dark:border-gray-800 dark:bg-gray-900 dark:divide-gray-800">
                         {g.topics.map((r, ri) => (
                           <KeyTopicItem key={r.topic.id} row={r} index={ri} />
                         ))}
-                      </div>
+                      </ul>
                     </div>
                   ))}
                 </div>
@@ -603,18 +610,105 @@ function KeyTopicsTrack({
 
 function KeyTopicItem({ row, index }: { row: KeyTopicRow; index: number }) {
   const { topic, tests } = row;
-  // One paper: the topic is the paper, so pressing it starts it.
-  if (tests.length === 1) return <PaperRow compact test={tests[0]} index={index} label={topic.name} />;
-  // Several papers on one topic (different difficulties): the topic is a heading over its own row of cards.
+  // One paper: the topic is the paper, so the row starts it.
+  if (tests.length === 1) {
+    return (
+      <li>
+        <KeyTopicLine test={tests[0]} number={index + 1} label={topic.name} />
+      </li>
+    );
+  }
+  // Several papers on one topic (different difficulties): the topic names the row, each paper sits under it.
   return (
-    <div className="col-span-full space-y-2">
-      <p className="text-[13px] font-bold text-gray-900 dark:text-gray-100">{topic.name}</p>
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-        {tests.map((t, i) => (
-          <PaperRow compact key={t.test_id} test={t} index={i} />
+    <li>
+      <p className="flex items-center gap-3 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 dark:bg-gray-800/50 dark:text-gray-100">
+        <span className="w-6 text-center text-[11px] font-bold tabular-nums text-gray-400">{index + 1}</span>
+        {topic.name}
+      </p>
+      <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+        {tests.map(t => (
+          <li key={t.test_id}>
+            <KeyTopicLine test={t} nested />
+          </li>
         ))}
-      </div>
-    </div>
+      </ul>
+    </li>
+  );
+}
+
+/**
+ * One key-topic paper as a line in a list: its number, its name, what is in it, how you stand, and a plain
+ * "Start". Dense on purpose — a unit with twenty topics should read as a list, not a wall of cards.
+ */
+function KeyTopicLine({
+  test,
+  number,
+  label,
+  nested = false,
+}: {
+  test: TnpscTest;
+  number?: number;
+  label?: string;
+  nested?: boolean;
+}) {
+  const attemptsLeft = test.max_attempts == null ? null : Math.max(0, test.max_attempts - test.attempts_used);
+  const exhausted = attemptsLeft === 0;
+
+  const status = test.is_completed
+    ? { text: test.best_percentage != null ? `Cleared · ${Math.round(test.best_percentage)}%` : 'Cleared', cls: 'text-emerald-600 dark:text-emerald-400 font-semibold' }
+    : test.best_percentage != null
+      ? { text: `Best ${Math.round(test.best_percentage)}%`, cls: 'text-gray-700 dark:text-gray-200 font-semibold' }
+      : test.attempts_used > 0
+        ? { text: `${test.attempts_used} attempt${test.attempts_used === 1 ? '' : 's'}`, cls: 'text-gray-600 dark:text-gray-300' }
+        : { text: 'Not attempted', cls: 'text-gray-400 dark:text-gray-500' };
+
+  const body = (
+    <>
+      <span className={cn('w-6 flex-shrink-0 text-center text-[11px] font-bold tabular-nums text-gray-400', nested && 'invisible')}>
+        {number ?? ''}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{label ?? test.title}</span>
+        {/* On a phone the figures sit under the name; from `sm` they have their own columns. */}
+        <span className="block text-[11px] text-gray-500 sm:hidden">
+          {test.question_count} Qs · <span className={status.cls}>{status.text}</span>
+        </span>
+      </span>
+      <span className="hidden w-16 flex-shrink-0 text-right text-xs tabular-nums text-gray-500 sm:block dark:text-gray-400">
+        {test.question_count} Qs
+      </span>
+      <span className={cn('hidden w-32 flex-shrink-0 text-right text-xs sm:block', status.cls)}>
+        {test.is_completed && <CheckCircle2 className="mr-1 inline h-3 w-3 align-[-2px]" />}
+        {status.text}
+      </span>
+      <span className="w-20 flex-shrink-0 text-right">
+        {test.is_locked ? (
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+            <Lock className="h-3 w-3" /> Upgrade
+          </span>
+        ) : exhausted ? (
+          <span className="text-[11px] font-semibold text-gray-400">No attempts</span>
+        ) : (
+          <span className="inline-flex items-center gap-0.5 text-xs font-bold text-orange-600 group-hover/kt:text-orange-700 dark:text-orange-400">
+            Start <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover/kt:translate-x-0.5" />
+          </span>
+        )}
+      </span>
+    </>
+  );
+
+  const row = 'group/kt flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-orange-50/60 dark:hover:bg-orange-950/20';
+  if (exhausted) {
+    return (
+      <button type="button" onClick={() => showPlanNotice(attemptsUsed(test.max_attempts))} className={cn(row, 'opacity-70 hover:opacity-100')}>
+        {body}
+      </button>
+    );
+  }
+  return (
+    <Link to={test.is_locked ? '/user/subscription' : testHref(test)} state={{ from: here() }} className={row}>
+      {body}
+    </Link>
   );
 }
 
@@ -650,7 +744,7 @@ function ExamTrack({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-blue-100 dark:border-blue-900/60 bg-gradient-to-r from-blue-50/80 to-violet-50/60 dark:from-blue-950/30 dark:to-violet-950/20 p-4 flex items-start gap-3">
+      <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex items-start gap-3">
         <span className="w-11 h-11 rounded-xl bg-white dark:bg-gray-900 shadow-sm flex items-center justify-center flex-shrink-0">
           <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
         </span>
@@ -818,7 +912,7 @@ function DrillHeader({
   onBack: () => void;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-blue-100 dark:border-blue-900/60 bg-gradient-to-r from-blue-50/80 to-violet-50/60 dark:from-blue-950/30 dark:to-violet-950/20 p-4">
+    <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
       <div className="flex items-start gap-3">
         <span className="w-11 h-11 rounded-xl bg-white dark:bg-gray-900 shadow-sm flex items-center justify-center flex-shrink-0">
           <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -919,50 +1013,47 @@ function SectionRow({
   const a = accentFor(index);
 
   return (
-    <section className={cn('rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden', a.soft)}>
-      <div className="p-4 flex items-start gap-3 flex-wrap sm:flex-nowrap">
+    <section className="group/row relative overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow duration-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:shadow-none">
+      {/* A wash of the section's colour from the corner the glyph sits in. */}
+      <div aria-hidden className={cn('pointer-events-none absolute -left-10 -top-10 h-28 w-28 rounded-full opacity-60 blur-2xl', a.soft)} />
+      <div className="relative p-3.5 flex items-center gap-3 flex-wrap sm:flex-nowrap">
         <SectionGlyph name={section.name} badge={a.badge} />
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
+            <h3 className="text-[15px] sm:text-base font-bold text-gray-900 dark:text-gray-100">
               {section.name}
             </h3>
+            <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-bold', a.soft, a.text)}>
+              {section.units.length} Unit{section.units.length === 1 ? '' : 's'}
+            </span>
             {section.alternativeTo && (
               <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 bg-white/70 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded-full">
                 or {section.alternativeTo}
               </span>
             )}
           </div>
-          <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 mt-0.5">
-            {section.units.length} Unit{section.units.length === 1 ? '' : 's'}
-          </p>
-          {section.blurb && (
-            <p className="text-xs sm:text-[13px] text-gray-500 dark:text-gray-400 mt-1 leading-relaxed line-clamp-2">
+          {/* A blurb that only repeats the section's name says nothing. */}
+          {section.blurb && norm(section.blurb) !== norm(section.name) && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-snug line-clamp-1">
               {section.blurb}
-            </p>
-          )}
-          {section.note && (
-            <p className="mt-1.5 text-xs leading-snug text-gray-500 dark:text-gray-400">
-              {section.note}
             </p>
           )}
         </div>
 
         {/* Fixed widths, so the two tiles are in the same place on every row. */}
-        <div className="flex items-stretch gap-2 flex-shrink-0 w-full sm:w-auto">
+        <div className="flex flex-col gap-1.5 flex-shrink-0 w-full sm:w-auto sm:self-center">
           <ActionTile
             icon={<ListChecks className="w-4 h-4" />}
             title={`Unit-wise ${verb}`}
-            sub={`${section.units.length} Unit${section.units.length === 1 ? '' : 's'}`}
             accent={a}
+            primary
             onClick={onDrill}
             disabled={section.units.length === 0}
           />
           <ActionTile
             icon={<Layers className="w-4 h-4" />}
             title={`Full Set ${verb}`}
-            sub={section.fullSet ? 'All units' : 'Not available'}
             accent={a}
             to={
               section.fullSet
@@ -984,16 +1075,24 @@ function SectionGlyph({ name, badge }: { name: string; badge: string }) {
   const Icon = unitIcon(name);
   // "Tamil Nadu History" is a General Studies unit, not the language paper.
   const tamilPaper = /tamil/i.test(name) && !/nadu|history/i.test(name);
+  // The English language paper, as the Tamil one has its letter — the first letter of its alphabet, as அ is Tamil's; not a unit that merely mentions English.
+  const englishPaper = /^general english$|^english$/i.test(name.trim());
 
   return (
     <span
       className={cn(
-        'w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 text-white shadow-sm',
+        'w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm ring-2 ring-white dark:ring-gray-900',
         badge,
       )}
       aria-hidden
     >
-      {tamilPaper ? <span className="text-xl font-bold leading-none">அ</span> : <Icon className="w-6 h-6" />}
+      {tamilPaper ? (
+        <span className="text-lg font-bold leading-none">அ</span>
+      ) : englishPaper ? (
+        <span className="text-lg font-bold leading-none">A</span>
+      ) : (
+        <Icon className="w-5 h-5" />
+      )}
     </span>
   );
 }
@@ -1009,60 +1108,39 @@ function SectionGlyph({ name, badge }: { name: string; badge: string }) {
 function ActionTile({
   icon,
   title,
-  sub,
   accent,
-  active,
+  primary,
   disabled,
   to,
   onClick,
 }: {
   icon: React.ReactNode;
   title: string;
-  sub: string;
   accent: (typeof UNIT_ACCENT)[number];
-  active?: boolean;
+  /** The main way in: a solid button. The other is outlined. */
+  primary?: boolean;
   disabled?: boolean;
-  /** Set when the tile launches a paper. */
+  /** Set when the button launches a paper. */
   to?: string;
   onClick?: () => void;
 }) {
   const shell = cn(
-    'flex items-center gap-2 rounded-xl border px-3 py-2 text-left transition-all',
-    // A fixed basis keeps the pair the same size on every section row.
-    'flex-1 sm:flex-none sm:w-[9.5rem]',
+    'group inline-flex items-center justify-between gap-2 rounded-full border px-3 py-1 text-xs font-bold transition-all',
+    'w-full whitespace-nowrap sm:w-[11.5rem]',
     disabled
-      ? 'border-transparent bg-white/50 dark:bg-gray-900/30 opacity-50 cursor-not-allowed'
-      : active
-        ? cn(accent.ring, 'bg-white dark:bg-gray-900 shadow-sm')
-        : 'border-transparent bg-white/70 dark:bg-gray-900/40 hover:bg-white dark:hover:bg-gray-900 hover:shadow-sm',
+      ? 'border-gray-200 bg-gray-50 text-gray-400 opacity-60 cursor-not-allowed dark:border-gray-800 dark:bg-gray-900/40 dark:text-gray-600'
+      : primary
+        ? cn(accent.soft, accent.text, 'border-transparent hover:brightness-95 active:scale-[0.98]')
+        : cn('bg-white dark:bg-gray-900', accent.ring, accent.text, 'hover:shadow-sm active:scale-[0.98]'),
   );
 
   const body = (
     <>
-      <span
-        className={cn(
-          'w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0',
-          disabled
-            ? 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-600'
-            : cn(accent.soft, accent.text),
-        )}
-      >
+      <span className="inline-flex items-center gap-2">
         {icon}
+        {title}
       </span>
-      <span className="min-w-0">
-        <span className="block text-xs font-bold text-gray-800 dark:text-gray-100 leading-tight">
-          {title}
-        </span>
-        <span className="block text-[11px] text-gray-500 dark:text-gray-400">{sub}</span>
-      </span>
-      {!disabled && (
-        <ChevronRight
-          className={cn(
-            'w-3.5 h-3.5 flex-shrink-0 text-gray-300 dark:text-gray-600 transition-transform',
-            active && 'rotate-90',
-          )}
-        />
-      )}
+      {!disabled && <ChevronRight className="w-4 h-4 flex-shrink-0 transition-transform group-hover:translate-x-0.5" />}
     </>
   );
 
@@ -1075,7 +1153,7 @@ function ActionTile({
   }
 
   return (
-    <button type="button" onClick={onClick} disabled={disabled} aria-expanded={active} className={shell}>
+    <button type="button" onClick={onClick} disabled={disabled} className={shell}>
       {body}
     </button>
   );
@@ -1096,10 +1174,7 @@ function StageHero({
     <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm mb-4 sm:mb-5">
       <div className={cn('h-1.5 w-full bg-gradient-to-r', accent)} />
 
-      {/* A wash behind the title, so the band reads as a cover rather than a bar. */}
-      <div className="absolute inset-x-0 top-1.5 h-32 bg-gradient-to-br from-blue-50/80 via-white to-white dark:from-blue-950/30 dark:via-gray-900 dark:to-gray-900 pointer-events-none" />
-
-      <div className="relative p-5 sm:p-6">
+     <div className="relative p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400">
@@ -1222,7 +1297,7 @@ function TrackBanner({ tab }: { tab: Tab }) {
   const practice = tab === 'practice';
   const topics = tab === 'topics';
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-blue-100 dark:border-blue-900/60 bg-gradient-to-r from-blue-50/80 to-violet-50/60 dark:from-blue-950/30 dark:to-violet-950/20 p-4">
+    <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
       <div className="relative flex items-start gap-3">
         <span className="w-11 h-11 rounded-xl bg-white dark:bg-gray-900 shadow-sm flex items-center justify-center flex-shrink-0">
           <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -1787,7 +1862,7 @@ function SyllabusPanel({
                 aria-expanded={isOpen}
                 className={cn(
                   'w-full flex items-center gap-2.5 p-2.5 text-left transition-colors',
-                  isOpen ? a.soft : 'hover:bg-gray-50 dark:hover:bg-gray-800/50',
+                  isOpen ? 'bg-gray-50 dark:bg-gray-800/50' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50',
                 )}
               >
                 <SectionGlyph name={sec.name} badge={cn(a.badge, 'w-10 h-10 rounded-xl')} />
@@ -1876,7 +1951,7 @@ function SyllabusRow({
         className={cn(
           'w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors',
           expandable ? 'hover:bg-gray-50 dark:hover:bg-gray-800/60' : 'cursor-default',
-          open && expandable && a.soft,
+          open && expandable && 'bg-gray-50 dark:bg-gray-800/50',
         )}
       >
         <span

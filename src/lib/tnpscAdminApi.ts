@@ -106,6 +106,32 @@ interface TnpscTagPayload {
   language: TnpscExamLanguage | null;
 }
 
+const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/**
+ * The id of a key topic *within the unit it is filed under*.
+ *
+ * The form holds the chosen category as the bank names it ("Figures of speech"). Sent as it is, the server turns the
+ * name into a slug and finds the first topic of that name in the whole syllabus — and a name can be printed under
+ * two units: "Figures of speech" is a Vocabulary topic (figures-of-speech) and a Literary Works topic
+ * (en-figures-of-speech). A paper filed under Literary Works was then refused: the topic belonged to Vocabulary.
+ * The unit decides, so the topic is resolved against the unit's own list. A value that is already one of that
+ * unit's ids is left alone, and one the unit does not list is passed on unchanged for the server to judge.
+ */
+export function topicIdForUnit(
+  stage: Parameters<typeof findUnit>[0],
+  unitId: string | null | undefined,
+  topic: string | null | undefined,
+): string | null {
+  if (!topic) return null;
+  const unit = findUnit(stage, unitId);
+  if (!unit) return topic;
+  const topics = unitTopics(stage, unit);
+  if (topics.some(t => t.id === topic)) return topic;
+  const key = norm(topic);
+  return topics.find(t => norm(t.name) === key || norm(t.id) === key)?.id ?? topic;
+}
+
 function toPayload(tag: TnpscTagValue): TnpscTagPayload {
   /*
    * The subject is derived here as well as in the form.
@@ -136,7 +162,7 @@ function toPayload(tag: TnpscTagValue): TnpscTagPayload {
     unit_id: tag.track === 'practice' && (tag.scope === 'unit' || tag.scope === 'topic') ? tag.unit_id : null,
     subject_id: tag.track === 'practice' ? derivedSubject : null,
     // A whole-unit paper has no topic; the topic is what makes a paper a key-topic paper.
-    topic_id: tag.track === 'practice' && tag.scope === 'topic' ? tag.topic_id : null,
+    topic_id: tag.track === 'practice' && tag.scope === 'topic' ? topicIdForUnit(stage, tag.unit_id, tag.topic_id) : null,
     // A key-topic paper is saved as a unit paper that names its topic.
     scope: tag.track === 'practice' ? (tag.scope === 'topic' ? 'unit' : tag.scope) : null,
     section_name: tag.track === 'practice' && tag.scope === 'section' ? tag.section_name : null,
@@ -448,7 +474,14 @@ export function describeTagError(err: any, tag: TnpscTagValue): string {
 export function isUnknownTopicError(err: any): boolean {
   const message: string = typeof err?.message === 'string' ? err.message : '';
   const code: string | undefined = err?.code ?? err?.detail?.error_code;
-  return code === 'TNPSC_TOPIC_MISMATCH' || code === 'TOPIC_NOT_FOUND' || /has no topic/i.test(message);
+  return (
+    code === 'TNPSC_TOPIC_MISMATCH' ||
+    code === 'TOPIC_NOT_FOUND' ||
+    code === 'TOPIC_NOT_IN_UNIT' ||
+    /has no topic/i.test(message) ||
+    // "Topic 'x' is printed under unit 'a', not 'b'" — the topic exists, but under another unit.
+    /is printed under unit/i.test(message)
+  );
 }
 
 /**
