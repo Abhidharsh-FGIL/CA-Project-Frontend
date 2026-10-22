@@ -6,10 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { stageForExamType, stageUnits, unitDisplayName } from '@/config/tnpsc';
+import { stageForExamType, stageUnits, unitDisplayName, unitTopics } from '@/config/tnpsc';
+import { bankCategoryCounts } from '@/lib/key-topics';
+import { norm } from '@/lib/key-topic-sections';
 import { Type, ImageIcon, Upload, X, Loader2, Plus, Trash2, CheckCircle2 } from 'lucide-react';
 import { buildUrl } from '@/lib/api';
-import { useCreateEvalQuestion, uploadEvalQuestionImage } from '@/hooks/use-evaluation';
+import { useCreateEvalQuestion, useEvalQuestions, uploadEvalQuestionImage } from '@/hooks/use-evaluation';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { DIFFICULTY_OPTIONS } from '@/lib/eval-difficulty';
@@ -136,6 +138,8 @@ export function AddQuestionDialog({
   const [correct, setCorrect] = useState(0);
   const [subject, setSubject] = useState(defaultSubject || '');
   const [chapter, setChapter] = useState('');
+  // The topic is chosen from the unit's key topics, or typed as a new one.
+  const [newTopic, setNewTopic] = useState(false);
   const [unitId, setUnitId] = useState('');
   const [difficulty, setDifficulty] = useState(defaultDifficulty || 'medium');
   const [explanation, setExplanation] = useState('');
@@ -146,12 +150,27 @@ export function AddQuestionDialog({
   const units = useMemo(() => stageUnits(stage), [stage]);
   const chosenUnit = units.find(u => u.unit.id === unitId);
 
+  // The key topics of the chosen unit: what the question bank already files under it (with how many questions),
+  // then the syllabus's own printed topics that the bank does not hold yet. A topic typed here is new, and from the
+  // moment it is saved it is a bank category like the rest - so it appears wherever key topics are picked.
+  const { data: bank } = useEvalQuestions();
+  const topicOptions = useMemo(() => {
+    if (!chosenUnit) return [] as Array<{ name: string; count: number | null }>;
+    const fromBank = bankCategoryCounts(stage, chosenUnit.unit, (bank ?? []) as any[]).map(c => ({ name: c.name, count: c.count as number | null }));
+    const seen = new Set(fromBank.map(c => norm(c.name)));
+    const printed = unitTopics(stage, chosenUnit.unit)
+      .filter(t => !seen.has(norm(t.name)))
+      .map(t => ({ name: t.name, count: null as number | null }));
+    return [...fromBank, ...printed];
+  }, [chosenUnit, stage, bank]);
+
   const reset = () => {
     setQuestion(emptyMedia());
     setOptions([emptyMedia(), emptyMedia(), emptyMedia(), emptyMedia()]);
     setCorrect(0);
     setSubject(defaultSubject || '');
     setChapter('');
+    setNewTopic(false);
     setUnitId('');
     setDifficulty(defaultDifficulty || 'medium');
     setExplanation('');
@@ -183,6 +202,8 @@ export function AddQuestionDialog({
         ? { stage_id: stage!.id, unit_id: chosenUnit.unit.id, unit_name: unitDisplayName(stage, chosenUnit.unit) }
         : {}),
       chapter: chapter.trim(),
+      // The key topic, as the bank files it: the same name under `category`, which is what the key-topic pickers list.
+      category: chapter.trim(),
       difficulty,
       question_text: question.mode === 'text' ? question.text.trim() || null : null,
       question_image_url: question.mode === 'image' ? question.imageUrl ?? null : null,
@@ -252,7 +273,15 @@ export function AddQuestionDialog({
             <div className="space-y-1.5">
               <Label className="text-xs">{units.length > 0 ? 'Unit' : 'Subject'} <span className="text-destructive">*</span></Label>
               {units.length > 0 ? (
-                <Select value={unitId || undefined} onValueChange={setUnitId}>
+                <Select
+                  value={unitId || undefined}
+                  onValueChange={v => {
+                    // A key topic belongs to its unit, so a different unit starts the topic afresh.
+                    setUnitId(v);
+                    setChapter('');
+                    setNewTopic(false);
+                  }}
+                >
                   <SelectTrigger className="h-10"><SelectValue placeholder="Choose the unit" /></SelectTrigger>
                   <SelectContent className="max-h-[60vh]">
                     {[...new Set(units.map(u => u.sectionName))].map(section => (
@@ -277,8 +306,49 @@ export function AddQuestionDialog({
               )}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Topic <span className="text-destructive">*</span></Label>
-              <Input value={chapter} onChange={e => setChapter(e.target.value)} placeholder="e.g. Coding-Decoding" />
+              <Label className="text-xs">
+                {chosenUnit ? 'Key topic' : 'Topic'} <span className="text-destructive">*</span>
+              </Label>
+              {chosenUnit ? (
+                <>
+                  <Select
+                    value={newTopic ? '__new__' : chapter || undefined}
+                    onValueChange={v => {
+                      if (v === '__new__') {
+                        setNewTopic(true);
+                        setChapter('');
+                      } else {
+                        setNewTopic(false);
+                        setChapter(v);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Choose or add a key topic" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[50vh]">
+                      <SelectItem value="__new__">
+                        <span className="flex items-center gap-1.5 font-semibold text-orange-600">
+                          <Plus className="h-3.5 w-3.5" /> New key topic…
+                        </span>
+                      </SelectItem>
+                      {topicOptions.map(t => (
+                        <SelectItem key={t.name} value={t.name}>
+                          <span className="flex items-center gap-1.5">
+                            <span>{t.name}</span>
+                            {t.count != null && <span className="text-[10px] text-muted-foreground">· {t.count} Qs</span>}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {newTopic && (
+                    <Input autoFocus value={chapter} onChange={e => setChapter(e.target.value)} placeholder="Name the new key topic" />
+                  )}
+                </>
+              ) : (
+                <Input value={chapter} onChange={e => setChapter(e.target.value)} placeholder="e.g. Coding-Decoding" />
+              )}
             </div>
           </div>
 

@@ -3,7 +3,7 @@
  * Replaces all Supabase direct calls.
  */
 import { toast } from 'sonner';
-import { announceSessionExpired, rearmSessionExpired, type Portal } from './session-bus';
+import { announceSessionExpired, rearmSessionExpired, type Portal, type SessionEnd } from './session-bus';
 import { NetworkError, fetchOrExplain, isNetworkFailure, isServerFault } from './network-error';
 import { filenameFromDisposition } from './content-disposition';
 
@@ -138,10 +138,26 @@ export function clearUserTokens(): void {
  * Otherwise (they were never signed in, or no portal is listening) they are sent to the login
  * page, as this client always did, and it returns false.
  */
-function sessionLapsed(portal: Portal, hadSession: boolean, loginRoute: string): boolean {
-  if (hadSession && announceSessionExpired(portal)) return true;
+function sessionLapsed(portal: Portal, hadSession: boolean, loginRoute: string, reason: SessionEnd = 'expired'): boolean {
+  if (hadSession && announceSessionExpired(portal, reason)) return true;
   window.location.href = `${import.meta.env.BASE_URL || '/'}#${loginRoute}`;
   return false;
+}
+
+/**
+ * Whether the server refused this call because the same account signed in somewhere else
+ * (`401` with `code: "SESSION_REPLACED"`). That is not a token to refresh — a refresh would be refused
+ * too — so the caller ends the session at once instead of trying.
+ */
+export const SESSION_REPLACED = 'SESSION_REPLACED';
+export async function isSessionReplaced(res: Response): Promise<boolean> {
+  if (res.status !== 401) return false;
+  try {
+    const body = await res.clone().json();
+    return (toRequestError(body, 401) as any).code === SESSION_REPLACED;
+  } catch {
+    return false;
+  }
 }
 
 // ─── Public (no-auth) client for unauthenticated user-auth endpoints ─────────
@@ -192,6 +208,14 @@ async function userApiRequest<T>(path: string, options: RequestInit = {}, parse:
 
   // Auto-refresh user token once on 401, but never on the refresh endpoint itself
   const isUserAuthEndpoint = path.includes('/user/auth/login') || path.includes('/user/auth/refresh');
+  if (res.status === 401 && !isUserAuthEndpoint && (await isSessionReplaced(res))) {
+    // Signed in on another device: no refresh, no retry — forget the tokens and say why.
+    clearUserTokens();
+    if (path.includes('/user/auth/logout')) throw new Error('Session ended');
+    if (sessionLapsed('user', hadSession, '/user/login', 'replaced')) throw new ApiError('Signed in on another device', true);
+    throw new Error('Signed in on another device');
+  }
+
   if (res.status === 401 && !isUserAuthEndpoint) {
     const newToken = await refreshUserAccessToken();
     if (newToken) {
@@ -201,7 +225,8 @@ async function userApiRequest<T>(path: string, options: RequestInit = {}, parse:
       // Signing out with a token that has already lapsed is not news to the person signing out, and they are
       // on their way somewhere else — no popup, and no redirect to the login page in their way.
       if (path.includes('/user/auth/logout')) throw new Error('Session expired');
-      if (sessionLapsed('user', hadSession, '/user/login')) throw new ApiError('Session expired', true);
+      const reason: SessionEnd = refreshRefusedAsReplaced ? 'replaced' : 'expired';
+      if (sessionLapsed('user', hadSession, '/user/login', reason)) throw new ApiError('Session expired', true);
       throw new Error('Session expired');
     }
   }
@@ -255,6 +280,9 @@ function requestAdminRefresh(): Promise<string | null> {
  * that failed to answer — says nothing about the session, so it throws a `NetworkError` and leaves
  * the tokens alone: someone on a bad connection is told to try again, not signed out.
  */
+/** The last refresh was refused because the account signed in elsewhere, not because the token lapsed. */
+let refreshRefusedAsReplaced = false;
+
 async function requestRefresh(
   endpoint: string,
   refreshKey: string,
@@ -270,9 +298,11 @@ async function requestRefresh(
   });
   if (isServerFault(res.status)) throw new NetworkError();
   if (!res.ok) {
+    refreshRefusedAsReplaced = await isSessionReplaced(res);
     clear();
     return null;
   }
+  refreshRefusedAsReplaced = false;
   try {
     const data = await res.json();
     save(data.access_token, data.refresh_token);

@@ -10,7 +10,13 @@
 
 export type Portal = 'user' | 'admin';
 
-type Listener = (portal: Portal) => void;
+/**
+ * Why the session is over: `expired` (the token and its refresh were refused) or `replaced` (the same
+ * account signed in on another device, and the server ended this one — `SESSION_REPLACED`).
+ */
+export type SessionEnd = 'expired' | 'replaced';
+
+type Listener = (portal: Portal, reason: SessionEnd) => void;
 
 const listeners = new Set<Listener>();
 /** Portals whose expiry has been told already, until someone signs in again. */
@@ -32,11 +38,11 @@ export function onSessionExpired(listener: Listener): () => void {
  * land after the person has already dismissed the popup. Only the first is announced; the rest are
  * taken as part of the same event (and still return true) until `rearmSessionExpired`.
  */
-export function announceSessionExpired(portal: Portal): boolean {
+export function announceSessionExpired(portal: Portal, reason: SessionEnd = 'expired'): boolean {
   if (listeners.size === 0) return false;
   if (told.has(portal)) return true;
   told.add(portal);
-  listeners.forEach(listener => listener(portal));
+  listeners.forEach(listener => listener(portal, reason));
   return true;
 }
 

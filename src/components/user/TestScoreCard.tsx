@@ -6,6 +6,9 @@
  * can't show because it collapses every test into one running average.
  */
 import { useMemo, useState } from 'react';
+import * as HoverCardPrimitive from '@radix-ui/react-hover-card';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { cn } from '@/lib/utils';
 import { displayTitle } from '@/lib/display-title';
 import { Link } from 'react-router-dom';
 import { ClipboardList, Loader2 } from 'lucide-react';
@@ -152,15 +155,18 @@ interface TestRow {
  */
 function TestScoreChart({ rows }: { rows: TestRow[] }) {
   const ceiling = trendCeiling(rows.map(r => ({ value: r.average })));
-  // No scrolling box of its own: a box with a fixed height scrolled by itself inside the page, and the hover card
-  // below, being part of it, made it scroll further. The first few papers show; the rest are one press away.
+  // The first few papers show; the rest are one press away, and once they are all open the list scrolls inside
+  // its own box. The hover card is drawn in a floating layer (see ScoreHover), not inside that box, so showing
+  // it can never lengthen what scrolls.
   const [showAll, setShowAll] = useState(false);
   const shown = showAll ? rows : rows.slice(0, VISIBLE_ROWS);
   return (
     <>
-    <ul className="space-y-3.5">
+    <ul className={cn('space-y-3.5', showAll && 'max-h-[19rem] overflow-y-auto scrollbar-thin pr-1')}>
       {shown.map(row => (
-        <li key={row.key} className="group relative">
+        <HoverCard key={row.key} openDelay={120} closeDelay={40}>
+        <HoverCardTrigger asChild>
+        <li className="cursor-default">
           <div className="flex items-start justify-between gap-3">
             <p
               className="min-w-0 flex-1 text-[12px] font-semibold leading-snug text-gray-700 dark:text-gray-200 line-clamp-2 break-words"
@@ -181,8 +187,10 @@ function TestScoreChart({ rows }: { rows: TestRow[] }) {
           <p className="mt-1 text-[10px] text-gray-400">
             {row.attempts} attempt{row.attempts === 1 ? '' : 's'}
           </p>
-          <ScoreHover row={row} />
         </li>
+        </HoverCardTrigger>
+        <ScoreHover row={row} />
+        </HoverCard>
       ))}
     </ul>
     {rows.length > VISIBLE_ROWS && (
@@ -211,7 +219,8 @@ const dayLabel = (iso: string) =>
 function ScoreHover({ row }: { row: TestRow }) {
   const shown = row.scores.slice(0, 6);
   return (
-    <div className="pointer-events-none absolute left-0 right-0 top-full z-20 hidden max-w-[15rem] rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-lg group-hover:block dark:border-gray-700 dark:bg-gray-900">
+    <HoverCardPrimitive.Portal>
+    <HoverCardContent side="right" align="start" sideOffset={8} className="w-60 rounded-xl border-gray-200 bg-white px-3 py-2 shadow-lg dark:border-gray-700 dark:bg-gray-900">
       <p className="text-xs font-bold leading-snug text-gray-900 dark:text-gray-100">{row.name}</p>
       <p className="mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">
         {row.attempts} attempt{row.attempts === 1 ? '' : 's'} · avg {row.average}% · best {row.best}%
@@ -227,7 +236,8 @@ function ScoreHover({ row }: { row: TestRow }) {
           <li className="pt-0.5 text-[10px] text-gray-400">+{row.scores.length - shown.length} earlier</li>
         )}
       </ul>
-    </div>
+    </HoverCardContent>
+    </HoverCardPrimitive.Portal>
   );
 }
 /**

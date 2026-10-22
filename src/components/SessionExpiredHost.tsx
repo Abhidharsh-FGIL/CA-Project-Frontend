@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock } from 'lucide-react';
+import { Clock, Smartphone } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,7 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { onSessionExpired, type Portal } from '@/lib/session-bus';
+import { onSessionExpired, type Portal, type SessionEnd } from '@/lib/session-bus';
 
 /** Where each portal signs in. */
 const LOGIN_ROUTE: Record<Portal, string> = {
@@ -28,12 +28,14 @@ const LOGIN_ROUTE: Record<Portal, string> = {
 export default function SessionExpiredHost() {
   const navigate = useNavigate();
   const [portal, setPortal] = useState<Portal | null>(null);
+  const [reason, setReason] = useState<SessionEnd>('expired');
   const [open, setOpen] = useState(false);
 
   useEffect(
     () =>
-      onSessionExpired(next => {
+      onSessionExpired((next, why) => {
         setPortal(next);
+        setReason(why);
         setOpen(true);
       }),
     [],
@@ -50,11 +52,15 @@ export default function SessionExpiredHost() {
         <div className="p-6 pb-4">
           <AlertDialogHeader className="items-center text-center sm:text-center space-y-3">
             <span className="w-12 h-12 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-600 flex items-center justify-center">
-              <Clock className="w-5 h-5" aria-hidden />
+              {reason === 'replaced' ? <Smartphone className="w-5 h-5" aria-hidden /> : <Clock className="w-5 h-5" aria-hidden />}
             </span>
-            <AlertDialogTitle className="text-xl text-gray-900 dark:text-white">Session expired</AlertDialogTitle>
+            <AlertDialogTitle className="text-xl text-gray-900 dark:text-white">
+              {reason === 'replaced' ? 'Signed in on another device' : 'Session expired'}
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-              Your session has expired. Please log in again to continue.
+              {reason === 'replaced'
+                ? 'You were signed in on another device, so this session has ended. Please log in again to continue here.'
+                : 'Your session has expired. Please log in again to continue.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
         </div>

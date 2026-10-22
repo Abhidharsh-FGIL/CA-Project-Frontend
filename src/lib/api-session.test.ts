@@ -214,3 +214,54 @@ describe('the admin portal', () => {
     expect(told).not.toContain('user');
   });
 });
+
+describe('an account signed in on another device (SESSION_REPLACED)', () => {
+  let reasons: string[];
+  let offReasons: () => void;
+
+  beforeEach(() => {
+    reasons = [];
+    offReasons = onSessionExpired((_portal, why) => reasons.push(why));
+    setUserTokens('old', 'old-r');
+    rearmSessionExpired('user');
+  });
+  afterEach(() => offReasons());
+
+  const replaced = () =>
+    new Response(JSON.stringify({ detail: { code: 'SESSION_REPLACED', message: 'Signed in on another device' } }), { status: 401 });
+
+  it('ends the session at once: no refresh is tried, the tokens go, and the person is told why', async () => {
+    fetchMock.mockImplementation(async () => replaced());
+    await expect(userApi.get(PROFILE)).rejects.toMatchObject({ handled: true });
+    expect(refreshCalls()).toBe(0);
+    expect(getUserToken()).toBeNull();
+    expect(reasons).toEqual(['replaced']);
+    expect(win.location.href).toBe('');
+  });
+
+  it('is told once, however many calls on the page were refused at the same time', async () => {
+    fetchMock.mockImplementation(async () => replaced());
+    await Promise.allSettled([userApi.get(PROFILE), userApi.get(PROFILE), userApi.get(PROFILE)]);
+    expect(reasons).toEqual(['replaced']);
+  });
+
+  it('is also recognised when the refresh is the call that is refused with it', async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      String(url).endsWith(REFRESH) ? replaced() : new Response(JSON.stringify({ message: 'Token expired' }), { status: 401 }),
+    );
+    await expect(userApi.get(PROFILE)).rejects.toMatchObject({ handled: true });
+    expect(reasons).toEqual(['replaced']);
+  });
+
+  it('leaves an ordinary expiry as an expiry', async () => {
+    serve('refuse');
+    await expect(userApi.get(PROFILE)).rejects.toMatchObject({ handled: true });
+    expect(reasons).toEqual(['expired']);
+  });
+
+  it('does not treat other 401s as a replaced session', async () => {
+    serve('accept');
+    await expect(userApi.get(PROFILE)).resolves.toEqual({ name: 'Aravindh' });
+    expect(reasons).toEqual([]);
+  });
+});

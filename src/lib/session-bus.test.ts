@@ -25,8 +25,8 @@ describe('announceSessionExpired', () => {
     listen(a);
     listen(b);
     expect(announceSessionExpired('user')).toBe(true);
-    expect(a).toHaveBeenCalledWith('user');
-    expect(b).toHaveBeenCalledWith('user');
+    expect(a).toHaveBeenCalledWith('user', 'expired');
+    expect(b).toHaveBeenCalledWith('user', 'expired');
   });
 
   it('announces a burst of refusals once, and still reports them taken', () => {
@@ -43,7 +43,7 @@ describe('announceSessionExpired', () => {
     listen(fn);
     announceSessionExpired('user');
     announceSessionExpired('admin');
-    expect(fn.mock.calls).toEqual([['user'], ['admin']]);
+    expect(fn.mock.calls).toEqual([['user', 'expired'], ['admin', 'expired']]);
   });
 
   it('announces again after a new session has begun', () => {
@@ -61,5 +61,16 @@ describe('announceSessionExpired', () => {
     off();
     expect(announceSessionExpired('user')).toBe(false);
     expect(fn).not.toHaveBeenCalled();
+  });
+});
+
+describe('the reason a session ended', () => {
+  it('is passed to listeners, and is "expired" unless the caller says otherwise', () => {
+    const fn = vi.fn();
+    const off = onSessionExpired(fn);
+    rearmSessionExpired('user');
+    announceSessionExpired('user', 'replaced');
+    expect(fn).toHaveBeenCalledWith('user', 'replaced');
+    off();
   });
 });
