@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, Info, KeyRound, Layers, ListChecks, Lock, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -28,6 +29,7 @@ import {
   type TnpscTagValue,
 } from '@/lib/tnpscAdminApi';
 import { FULL_PAPER_BLEND, blendTargets, describeBlend } from '@/lib/difficulty-blend';
+import { blendTotal } from '@/lib/tnpscAdminApi';
 
 interface Props {
   value: TnpscTagValue;
@@ -42,6 +44,11 @@ interface Props {
    * the bank can fill.
    */
   categoryOptions?: Array<{ name: string; count: number }> | null;
+  /**
+   * Whether the difficulty mix can be changed here. Only where a paper is being built - the dialog that
+   * re-files an existing paper has no questions to pick, so it shows the standard mix as a note.
+   */
+  editableBlend?: boolean;
   className?: string;
 }
 
@@ -62,7 +69,7 @@ interface Props {
  * mock — is composed to the 20 / 30 / 50 blend rather than filtered to one
  * difficulty, and the panel says so before it is created.
  */
-export function TnpscTagFields({ value, onChange, questionCount, hideTrack, categoryOptions, className }: Props) {
+export function TnpscTagFields({ value, onChange, questionCount, hideTrack, categoryOptions, editableBlend = true, className }: Props) {
   const group = TNPSC_GROUPS.find(g => g.id === value.group_id);
   const stage = useMemo(
     () => findStage(value.group_id ?? undefined, value.stage_id ?? undefined)?.stage,
@@ -317,7 +324,7 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, cate
                       <span className="flex items-center gap-1.5">
                         <span className="w-6 text-[10px] font-bold text-muted-foreground">{u.label ?? '—'}</span>
                         <span>{unitDisplayName(stage, u)}</span>
-                        <span className="text-[10px] text-muted-foreground">· {u.questions} Qs · {sectionName}</span>
+                        <span className="text-[10px] text-muted-foreground">· {u.questions != null ? `${u.questions} Qs · ` : ''}{sectionName}</span>
                       </span>
                     </SelectItem>
                   ))}
@@ -431,20 +438,22 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, cate
       )}
 
       {/* ── The blend a whole paper gets built to ──────────────────────── */}
-      {isWholePaper && (
+      {isWholePaper && !editableBlend && (
         <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-900 dark:bg-blue-950/30">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-blue-900 dark:text-brand-200">
-            <Target className="h-3.5 w-3.5" /> Built to the standard blend —{' '}
-            {FULL_PAPER_BLEND.easy}% Simple · {FULL_PAPER_BLEND.medium}% Medium ·{' '}
-            {FULL_PAPER_BLEND.hard}% Complex
-          </p>
-          <p className="mt-1 text-[11px] leading-relaxed text-blue-800/80 dark:text-brand-300/80">
-            {questionCount
-              ? `${questionCount} questions → ${describeBlend(blendTargets(questionCount))}.`
-              : 'Questions are chosen across the range rather than at one difficulty.'}{' '}
-            A paper standing for the whole of something has to span what the real exam spans.
+            <Target className="h-3.5 w-3.5" /> Built to the standard blend — {FULL_PAPER_BLEND.easy}% Simple ·{' '}
+            {FULL_PAPER_BLEND.medium}% Medium · {FULL_PAPER_BLEND.hard}% Complex
           </p>
         </div>
+      )}
+      {isWholePaper && editableBlend && (
+        <BlendEditor
+          blend={value.blend ?? FULL_PAPER_BLEND}
+          custom={!!value.blend}
+          questionCount={questionCount}
+          onChange={blend => onChange({ ...value, blend })}
+          onReset={() => onChange({ ...value, blend: null })}
+        />
       )}
 
       {/* ── Where it will appear ───────────────────────────────────────── */}
@@ -533,5 +542,71 @@ function ChoiceCard({
         {detail}
       </span>
     </button>
+  );
+}
+
+/**
+ * The mix of Simple, Medium and Complex questions a whole paper is built to. Starts at the standard 30 / 30 / 40;
+ * the three percentages can be changed, and must add up to 100 before the admin can go on.
+ */
+function BlendEditor({
+  blend,
+  custom,
+  questionCount,
+  onChange,
+  onReset,
+}: {
+  blend: { easy: number; medium: number; hard: number };
+  custom: boolean;
+  questionCount?: number;
+  onChange: (next: { easy: number; medium: number; hard: number }) => void;
+  onReset: () => void;
+}) {
+  const total = blendTotal(blend);
+  const ok = total === 100;
+  const fields: Array<{ key: 'easy' | 'medium' | 'hard'; label: string }> = [
+    { key: 'easy', label: 'Simple' },
+    { key: 'medium', label: 'Medium' },
+    { key: 'hard', label: 'Complex' },
+  ];
+  return (
+    <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-900 dark:bg-blue-950/30">
+      <div className="flex items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-blue-900 dark:text-brand-200">
+          <Target className="h-3.5 w-3.5" /> Difficulty mix {custom ? '(custom)' : '— the standard blend'}
+        </p>
+        {custom && (
+          <button type="button" onClick={onReset} className="text-[11px] font-semibold text-blue-700 hover:underline dark:text-brand-300">
+            Reset to {FULL_PAPER_BLEND.easy} / {FULL_PAPER_BLEND.medium} / {FULL_PAPER_BLEND.hard}
+          </button>
+        )}
+      </div>
+
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        {fields.map(f => (
+          <label key={f.key} className="block">
+            <span className="text-[11px] font-medium text-blue-900/80 dark:text-brand-200/80">{f.label} %</span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={100}
+              value={Number.isFinite(blend[f.key]) ? blend[f.key] : ''}
+              onChange={e => onChange({ ...blend, [f.key]: e.target.value === '' ? NaN : Math.round(Number(e.target.value)) })}
+              className="mt-0.5 h-9 bg-white dark:bg-gray-900"
+            />
+          </label>
+        ))}
+      </div>
+
+      <p className={`mt-2 text-[11px] font-semibold ${ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+        {ok ? 'Adds up to 100%' : `Adds up to ${Number.isFinite(total) ? total : '—'}% — it has to be 100%`}
+      </p>
+      <p className="mt-1 text-[11px] leading-relaxed text-blue-800/80 dark:text-brand-300/80">
+        {ok && questionCount
+          ? `${questionCount} questions → ${describeBlend(blendTargets(questionCount, blend))}.`
+          : 'Questions are chosen across the range rather than at one difficulty.'}
+      </p>
+    </div>
   );
 }

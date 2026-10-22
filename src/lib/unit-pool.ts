@@ -103,6 +103,12 @@ interface ResolvedSubject {
 interface Compiled {
   units: CompiledUnit[];
   byId: Map<string, CompiledUnit>;
+  /**
+   * The same units by the part of their id after the exam prefix ("gs-indian-polity" for both
+   * `g4-gs-indian-polity` and `g2-gs-indian-polity`). Group 2 shares Group 4's question bank, whose
+   * questions name Group 4's unit ids; this is how one of those finds the sibling unit in Group 2.
+   */
+  byFamily: Map<string, CompiledUnit>;
   bySubject: Map<string, CompiledUnit[]>;
   /** Tag → the one unit it names, for tags that are unambiguous without a subject. */
   labelIndex: Map<string, string>;
@@ -119,6 +125,9 @@ interface Compiled {
 }
 
 const COMPILED = new WeakMap<TnpscStage, Compiled>();
+
+/** "g4-gs-indian-polity" → "gs-indian-polity": a unit's id without the exam it was filed under. */
+const unitFamily = (id: string) => id.replace(/^g\d+-/, '');
 
 const TAMIL_SCRIPT = /[஀-௿]/;
 const squash = (k: string) => k.replace(/ /g, '');
@@ -209,6 +218,7 @@ function compile(stage: TnpscStage): Compiled {
   const out: Compiled = {
     units,
     byId: new Map(units.map(cu => [cu.unit.id, cu])),
+    byFamily: new Map(units.map(cu => [unitFamily(cu.unit.id), cu])),
     bySubject,
     labelIndex,
     languagePairs,
@@ -320,7 +330,8 @@ type Via = 'unit_id' | 'tags' | 'collection';
 function placeQuestion(stage: TnpscStage, c: Compiled, q: any): { units: CompiledUnit[]; via: Via | null } {
   const explicit = explicitUnit(q);
   if (explicit) {
-    const cu = c.byId.get(explicit);
+    // A question filed under another exam's copy of a shared unit still belongs to this exam's copy.
+    const cu = c.byId.get(explicit) ?? c.byFamily.get(unitFamily(explicit));
     return cu ? { units: [cu], via: 'unit_id' } : { units: [], via: null };
   }
 

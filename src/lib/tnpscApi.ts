@@ -316,7 +316,7 @@ function mergeSections(
   if (!sent(server)) return local;
   const byKey = new Map((local ?? []).map(sec => [sectionKey(sec.name), sec]));
 
-  return server.flatMap(sec => {
+  const merged = server.flatMap(sec => {
     const match = byKey.get(sectionKey(sec.name));
     if (match) {
       // The server's own `name` is dropped: the catalog's title stands.
@@ -339,6 +339,14 @@ function mergeSections(
 
     return [sec];
   });
+
+  // The language paper (General Tamil / General English, sat one instead of the other) is the catalog's to
+  // say: a server that lists an exam without it — it sends only what it has papers for — must not take it
+  // off the screen. Restored in front, where the paper prints it. Only that pair: any other section the
+  // server leaves out is left out.
+  const have = new Set(merged.map(sec => sectionKey(sec.name)));
+  const language = (local ?? []).filter(sec => sec.alternative_to && !have.has(sectionKey(sec.name)));
+  return language.length > 0 ? [...language, ...merged] : merged;
 }
 
 // ─── Mock tests (level-gated) ──────────────────────────────────────────────────
@@ -592,6 +600,8 @@ export function groupPracticeBySubject(
 const STAGE_KEYWORDS: Record<string, string[]> = {
   'group-1-prelims': ['group 1', 'group-1', 'group1', 'g1', 'prelim'],
   'group-1-mains': ['group 1 main', 'group-1-main', 'mains'],
+  'group-2-prelims': ['group 2', 'group-2', 'group2', 'g2', 'prelim'],
+  'group-2-mains': ['group 2 main', 'group-2-main', 'mains'],
   'group-4-written': ['group 4', 'group-4', 'group4', 'g4', 'vao', 'written'],
   'gat-b-exam': ['gat-b', 'gat b', 'gatb', 'biotechnology aptitude'],
 };

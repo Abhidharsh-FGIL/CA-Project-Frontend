@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, Clock3, Layers, ShieldCheck, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TnpscGroup } from '@/config/tnpsc';
-import { UPCOMING_EXAMS, splitExams, type UpcomingExam } from '@/lib/exam-listing';
+import { UPCOMING_EXAMS, examEntryPath, splitExams, type UpcomingExam } from '@/lib/exam-listing';
 
 /**
  * The entry points of the portal — one card per examination.
@@ -80,7 +80,7 @@ const TONES: Record<'blue' | 'teal' | 'violet' | 'amber' | 'rose', Tone> = {
 };
 
 /** The known exams keep their colour wherever they sit in the list; a new one takes the next free hue. */
-const TONE_BY_GROUP: Record<string, keyof typeof TONES> = { 'group-1': 'blue', 'group-4': 'teal', 'gat-b': 'violet' };
+const TONE_BY_GROUP: Record<string, keyof typeof TONES> = { 'group-1': 'blue', 'group-2': 'amber', 'group-4': 'teal', 'gat-b': 'violet' };
 const TONE_ORDER = ['blue', 'teal', 'violet', 'amber', 'rose'] as const;
 
 const toneFor = (groupId: string, index: number): Tone =>
@@ -183,7 +183,7 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
   };
 
   return (
-    <CardFrame to={`/user/exams/${group.id}`} disabled={comingSoon} index={index}>
+    <CardFrame to={examEntryPath(group)} disabled={comingSoon} index={index}>
       <div className={cn(comingSoon ? 'h-[3px]' : 'h-1.5', 'w-full', tone.bar)} />
 
       <div className="p-5 flex-1 flex flex-col">

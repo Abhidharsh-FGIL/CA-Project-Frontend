@@ -704,6 +704,8 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag }: Pro
    * Mirrors the same rule in `TnpscTagFields`, which shows the admin the blend
    * before they create it — the panel's promise and this selection have to agree.
    */
+  // The mix asked for in the placement step, or the standard one.
+  const activeBlend = tnpscTag.blend ?? FULL_PAPER_BLEND;
   const wantsBlend =
     tnpscTag.track === 'mock' ||
     (tnpscTag.track === 'practice' && tnpscTag.scope === 'section') ||
@@ -728,9 +730,9 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag }: Pro
   const blendCheck = useMemo(
     () =>
       wantsBlend && source === 'bank' && effectiveCount > 0 && matchingQuestions.length > 0
-        ? pickByBlend(matchingQuestions as any[], effectiveCount)
+        ? pickByBlend(matchingQuestions as any[], effectiveCount, activeBlend)
         : null,
-    [wantsBlend, source, effectiveCount, matchingQuestions],
+    [wantsBlend, source, effectiveCount, matchingQuestions, activeBlend],
   );
   const blendNotice = blendCheck && !blendCheck.exact ? explainBlendShortfall(blendCheck, effectiveCount) : null;
 
@@ -738,7 +740,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag }: Pro
   const summaryDifficulty = wantsBlend
     ? blendNotice && blendCheck
       ? describeBlend(blendCheck.taken)
-      : `Auto blend ${FULL_PAPER_BLEND.easy} / ${FULL_PAPER_BLEND.medium} / ${FULL_PAPER_BLEND.hard}`
+      : `${tnpscTag.blend ? 'Blend' : 'Auto blend'} ${activeBlend.easy} / ${activeBlend.medium} / ${activeBlend.hard}`
     : difficulty;
 
   /** Which of the chosen groups a bank question falls in. One pass per question, not one per group. */
@@ -810,7 +812,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag }: Pro
         classifyGroups,
         subjectWeights,
         effectiveCount,
-        { blend: true },
+        { blend: true, blendWeights: activeBlend },
       );
       chosen = built.picked;
       qIds = built.picked.map((q: any) => q.id);
@@ -828,7 +830,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag }: Pro
         toast.warning(`Only ${built.picked.length} of ${effectiveCount} questions could be placed — every pool ran out.`);
       }
       const spread = difficultySpread(built.picked);
-      const target = blendTargets(built.picked.length);
+      const target = blendTargets(built.picked.length, activeBlend);
       const slack = groups.length + 1; // rounding inside each group can move a band by a question
       if ((['easy', 'medium', 'hard'] as QuestionDifficulty[]).some(b => Math.abs(spread[b] - target[b]) > slack)) {
         toast.warning(
@@ -894,7 +896,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag }: Pro
      * left alone: that one *should* be all Simple.
      */
     if (wantsBlend && chosen.length > 0 && !composed) {
-      const blended = pickByBlend(chosen, effectiveCount);
+      const blended = pickByBlend(chosen, effectiveCount, activeBlend);
       chosen = blended.picked;
       qIds = blended.picked.map((q: any) => q.id);
       maxScore = blended.picked.reduce((sum: number, q: any) => sum + (q.points || 1), 0);

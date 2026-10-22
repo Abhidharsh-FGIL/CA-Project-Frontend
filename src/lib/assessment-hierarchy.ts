@@ -139,6 +139,7 @@ export function buildAssessmentTree(assessments: Row[]): AssessmentTree {
 
   // Group 4 is always there, so the structure is on screen before its first assessment.
   groupFor('group-4');
+  groupFor('group-2');
   const order = (id: string) => (id === 'group-4' ? -1 : TNPSC_GROUPS.findIndex(g => g.id === id));
   return { groups: [...groups.values()].sort((a, b) => order(a.id) - order(b.id)), unplaced };
 }

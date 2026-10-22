@@ -59,7 +59,7 @@ export function CollectionUnitField({ examLabel, value, onChange }: Props) {
                     <span className="flex items-center gap-1.5">
                       <span className="w-6 text-[10px] font-bold text-muted-foreground">{u.label ?? '—'}</span>
                       <span>{unitDisplayName(stage, u)}</span>
-                      <span className="text-[10px] text-muted-foreground">· {u.questions} Qs</span>
+                      {u.questions != null && <span className="text-[10px] text-muted-foreground">· {u.questions} Qs</span>}
                     </span>
                   </SelectItem>
                 ))}

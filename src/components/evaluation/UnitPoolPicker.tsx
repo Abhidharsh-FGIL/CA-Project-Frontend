@@ -85,7 +85,7 @@ export function UnitPoolPicker({ stage, units, selectedIds, onToggle, onSet, cou
                       <Checkbox checked={selected.has(unit.id)} onCheckedChange={() => onToggle(unit.id)} />
                       <span className="flex-1 min-w-0 truncate">{nameOf(unit)}</span>
                       <span className="shrink-0 text-[10px] tabular-nums text-slate-400">
-                        {unit.questions} in paper
+                        {unit.questions != null ? `${unit.questions} in paper` : ''}
                       </span>
                       {inBank != null && (
                         <span

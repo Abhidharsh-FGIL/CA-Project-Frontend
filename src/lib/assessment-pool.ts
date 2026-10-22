@@ -26,6 +26,24 @@ import type { QuestionDifficulty } from '@/lib/eval-difficulty';
 
 export type PoolMode = 'fixed' | 'live';
 
+/**
+ * The unit id the question bank knows a unit by.
+ *
+ * Group 2 draws on Group 4's question bank, whose questions are tagged with Group 4's unit ids. A Group 2
+ * unit is chosen in the wizard under its own `g2-` id (that is what places the paper in Group 2), but the
+ * server finds questions by the id they are tagged with — so what is sent to draw from the bank is the
+ * bank's id. Group 4's own ids pass through unchanged.
+ */
+export const bankUnitId = (id: string): string => id.replace(/^g2-/, 'g4-');
+
+/** A list of unit ids, as the bank knows them, each once. */
+export const bankUnitIds = <T extends string[] | null | undefined>(ids: T): T =>
+  (ids ? [...new Set(ids.map(bankUnitId))] : ids) as T;
+
+/** Weights keyed by unit id, re-keyed the same way. */
+export const bankUnitWeights = <T extends Record<string, number> | undefined>(weights: T): T =>
+  (weights ? Object.fromEntries(Object.entries(weights).map(([id, w]) => [bankUnitId(id), w])) : weights) as T;
+
 /** The rule a pool was made by. */
 export interface PoolFilter {
   /** The exam stage whose syllabus the units belong to. Context only — not a filter. */
@@ -91,7 +109,7 @@ export function describePool(input: PoolInput): { mode: PoolMode; filter: PoolFi
 
   const filter: PoolFilter = {
     stage_id: input.stageId ?? null,
-    unit_ids: fromBank ? orNull(input.unitIds) : null,
+    unit_ids: fromBank ? orNull(bankUnitIds(input.unitIds)) : null,
     // Only meaningful together: a subject alone ("Aptitude & Mental Ability") spans both the
     // Aptitude and Reasoning units, so it cannot say which a new question belongs to.
     subjects: subjects && chapters ? subjects : null,

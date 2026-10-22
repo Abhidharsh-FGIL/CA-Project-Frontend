@@ -5,12 +5,12 @@ import { OPEN_EXAM_IDS, UPCOMING_EXAMS, splitExams } from '@/lib/exam-listing';
 describe('splitExams', () => {
   const { open, soon } = splitExams(TNPSC_GROUPS);
 
-  it('opens Group 4, and only Group 4', () => {
-    expect(open.map(g => g.id)).toEqual(['group-4']);
+  it('opens Group 4, then Group 2, and nothing else', () => {
+    expect(open.map(g => g.id)).toEqual(['group-4', 'group-2']);
   });
 
   it('leaves every other catalog exam as coming soon, in catalog order', () => {
-    expect(soon.map(g => g.id)).toEqual(TNPSC_GROUPS.map(g => g.id).filter(id => id !== 'group-4'));
+    expect(soon.map(g => g.id)).toEqual(TNPSC_GROUPS.map(g => g.id).filter(id => !OPEN_EXAM_IDS.has(id)));
     expect(soon.map(g => g.id)).toContain('group-1');
     expect(soon.map(g => g.id)).toContain('gat-b');
   });
@@ -26,7 +26,7 @@ describe('splitExams', () => {
   });
 
   it('shows nothing as open when the catalog has no open exam', () => {
-    expect(splitExams(TNPSC_GROUPS.filter(g => g.id !== 'group-4')).open).toEqual([]);
+    expect(splitExams(TNPSC_GROUPS.filter(g => !OPEN_EXAM_IDS.has(g.id))).open).toEqual([]);
   });
 });
 

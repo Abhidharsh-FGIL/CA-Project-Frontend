@@ -18,7 +18,7 @@ import { inRange, isoDay, rangeLabel, type DateRange } from '@/components/user/D
 import { OPEN_EXAM_IDS } from '@/lib/exam-listing';
 
 export type TrackKey = 'all' | 'mock' | 'practice';
-export type GroupKey = 'all' | 'group-1' | 'group-4' | 'gat-b';
+export type GroupKey = 'all' | 'group-1' | 'group-2' | 'group-4' | 'gat-b';
 
 /**
  * The same two dimensions with the "all" escape hatch removed.
@@ -34,6 +34,7 @@ export type ExamTrackKey = Exclude<TrackKey, 'all'>;
 /** The stage each group's tests live under — Prelims and Written are the focus. */
 export const GROUP_STAGE: Record<ExamGroupKey, string> = {
   'group-1': 'group-1-prelims',
+  'group-2': 'group-2-prelims',
   'group-4': 'group-4-written',
   'gat-b': 'gat-b-exam',
 };
@@ -64,6 +65,7 @@ export const EXAM_TRACK_OPTIONS: FilterOption<ExamTrackKey>[] = [
 
 const EXAM_GROUPS: FilterOption<ExamGroupKey>[] = [
   { value: 'group-1', label: 'Group 1', hint: 'Prelims' },
+  { value: 'group-2', label: 'Group 2', hint: 'Prelims' },
   { value: 'group-4', label: 'Group 4', hint: 'Written' },
   { value: 'gat-b', label: 'GAT-B', hint: 'Biotechnology' },
 ];

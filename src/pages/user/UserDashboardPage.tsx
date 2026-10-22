@@ -46,6 +46,7 @@ import { papersFor } from '@/lib/exam-language';
 import { FilterSelect } from '@/components/user/FilterSelect';
 import { TestScoreCard } from '@/components/user/TestScoreCard';
 import { useSubjectStrengths } from '@/hooks/use-subject-strengths';
+import { examEntryPath } from '@/lib/exam-listing';
 import {
   EXAM_GROUP_OPTIONS,
   EXAM_TRACK_OPTIONS,
@@ -240,7 +241,7 @@ export default function UserDashboardPage() {
         // GAT-B is not open on the dashboard yet, so its papers are not offered here.
       )
         .filter(x => stageForTitle(x.title)?.group_id !== 'gat-b')
-        .filter(x => group === 'all' || groupMatchLoading || matchesGroup({ test_id: x.assessment_id, test_name: x.title })),
+        .filter(x => groupMatchLoading || matchesGroup({ test_id: x.assessment_id, test_name: x.title })),
     [assessments, track, language, group, groupMatchLoading, matchesGroup],
   );
 
@@ -759,7 +760,7 @@ export default function UserDashboardPage() {
               return (
                 <Link
                   key={g.id}
-                  to={`/user/exams/${g.id}`}
+                  to={examEntryPath(g)}
                   className="group flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all"
                 >
                   <div className="min-w-0">

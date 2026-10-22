@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { paperStructure } from '@/lib/paper-structure';
+import { examEntryPath, skipsStageList } from '@/lib/exam-listing';
 
 /**
  * /user/exams/:groupId — the stages of a group.
@@ -27,6 +28,8 @@ export default function TnpscGroupPage() {
   const group = findGroup(groupId, groups);
 
   if (!group) return <Navigate to="/user/exams" replace />;
+  // One stage to sit: this page would only offer it, so go straight in.
+  if (skipsStageList(group)) return <Navigate to={examEntryPath(group)} replace />;
 
   // The first stage a candidate can actually sit — the one whose paper is published.
   const featured = group.stages.find(st => st.status === 'active' && st.pattern);
@@ -96,14 +99,14 @@ export default function TnpscGroupPage() {
                     icon: Layers,
                     title: 'Unit-wise practice',
                     text: 'Every unit split into categories and sub-categories.',
-                    to: `/user/exams/${group.id}/${featured.id}`,
+                    to: `/user/exams/${group.id}/${featured.id}?tab=practice`,
                     tone: 'bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300',
                   },
                   {
                     icon: Target,
                     title: 'Simple · Medium · Complex',
                     text: 'Choose the level that matches where you are.',
-                    to: `/user/exams/${group.id}/${featured.id}`,
+                    to: `/user/exams/${group.id}/${featured.id}?tab=practice`,
                     tone: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300',
                   },
                   {

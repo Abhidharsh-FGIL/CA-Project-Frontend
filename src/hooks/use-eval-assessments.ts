@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { bankUnitIds, bankUnitWeights } from '@/lib/assessment-pool';
 import { api } from '@/lib/api';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { toast } from 'sonner';
+import { describeUnitNotOnServer } from '@/lib/tnpscAdminApi';
 import type { PoolFilter, PoolMode } from '@/lib/assessment-pool';
 
 export interface EvalAssessmentConfig {
@@ -129,8 +131,9 @@ export function useCreateEvalAssessment() {
         max_attempts: config.maxAttempts || null,
         shuffle_questions: config.shuffleQuestions ?? true,
         subject_weights: config.subjectWeights,
-        unit_ids: config.unitIds,
-        unit_weights: config.unitWeights,
+        // The bank's own ids: Group 2 draws on Group 4's question bank (see `bankUnitId`).
+        unit_ids: bankUnitIds(config.unitIds),
+        unit_weights: bankUnitWeights(config.unitWeights),
         paper_ids: config.paperIds,
         paper_weights: config.paperWeights,
         pool_mode: config.poolMode ?? 'fixed',
@@ -156,7 +159,7 @@ export function useCreateEvalAssessment() {
       qc.invalidateQueries({ queryKey: ['eval-assessments'] });
       toast.success('Assessment created!');
     },
-    onError: (err: Error) => toast.error(err.message || 'Failed to create assessment'),
+    onError: (err: Error) => toast.error(describeUnitNotOnServer(err.message) ?? (err.message || 'Failed to create assessment'), { duration: 12000 }),
   });
 }
 

@@ -27,7 +27,7 @@ describe('the exam filter follows which exams are open', () => {
   });
 
   it('keeps the same labels', () => {
-    expect(EXAM_GROUP_OPTIONS.map(o => o.label)).toEqual(['Group 1', 'Group 4', 'GAT-B']);
+    expect(EXAM_GROUP_OPTIONS.map(o => o.label)).toEqual(['Group 1', 'Group 2', 'Group 4', 'GAT-B']);
   });
 });
 

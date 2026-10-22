@@ -154,6 +154,14 @@ export const G4_UNIT_HINTS: Record<string, string[]> = {
   ],
 };
 
+/**
+ * Group 2 prelims shares Group 4's language, General Studies and Aptitude units, filed under `g2-` ids, so the
+ * spellings sheets use for them are the same — only the id differs.
+ */
+for (const id of Object.keys(G4_UNIT_HINTS)) {
+  if (/^g4-(gs|apt|ta|en)-/.test(id)) G4_UNIT_HINTS[id.replace('g4-', 'g2-')] = G4_UNIT_HINTS[id];
+}
+
 /** "Part A", "Unit III", "பகுதி அ", "அலகு VI" — a marker, not a name. */
 const MARKER = /^(part|unit|பகுதி|அலகு) \S{1,4}$/;
 

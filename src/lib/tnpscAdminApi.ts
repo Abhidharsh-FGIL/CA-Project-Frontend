@@ -31,7 +31,18 @@ import {
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
+/** Percentages of Simple, Medium and Complex questions a whole paper is built to. */
+export interface TagBlend {
+  easy: number;
+  medium: number;
+  hard: number;
+}
+
+export const blendTotal = (b: TagBlend) => b.easy + b.medium + b.hard;
+
 export interface TnpscTagValue {
+  /** The mix a whole paper (a mock, a section, a mixed unit set) is built to. Unset = the standard 30 / 30 / 40. */
+  blend?: TagBlend | null;
   group_id: string | null;
   stage_id: string | null;
   track: TnpscTestType | null;
@@ -386,6 +397,20 @@ export function validateTnpscTag(tag: TnpscTagValue, questionCount?: number): Ta
     if (!tag.scope) errors.push('Choose whether this covers one unit, one key topic or a whole section.');
   }
 
+  // A custom mix only counts for a paper that is built to one (a mock, a section, a mixed unit set).
+  const wholePaper =
+    tag.track === 'mock' ||
+    (tag.track === 'practice' && tag.scope === 'section') ||
+    (tag.track === 'practice' && (tag.scope === 'unit' || tag.scope === 'topic') && !tag.level);
+  if (wholePaper && tag.blend) {
+    const b = tag.blend;
+    if ([b.easy, b.medium, b.hard].some(n => !Number.isFinite(n) || n < 0)) {
+      errors.push('Simple, Medium and Complex must each be 0% or more.');
+    } else if (blendTotal(b) !== 100) {
+      errors.push(`Simple, Medium and Complex must add up to 100% (they add up to ${blendTotal(b)}% now).`);
+    }
+  }
+
   if (tag.track === 'practice' && tag.scope === 'section') {
     if (!tag.section_name) errors.push('Select the section this paper covers.');
     if (
@@ -467,7 +492,25 @@ export function describeTagError(err: any, tag: TnpscTagValue): string {
     return 'The tagging endpoint is not available on the server yet (PATCH /evaluation/assessments/{id}/tnpsc).';
   }
 
-  return message || 'The placement could not be saved.';
+  return describeUnitNotOnServer(message) ?? (message || 'The placement could not be saved.');
+}
+
+/**
+ * The server's "Unit 'x' is not a unit of 'stage'." put in the words that say what to do about it.
+ *
+ * It means the unit is in the portal's syllabus for that exam but not yet on the server — Group 2 Prelims' units
+ * (g2-…) are the case so far — so the fix is on the server's side, and an admin told only the raw sentence
+ * cannot tell that. Null for any other message.
+ */
+export function describeUnitNotOnServer(message: string | null | undefined): string | null {
+  const m = /unit '([^']+)' is not a unit of '([^']+)'/i.exec(message ?? '');
+  if (!m) return null;
+  const [, unit, stage] = m;
+  return (
+    `The unit “${unit}” is in the portal's syllabus for ${stage}, but the server does not list it there yet, ` +
+    'so a paper cannot be placed in it. The server needs that exam’s units added (see GROUP2_UNITS.md); ' +
+    'nothing is wrong with how this assessment was set up.'
+  );
 }
 
 /** Whether the server refused a topic because it has no row for it under the subject. */

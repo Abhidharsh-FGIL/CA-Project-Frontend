@@ -82,8 +82,8 @@ describe('buildCollectionTree', () => {
     expect(all.map(p => p.id).sort()).toEqual(['a', 'b', 'c', 'd', 'e', 'manual']);
   });
 
-  it('always shows Group 4, even with no collections', () => {
-    expect(buildCollectionTree([]).groups.map(g => g.id)).toEqual(['group-4']);
+  it('always shows Group 4 and Group 2, even with no collections', () => {
+    expect(buildCollectionTree([]).groups.map(g => g.id)).toEqual(['group-4', 'group-2']);
   });
 });
 

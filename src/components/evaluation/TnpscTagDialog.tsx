@@ -72,7 +72,7 @@ export function TnpscTagDialog({ open, onOpenChange, assessment }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <TnpscTagFields value={tag} onChange={setTag} questionCount={questionCount} />
+        <TnpscTagFields value={tag} onChange={setTag} questionCount={questionCount} editableBlend={false} />
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

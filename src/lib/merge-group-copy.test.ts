@@ -12,7 +12,7 @@ describe('mergeCatalog — the exam description', () => {
   });
 
   it("keeps the server's wording for an exam the app has never heard of", () => {
-    const merged = mergeCatalog([serverGroup('group-2', 'Interview and descriptive posts.')], TNPSC_GROUPS);
-    expect(merged.find(g => (g.id as string) === 'group-2')!.description).toBe('Interview and descriptive posts.');
+    const merged = mergeCatalog([serverGroup('group-9', 'Interview and descriptive posts.')], TNPSC_GROUPS);
+    expect(merged.find(g => (g.id as string) === 'group-9')!.description).toBe('Interview and descriptive posts.');
   });
 });

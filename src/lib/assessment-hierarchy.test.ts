@@ -67,8 +67,8 @@ describe('buildAssessmentTree', () => {
     expect(g4.total + tree.unplaced.length).toBe(rows.length);
   });
 
-  it('always has Group 4', () => {
-    expect(buildAssessmentTree([]).groups.map(g => g.id)).toEqual(['group-4']);
+  it('always has Group 4, and Group 2 beside it, so both are there before their first assessment', () => {
+    expect(buildAssessmentTree([]).groups.map(g => g.id)).toEqual(['group-4', 'group-2']);
   });
 });
 
@@ -78,5 +78,34 @@ describe('seedFor — where a new assessment starts', () => {
     expect(seedFor('group-4', 'practice', { unitId: tamil.unit.id })).toMatchObject({ track: 'practice', scope: 'unit', unit_id: tamil.unit.id });
     expect(seedFor('group-4', 'keytopic', { unitId: gs.unit.id })).toMatchObject({ track: 'practice', scope: 'topic', unit_id: gs.unit.id });
     expect(seedFor('group-4', 'practice', { section: 'General Studies' })).toMatchObject({ scope: 'section', section_name: 'General Studies' });
+  });
+});
+
+describe('Group 2', () => {
+  const g2stage = TNPSC_GROUPS.find(g => g.id === 'group-2')!.stages.find(s => s.id === 'group-2-prelims')!;
+  const g2units = stageUnits(g2stage);
+  const g2gs = g2units.find(u => u.sectionName === 'General Studies')!;
+
+  it('has its own units, filed under its own ids and not Group 4’s', () => {
+    expect(g2units.length).toBeGreaterThan(0);
+    expect(g2units.every(u => u.unit.id.startsWith('g2-'))).toBe(true);
+    const g4ids = new Set(units.map(u => u.unit.id));
+    expect(g2units.some(u => g4ids.has(u.unit.id))).toBe(false);
+  });
+
+  it('files a Group 2 assessment under Group 2, by its stage and unit', () => {
+    const tree = buildAssessmentTree([
+      { id: 'a', title: 'a', stage_id: 'group-2-prelims', track: 'mock', level: 'simple' },
+      { id: 'b', title: 'b', stage_id: 'group-2-prelims', track: 'practice', scope: 'unit', unit_id: g2gs.unit.id },
+    ]);
+    const g2 = tree.groups.find(g => g.id === 'group-2')!;
+    expect(g2.mock.map(r => r.id)).toEqual(['a']);
+    expect(g2.practice.find(s => s.name === 'General Studies')!.units.find(u => u.unitId === g2gs.unit.id)!.items.map(r => r.id)).toEqual(['b']);
+    expect(tree.unplaced).toEqual([]);
+  });
+
+  it('starts from Group 4’s split, so the wizard’s unit weightage is filled in the same way', () => {
+    const g4by = new Map(units.map(u => [u.unit.id.replace('g4-', ''), u.unit.questions]));
+    for (const u of g2units) expect(u.unit.questions).toBe(g4by.get(u.unit.id.replace('g2-', '')));
   });
 });

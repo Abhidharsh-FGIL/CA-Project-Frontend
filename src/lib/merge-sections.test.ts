@@ -40,3 +40,58 @@ describe('mergeSections — combined language section', () => {
     expect(secs.find(s => s.name === 'General Studies')!.units?.length).toBe(6);
   });
 });
+
+describe('mergeCatalog — a server that lists Group 2 without the language paper', () => {
+  const server = [
+    {
+      id: 'group-2',
+      name: 'TNPSC Group 2',
+      stages: [
+        {
+          id: 'group-2-prelims',
+          pattern: {
+            sections: [
+              { name: 'General Studies', questions: 175 },
+              { name: 'Aptitude & Mental Ability', questions: 25 },
+            ],
+          },
+        },
+      ],
+    },
+  ] as any;
+
+  it('keeps General Tamil and General English, ahead of the sections the server sent', () => {
+    const merged = mergeCatalog(server, TNPSC_GROUPS);
+    const names = merged.find(g => g.id === 'group-2')!.stages[0].pattern!.sections.map(s => s.name);
+    expect(names).toEqual(['General Tamil', 'General English', 'General Studies', 'Aptitude & Mental Ability']);
+  });
+
+  it('leaves them as an either-or pair, each with its units', () => {
+    const sections = mergeCatalog(server, TNPSC_GROUPS).find(g => g.id === 'group-2')!.stages[0].pattern!.sections;
+    expect(sections.find(s => s.name === 'General Tamil')).toMatchObject({ alternative_to: 'General English' });
+    expect(sections.find(s => s.name === 'General Tamil')!.units!.length).toBeGreaterThan(0);
+  });
+
+  it('does not change what Group 4 gets from a server that sends the pair combined', () => {
+    const g4 = [
+      {
+        id: 'group-4',
+        name: 'TNPSC Group 4',
+        stages: [
+          {
+            id: 'group-4-written',
+            pattern: {
+              sections: [
+                { name: 'General Tamil / General English', questions: 100 },
+                { name: 'General Studies', questions: 75 },
+                { name: 'Aptitude & Mental Ability', questions: 25 },
+              ],
+            },
+          },
+        ],
+      },
+    ] as any;
+    const names = mergeCatalog(g4, TNPSC_GROUPS).find(g => g.id === 'group-4')!.stages[0].pattern!.sections.map(s => s.name);
+    expect(names).toEqual(['General Tamil', 'General English', 'General Studies', 'Aptitude & Mental Ability']);
+  });
+});

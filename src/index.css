@@ -865,3 +865,19 @@ body, input, textarea, select, button {
   .verdict-shimmer { background: none; -webkit-text-fill-color: currentColor; }
   .confetti-piece { display: none; }
 }
+
+/* "Take Mock Exam": a ring of light pulses out of the button and its arrow nudges forward. */
+@keyframes cta-ring {
+  0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.55); }
+  70% { box-shadow: 0 0 0 14px rgba(249, 115, 22, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+}
+@keyframes cta-nudge {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(5px); }
+}
+.cta-pulse { animation: cta-ring 2s ease-out infinite; }
+.cta-arrow { animation: cta-nudge 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .cta-pulse, .cta-arrow { animation: none; }
+}

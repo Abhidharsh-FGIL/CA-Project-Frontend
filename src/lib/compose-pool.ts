@@ -28,6 +28,8 @@ export interface ComposeGroup {
 export interface ComposeOptions {
   /** Apply the 20 / 30 / 50 blend inside each group. Off for a paper that is not a whole one. */
   blend: boolean;
+  /** The mix to apply, in percent; the standard 30 / 30 / 40 when absent. */
+  blendWeights?: Record<'easy' | 'medium' | 'hard', number>;
   /** Injectable for tests; defaults to `Math.random`. */
   random?: () => number;
 }
@@ -129,7 +131,7 @@ export function composeByGroups<T extends { difficulty?: string | null }>(
   classify: (q: T) => string[],
   weights: Record<string, number>,
   total: number,
-  { blend, random = Math.random }: ComposeOptions,
+  { blend, blendWeights, random = Math.random }: ComposeOptions,
 ): Composition<T> {
   if (groups.length === 0 || total <= 0) {
     return { picked: [], byGroup: {}, plan: [], short: [], unfilled: Math.max(0, total) };
@@ -143,7 +145,7 @@ export function composeByGroups<T extends { difficulty?: string | null }>(
   const plan = planOf(pools, groups, weights, total);
 
   const take = (from: T[], n: number): T[] =>
-    n <= 0 ? [] : blend ? pickByBlend(from, Math.min(n, from.length)).picked : from.slice(0, n);
+    n <= 0 ? [] : blend ? pickByBlend(from, Math.min(n, from.length), blendWeights).picked : from.slice(0, n);
 
   const chosen: Record<string, T[]> = {};
   const left: Record<string, T[]> = {};

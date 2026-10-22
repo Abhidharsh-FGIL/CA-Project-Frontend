@@ -24,10 +24,12 @@ import { G4_SUBJECT_ALIASES, splitTag } from './g4-tag-aliases';
 
 // ─── Ids & levels ──────────────────────────────────────────────────────────────
 
-export type TnpscGroupId = 'group-1' | 'group-4' | 'gat-b';
+export type TnpscGroupId = 'group-1' | 'group-2' | 'group-4' | 'gat-b';
 export type TnpscStageId =
   | 'group-1-prelims'
   | 'group-1-mains'
+  | 'group-2-prelims'
+  | 'group-2-mains'
   | 'group-4-written'
   | 'gat-b-exam';
 export type TnpscLevel = 'simple' | 'medium' | 'complex';
@@ -194,8 +196,11 @@ export interface TnpscSyllabusUnit {
   label?: string;
   name: string;
   name_ta?: string;
-  /** Questions this unit carries, straight from the published syllabus. */
-  questions: number;
+  /**
+   * Questions this unit carries, straight from the published syllabus. Absent where the syllabus has not
+   * been confirmed to split the paper that way (Group 2 starts from Group 4's units, not its counts).
+   */
+  questions?: number;
   /** Sub-topics as printed under the unit. */
   topics?: TnpscTopic[];
   /** Catalog subjects this unit covers, when its topics come from the catalog instead. */
@@ -1270,6 +1275,20 @@ const G4_ENGLISH_UNITS: TnpscSyllabusUnit[] = [
 
 // ─── Groups ────────────────────────────────────────────────────────────────────
 
+/**
+ * Another exam's units, filed under its own ids — an assessment is tagged with a unit id, so two exams
+ * that share a syllabus still need ids that say which exam a paper belongs to. The per-unit question
+ * counts come across too: they are what the assessment wizard turns into its "Unit Weightage" split, and
+ * Group 2 is set up with Group 4's split. Replace them here when Group 2's own published split is known.
+ */
+const cloneUnits = (units: TnpscSyllabusUnit[], from: string, to: string): TnpscSyllabusUnit[] =>
+  units.map(u => ({ ...u, id: u.id.replace(from, to) }));
+
+const G2_GENERAL_STUDIES_UNITS = cloneUnits(G4_GENERAL_STUDIES_UNITS, 'g4-', 'g2-');
+const G2_APTITUDE_UNITS = cloneUnits(G4_APTITUDE_UNITS, 'g4-', 'g2-');
+const G2_TAMIL_UNITS = cloneUnits(G4_TAMIL_UNITS, 'g4-', 'g2-');
+const G2_ENGLISH_UNITS = cloneUnits(G4_ENGLISH_UNITS, 'g4-', 'g2-');
+
 export const TNPSC_GROUPS: TnpscGroup[] = [
   {
     id: 'group-1',
@@ -1402,6 +1421,87 @@ export const TNPSC_GROUPS: TnpscGroup[] = [
           ],
         },
         subjects: [TAMIL_SUBJECT, ENGLISH_SUBJECT, ...GENERAL_STUDIES_SUBJECTS, APTITUDE_SUBJECT],
+      },
+    ],
+  },
+  {
+    id: 'group-2',
+    name: 'TNPSC Group 2',
+    short_name: 'Group 2',
+    authority: 'Tamil Nadu Public Service Commission',
+    exam_type: 'TNPSC Group 2',
+    tagline: 'Combined Civil Services Examination — II (Interview & Non-Interview Posts)',
+    description:
+      'Sub-Registrar, Assistant Commercial Tax Officer, Deputy Registrar, Municipal Commissioner and other Group 2 and 2A services.',
+    accent: 'from-amber-500 via-orange-500 to-rose-500',
+    posts: ['Sub-Registrar (Grade II)', 'Assistant Commercial Tax Officer', 'Deputy Registrar', 'Municipal Commissioner (Grade II)'],
+    stages: [
+      {
+        id: 'group-2-prelims',
+        group_id: 'group-2',
+        name: 'Preliminary Examination',
+        short_name: 'Prelims',
+        description: 'Single objective paper of 200 questions — General Studies with Aptitude & Mental Ability.',
+        status: 'active',
+        paper_type: 'objective',
+        // Bilingual, like the other TNPSC objective papers — every question repeated in Tamil.
+        bilingual: true,
+        secondary_language: 'ta',
+        pattern: {
+          total_questions: 200,
+          total_marks: 300,
+          duration_minutes: 180,
+          negative_marking: false,
+          sections: [
+            // The language paper, as in Group 4: sat in one of two languages, never both, and listed as two
+            // sections so each has its own units and practice. Group 2 draws on the same question bank.
+            {
+              name: 'General Tamil',
+              questions: 100,
+              order_block: 1,
+              alternative_to: 'General English',
+              syllabus_subject_ids: [TAMIL_SUBJECT.id],
+              units: G2_TAMIL_UNITS,
+              note: 'The Tamil Eligibility-cum-Scoring Test is mandatory for all candidates, except those who opt for General English, as candidates cannot take both tests.',
+            },
+            {
+              name: 'General English',
+              questions: 100,
+              order_block: 1,
+              alternative_to: 'General Tamil',
+              syllabus_subject_ids: [ENGLISH_SUBJECT.id],
+              units: G2_ENGLISH_UNITS,
+              note: 'Sat instead of General Tamil, never alongside it.',
+            },
+            {
+              name: 'General Studies',
+              questions: 175,
+              order_block: 2,
+              syllabus_subject_ids: GENERAL_STUDIES_SUBJECTS.map(s => s.id),
+              units: G2_GENERAL_STUDIES_UNITS,
+            },
+            {
+              name: 'Aptitude & Mental Ability',
+              questions: 25,
+              order_block: 2,
+              syllabus_subject_ids: [APTITUDE_SUBJECT.id],
+              units: G2_APTITUDE_UNITS,
+            },
+          ],
+        },
+        subjects: [TAMIL_SUBJECT, ENGLISH_SUBJECT, ...GENERAL_STUDIES_SUBJECTS, APTITUDE_SUBJECT],
+      },
+      {
+        id: 'group-2-mains',
+        group_id: 'group-2',
+        name: 'Main Written Examination',
+        short_name: 'Mains',
+        description: 'Tamil eligibility test and descriptive papers. Coming soon on the portal.',
+        status: 'coming_soon',
+        paper_type: 'descriptive',
+        bilingual: false,
+        secondary_language: null,
+        subjects: [],
       },
     ],
   },

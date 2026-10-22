@@ -15,6 +15,7 @@
  */
 import { TNPSC_GROUPS, stageUnits, unitDisplayName, type TnpscGroup, type TnpscStage, type TnpscSyllabusUnit } from '@/config/tnpsc';
 import { parseCollectionTitle } from '@/lib/collection-unit';
+import { PRIMARY_EXAM_ID } from '@/lib/exam-listing';
 
 type Paper = Record<string, any>;
 
@@ -79,8 +80,13 @@ export function placeCollection(paper: Paper): CollectionPlace {
     const hits = candidates
       .map(s => ({ s, unitId: parseCollectionTitle(s.stage, title).unitId }))
       .filter((x): x is { s: (typeof candidates)[number]; unitId: string } => !!x.unitId);
-    if (hits.length === 1) {
-      const { s, unitId } = hits[0];
+    // Group 2 shares Group 4's unit names, so a bare "Unit_4_Tamil_50Q" parses under both. A name that does
+    // not say which exam is a Group 4 collection — it was the only exam when the name was written — so the
+    // primary exam wins a tie. A name that names Group 2 never reaches here with Group 4 in the running.
+    const primary = hits.filter(x => x.s.group.id === PRIMARY_EXAM_ID);
+    const pick = hits.length === 1 ? hits : !hint && primary.length === 1 ? primary : [];
+    if (pick.length === 1) {
+      const { s, unitId } = pick[0];
       const hit = stageUnits(s.stage).find(u => u.unit.id === unitId)!;
       return { groupId: s.group.id, stageId: s.stage.id, section: hit.sectionName, unitId, via: 'name' };
     }
@@ -172,6 +178,7 @@ export function buildCollectionTree(papers: Paper[], isCustom: (p: Paper) => boo
   const order = (id: string) => (id === 'group-4' ? -1 : TNPSC_GROUPS.findIndex(g => g.id === id));
   // Group 4 is always shown, even before its first collection, so the structure is there to fill.
   groupFor('group-4');
+  groupFor('group-2');
   return {
     groups: [...groups.values()].sort((a, b) => order(a.id) - order(b.id)),
     unassigned,

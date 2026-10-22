@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { here } from '@/lib/report-origin';
+import { skipsStageList } from '@/lib/exam-listing';
 import { UserShell } from '@/components/user/UserShell';
 import { useTnpscCatalog, useTnpscMockTests, useTnpscPracticeTests } from '@/hooks/use-tnpsc';
 import {
@@ -50,6 +51,7 @@ import {
   ArrowLeft,
   BookOpen,
   CheckCircle2,
+  ArrowRight,
   ChevronDown,
   ChevronRight,
   Clock,
@@ -67,7 +69,9 @@ import {
   PanelLeftOpen,
   Pencil,
   Scale,
+  ShieldCheck,
   Sparkles,
+  Timer,
   Target,
   TrendingUp,
   X,
@@ -239,12 +243,12 @@ export default function TnpscStagePage() {
 
   const found = findStage(groupId, stageId, groups);
   const offersLanguageChoice = hasLanguageChoice(findStage(groupId, stageId, allGroups)?.stage);
-  // Practice leads now: it is the everyday screen, and a full paper is the
-  // occasional event rather than the default thing to open.
+  // Key Topics leads, then Practice, then Exam — the order the tabs are shown in. Opening the page with no tab
+  // named lands on the first of them; the other two are named in the address.
   const tabParam = searchParams.get('tab');
-  const tab: Tab = tabParam === 'exam' || tabParam === 'mock' ? 'exam' : tabParam === 'topics' ? 'topics' : 'practice';
+  const tab: Tab = tabParam === 'exam' || tabParam === 'mock' ? 'exam' : tabParam === 'practice' ? 'practice' : 'topics';
   const setTab = (t: Tab) => {
-    setSearchParams(t === 'practice' ? {} : { tab: t }, { replace: true });
+    setSearchParams(t === 'topics' ? {} : { tab: t }, { replace: true });
     // The drill belongs to the Practice track; carrying it into Exam would leave
     // the syllabus panel describing a section the pane is no longer showing.
     setDrillKey(null);
@@ -403,14 +407,16 @@ export default function TnpscStagePage() {
 
   return (
     <UserShell>
+      {/* An exam with a single open stage has no stage list to go back to, so Back goes to all the examinations. */}
       <Link
-        to={`/user/exams/${groupId}`}
+        to={skipsStageList(group) ? '/user/exams' : `/user/exams/${groupId}`}
         className="group inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 mb-4 transition-colors"
       >
-        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" /> Back to {group.name}
+        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />{' '}
+        {skipsStageList(group) ? 'All examinations' : `Back to ${group.name}`}
       </Link>
 
-      <StageHero stage={stage} groupName={group.name} accent={group.accent} />
+      <StageHero stage={stage} groupName={group.name} accent={group.accent} onTakeMock={() => setTab('exam')} />
 
       {offersLanguageChoice && <ExamLanguageNote className="mb-4 sm:mb-5" />}
 
@@ -453,7 +459,7 @@ export default function TnpscStagePage() {
           ) : tab === 'exam' ? (
             // Ahead of the sections guard: a mock belongs to no section, so a
             // stage whose syllabus has not been published still has mocks to sit.
-            <ExamTrack levels={mock.levels} totalQuestions={answeredCount(stage.pattern)} />
+            <ExamTrack levels={mock.levels} totalQuestions={answeredCount(stage.pattern)} pattern={stage.pattern} />
           ) : sections.length === 0 ? (
             <EmptyRow label="No sections are published for this stage yet." />
           ) : drill ? (
@@ -726,9 +732,12 @@ function KeyTopicLine({
 function ExamTrack({
   levels,
   totalQuestions,
+  pattern,
 }: {
   levels: TnpscLevelGroup[];
   totalQuestions?: number;
+  /** The official paper's shape, so the banner can say exactly how closely a mock follows it. */
+  pattern?: TnpscStage['pattern'];
 }) {
   const passPercentage = levels[0]?.required_percentage ?? mockPassPercentage();
 
@@ -744,29 +753,60 @@ function ExamTrack({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex items-start gap-3">
-        <span className="w-11 h-11 rounded-xl bg-white dark:bg-gray-900 shadow-sm flex items-center justify-center flex-shrink-0">
-          <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-        </span>
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Full-length mock tests</p>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 leading-relaxed">
-            Every mock follows the real exam pattern
-            {totalQuestions ? ` — ${totalQuestions} questions in one sitting` : ''}.{' '}
-            {LEVEL_GATE_ENABLED ? (
-              <>
-                Score <b>{passPercentage}% or more</b> in a Simple mock to unlock Medium, and in a
-                Medium mock to unlock Complex.
-              </>
-            ) : (
-              <>
-                A paper counts as <b>cleared</b> once you score {passPercentage}% or more.
-              </>
-            )}
-          </p>
+      {/* A mock is the real thing in rehearsal: the banner says how closely it follows the official paper. */}
+      <div className="rounded-2xl border border-emerald-200 bg-white p-4 dark:border-emerald-900/60 dark:bg-gray-900">
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
+            <ShieldCheck className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-900 dark:text-gray-100">
+              Just like the official exam
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                Official pattern
+              </span>
+            </p>
+            <p className="mt-0.5 text-xs leading-relaxed text-gray-600 dark:text-gray-400">
+              Every mock is set to the real exam pattern, in one sitting — the same paper structure you will face on the day.{' '}
+              {LEVEL_GATE_ENABLED ? (
+                <>
+                  Score <b>{passPercentage}% or more</b> in a Simple mock to unlock Medium, and in a Medium mock to unlock Complex.
+                </>
+              ) : (
+                <>
+                  A paper counts as <b>cleared</b> once you score {passPercentage}% or more.
+                </>
+              )}
+            </p>
+          </div>
         </div>
+        {pattern && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {[
+              { icon: <FileText className="h-3.5 w-3.5" />, label: `${totalQuestions ?? pattern.total_questions} questions` },
+              { icon: <Layers className="h-3.5 w-3.5" />, label: `${pattern.total_marks} marks` },
+              {
+                icon: <Clock className="h-3.5 w-3.5" />,
+                label: `${pattern.duration_minutes % 60 === 0 ? pattern.duration_minutes / 60 : (pattern.duration_minutes / 60).toFixed(1)} hours`,
+              },
+              {
+                icon: <AlertCircle className="h-3.5 w-3.5" />,
+                label: pattern.negative_marking
+                  ? `Negative marking${pattern.negative_mark_value ? ` (−${pattern.negative_mark_value})` : ''}`
+                  : 'No negative marking',
+              },
+            ].map(chip => (
+              <span
+                key={chip.label}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200"
+              >
+                {chip.icon}
+                {chip.label}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
-
       {!LEVELS_HIDDEN && groups.length > 1 && <LevelRail levels={levels} />}
 
       {groups.length === 0 || total === 0 ? (
@@ -1165,10 +1205,13 @@ function StageHero({
   stage,
   groupName,
   accent,
+  onTakeMock,
 }: {
   stage: TnpscStage;
   groupName: string;
   accent: string;
+  /** Opens the exam (full mock) tab. */
+  onTakeMock?: () => void;
 }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm mb-4 sm:mb-5">
@@ -1189,7 +1232,9 @@ function StageHero({
           </div>
 
           {stage.pattern && (
-            <div className="flex gap-2.5 flex-shrink-0 flex-wrap">
+            <div className="flex items-center gap-4 flex-shrink-0 flex-wrap">
+              {onTakeMock && <TakeMockCta onClick={onTakeMock} />}
+              <div className="flex gap-2.5 flex-wrap">
               <StatCard
                 icon={<FileText className="w-4 h-4" />}
                 tone="indigo"
@@ -1208,6 +1253,7 @@ function StageHero({
                 value={`${stage.pattern.duration_minutes / 60}h`}
                 label="Duration"
               />
+              </div>
             </div>
           )}
         </div>
@@ -1256,43 +1302,82 @@ function StatCard({
 
 // ─── Tabs and banner ──────────────────────────────────────────────────────────
 
-function TrackTabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
-  const items: Array<{ key: Tab; label: string; icon: React.ReactNode }> = [
-    { key: 'practice', label: 'Practice', icon: <Pencil className="w-4 h-4" /> },
-    { key: 'exam', label: 'Exam', icon: <FileText className="w-4 h-4" /> },
-    { key: 'topics', label: 'Key Topics', icon: <KeyRound className="w-4 h-4" /> },
-  ];
+/**
+ * The three tracks as the path to follow: Key Topics, then Practice, then Exam. The step you are on is highlighted,
+ * and a line under the bar says what that step is for.
+ */
+const PATH_STEPS: Array<{ key: Tab; label: string; icon: React.ReactNode; note: string; tag?: string }> = [
+  { key: 'topics', label: 'Key Topics', icon: <KeyRound className="w-4 h-4" />, note: 'Start here — a short test on one topic at a time.' },
+  { key: 'practice', label: 'Practice', icon: <Pencil className="w-4 h-4" />, note: 'Then practise whole units, at the level you choose.' },
+  { key: 'exam', label: 'Exam', icon: <FileText className="w-4 h-4" />, note: 'Finish with a full-length paper, set exactly like the official exam.', tag: 'Official pattern' },
+];
 
+function TrackTabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
+  const at = PATH_STEPS.findIndex(s => s.key === tab);
   return (
-    <div
-      role="tablist"
-      aria-label="Track"
-      className="inline-flex gap-1 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/40 p-1"
-    >
-      {items.map(it => {
-        const active = tab === it.key;
-        return (
-          <button
-            key={it.key}
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(it.key)}
-            className={cn(
-              'inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-bold transition-all',
-              active
-                ? 'bg-gradient-to-r from-brand-600 to-brand-400 text-white shadow-sm'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200',
-            )}
-          >
-            {it.icon}
-            {it.label}
-          </button>
-        );
-      })}
+    <div>
+      <div role="tablist" aria-label="Preparation path" className="flex flex-wrap items-center gap-1.5">
+        {PATH_STEPS.map((it, i) => {
+          const active = i === at;
+          return (
+            <div key={it.key} className="flex items-center gap-1.5">
+              {i > 0 && (
+                <ChevronRight
+                  className={cn('h-4 w-4 shrink-0', i <= at ? 'text-orange-400' : 'text-gray-300 dark:text-gray-600')}
+                  aria-hidden
+                />
+              )}
+              <button
+                role="tab"
+                aria-selected={active}
+                aria-current={active ? 'step' : undefined}
+                onClick={() => onChange(it.key)}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold transition-all',
+                  active
+                    ? 'border-transparent bg-gradient-to-r from-brand-600 to-brand-400 text-white shadow-md shadow-orange-200/60 dark:shadow-none'
+                    : i < at
+                      ? 'border-orange-200 bg-white text-gray-700 hover:border-orange-300 dark:border-orange-900/60 dark:bg-gray-900 dark:text-gray-200'
+                      : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:text-gray-200',
+                )}
+              >
+                <span
+                  className={cn(
+                    'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold',
+                    active ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+                  )}
+                >
+                  {i + 1}
+                </span>
+                {it.icon}
+                {it.label}
+                {it.tag && (
+                  <span
+                    className={cn(
+                      'hidden items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold sm:inline-flex',
+                      active ? 'bg-white/25 text-white' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+                    )}
+                  >
+                    <ShieldCheck className="h-3 w-3" />
+                    {it.tag}
+                  </span>
+                )}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      {at >= 0 && (
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          <span className="font-semibold text-orange-600 dark:text-orange-400">
+            Step {at + 1} of {PATH_STEPS.length}
+          </span>{' '}
+          · {PATH_STEPS[at].note}
+        </p>
+      )}
     </div>
   );
 }
-
 function TrackBanner({ tab }: { tab: Tab }) {
   const practice = tab === 'practice';
   const topics = tab === 'topics';
@@ -2046,6 +2131,43 @@ function ErrorRow({ message }: { message: string }) {
       <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-3" />
       <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-1">Could not load this section</p>
       <p className="text-xs text-red-500">{message}</p>
+    </div>
+  );
+}
+
+/** The lines that rotate under the "Take Mock Exam" button, each a reason to sit a full paper. */
+const MOCK_LINES = [
+  'Get exam-day confidence before the real day',
+  'Practise under real exam conditions',
+  'Find your weak areas while there is still time',
+  'See exactly where you stand against the pass mark',
+];
+
+/**
+ * A call to take a full mock, placed ahead of the paper's figures. The button pulses and its arrow nudges to
+ * draw the eye; the line beneath rotates through the reasons to sit one. All of it still for anyone who has
+ * asked their system to reduce motion.
+ */
+function TakeMockCta({ onClick }: { onClick: () => void }) {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setI(n => (n + 1) % MOCK_LINES.length), 3200);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="flex flex-col items-start sm:items-center gap-1.5 sm:max-w-[15rem]">
+      <button
+        type="button"
+        onClick={onClick}
+        className="cta-pulse group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-rose-500 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-orange-300/50 transition-transform hover:scale-105 active:scale-95 dark:shadow-none"
+      >
+        <Timer className="h-4 w-4" />
+        Take Mock Exam
+        <ArrowRight className="cta-arrow h-4 w-4" />
+      </button>
+      <p key={i} className="animate-fadeIn text-center text-[11px] font-semibold leading-snug text-gray-600 dark:text-gray-300">
+        {MOCK_LINES[i]}
+      </p>
     </div>
   );
 }
