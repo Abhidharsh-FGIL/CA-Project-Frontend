@@ -69,8 +69,8 @@ import {
   PanelLeftOpen,
   Pencil,
   Scale,
-  ShieldCheck,
   Sparkles,
+  Star,
   Timer,
   Target,
   TrendingUp,
@@ -142,6 +142,24 @@ interface UnitRowModel {
   topics: TnpscTopic[];
   /** Papers that belong to this unit, from whichever track is on screen. */
   tests: TnpscTest[];
+}
+
+/**
+ * Current Affairs first, marked "*" instead of a numeral, with the printed units numbered from I after it.
+ *
+ * Current Affairs is not one of the commission's numbered units — it runs through several of them — so it
+ * leads the list as its own thing rather than taking a number that would push the real units down.
+ */
+/** What a unit's badge shows: its numeral — or, for Current Affairs, which has none, a star (as on Key Topics). */
+const CURRENT_AFFAIRS_MARK = '*';
+function UnitMark({ label, index }: { label?: string; index: number }) {
+  if (label === CURRENT_AFFAIRS_MARK) return <Star className="h-[18px] w-[18px] fill-amber-400 text-amber-500" aria-label="Current Affairs" />;
+  return <>{label ?? index + 1}</>;
+}
+const isCurrentAffairs = (u: UnitRowModel) => /current\s+affairs/i.test(u.name);
+function currentAffairsFirst(units: UnitRowModel[]): UnitRowModel[] {
+  const current = units.filter(isCurrentAffairs).map(u => ({ ...u, label: CURRENT_AFFAIRS_MARK }));
+  return current.length === 0 ? units : [...current, ...units.filter(u => !isCurrentAffairs(u))];
 }
 
 /**
@@ -269,7 +287,7 @@ export default function TnpscStagePage() {
    * deciding what to sit and the wrong one once you have decided — the unit rows
    * carry four difficulty buttons each and want the room.
    */
-  const [syllabusOpen, setSyllabusOpen] = useState(true);
+  const [syllabusOpen, setSyllabusOpen] = useState(false);
   const [unitFilter, setUnitFilter] = useState<string | null>(null);
   /** The Key Topics sections that are open — a dropdown each, so several can be. */
   const [openTopicSections, setOpenTopicSections] = useState<string[]>([]);
@@ -303,7 +321,7 @@ export default function TnpscStagePage() {
     if (!stage) return [];
 
     return (stage.pattern?.sections ?? []).map(section => {
-      const units: UnitRowModel[] = section.units?.length
+      const built: UnitRowModel[] = section.units?.length
         ? section.units.map(unit => {
             const topics = unitTopics(stage, unit);
             /**
@@ -341,6 +359,7 @@ export default function TnpscStagePage() {
             topics: sub.topics,
             tests: trackTests.filter(t => t.subject_id === sub.id),
           }));
+      const units = currentAffairsFirst(built);
 
       const subjects = sectionSyllabus(stage, section);
       const tamilOnlySection = isTamilOnlySection(section);
@@ -591,8 +610,9 @@ function KeyTopicsTrack({
                   {sec.groups.map(g => (
                     <div key={g.key}>
                       {/* A published unit is always named, even when it is the only one with a paper yet. */}
-                      {(sec.groups.length > 1 || g.label) && (
-                        <p className={cn('mb-2 text-[11px] font-bold uppercase tracking-wider', a.text)}>
+                      {(sec.groups.length > 1 || g.label || g.star) && (
+                        <p className={cn('mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider', a.text)}>
+                          {g.star && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" aria-hidden />}
                           {g.label ? `Unit ${g.label} · ` : ''}
                           {g.name}
                         </p>
@@ -757,7 +777,7 @@ function ExamTrack({
       <div className="rounded-2xl border border-emerald-200 bg-white p-4 dark:border-emerald-900/60 dark:bg-gray-900">
         <div className="flex items-start gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
-            <ShieldCheck className="h-5 w-5" />
+            <img src={`${import.meta.env.BASE_URL}tnpsc-logo.png`} alt="TNPSC" className="h-8 w-8 object-contain" draggable={false} />
           </span>
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-900 dark:text-gray-100">
@@ -1218,23 +1238,27 @@ function StageHero({
       <div className={cn('h-1.5 w-full bg-gradient-to-r', accent)} />
 
      <div className="relative p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="min-w-0">
+        {/* From a laptop up the paper's name sits on the left and the mock button and figures beside it on the right;
+            below that they stack, as there is not room for both. */}
+        <div className="flex items-start justify-between gap-4 flex-wrap lg:flex-nowrap lg:items-center">
+          <div className="min-w-0 lg:flex-1">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400">
               {groupName}
             </p>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
               {stage.name}
             </h1>
-            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1.5 max-w-2xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1.5 max-w-xl leading-relaxed">
               {stage.description}
             </p>
           </div>
 
           {stage.pattern && (
-            <div className="flex items-center gap-4 flex-shrink-0 flex-wrap">
+            // On a phone the button and the figures each take the full width, one under the other, so nothing is cut
+            // off at the edge; from a tablet up they sit side by side.
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-4 sm:flex-shrink-0 sm:flex-wrap lg:flex-nowrap lg:ml-auto">
               {onTakeMock && <TakeMockCta onClick={onTakeMock} />}
-              <div className="flex gap-2.5 flex-wrap">
+              <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:gap-2.5 sm:flex-wrap lg:flex-nowrap">
               <StatCard
                 icon={<FileText className="w-4 h-4" />}
                 tone="indigo"
@@ -1288,7 +1312,7 @@ function StatCard({
   label: string;
 }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 shadow-sm">
+    <div className="flex flex-col items-center gap-1 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 py-2 text-center shadow-sm sm:flex-row sm:gap-2.5 sm:px-3 sm:text-left">
       <span className={cn('w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0', STAT_TONE[tone])}>
         {icon}
       </span>
@@ -1358,7 +1382,7 @@ function TrackTabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) 
                       active ? 'bg-white/25 text-white' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
                     )}
                   >
-                    <ShieldCheck className="h-3 w-3" />
+                    <img src={`${import.meta.env.BASE_URL}tnpsc-logo.png`} alt="" className="h-3.5 w-3.5 object-contain" draggable={false} />
                     {it.tag}
                   </span>
                 )}
@@ -1446,10 +1470,11 @@ function UnitListRow({
         <span
           className={cn(
             'w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-xs font-bold',
-            a.badge,
+            // Current Affairs has no numeral: a white badge with a gold edge and a gold star, not a coloured one.
+            unit.label === CURRENT_AFFAIRS_MARK ? 'bg-white border-2 border-amber-400 dark:bg-gray-900' : a.badge,
           )}
         >
-          {unit.label ?? index + 1}
+          <UnitMark label={unit.label} index={index} />
         </span>
 
         <div className="min-w-0 flex-1">
@@ -2042,10 +2067,10 @@ function SyllabusRow({
         <span
           className={cn(
             'w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-white text-[10px] font-bold',
-            a.badge,
+            label === CURRENT_AFFAIRS_MARK ? 'bg-white border-2 border-amber-400 dark:bg-gray-900' : a.badge,
           )}
         >
-          {label ?? index + 1}
+          <UnitMark label={label} index={index} />
         </span>
 
         <span className="min-w-0 flex-1">

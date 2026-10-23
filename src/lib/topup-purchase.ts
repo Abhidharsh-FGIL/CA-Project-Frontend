@@ -3,7 +3,7 @@
  * top-up endpoints:
  *
  *   1. ask the server for an order for the pack   (it decides the price)
- *   2. if it is already activated, done
+ *   2. if it is already activated (a 100%-off code), done — the pack is added and no payment is taken
  *   3. open Razorpay with that order
  *   4. send the three Razorpay fields to verify, which answers with the new balance
  *
@@ -11,7 +11,7 @@
  * failed invites a second payment.
  */
 import { CheckoutDismissed, PaymentFailed, type CheckoutOptions, type RazorpaySuccess } from '@/lib/razorpay';
-import type { TopUpBalance, TopUpOrder, TopUpVerifyRequest } from '@/lib/topup-api';
+import { balanceFrom, type TopUpBalance, type TopUpOrder, type TopUpVerifyRequest } from '@/lib/topup-api';
 import { SUPPORT_CONTACT } from '@/config/support';
 
 export type TopUpOutcome =
@@ -21,7 +21,7 @@ export type TopUpOutcome =
   | { kind: 'unconfirmed'; message: string; paymentId: string };
 
 export interface TopUpDeps {
-  createOrder(packId: string): Promise<TopUpOrder>;
+  createOrder(packId: string, promoCode?: string | null): Promise<TopUpOrder>;
   verifyPayment(req: TopUpVerifyRequest): Promise<TopUpBalance>;
   openCheckout(options: CheckoutOptions): Promise<RazorpaySuccess>;
 }
@@ -29,6 +29,8 @@ export interface TopUpDeps {
 export interface TopUpRequest {
   packId: string;
   packName: string;
+  /** Optional promo code; the server applies it when it makes the order. */
+  promoCode?: string | null;
   customer?: { name: string; email: string; contact?: string | null };
   brand?: string;
 }
@@ -54,14 +56,14 @@ export async function purchaseTopUp(req: TopUpRequest, deps: TopUpDeps): Promise
   // 1. The order. A failure here means nothing was charged.
   let order: TopUpOrder;
   try {
-    order = await deps.createOrder(req.packId);
+    order = await deps.createOrder(req.packId, req.promoCode);
   } catch (e) {
     return { kind: 'failed', message: message(e, 'Could not start the purchase.') };
   }
 
-  // Nothing owed and already added — nothing to take.
+  // Nothing owed and already added: do not open Razorpay. The balance is the one in the order.
   if (order.activated) {
-    return { kind: 'failed', message: 'This pack was already added. Nothing was charged.' };
+    return { kind: 'paid', balance: balanceFrom(order.balance), order };
   }
 
   // A server with no gateway answers with an empty key or order; say so rather than opening a broken window.

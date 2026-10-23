@@ -37,7 +37,7 @@ describe('mergeSections — combined language section', () => {
     expect(en.questions).toBe(100);
     // English's published split differs from Tamil's.
     expect(en.units!.map(u => u.questions)).toEqual([25, 15, 10, 10, 20, 5, 15]);
-    expect(secs.find(s => s.name === 'General Studies')!.units?.length).toBe(6);
+    expect(secs.find(s => s.name === 'General Studies')!.units?.length).toBe(7);
   });
 });
 

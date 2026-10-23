@@ -17,8 +17,8 @@ describe('the Group 4 syllabus export', () => {
 
   it('carries every unit of the printed paper', () => {
     const units = exported.sections.flatMap(s => s.units);
-    // 6 General Studies + 2 Aptitude/Reasoning + 7 Tamil + 7 English.
-    expect(units).toHaveLength(22);
+    // 7 General Studies (incl. Current Affairs) + 2 Aptitude/Reasoning + 7 Tamil + 7 English.
+    expect(units).toHaveLength(23);
     expect(units.every(u => u.topics.length > 0)).toBe(true);
   });
 

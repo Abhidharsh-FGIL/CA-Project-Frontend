@@ -58,6 +58,8 @@ export interface KeyTopicRow {
 
 export interface KeyTopicGroup {
   key: string;
+  /** Set on the Current Affairs group, which is listed first and marked with a star instead of a unit numeral. */
+  star?: boolean;
   /** The unit's numeral, when the group is a published unit. */
   label?: string;
   name: string;
@@ -173,11 +175,22 @@ function buildSections(stage: TnpscStage, tests: TnpscTest[]): KeyTopicSection[]
       key: section.name,
       name: section.name,
       alternativeTo: section.alternative_to,
-      groups,
+      groups: currentAffairsFirst(groups),
       topicCount: rows.length,
       testCount: rows.reduce((n, r) => n + r.tests.length, 0),
     };
   });
+}
+
+/**
+ * Current Affairs is not one of the commission's numbered units - it runs through several of them - so it leads
+ * its section as its own thing, starred, and takes no unit numeral. (The Practice tab lists it first for the
+ * same reason.)
+ */
+const isCurrentAffairsName = (name: string) => /current\s+affairs/i.test(name);
+export function currentAffairsFirst(groups: KeyTopicGroup[]): KeyTopicGroup[] {
+  const current = groups.filter(g => isCurrentAffairsName(g.name)).map(g => ({ ...g, label: undefined, star: true }));
+  return current.length === 0 ? groups : [...current, ...groups.filter(g => !isCurrentAffairsName(g.name))];
 }
 
 /**

@@ -966,6 +966,27 @@ const G4_GENERAL_STUDIES_UNITS: TnpscSyllabusUnit[] = [
       { id: 'social-transformation-tn', name: 'Social transformation of Tamil Nadu' },
     ],
   },
+  {
+    // Practice only: the written paper's 75 General Studies questions are already split across units I–VI.
+    id: 'g4-gs-current-affairs',
+    label: 'VII',
+    name: 'Current Affairs',
+    name_ta: 'நடப்பு நிகழ்வுகள்',
+    questions: 0,
+    subject_ids: ['current-events'],
+    // The bank's real question categories; the server takes the exact name or the slug.
+    topics: [
+      { id: 'current-affairs', name: 'Current Affairs' },
+      { id: 'sports', name: 'Sports' },
+      { id: 'national-affairs', name: 'National Affairs' },
+      { id: 'tamil-nadu-affairs', name: 'Tamil Nadu Affairs' },
+      { id: 'international-affairs', name: 'International Affairs' },
+      { id: 'awards-honours-and-personalities', name: 'Awards Honours and Personalities' },
+      { id: 'economy-and-banking', name: 'Economy and Banking' },
+      { id: 'environment-and-important-days', name: 'Environment and Important Days' },
+      { id: 'science-technology-and-defence', name: 'Science Technology and Defence' },
+    ],
+  },
 ];
 
 const G4_APTITUDE_UNITS: TnpscSyllabusUnit[] = [
@@ -1433,7 +1454,7 @@ export const TNPSC_GROUPS: TnpscGroup[] = [
     tagline: 'Combined Civil Services Examination — II (Interview & Non-Interview Posts)',
     description:
       'Sub-Registrar, Assistant Commercial Tax Officer, Deputy Registrar, Municipal Commissioner and other Group 2 and 2A services.',
-    accent: 'from-amber-500 via-orange-500 to-rose-500',
+    accent: 'from-indigo-500 via-violet-500 to-purple-500',
     posts: ['Sub-Registrar (Grade II)', 'Assistant Commercial Tax Officer', 'Deputy Registrar', 'Municipal Commissioner (Grade II)'],
     stages: [
       {

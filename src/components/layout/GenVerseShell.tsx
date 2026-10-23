@@ -12,6 +12,7 @@ import {
   Tag,
   Sparkles,
   Users,
+  History,
   CreditCard,
   Shield,
   Settings as SettingsIcon,
@@ -39,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Evaluation Hub', path: '/org/evaluation', icon: Database, group: 'content' },
   { label: 'Courses', path: '/org/courses', icon: BookOpen, group: 'content' },
   { label: 'Users', path: '/org/users', icon: Users, group: 'admin' },
+  { label: 'History', path: '/org/history', icon: History, group: 'admin' },
   { label: 'Promo Codes', path: '/org/promos', icon: Tag, group: 'admin' },
   { label: 'Plans', path: '/org/plans', icon: Sparkles, group: 'admin' },
   { label: 'Payments', path: '/org/payments', icon: CreditCard, group: 'admin' },
@@ -55,6 +57,7 @@ const NAV_ITEMS: NavItem[] = [
 function getBackTarget(pathname: string): string | null {
   if (pathname === '/org/dashboard') return null;
   if (pathname.startsWith('/org/evaluation/paper/')) return '/org/evaluation';
+  if (pathname.startsWith('/org/history/')) return '/org/history';
   return '/org/dashboard';
 }
 

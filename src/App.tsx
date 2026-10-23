@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, Navigate, useLocation, Link, Outlet } from "react-router-dom";
+import { trackPageView } from "@/lib/meta-pixel";
 import { getToken, getUserToken } from "@/lib/api";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -24,6 +25,8 @@ import AdminCoursesPage from "@/pages/org/AdminCoursesPage";
 import AdminPromosPage from "@/pages/org/AdminPromosPage";
 import AdminPlansPage from "@/pages/org/AdminPlansPage";
 import AdminUsersPage from "@/pages/org/AdminUsersPage";
+import AdminHistoryPage from "@/pages/org/AdminHistoryPage";
+import AdminUserHistoryPage from "@/pages/org/AdminUserHistoryPage";
 import AdminAuditPage from "@/pages/org/AdminAuditPage";
 import AdminSettingsPage from "@/pages/org/AdminSettingsPage";
 import { EvalPaperDetailPage } from "@/components/evaluation/EvalPaperDetailPage";
@@ -109,6 +112,13 @@ function LandingGate() {
   // The user provider only mounts under /user/*, so this reads the stored session directly. A stale token is
   // sent on to the login page by UserGuard.
   return getUserToken() ? <Navigate to="/user/dashboard" replace /> : <LandingPage />;
+}
+
+/** Tells the Meta Pixel a page was shown - on first load and on every move between pages. */
+function MetaPixelPageViews() {
+  const { pathname } = useLocation();
+  React.useEffect(() => { trackPageView(); }, [pathname]);
+  return null;
 }
 
 function ScrollToTop() {
@@ -238,6 +248,8 @@ function AppRoutes() {
         <Route path="/org/promos" element={<AdminPromosPage />} />
         <Route path="/org/plans" element={<AdminPlansPage />} />
         <Route path="/org/users" element={<AdminUsersPage />} />
+        <Route path="/org/history" element={<AdminHistoryPage />} />
+        <Route path="/org/history/:userId" element={<AdminUserHistoryPage />} />
         <Route path="/org/audit" element={<AdminAuditPage />} />
         <Route path="/org/settings" element={<AdminSettingsPage />} />
         <Route path="/org/evaluation" element={<EvaluationHubPage />} />
@@ -269,6 +281,7 @@ const App = () => (
                 <Sonner />
                 <HashRouter>
                   <ScrollToTop />
+                  <MetaPixelPageViews />
                   <SessionExpiredHost />
                   <ErrorBoundary>
                     <AppRoutes />

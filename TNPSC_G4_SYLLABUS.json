@@ -1446,6 +1446,54 @@
               "name": "Social transformation of Tamil Nadu"
             }
           ]
+        },
+        {
+          "id": "g4-gs-current-affairs",
+          "label": "VII",
+          "name": "Current Affairs",
+          "name_ta": "நடப்பு நிகழ்வுகள்",
+          "questions": 0,
+          "subject_ids": [
+            "current-events"
+          ],
+          "topics": [
+            {
+              "id": "current-affairs",
+              "name": "Current Affairs"
+            },
+            {
+              "id": "sports",
+              "name": "Sports"
+            },
+            {
+              "id": "national-affairs",
+              "name": "National Affairs"
+            },
+            {
+              "id": "tamil-nadu-affairs",
+              "name": "Tamil Nadu Affairs"
+            },
+            {
+              "id": "international-affairs",
+              "name": "International Affairs"
+            },
+            {
+              "id": "awards-honours-and-personalities",
+              "name": "Awards Honours and Personalities"
+            },
+            {
+              "id": "economy-and-banking",
+              "name": "Economy and Banking"
+            },
+            {
+              "id": "environment-and-important-days",
+              "name": "Environment and Important Days"
+            },
+            {
+              "id": "science-technology-and-defence",
+              "name": "Science Technology and Defence"
+            }
+          ]
         }
       ]
     },

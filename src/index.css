@@ -802,7 +802,23 @@ body, input, textarea, select, button {
   0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
   50% { transform: scale(1.25) rotate(18deg); opacity: 0.75; }
 }
+/* Waving hand: a few quick waves, then a pause, repeating. */
+.mge-wave {
+  display: inline-block;
+  transform-origin: 70% 70%;
+  animation: mge-wave 2.5s ease-in-out infinite;
+}
+@keyframes mge-wave {
+  0% { transform: rotate(0deg); }
+  10% { transform: rotate(14deg); }
+  20% { transform: rotate(-8deg); }
+  30% { transform: rotate(14deg); }
+  40% { transform: rotate(-4deg); }
+  50% { transform: rotate(10deg); }
+  60%, 100% { transform: rotate(0deg); }
+}
 @media (prefers-reduced-motion: reduce) {
+  .mge-wave { animation: none; }
   .mge-journey, .mge-journey-text, .mge-journey-spark { animation: none; }
   .mge-journey-text { background-position: 40% center; }
 }

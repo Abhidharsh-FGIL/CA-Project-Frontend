@@ -81,7 +81,7 @@ interface UserPortalContextValue {
   signInWithGoogle: (
     idToken: string,
     profile?: { name: string; phone: string } & StudentDetailFields,
-  ) => Promise<{ ok: boolean; error?: string; needsProfile?: { email: string; name: string } }>;
+  ) => Promise<{ ok: boolean; error?: string; needsProfile?: { email: string; name: string }; created?: boolean }>;
   /** Sign in with that one-time password — the same session `login` starts. */
   loginWithOtp: (identifier: string, otp: string) => Promise<{ ok: boolean; error?: string }>;
   register: (data: { name: string; email: string; phone: string } & StudentDetailFields) => Promise<{ ok: boolean; error?: string; otpSentTo?: string }>;
@@ -333,7 +333,8 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
         );
         if (result.kind === 'needs-profile') return { ok: false, needsProfile: { email: result.email, name: result.name } };
         await startSession();
-        return { ok: true };
+        // With a profile sent, this call is the one that made the account.
+        return { ok: true, created: result.created === true || !!profile };
       } catch (err) {
         return { ok: false, error: describeApiError(err, 'Google sign-in failed') };
       } finally {

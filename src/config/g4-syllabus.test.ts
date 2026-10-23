@@ -19,9 +19,9 @@ describe('TNPSC Group 4 — published syllabus', () => {
     expect(stage.pattern!.duration_minutes).toBe(180);
   });
 
-  it('Part A — General Studies: 6 units summing to 75', () => {
+  it('Part A — General Studies: 6 printed units summing to 75, plus a practice-only Current Affairs unit', () => {
     const u = section('General Studies').units!;
-    expect(u.map(x => x.questions)).toEqual([5, 5, 10, 15, 20, 20]);
+    expect(u.map(x => x.questions)).toEqual([5, 5, 10, 15, 20, 20, 0]);
     expect(u.reduce((n, x) => n + x.questions, 0)).toBe(75);
     expect(section('General Studies').questions).toBe(75);
   });
@@ -108,7 +108,7 @@ describe('TNPSC Group 4 — published syllabus', () => {
 describe('TNPSC Group 4 — unit names as printed', () => {
   const names = (sec: string) => section(sec).units!.map(u => [u.label, u.name]);
 
-  it('Part A names its six units', () => {
+  it('Part A names its six printed units, then Current Affairs', () => {
     expect(names('General Studies')).toEqual([
       ['I', 'General Science'],
       ['II', 'Geography'],
@@ -116,6 +116,7 @@ describe('TNPSC Group 4 — unit names as printed', () => {
       ['IV', 'Indian Polity'],
       ['V', 'Indian Economy and Development Administration in Tamil Nadu'],
       ['VI', 'History, Culture, Heritage, and Socio-Political Movements of Tamil Nadu'],
+      ['VII', 'Current Affairs'],
     ]);
   });
 

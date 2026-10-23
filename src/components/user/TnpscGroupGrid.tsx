@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, Clock3, Layers, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Layers, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TnpscGroup } from '@/config/tnpsc';
 import { UPCOMING_EXAMS, examEntryPath, splitExams, type UpcomingExam } from '@/lib/exam-listing';
+
+/** Shown after everything else, whatever the catalog's order. */
+const LAST_EXAM_IDS: ReadonlySet<string> = new Set(['group-1']);
 
 /**
  * The entry points of the portal — one card per examination.
@@ -14,11 +17,15 @@ import { UPCOMING_EXAMS, examEntryPath, splitExams, type UpcomingExam } from '@/
  * no catalog entry at all (see `exam-listing.ts`).
  */
 export function TnpscGroupGrid({ groups }: { groups: TnpscGroup[] }) {
-  const { open, soon } = splitExams(groups);
+  const split = splitExams(groups);
+  const { open } = split;
+  // Exams the product has the least to do with yet go at the very end, after the announced ones too.
+  const soon = split.soon.filter(g => !LAST_EXAM_IDS.has(g.id));
+  const last = split.soon.filter(g => LAST_EXAM_IDS.has(g.id));
   const lead = open.length + soon.length;
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <CardScroller>
       {open.map((g, i) => (
         <GroupCard key={g.id} group={g} index={i} />
       ))}
@@ -28,7 +35,73 @@ export function TnpscGroupGrid({ groups }: { groups: TnpscGroup[] }) {
       {UPCOMING_EXAMS.map((e, i) => (
         <UpcomingCard key={e.id} exam={e} index={lead + i} />
       ))}
+      {last.map((g, i) => (
+        <GroupCard key={g.id} group={g} index={lead + UPCOMING_EXAMS.length + i} comingSoon />
+      ))}
+    </CardScroller>
+  );
+}
+
+/**
+ * The cards in one row that scrolls sideways, not a grid that wraps onto more rows.
+ *
+ * Swipe or drag on a touch screen, use the arrows with a mouse (a mouse has no sideways scroll of its own),
+ * and the row settles on a card edge. An arrow is shown only while there is more to reach in its direction.
+ */
+function CardScroller({ children }: { children: React.ReactNode }) {
+  const row = useRef<HTMLDivElement>(null);
+  const [edge, setEdge] = useState({ left: false, right: false });
+
+  const measure = () => {
+    const el = row.current;
+    if (!el) return;
+    setEdge({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
+  };
+  useEffect(() => {
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [children]);
+
+  const go = (dir: 1 | -1) => {
+    const el = row.current;
+    if (!el) return;
+    const card = el.firstElementChild as HTMLElement | null;
+    const step = (card?.offsetWidth ?? el.clientWidth * 0.8) + 16;
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="relative">
+      <div
+        ref={row}
+        onScroll={measure}
+        className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pt-1 pb-4 -mx-1 px-1 scrollbar-thin"
+      >
+        {children}
+      </div>
+      {edge.left && <ScrollArrow dir="left" onClick={() => go(-1)} />}
+      {edge.right && <ScrollArrow dir="right" onClick={() => go(1)} />}
     </div>
+  );
+}
+
+function ScrollArrow({ dir, onClick }: { dir: 'left' | 'right'; onClick: () => void }) {
+  const Icon = dir === 'left' ? ChevronLeft : ChevronRight;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={dir === 'left' ? 'Earlier exams' : 'More exams'}
+      className={cn(
+        'hidden sm:flex absolute top-1/2 -translate-y-1/2 z-10 h-10 w-10 items-center justify-center rounded-full',
+        'border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 text-gray-700 dark:text-gray-200 shadow-lg backdrop-blur',
+        'hover:bg-orange-50 dark:hover:bg-gray-800 transition-colors',
+        dir === 'left' ? '-left-3' : '-right-3',
+      )}
+    >
+      <Icon className="h-5 w-5" aria-hidden />
+    </button>
   );
 }
 
@@ -46,7 +119,7 @@ interface Tone {
   stage: string;
 }
 
-const TONES: Record<'blue' | 'teal' | 'violet' | 'amber' | 'rose', Tone> = {
+const TONES: Record<'blue' | 'teal' | 'violet' | 'amber' | 'rose' | 'indigo', Tone> = {
   blue: {
     bar: 'bg-blue-500',
     eyebrow: 'text-blue-600 dark:text-blue-400',
@@ -65,6 +138,12 @@ const TONES: Record<'blue' | 'teal' | 'violet' | 'amber' | 'rose', Tone> = {
     badge: 'bg-violet-50 text-violet-600 border-violet-100 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-900/50',
     stage: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-800',
   },
+  indigo: {
+    bar: 'bg-indigo-500',
+    eyebrow: 'text-indigo-600 dark:text-indigo-400',
+    badge: 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-900/50',
+    stage: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-800',
+  },
   amber: {
     bar: 'bg-amber-500',
     eyebrow: 'text-amber-600 dark:text-amber-400',
@@ -80,7 +159,7 @@ const TONES: Record<'blue' | 'teal' | 'violet' | 'amber' | 'rose', Tone> = {
 };
 
 /** The known exams keep their colour wherever they sit in the list; a new one takes the next free hue. */
-const TONE_BY_GROUP: Record<string, keyof typeof TONES> = { 'group-1': 'blue', 'group-2': 'amber', 'group-4': 'teal', 'gat-b': 'violet' };
+const TONE_BY_GROUP: Record<string, keyof typeof TONES> = { 'group-1': 'blue', 'group-2': 'indigo', 'group-4': 'teal', 'gat-b': 'violet' };
 const TONE_ORDER = ['blue', 'teal', 'violet', 'amber', 'rose'] as const;
 
 const toneFor = (groupId: string, index: number): Tone =>
@@ -122,7 +201,9 @@ function CardFrame({
   index: number;
   children: React.ReactNode;
 }) {
-  const base = 'relative flex flex-col overflow-hidden rounded-xl border bg-white dark:bg-gray-900 animate-slideUp';
+  // A fixed width, so the row has cards to scroll through: most of a phone's width, a set width from there up.
+  const base =
+    'relative flex flex-col overflow-hidden rounded-xl border bg-white dark:bg-gray-900 animate-slideUp shrink-0 snap-start w-[86%] sm:w-[22.5rem] lg:w-[24rem]';
   const style = { animationDelay: `${index * 0.08}s` };
 
   if (disabled || !to) {
@@ -211,11 +292,16 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
           ) : (
             <span
               className={cn(
-                'flex-shrink-0 w-10 h-10 rounded-xl border flex items-center justify-center group-hover:scale-110 transition-transform',
+                'flex-shrink-0 w-14 h-14 rounded-xl border flex items-center justify-center group-hover:scale-110 transition-transform',
                 tone.badge,
               )}
             >
-              <ShieldCheck className="w-5 h-5" />
+              <img
+                src={`${import.meta.env.BASE_URL}tnpsc-logo.png`}
+                alt="TNPSC"
+                className="w-10 h-10 object-contain"
+                draggable={false}
+              />
             </span>
           )}
         </div>
@@ -292,7 +378,7 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
           </span>
           {!comingSoon && (
             <span className="inline-flex items-center gap-1.5 h-10 px-5 rounded-lg bg-brand-500 group-hover:bg-brand-600 text-white text-sm font-bold shadow-md shadow-orange-200/60 dark:shadow-none transition-colors">
-              Start Preparing <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              Explore <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </span>
           )}
         </div>
@@ -316,6 +402,25 @@ function UpcomingCard({ exam, index }: { exam: UpcomingExam; index: number }) {
           <ComingSoonTag />
         </div>
         <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-400 mt-3">{exam.description}</p>
+
+        {exam.subjects.length > 0 && (
+          <div className="mt-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+              {exam.subjects.length} subject{exam.subjects.length !== 1 ? 's' : ''}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {exam.subjects.map(name => (
+                <span
+                  key={name}
+                  className="text-[11px] border px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700"
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="mt-auto pt-5 flex items-center gap-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">
           <Layers className="w-3.5 h-3.5 text-gray-400" />
           Opening soon on the portal

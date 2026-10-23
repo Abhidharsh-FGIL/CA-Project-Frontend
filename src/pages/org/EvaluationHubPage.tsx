@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { GenVerseShell } from '@/components/layout/GenVerseShell';
 import { PageHeader } from '@/components/layout/AppShell';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ClipboardCheck, Database, List, FileText, BarChart3, FileUp } from 'lucide-react';
+import { ClipboardCheck, Database, List, FileText, BarChart3, FileUp, History } from 'lucide-react';
 import { EvalPaperImportPanel } from '@/components/evaluation/EvalPaperImportPanel';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -17,6 +17,7 @@ import { EvalStudentDistributor } from '@/components/evaluation/EvalStudentDistr
 import { EvalAssessmentsList } from '@/components/evaluation/EvalAssessmentsList';
 import { EvalAssessmentReport } from '@/components/evaluation/EvalAssessmentReport';
 import { EvalReportsList } from '@/components/evaluation/EvalReportsList';
+import { HubUserHistory } from '@/components/evaluation/HubUserHistory';
 import type { NewAssessmentSeed } from '@/lib/assessment-hierarchy';
 
 const DEFAULT_CONFIG: EvalPaperConfig = {
@@ -101,8 +102,14 @@ export function EvaluationHubPage() {
     setAssessmentView('distribute');
   };
 
-  const handleViewReport = (assessmentId: string) => {
+  // An attempt to open on: from the History tab, a row opens that attempt's own report, not just the assessment's.
+  const [reportAttempt, setReportAttempt] = useState<{ attemptId: string; label: string } | null>(null);
+  /** Which tab a report was opened from, so Back returns to it. */
+  const [reportOrigin, setReportOrigin] = useState<'reports' | 'history'>('reports');
+  const handleViewReport = (assessmentId: string, attempt?: { attemptId: string; label: string }, from: 'reports' | 'history' = 'reports') => {
     setReportAssessmentId(assessmentId);
+    setReportAttempt(attempt ?? null);
+    setReportOrigin(from);
     setActiveTab('reports');
   };
 
@@ -140,6 +147,10 @@ export function EvaluationHubPage() {
               <TabsTrigger value="reports" className="gap-1.5 flex-shrink-0 whitespace-nowrap">
                 <BarChart3 className="h-4 w-4" />
                 Reports
+              </TabsTrigger>
+              <TabsTrigger value="history" className="gap-1.5 flex-shrink-0 whitespace-nowrap">
+                <History className="h-4 w-4" />
+                History
               </TabsTrigger>
             </TabsList>
           </div>
@@ -214,12 +225,26 @@ export function EvaluationHubPage() {
             )}
           </TabsContent>
 
+          {/* By user: who attended what, from the server's history. Opening an assessment's report from here lands on the Reports tab. */}
+          {canAccessFeature('evaluation_hub', 'reports') && (
+            <TabsContent value="history">
+              <HubUserHistory onViewReport={(id, attempt) => handleViewReport(id, attempt, 'history')} />
+            </TabsContent>
+          )}
           {canAccessFeature('evaluation_hub', 'reports') && (
             <TabsContent value="reports">
               {reportAssessmentId ? (
                 <EvalAssessmentReport
+                  // A new key per assessment and attempt, so opening another starts it afresh.
+                  key={`:`}
                   assessmentId={reportAssessmentId}
-                  onBack={() => setReportAssessmentId(null)}
+                  initialAttempt={reportAttempt}
+                  onBack={() => {
+                    setReportAssessmentId(null);
+                    setReportAttempt(null);
+                    // Back from a report opened in History goes to History, not to the list of reports.
+                    if (reportOrigin === 'history') setActiveTab('history');
+                  }}
                 />
               ) : (
                 <EvalReportsList onViewReport={handleViewReport} />

@@ -233,6 +233,9 @@ export function useEvalAssessmentInvitations(assessmentId?: string) {
   });
 }
 
+/** Assessment ids per stats request — short enough to stay well inside any address-length limit. */
+const STATS_BATCH = 30;
+
 export function useEvalInvitationStats(assessmentIds: string[]) {
   return useQuery({
     queryKey: ['eval-invitation-stats', assessmentIds],
@@ -240,21 +243,29 @@ export function useEvalInvitationStats(assessmentIds: string[]) {
       const stats: Record<string, { invited: number; submitted: number; avgScore: number | null }> = {};
       if (assessmentIds.length === 0) return stats;
 
-      try {
-        const rows = await api.get<any[]>(
-          `/api/v1/evaluation/assessments/stats?ids=${assessmentIds.join(',')}`,
-        );
-        if (Array.isArray(rows)) {
-          for (const row of rows) {
-            stats[row.id] = {
-              invited: row.invited ?? 0,
-              submitted: row.submitted ?? 0,
-              avgScore: row.avg_score ?? null,
-            };
+      // In batches. Every id in one address ran to several kilobytes at a couple of hundred assessments, which the
+      // server refuses — and, with the error swallowed below, every assessment then read as 0 invited, 0 submitted.
+      const batches: string[][] = [];
+      for (let i = 0; i < assessmentIds.length; i += STATS_BATCH) batches.push(assessmentIds.slice(i, i + STATS_BATCH));
+      const results = await Promise.all(
+        batches.map(async ids => {
+          try {
+            return await api.get<any[]>(`/api/v1/evaluation/assessments/stats?ids=${ids.join(',')}`);
+          } catch {
+            // A batch that fails leaves its assessments at zero; the others still count.
+            return [] as any[];
           }
+        }),
+      );
+      for (const rows of results) {
+        if (!Array.isArray(rows)) continue;
+        for (const row of rows) {
+          stats[row.id] = {
+            invited: row.invited ?? 0,
+            submitted: row.submitted ?? 0,
+            avgScore: row.avg_score ?? null,
+          };
         }
-      } catch {
-        // return empty stats on error
       }
 
       for (const id of assessmentIds) {

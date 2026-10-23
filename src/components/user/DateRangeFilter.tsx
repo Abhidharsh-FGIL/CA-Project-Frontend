@@ -38,6 +38,11 @@ const PRESETS: { key: Exclude<DateRangeKey, 'custom'>; label: string; hint: stri
   { key: 'quarter', label: 'Last 90 days', hint: 'This quarter', build: () => ({ key: 'quarter', from: daysAgo(89), to: null }) },
 ];
 
+/** A preset range as it is today ("Last 30 days" is measured from now), or null for a key that is not a preset. */
+export function rangeForKey(key: DateRangeKey): DateRange | null {
+  return PRESETS.find(p => p.key === key)?.build() ?? null;
+}
+
 const pretty = (iso: string) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 

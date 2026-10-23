@@ -34,6 +34,7 @@ import {
   type ExamGroupKey,
   type ExamTrackKey,
 } from '@/hooks/use-progress-trend';
+import { useSavedView } from '@/hooks/use-saved-view';
 import { ALL_TIME, DateRangeFilter, isoDay, rangeLabel, type DateRange } from '@/components/user/DateRangeFilter';
 import {
   commonMaxMarks,
@@ -51,24 +52,11 @@ export default function UserPerformancePage() {
   // The dashboard's link carries the exam, test type and range it was showing; start on those.
   const [searchParams] = useSearchParams();
   const fromLink = useMemo(() => readPerformanceView(searchParams), []); // only the view that was opened
-  const [range, setRange] = useState<DateRange>(fromLink.range ?? ALL_TIME);
-  const [track, setTrack] = useState<ExamTrackKey>(fromLink.track ?? 'practice');
-  const preferredGroup = openGroupKey(user?.preferred_exam);
-  const [group, setGroup] = useState<ExamGroupKey>(fromLink.group ?? preferredGroup);
-
-  /**
-   * Follows the registered exam until the aspirant picks one — the same rule the
-   * dashboard uses, so moving between the two doesn't change which exam is shown.
-   * An exam named in the link counts as picked.
-   */
-  const [pinned, setPinned] = useState(!!fromLink.group);
-  useEffect(() => {
-    if (!pinned) setGroup(preferredGroup);
-  }, [preferredGroup, pinned]);
-  const chooseGroup = (v: ExamGroupKey) => {
-    setPinned(true);
-    setGroup(v);
-  };
+  // The same remembered view the dashboard uses, so moving between the two doesn't change what is shown. What the
+  // link names wins for this visit and counts as chosen.
+  const { group, track, range, preferred: preferredGroup, chooseGroup, chooseTrack, chooseRange, resetView } = useSavedView(user, fromLink);
+  const setTrack = chooseTrack;
+  const setRange = chooseRange;
   const [showAllAttempts, setShowAllAttempts] = useState(false);
 
   const { data: a } = useQuery<UserDashboardAnalytics>({
@@ -97,13 +85,7 @@ export default function UserPerformancePage() {
   const trackHref = `/user/exams/${group}/${GROUP_STAGE[group]}?tab=${track}`;
 
   const isDefaultView = group === preferredGroup && track === 'practice' && !rangeNarrowed;
-  // Reset releases the pin too, so the view goes back to following the profile.
-  const resetView = () => {
-    setPinned(false);
-    setGroup(preferredGroup);
-    setTrack('practice');
-    setRange(ALL_TIME);
-  };
+  // Reset forgets what was remembered too, so the view goes back to following the profile.
 
   // Subject figures are re-aggregated from the attempts shown, for the "answered N of M" panel — otherwise
   // it would contradict everything above it.
@@ -471,10 +453,13 @@ export default function UserPerformancePage() {
                           {displayTitle(h.test_name) ?? 'Test attempt'}
                         </span>
                         <span className="block text-[10px] text-gray-400 capitalize">
-                          {new Date(h.start_time).toLocaleDateString('en-IN', {
+                          {new Date(h.start_time).toLocaleString('en-IN', {
                             day: '2-digit',
                             month: 'short',
                             year: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true,
                           })}
                           {h.test_mode ? ` · ${h.test_mode}` : ''}
                         </span>

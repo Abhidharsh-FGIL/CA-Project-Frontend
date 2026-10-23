@@ -58,6 +58,7 @@ import {
   type ExamGroupKey,
   type ExamTrackKey,
 } from '@/hooks/use-progress-trend';
+import { useSavedView } from '@/hooks/use-saved-view';
 import { ALL_TIME, DateRangeFilter, type DateRange } from '@/components/user/DateRangeFilter';
 import type { ApiAttempt } from '@/lib/userPortalApi';
 import {
@@ -81,27 +82,11 @@ export default function UserDashboardPage() {
   const gateReport = useReportGate();
   const { groups } = useTnpscCatalog({ forMyLanguage: true });
   const language = useExamLanguage();
-  const [range, setRange] = useState<DateRange>(ALL_TIME);
-  const [track, setTrack] = useState<ExamTrackKey>('practice');
-  const preferredGroup = openGroupKey(user?.preferred_exam);
-  const [group, setGroup] = useState<ExamGroupKey>(preferredGroup);
-
-  /**
-   * The group follows the registered exam until the aspirant picks one themselves.
-   *
-   * Keyed on the resolved value rather than fired once: the profile can arrive
-   * after first render, or arrive incomplete and be refreshed, and a one-shot seed
-   * misses the correction in both cases. `pinned` is what stops a later profile
-   * refetch from yanking a deliberate choice back.
-   */
-  const [pinned, setPinned] = useState(false);
-  useEffect(() => {
-    if (!pinned) setGroup(preferredGroup);
-  }, [preferredGroup, pinned]);
-  const chooseGroup = (v: ExamGroupKey) => {
-    setPinned(true);
-    setGroup(v);
-  };
+  // The exam starts as the one registered for (or set on the profile) and then follows what the aspirant chooses
+  // here — kept for next time. The test type and date range are kept the same way.
+  const { group, track, range, chooseGroup, chooseTrack, chooseRange } = useSavedView(user);
+  const setTrack = chooseTrack;
+  const setRange = chooseRange;
   const [activeSubject, setActiveSubject] = useState<number | null>(null);
   const [showAllSubjects, setShowAllSubjects] = useState(false);
 
@@ -333,7 +318,7 @@ export default function UserDashboardPage() {
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4 sm:mb-5">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Welcome back, <span className="text-blue-600 dark:text-blue-400">{user.name.split(' ')[0]}</span>! 👋
+            Welcome back, <span className="text-blue-600 dark:text-blue-400">{user.name.split(' ')[0]}</span>! <span className="mge-wave" aria-hidden>👋</span>
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">
             Let's continue your preparation and work towards your goals.
@@ -348,11 +333,10 @@ export default function UserDashboardPage() {
         </div>
       </div>
 
-      {/* Two columns: the numbers and charts on the left, what has been happening on the
-          right. Below them the page turns to full-width panels — what to do next. */}
+      {/* Two columns: the numbers, charts and the Continue card on the left, what has been happening on the right. */}
       <div className="grid lg:grid-cols-3 gap-3 sm:gap-4">
         {/* ── Left: headline numbers, progress, strengths ────────────────── */}
-        <div className="lg:col-span-2 min-w-0 space-y-3 sm:space-y-4">
+        <div className="lg:col-span-2 min-w-0 flex flex-col gap-3 sm:gap-4">
           {/* Stats */}
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3">
             <StatCard
@@ -482,172 +466,23 @@ export default function UserDashboardPage() {
             )}
           </div>
 
-          <div className="grid xl:grid-cols-2 gap-3 sm:gap-4">
-            <TestScoreCard
-              className="h-full min-w-0"
-              attempts={filteredAttempts}
-              scopeLabel={`${groupLabel} · ${trackNoun}s`}
-              trackNoun={trackNoun}
-              takeHref={trackHref(track)}
-              isLoading={groupIndexLoading}
+          {/* Where to carry on: the exam being prepared for, and the four things to do next. */}
+          {visibleGroups.map(g => (
+            <ContinueCard
+              key={g.id}
+              group={g}
+              mockHref={trackHref('mock')}
+              practiceHref={trackHref('practice')}
+              performanceUrl={performanceHref({ group, track, range })}
+              historyUrl={historyHref({ group, track, range })}
+              className="lg:flex-1"
             />
+          ))}
 
-            <Card className="h-full min-w-0">
-              <CardHead
-                title="Strengths by Unit"
-                subtitle={
-                  allSubjects.length === 0
-                    ? undefined
-                    : showAllSubjects || hiddenSubjects === 0
-                      ? `Accuracy Across Answered Questions · ${allSubjects.length} Unit${allSubjects.length === 1 ? '' : 's'}`
-                      : `Accuracy Across Answered Questions · Your ${topSubjects.length} Strongest Units`
-                }
-              />
-              {subjectsLoading ? (
-                <div className="flex items-center justify-center py-10">
-                  <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
-                </div>
-              ) : allSubjects.length > 0 ? (
-                <>
-                  <ul
-                    className={cn('space-y-2 min-w-0', showAllSubjects && 'max-h-[260px] overflow-y-auto scrollbar-thin pr-1')}
-                    onMouseLeave={() => setActiveSubject(null)}
-                  >
-                    {listed.map((sub, i) => (
-                      <li
-                        key={sub.subject}
-                        onMouseEnter={() => setActiveSubject(i)}
-                        title={
-                          sub.correct != null && sub.attempted != null
-                            ? `${sub.subject} — ${sub.correct} of ${sub.attempted} answered correctly`
-                            : sub.subject
-                        }
-                        className={cn(
-                          'flex items-center gap-2 text-xs rounded-md px-1 -mx-1 py-0.5 cursor-default transition-colors',
-                          activeSubject === i && 'bg-gray-50 dark:bg-gray-800',
-                        )}
-                      >
-                        <span
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ background: SUBJECT_COLORS[i % SUBJECT_COLORS.length] }}
-                        />
-                        <span className="truncate text-gray-600 dark:text-gray-300">{sub.subject}</span>
-                        <span className="ml-auto font-bold text-gray-900 dark:text-gray-100">
-                          {Math.round(sub.accuracy)}%
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                    {(hiddenSubjects > 0 || showAllSubjects) && (
-                      <div className="pt-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAllSubjects(v => !v);
-                            setActiveSubject(null);
-                          }}
-                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
-                        >
-                          {showAllSubjects ? (
-                            <>Show top {SUBJECT_PREVIEW_COUNT} <ChevronUp className="w-3 h-3" /></>
-                          ) : (
-                            <>Show all {allSubjects.length} units <ChevronDown className="w-3 h-3" /></>
-                          )}
-                        </button>
-                      </div>
-                    )}
-                  {/* The units that most need work: the lowest scores first, so they are not the last thing in a list
-                      sorted strongest-first. */}
-                  {needsFocus.length > 0 && (
-                    <div className="mt-3 rounded-xl border border-rose-100 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/20 p-3">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">Needs focus</p>
-                      <ul className="mt-1.5 space-y-1">
-                        {needsFocus.map(u => (
-                          <li key={u.subject} className="flex items-center justify-between gap-3 text-xs">
-                            <span className="truncate text-gray-700 dark:text-gray-200">{u.subject}</span>
-                            <span className="font-bold text-rose-600 dark:text-rose-400 tabular-nums">{Math.round(u.accuracy)}%</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Fixed detail row — reserved height, so hovering never reflows the card. */}
-                  <p className="mt-3 pt-2.5 border-t border-gray-100 dark:border-gray-800 text-[10px] leading-snug text-gray-500 dark:text-gray-400 min-h-[2rem]">
-                    {activeSubject != null ? (
-                      <>
-                        <span
-                          className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle"
-                          style={{ background: SUBJECT_COLORS[activeSubject % SUBJECT_COLORS.length] }}
-                        />
-                        <span className="font-semibold text-gray-700 dark:text-gray-200">
-                          {listed[activeSubject].subject}
-                        </span>
-                        {listed[activeSubject].correct != null &&
-                          listed[activeSubject].attempted != null && (
-                            <>
-                              {' — '}
-                              {listed[activeSubject].correct} of {listed[activeSubject].attempted} answered
-                              correctly
-                              {listed[activeSubject].total_questions != null &&
-                                listed[activeSubject].attempted! < listed[activeSubject].total_questions! && (
-                                  <>
-                                    {' · '}
-                                    {listed[activeSubject].total_questions! -
-                                      listed[activeSubject].attempted!}{' '}
-                                    left blank
-                                  </>
-                                )}
-                            </>
-                          )}
-                      </>
-                    ) : (
-                      <>
-                        {answeredTotals && (
-                          <>
-                            You answered {answeredTotals.correct} out of {answeredTotals.attempted} questions correctly across{' '}
-                            {allSubjects.length} unit{allSubjects.length === 1 ? '' : 's'}
-                            {` in ${groupLabel}`}.{' '}
-                            {subjectsTruncated && 'Based on your 25 most recent attempts. '}
-                          </>
-                        )}
-                        {/* The list is sorted strongest-first, so the subject that most needs
-                            work is the one furthest from view. Call it out regardless. */}
-                        {weakestSubject && (
-                          <>
-                            Area for Improvement:{' '}
-                            <span className="font-semibold text-gray-700 dark:text-gray-200">
-                              {weakestSubject.subject}
-                            </span>{' '}
-                            ({Math.round(weakestSubject.accuracy)}%).
-                          </>
-                        )}
-                      </>
-                    )}
-                  </p>
-                </>
-              ) : (
-                <div className="flex items-center gap-3 py-1">
-                  <div className="w-[76px] h-[76px] rounded-full border-[10px] border-gray-100 dark:border-gray-800 flex-shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    {[0, 1, 2].map(i => (
-                      <div key={i} className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-gray-100 dark:bg-gray-800" />
-                        <span className="h-2 rounded bg-gray-100 dark:bg-gray-800" style={{ width: `${70 - i * 14}%` }} />
-                      </div>
-                    ))}
-                    <p className="text-[10px] text-gray-400 pt-0.5 leading-snug">
-                      Appears once your attempts have been analysed.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </Card>
-          </div>
         </div>
 
         {/* ── Right rail ─────────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-3 sm:gap-4 min-w-0 lg:self-start">
+        <div className="flex flex-col gap-3 sm:gap-4 min-w-0 lg:self-stretch">
           {/* Recent activity */}
           <div className={cn('rounded-2xl p-4 text-gray-900 dark:text-gray-100', PANEL_SURFACE)}>
             <div className="flex items-start justify-between gap-3 mb-3">
@@ -683,7 +518,13 @@ export default function UserDashboardPage() {
                           {displayTitle(r.test_name) ?? 'Test attempt'}
                         </span>
                         <span className="block text-[10px] text-gray-400">
-                          {new Date(r.start_time).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                          {new Date(r.start_time).toLocaleString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true,
+                          })}
                         </span>
                       </span>
                       <span className="text-xs font-bold text-brand-700 dark:text-brand-400">
@@ -696,8 +537,9 @@ export default function UserDashboardPage() {
             )}
           </div>
 
-          {/* Last 7 active days — a fixed height. It used to take whatever the left column left, so opening `Show all units` there stretched this chart to the height of the page. */}
-          <div className={cn('rounded-2xl p-4 text-gray-900 dark:text-gray-100 flex flex-col', PANEL_SURFACE)}>
+          {/* Last 7 active days — takes the height the left column leaves, so both columns end together. The lists that
+              used to make that column grow (units, tests) now sit below both, so it no longer changes with them. */}
+          <div className={cn('rounded-2xl p-4 text-gray-900 dark:text-gray-100 flex flex-col lg:flex-1', PANEL_SURFACE)}>
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold">Last 7 Active Days</p>
               <Link to={performanceHref({ group, track, range })} className="text-xs font-semibold text-brand-600 dark:text-brand-400 underline-offset-2 hover:underline">
@@ -712,7 +554,11 @@ export default function UserDashboardPage() {
                 </p>
               </div>
             </div>
-            <div className="h-28 sm:h-32 xl:h-44">
+            {/* The chart is laid over its box (absolute) rather than sized by it: a chart that measures its parent while
+                the parent measures the chart grows without end. The box takes the height the column leaves, never less
+                than min-h. */}
+            <div className="relative h-28 sm:h-32 lg:h-auto lg:min-h-[11rem] lg:flex-1">
+              <div className="h-full lg:absolute lg:inset-0">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={activeDayBars} barCategoryGap="28%">
                   <CartesianGrid vertical={false} stroke="#e9edf3" />
@@ -725,6 +571,7 @@ export default function UserDashboardPage() {
                   <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#ff6c24" maxBarSize={44} />
                 </BarChart>
               </ResponsiveContainer>
+              </div>
             </div>
             {activeDayBars.length > 0 && (
               <p className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
@@ -749,73 +596,271 @@ export default function UserDashboardPage() {
         </div>
       </div>
 
-      {/* ── What to do next ───────────────────────────────────────────────── */}
-      <div className="mt-3 sm:mt-4 space-y-3 sm:space-y-4">
-        {/* Continue your preparation */}
-        <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-          <SectionHead title="Continue Your Preparation" href="/user/exams" />
-          <div className={cn('grid gap-3', visibleGroups.length > 1 && 'lg:grid-cols-2')}>
-            {visibleGroups.map(g => {
-              const open = g.stages.filter(s => s.status === 'active').length;
-              return (
-                <Link
-                  key={g.id}
-                  to={examEntryPath(g)}
-                  className="group flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all"
-                >
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-blue-500">{g.authority}</p>
-                    <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mt-1">{g.name}</h3>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{g.tagline}</p>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">{g.description}</p>
-                    <div className="flex flex-wrap items-center gap-1.5 mt-3">
-                      {g.stages.map(s => (
-                        <span
-                          key={s.id}
-                          className={cn(
-                            'text-[10px] font-semibold px-2 py-0.5 rounded-md border',
-                            s.status === 'active'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-                              : 'bg-gray-50 text-gray-400 border-gray-200 dark:bg-gray-800 dark:border-gray-700',
-                          )}
-                        >
-                          {s.short_name}{s.status !== 'active' && ' · soon'}
-                        </span>
-                      ))}
-                      <span className="text-[11px] text-gray-500 dark:text-gray-400 ml-1">
-                        {g.stages.length} Stage{g.stages.length !== 1 ? 's' : ''} · {open} Currently Available
-                      </span>
-                    </div>
-                  </div>
-                  <span className="inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-xl bg-blue-100 dark:bg-blue-500/15 text-sm font-bold text-blue-700 dark:text-blue-300 group-hover:bg-blue-200/70 dark:group-hover:bg-blue-500/25 transition-colors flex-shrink-0">
-                    Continue <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+      {/* Full width under both columns: the two cards that list papers and units, side by side and the same height. */}
+      <div className="mt-3 sm:mt-4 grid items-stretch gap-3 sm:gap-4 lg:grid-cols-2">
+        <TestScoreCard
+          className="h-full min-w-0"
+          attempts={filteredAttempts}
+          scopeLabel={`${groupLabel} · ${trackNoun}s`}
+          trackNoun={trackNoun}
+          takeHref={trackHref(track)}
+          isLoading={groupIndexLoading}
+        />
 
-        {/* Quick actions */}
-        <Card>
-          <SectionHead title="Quick Actions" />
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
-            <QuickAction to={trackHref('mock')} icon={<Timer className="w-5 h-5" />} label="Take a Mock Test" tone="indigo" />
-            <QuickAction to={trackHref('practice')} icon={<BookOpen className="w-5 h-5" />} label="Practice Now" tone="emerald" />
-            <QuickAction to={performanceHref({ group, track, range })} icon={<LineChartIcon className="w-5 h-5" />} label="View Performance" tone="amber" />
-            <QuickAction to={historyHref({ group, track, range })} icon={<HistoryIcon className="w-5 h-5" />} label="Test History" tone="rose" />
-          </div>
+        <Card className="h-full min-w-0 flex flex-col">
+          <CardHead
+            title="Strengths by Unit"
+            subtitle={
+              allSubjects.length === 0
+                ? undefined
+                : showAllSubjects || hiddenSubjects === 0
+                  ? `Accuracy Across Answered Questions · ${allSubjects.length} Unit${allSubjects.length === 1 ? '' : 's'}`
+                  : `Accuracy Across Answered Questions · Your ${topSubjects.length} Strongest Units`
+            }
+          />
+          {subjectsLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+            </div>
+          ) : allSubjects.length > 0 ? (
+            <>
+              <ul
+                className={cn('space-y-2 min-w-0', showAllSubjects && 'max-h-[260px] overflow-y-auto scrollbar-thin pr-1')}
+                onMouseLeave={() => setActiveSubject(null)}
+              >
+                {listed.map((sub, i) => (
+                  <li
+                    key={sub.subject}
+                    onMouseEnter={() => setActiveSubject(i)}
+                    title={
+                      sub.correct != null && sub.attempted != null
+                        ? `${sub.subject} — ${sub.correct} of ${sub.attempted} answered correctly`
+                        : sub.subject
+                    }
+                    className={cn(
+                      'flex items-center gap-2 text-xs rounded-md px-1 -mx-1 py-0.5 cursor-default transition-colors',
+                      activeSubject === i && 'bg-gray-50 dark:bg-gray-800',
+                    )}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ background: SUBJECT_COLORS[i % SUBJECT_COLORS.length] }}
+                    />
+                    <span className="truncate text-gray-600 dark:text-gray-300">{sub.subject}</span>
+                    <span className="ml-auto font-bold text-gray-900 dark:text-gray-100">
+                      {Math.round(sub.accuracy)}%
+                    </span>
+                  </li>
+                ))}
+              </ul>
+                {(hiddenSubjects > 0 || showAllSubjects) && (
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAllSubjects(v => !v);
+                        setActiveSubject(null);
+                      }}
+                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      {showAllSubjects ? (
+                        <>Show top {SUBJECT_PREVIEW_COUNT} <ChevronUp className="w-3 h-3" /></>
+                      ) : (
+                        <>Show all {allSubjects.length} units <ChevronDown className="w-3 h-3" /></>
+                      )}
+                    </button>
+                  </div>
+                )}
+              {/* The units that most need work: the lowest scores first, so they are not the last thing in a list
+                  sorted strongest-first. */}
+              {needsFocus.length > 0 && (
+                <div className="mt-3 mb-3 rounded-xl border border-rose-100 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/20 p-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">Needs focus</p>
+                  <ul className="mt-1.5 space-y-1">
+                    {needsFocus.map(u => (
+                      <li key={u.subject} className="flex items-center justify-between gap-3 text-xs">
+                        <span className="truncate text-gray-700 dark:text-gray-200">{u.subject}</span>
+                        <span className="font-bold text-rose-600 dark:text-rose-400 tabular-nums">{Math.round(u.accuracy)}%</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Fixed detail row — reserved height, so hovering never reflows the card. */}
+              <p className="mt-auto pt-2.5 border-t border-gray-100 dark:border-gray-800 text-[10px] leading-snug text-gray-500 dark:text-gray-400 min-h-[2rem]">
+                {activeSubject != null ? (
+                  <>
+                    <span
+                      className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle"
+                      style={{ background: SUBJECT_COLORS[activeSubject % SUBJECT_COLORS.length] }}
+                    />
+                    <span className="font-semibold text-gray-700 dark:text-gray-200">
+                      {listed[activeSubject].subject}
+                    </span>
+                    {listed[activeSubject].correct != null &&
+                      listed[activeSubject].attempted != null && (
+                        <>
+                          {' — '}
+                          {listed[activeSubject].correct} of {listed[activeSubject].attempted} answered
+                          correctly
+                          {listed[activeSubject].total_questions != null &&
+                            listed[activeSubject].attempted! < listed[activeSubject].total_questions! && (
+                              <>
+                                {' · '}
+                                {listed[activeSubject].total_questions! -
+                                  listed[activeSubject].attempted!}{' '}
+                                left blank
+                              </>
+                            )}
+                        </>
+                      )}
+                  </>
+                ) : (
+                  <>
+                    {answeredTotals && (
+                      <>
+                        You answered {answeredTotals.correct} out of {answeredTotals.attempted} questions correctly across{' '}
+                        {allSubjects.length} unit{allSubjects.length === 1 ? '' : 's'}
+                        {` in ${groupLabel}`}.{' '}
+                        {subjectsTruncated && 'Based on your 25 most recent attempts. '}
+                      </>
+                    )}
+                    {/* The list is sorted strongest-first, so the subject that most needs
+                        work is the one furthest from view. Call it out regardless. */}
+                    {weakestSubject && (
+                      <>
+                        Area for Improvement:{' '}
+                        <span className="font-semibold text-gray-700 dark:text-gray-200">
+                          {weakestSubject.subject}
+                        </span>{' '}
+                        ({Math.round(weakestSubject.accuracy)}%).
+                      </>
+                    )}
+                  </>
+                )}
+              </p>
+            </>
+          ) : (
+            <div className="flex items-center gap-3 py-1">
+              <div className="w-[76px] h-[76px] rounded-full border-[10px] border-gray-100 dark:border-gray-800 flex-shrink-0" />
+              <div className="flex-1 space-y-2">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-gray-100 dark:bg-gray-800" />
+                    <span className="h-2 rounded bg-gray-100 dark:bg-gray-800" style={{ width: `${70 - i * 14}%` }} />
+                  </div>
+                ))}
+                <p className="text-[10px] text-gray-400 pt-0.5 leading-snug">
+                  Appears once your attempts have been analysed.
+                </p>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
     </UserShell>
   );
 }
 
+/**
+ * "Continue Your Preparation": the exam the dashboard is showing, and the next things to do in it — a mock, practice,
+ * the performance report and the history. It replaces the separate Continue / Quick Actions cards at the foot of the page.
+ */
+function ContinueCard({
+  group,
+  mockHref,
+  practiceHref,
+  performanceUrl,
+  historyUrl,
+  className,
+}: {
+  className?: string;
+  group: ReturnType<typeof useTnpscCatalog>['groups'][number];
+  mockHref: string;
+  practiceHref: string;
+  performanceUrl: string;
+  historyUrl: string;
+}) {
+  const open = group.stages.filter(s => s.status === 'active').length;
+  return (
+    <div className={cn('flex flex-col rounded-2xl border border-gray-300 bg-white p-5 shadow-lg shadow-gray-300/60 dark:border-gray-700 dark:bg-gray-900 dark:shadow-black/40 sm:p-6', className)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-base font-extrabold text-gray-900 dark:text-gray-100">Continue Your Preparation</p>
+          <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{group.authority}</p>
+        </div>
+        {open > 0 && (
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            Active Now
+          </span>
+        )}
+      </div>
+
+      <Link to={examEntryPath(group)} className="group mt-5 block">
+        <h3 className="text-2xl font-extrabold text-gray-900 transition-colors group-hover:text-brand-600 dark:text-gray-100">
+          {group.name}
+        </h3>
+        <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{group.description}</p>
+      </Link>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {group.stages.map(s => (
+          <span
+            key={s.id}
+            className={cn(
+              'rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
+              s.status === 'active'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                : 'border-gray-200 bg-gray-50 text-gray-400 dark:border-gray-700 dark:bg-gray-800',
+            )}
+          >
+            {s.short_name}
+            {s.status !== 'active' && ' · soon'}
+          </span>
+        ))}
+        <span className="text-[11px] text-gray-500 dark:text-gray-400">
+          {group.stages.length} Stage{group.stages.length !== 1 ? 's' : ''} · {open} Currently Available
+        </span>
+      </div>
+
+      {/* Any spare height goes above the buttons, so they stay at the foot of the card. */}
+      <div className="mt-auto grid gap-3 pt-5 sm:grid-cols-3">
+        <Link
+          to={mockHref}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 text-sm font-bold text-white shadow-md shadow-orange-200/60 transition-colors hover:bg-orange-600 dark:shadow-none"
+        >
+          Take a Mock Test <ArrowRight className="h-4 w-4" />
+        </Link>
+        <Link
+          to={practiceHref}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 transition-colors hover:border-orange-300 hover:text-orange-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+        >
+          <BookOpen className="h-4 w-4" /> Practice Now
+        </Link>
+        <Link
+          to={performanceUrl}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 transition-colors hover:border-orange-300 hover:text-orange-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+        >
+          <LineChartIcon className="h-4 w-4" /> View Performance
+        </Link>
+      </div>
+
+      <Link
+        to={historyUrl}
+        className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+      >
+        <HistoryIcon className="h-3.5 w-3.5" /> Test History
+      </Link>
+    </div>
+  );
+}
 // ─── Pieces ────────────────────────────────────────────────────────────────────
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn('rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4', className)}>
+    <div className={cn('rounded-2xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 shadow-lg shadow-gray-300/60 dark:shadow-black/40', className)}>
       {children}
     </div>
   );
@@ -894,7 +939,7 @@ function StatCard({
   tone: keyof typeof TONE;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 sm:p-3.5 flex items-center gap-3">
+    <div className="rounded-2xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 sm:p-3.5 flex items-center gap-3 shadow-lg shadow-gray-300/60 dark:shadow-black/40">
       <span className={cn('inline-flex w-10 h-10 rounded-xl items-center justify-center flex-shrink-0', TONE[tone])}>
         {icon}
       </span>

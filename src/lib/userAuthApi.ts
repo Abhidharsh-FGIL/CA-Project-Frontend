@@ -169,7 +169,7 @@ export type GoogleSignUpProfile = StudentDetailFields & {
 
 export type GoogleAuthResult =
   /** Signed in (an existing account), or the account was created from `profile` and signed in. */
-  | { kind: 'signed-in' }
+  | { kind: 'signed-in'; /** True when the server made a new account in this very call. */ created?: boolean }
   /** Google is fine but no account exists yet, and no `profile` was sent to make one with. */
   | { kind: 'needs-profile'; email: string; name: string };
 
@@ -184,13 +184,14 @@ export type GoogleAuthResult =
  *   no account, with `profile`  → the account is created, then the same tokens
  */
 export async function googleAuth(idToken: string, profile?: GoogleSignUpProfile): Promise<GoogleAuthResult> {
-  const res = await publicApi.post<Partial<AuthTokenResponse> & { needs_profile?: boolean; email?: string; name?: string }>(
+  const res = await publicApi.post<Partial<AuthTokenResponse> & { needs_profile?: boolean; email?: string; name?: string; is_new_user?: boolean; created?: boolean; new_user?: boolean }>(
     '/api/v1/user/auth/google',
     { id_token: idToken, ...(profile ? { profile } : {}) },
   );
   if (res?.access_token && res?.refresh_token) {
     keepTokens(res as AuthTokenResponse);
-    return { kind: 'signed-in' };
+    // Whichever name the server uses for "this call made a new account"; absent means an existing one.
+    return { kind: 'signed-in', created: res.is_new_user === true || res.created === true || res.new_user === true };
   }
   if (res?.needs_profile) return { kind: 'needs-profile', email: res.email ?? '', name: res.name ?? '' };
   throw new Error('Google sign-in did not complete. Please try again.');

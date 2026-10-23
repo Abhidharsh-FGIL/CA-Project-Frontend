@@ -31,23 +31,43 @@ export interface UpcomingExam {
   /** What the examination is called officially. */
   tagline: string;
   description: string;
+  /** The papers it examines, as the notification lists them — the card shows them like a catalog exam's subjects. */
+  subjects: string[];
 }
 
 /** Announced, not built. Descriptions say what the exam is, never what the portal will offer. */
 export const UPCOMING_EXAMS: UpcomingExam[] = [
   {
-    id: 'ssc-cgl',
-    name: 'SSC CGL',
-    authority: 'Staff Selection Commission',
-    tagline: 'Combined Graduate Level Examination',
-    description: 'Group B and Group C posts in ministries, departments and offices of the Government of India.',
+    id: 'ibps-rrb-office-assistant',
+    name: 'IBPS RRB Office Assistant',
+    authority: 'Institute of Banking Personnel Selection',
+    tagline: 'Expected Dec 2026 – Jan 2027',
+    description: 'Office Assistant (Multipurpose) recruitment in the Regional Rural Banks. Banking jobs.',
+    subjects: ['Reasoning', 'Numerical Ability', 'General Awareness', 'English / Hindi Language', 'Computer Knowledge'],
   },
   {
-    id: 'ibps-bank',
-    name: 'IBPS Bank PO & Clerk',
+    id: 'ibps-rrb-officer-scale-1',
+    name: 'IBPS RRB Officer Scale I',
     authority: 'Institute of Banking Personnel Selection',
-    tagline: 'Common Recruitment Process for Banks',
-    description: 'Probationary Officer and Clerk recruitment for public sector banks.',
+    tagline: 'Expected Nov – Dec 2026',
+    description: 'Officer Scale I (Assistant Manager) recruitment in the Regional Rural Banks. Banking jobs.',
+    subjects: ['Reasoning', 'Quantitative Aptitude', 'General Awareness', 'English / Hindi Language', 'Computer Knowledge'],
+  },
+  {
+    id: 'ibps-clerk-csa',
+    name: 'IBPS Clerk / CSA',
+    authority: 'Institute of Banking Personnel Selection',
+    tagline: 'Mains expected 27 Dec 2026',
+    description: 'Clerk (Customer Service Associate) recruitment for public sector banks. Banking jobs.',
+    subjects: ['English Language', 'Numerical Ability', 'Reasoning Ability', 'General / Financial Awareness', 'Computer Aptitude'],
+  },
+  {
+    id: 'ssc-gd-constable',
+    name: 'SSC GD Constable',
+    authority: 'Staff Selection Commission',
+    tagline: 'Expected Jan – Mar 2027',
+    description: 'General Duty Constable recruitment in the central armed police forces. Central government jobs.',
+    subjects: ['General Intelligence & Reasoning', 'General Knowledge & General Awareness', 'Elementary Mathematics', 'English / Hindi'],
   },
 ];
 

@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { ROUTES } from '@/pages/landing/LandingShell';
 import { ArtImage, AuthField, AuthLayout, AuthModal, AuthSelect } from './auth/AuthShell';
 import { GoogleButton } from './auth/GoogleButton';
+import { trackCompleteRegistration } from '@/lib/meta-pixel';
 
 /** Today in the person's own calendar, as `YYYY-MM-DD` — the latest birth date the form takes. */
 const todayISO = () => {
@@ -160,6 +161,7 @@ export default function RegisterPage() {
         justSignedUp.current = true;
         const made = await signInWithGoogle(google.credential, form);
         if (made.ok) {
+          trackCompleteRegistration(form.email || google.email);
           toast.success('Account created successfully!');
           navigate(FIRST_LANDING, { replace: true });
         } else {
@@ -190,7 +192,9 @@ export default function RegisterPage() {
   const googleSignUp = async (credential: string) => {
     const res = await signInWithGoogle(credential);
     if (res.ok) {
-      toast.success('Welcome back!');
+      // A brand-new account the server made on the spot (it says so) is a registration; an existing one is not.
+      if (res.created) trackCompleteRegistration(`google:${credential.slice(-24)}`);
+      toast.success(res.created ? 'Account created successfully!' : 'Welcome back!');
       navigate('/user/dashboard', { replace: true });
       return;
     }
@@ -216,6 +220,7 @@ export default function RegisterPage() {
     try {
       const res = await verifyOtp(otp);
       if (res.ok) {
+        trackCompleteRegistration(form.email);
         toast.success('Account created successfully!');
         navigate(FIRST_LANDING, { replace: true });
       } else {

@@ -86,9 +86,10 @@ describe('unitBankCounts', () => {
     expect(byUnit['g4-gs-indian-polity']).toBe(2);
     expect(byUnit['g4-ta-grammar']).toBe(1);
     expect(byUnit['g4-gs-geography']).toBe(0);
-    // The unprinted Tamil topic and Current Events are the exam's but in no unit;
+    // Current Events now belongs to the Current Affairs unit; only the unprinted Tamil topic is in no unit;
     // the last row is not the exam's subject at all, so it is not counted against it.
-    expect(unmapped).toBe(2);
+    expect(unmapped).toBe(1);
+    expect(byUnit['g4-gs-current-affairs']).toBe(1);
   });
 });
 
@@ -238,7 +239,7 @@ describe('how the bank is really tagged', () => {
     expect(unitsOf({ subject: 'Vocabulary' })).toEqual([]); // Tamil's or English's?
     expect(unitsOf({ subject: 'Technical Terms' })).toEqual([]);
     expect(unitsOf({ subject: 'Writing Skills' })).toEqual([]);
-    expect(unitsOf({ subject: 'Current Affairs' })).toEqual([]); // inside every unit, in none by itself
+    expect(unitsOf({ subject: 'Current Affairs' })).toEqual(['g4-gs-current-affairs']);
   });
 
   it('keeps Tamil Grammar and English Grammar apart whichever way the word is spelt', () => {

@@ -30,7 +30,7 @@ export default function TnpscGroupsPage() {
     <UserShell>
       {/* Figures */}
       <div className="mb-3 grid gap-2 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 sm:grid-cols-2 sm:gap-y-3 lg:grid-cols-4 lg:gap-0 lg:divide-x lg:divide-gray-100 dark:lg:divide-gray-800 animate-fadeIn">
-        <Stat icon={<Database className="w-5 h-5" />} tone="blue" value={EXAMS_STATS.questions} label="Group 4 Questions" sub="with various difficulty levels">
+        <Stat icon={<Database className="w-5 h-5" />} tone="blue" value={EXAMS_STATS.questions} label="Questions" sub="with various difficulty levels">
           <span className="mt-1 flex gap-1">
             <Level cls="bg-emerald-500">Simple</Level>
             <Level cls="bg-amber-500">Medium</Level>

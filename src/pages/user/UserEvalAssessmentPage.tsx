@@ -17,6 +17,7 @@ import { getCurrentSubscription, usageFor } from '@/lib/subscriptionApi';
 import { getTopUpBalance } from '@/lib/topup-api';
 import { getPlan } from '@/data/userPortalSampleData';
 import { useQuery } from '@tanstack/react-query';
+import { matchOptionIndex } from '@/lib/option-match';
 import { MathText } from '@/components/ui/MathText';
 import {
   CheckCircle2,
@@ -375,15 +376,9 @@ function ActiveQuestionCard({
     parseOptionRepr(question.text)?.image_url ||
     null;
 
-  const optionSelected = (opt: DisplayOption, i: number) => {
-    const val = optionValue(opt);
-    return (
-      answer === i ||
-      answer === val ||
-      answer === opt.label ||
-      (opt.text != null && typeof answer === 'string' && answer.trim().toLowerCase() === opt.text.trim().toLowerCase())
-    );
-  };
+  // One option, not "any option the answer could mean": see `matchOptionIndex`.
+  const selectedIndex = matchOptionIndex(options, answer);
+  const optionSelected = (_opt: DisplayOption, i: number) => i === selectedIndex;
 
   return (
     <div>
@@ -568,35 +563,19 @@ function QuestionView({
     question.pairs ?? (rawOpts as any)?.pairs ?? null;
 
   const correctAnswer = question.correct_answer;
-  const correctIdx =
-    typeof (question as any).correct_index === 'number' ? (question as any).correct_index
-    : typeof correctAnswer === 'number' ? correctAnswer
-    : (typeof correctAnswer === 'string' && /^[a-z]$/i.test(correctAnswer)) ? correctAnswer.toUpperCase().charCodeAt(0) - 65
-    : null;
   const isAnswerCorrect =
     showResult && answer !== undefined && answer !== null && answer !== ''
       ? String(answer).trim().toLowerCase() ===
         String(correctAnswer ?? '').trim().toLowerCase()
       : null;
 
-  const optionCorrect = (opt: DisplayOption, i: number) => {
-    if (!showResult) return false;
-    return (
-      correctIdx === i ||
-      correctAnswer === opt.label ||
-      (opt.text != null && String(correctAnswer ?? '').trim().toLowerCase() === opt.text.trim().toLowerCase())
-    );
-  };
+  // The correct option and the chosen one are each resolved to a single option (see `matchOptionIndex`).
+  const correctOptionIndex =
+    typeof (question as any).correct_index === 'number' ? (question as any).correct_index : matchOptionIndex(options, correctAnswer);
+  const optionCorrect = (_opt: DisplayOption, i: number) => showResult && i === correctOptionIndex;
 
-  const optionSelected = (opt: DisplayOption, i: number) => {
-    const val = optionValue(opt);
-    return (
-      answer === i ||
-      answer === val ||
-      answer === opt.label ||
-      (opt.text != null && typeof answer === 'string' && answer.trim().toLowerCase() === opt.text.trim().toLowerCase())
-    );
-  };
+  const selectedIndex = matchOptionIndex(options, answer);
+  const optionSelected = (_opt: DisplayOption, i: number) => i === selectedIndex;
 
   return (
     <div className="space-y-4">

@@ -161,3 +161,21 @@ describe('Tamil names', () => {
     expect(found.map(t => t.test_id).sort()).toEqual([a.test_id, b.test_id].sort());
   });
 });
+
+describe('Current Affairs in the key topics', () => {
+  it('leads its section, starred, with no unit numeral', async () => {
+    const { currentAffairsFirst } = await import('@/lib/key-topic-sections');
+    const group = (name: string, label?: string) => ({ key: name, name, label, topics: [] });
+    const out = currentAffairsFirst([group('Indian Polity', 'IV'), group('Current Affairs', 'VII'), group('Geography', 'II')]);
+    expect(out.map(g => g.name)).toEqual(['Current Affairs', 'Indian Polity', 'Geography']);
+    expect(out[0].star).toBe(true);
+    expect(out[0].label).toBeUndefined();
+    expect(out[1].star).toBeUndefined();
+  });
+
+  it('leaves a section without it alone', async () => {
+    const { currentAffairsFirst } = await import('@/lib/key-topic-sections');
+    const groups = [{ key: 'a', name: 'Indian Polity', label: 'IV', topics: [] }];
+    expect(currentAffairsFirst(groups)).toBe(groups);
+  });
+});

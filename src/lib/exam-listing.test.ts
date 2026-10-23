@@ -51,3 +51,12 @@ describe('the upcoming exams', () => {
     }
   });
 });
+
+describe('the upcoming exams’ subjects', () => {
+  it('each list the papers the exam examines, without repeats', () => {
+    for (const e of UPCOMING_EXAMS) {
+      expect(e.subjects.length, e.id).toBeGreaterThan(0);
+      expect(new Set(e.subjects).size, e.id).toBe(e.subjects.length);
+    }
+  });
+});

@@ -33,7 +33,7 @@ import { costPerMonth, perksFor, validityOf } from '@/lib/plans';
 import { cardFor, cycleShown } from '@/lib/plan-copy';
 import { getCurrentSubscription, validatePromo, type CurrentSubscription, type PromoValidation } from '@/lib/subscriptionApi';
 import { GST_LABEL, breakdownFrom, isGstInclusive } from '@/lib/gst';
-import { createTopUpOrder, getTopUpBalance, getTopUpPacks, verifyTopUp, type TopUpPack } from '@/lib/topup-api';
+import { createTopUpOrder, getTopUpBalance, getTopUpPacks, validateTopUpPromo, verifyTopUp, type TopUpPack, type TopUpPromoQuote } from '@/lib/topup-api';
 import { purchaseTopUp } from '@/lib/topup-purchase';
 import { openCheckout } from '@/lib/razorpay';
 import type { ApiAttempt, ApiEvalAssessment } from '@/lib/userPortalApi';
@@ -338,6 +338,10 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
   const { data } = useQuery({ queryKey: ['topup', 'packs'], queryFn: getTopUpPacks, staleTime: 60 * 1000 });
   const [picked, setPicked] = useState<string | null>(null);
   const [buying, setBuying] = useState(false);
+  // A promo code is checked against one pack: choosing another pack, or removing the code, drops the preview.
+  const [promoInput, setPromoInput] = useState('');
+  const [checkingPromo, setCheckingPromo] = useState(false);
+  const [applied, setApplied] = useState<{ code: string; packId: string; quote: TopUpPromoQuote } | null>(null);
 
   // "Buy a Top-up" in a plan popup arrives here with `?topup=1`: bring the packs into view once they have loaded.
   const section = useRef<HTMLElement>(null);
@@ -369,10 +373,41 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
   // The pack chosen: the one the buyer picked, else the best-value combo, else the first combo, else the first pack.
   const chosen = data.packs.find(p => p.pack_id === picked) ?? bestCombo ?? combo[0] ?? data.packs[0];
 
+  // The code only counts for the pack it was checked against.
+  const promo = applied && applied.packId === chosen.pack_id ? applied : null;
+  const payable = promo?.quote.final_amount ?? chosen.price;
+
+  const applyPromo = async () => {
+    const code = promoInput.trim();
+    if (!code) {
+      toast.error('Enter a promo code');
+      return;
+    }
+    setCheckingPromo(true);
+    try {
+      const quote = await validateTopUpPromo(code, chosen.pack_id);
+      if (!quote.valid) {
+        toast.error(quote.message || 'That promo code is not valid.');
+        return;
+      }
+      setApplied({ code, packId: chosen.pack_id, quote });
+      toast.success(quote.message || 'Promo applied.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not check that code. Please try again.');
+    } finally {
+      setCheckingPromo(false);
+    }
+  };
+
+  const clearPromo = () => {
+    setApplied(null);
+    setPromoInput('');
+  };
+
   const buy = async () => {
     setBuying(true);
     const outcome = await purchaseTopUp(
-      { packId: chosen.pack_id, packName: chosen.name, customer },
+      { packId: chosen.pack_id, packName: chosen.name, promoCode: promo?.code, customer },
       { createOrder: createTopUpOrder, verifyPayment: verifyTopUp, openCheckout },
     );
     setBuying(false);
@@ -384,6 +419,7 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
     switch (outcome.kind) {
       case 'paid':
         toast.success(`${chosen.name} added. You now have ${outcome.balance.mock} mock and ${outcome.balance.practice} practice tests saved.`);
+        clearPromo();
         break;
       case 'cancelled':
         toast.info('Payment cancelled — you have not been charged.');
@@ -410,59 +446,83 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
         </div>
       )}
 
-      <div className="mt-6 grid gap-6 md:grid-cols-3">
-        {columns.map(col => (
-          <div key={col.title}>
-            <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">{col.title}</p>
-            <div className="space-y-3">
+      {/* One panel, a column for each kind of pack and a row for each pack in it (two, today): choose a row, and the
+          pay bar below shows what you chose. On a phone the columns stack. */}
+      <div
+        className={cn(
+          'mt-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900',
+          'lg:grid lg:divide-x lg:divide-gray-200 dark:lg:divide-gray-800',
+          columns.length >= 3 ? 'lg:grid-cols-3' : columns.length === 2 ? 'lg:grid-cols-2' : 'lg:grid-cols-1',
+        )}
+        role="radiogroup"
+        aria-label="Top-up packs"
+      >
+        {columns.map((col, ci) => (
+          <div key={col.title} className={cn('flex flex-col', ci > 0 && 'border-t border-gray-200 dark:border-gray-800 lg:border-t-0')}>
+            <div className="flex items-center justify-between bg-gray-50 px-4 py-2 dark:bg-gray-800/60">
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">{col.title}</p>
+              <p className="text-[11px] text-gray-400">{col.packs.length} option{col.packs.length === 1 ? '' : 's'}</p>
+            </div>
+            <ul className="flex-1 divide-y divide-gray-100 dark:divide-gray-800">
               {col.packs.map(pack => {
                 const on = pack.pack_id === chosen.pack_id;
+                const best = !!bestCombo && pack.pack_id === bestCombo.pack_id;
                 return (
-                  <button
-                    key={pack.pack_id}
-                    type="button"
-                    onClick={() => setPicked(pack.pack_id)}
-                    aria-pressed={on}
-                    className={cn(
-                      // Every card is the same height, so the rows line up across the three columns.
-                      'flex min-h-[7.5rem] w-full flex-col rounded-2xl border p-4 text-left transition-all',
-                      on
-                        ? 'border-orange-500 bg-orange-50/70 shadow-md shadow-orange-100 dark:border-orange-500 dark:bg-orange-950/30 dark:shadow-orange-950/40'
-                        : 'border-gray-200 bg-white hover:border-orange-200 dark:border-gray-800 dark:bg-gray-900',
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
+                  <li key={pack.pack_id}>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => setPicked(pack.pack_id)}
+                      className={cn(
+                        'relative flex w-full items-center gap-3 px-4 py-3 text-left transition-colors sm:gap-4',
+                        on ? 'bg-orange-50 dark:bg-orange-950/25' : 'hover:bg-gray-50 dark:hover:bg-gray-800/40',
+                      )}
+                    >
+                      {/* The chosen row carries a bar down its left edge. */}
+                      <span className={cn('absolute inset-y-0 left-0 w-1 transition-colors', on ? 'bg-orange-500' : 'bg-transparent')} aria-hidden />
+                      <span
+                        className={cn(
+                          'grid h-5 w-5 flex-shrink-0 place-items-center rounded-full border-2 transition-colors',
+                          on ? 'border-orange-500 bg-orange-500 text-white' : 'border-gray-300 dark:border-gray-600',
+                        )}
+                        aria-hidden
+                      >
+                        {on && <Check className="h-3 w-3" strokeWidth={3} />}
+                      </span>
+
+                      <div className="min-w-0 flex-1">
                         <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-900 dark:text-gray-100">
                           {pack.name}
-                          {bestCombo && pack.pack_id === bestCombo.pack_id && (
+                          {best && (
                             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
                               Best value
                             </span>
                           )}
                         </p>
-                        <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">{packContents(pack)}</p>
-                        {pack.description && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{pack.description}</p>}
+                        {pack.description && <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{pack.description}</p>}
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          {pack.mock > 0 && (
+                            <span className="rounded-md bg-violet-50 px-2 py-0.5 text-xs font-bold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
+                              {pack.mock} Mock
+                            </span>
+                          )}
+                          {pack.practice > 0 && (
+                            <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                              {pack.practice} Practice
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex-shrink-0 text-right">
-                        <p className="text-lg font-extrabold text-gray-900 dark:text-gray-100">₹{pack.price.toLocaleString('en-IN')}</p>
-                      </div>
-                    </div>
-                    <div className="mt-auto flex justify-end pt-3">
-                      <span
-                        className={cn(
-                          'grid h-5 w-5 place-items-center rounded-full border-2',
-                          on ? 'border-orange-500' : 'border-gray-300 dark:border-gray-600',
-                        )}
-                        aria-hidden
-                      >
-                        {on && <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />}
-                      </span>
-                    </div>
-                  </button>
+
+                      <p className="flex-shrink-0 text-lg font-extrabold tabular-nums text-gray-900 dark:text-gray-100">
+                        ₹{pack.price.toLocaleString('en-IN')}
+                      </p>
+                    </button>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           </div>
         ))}
       </div>
@@ -475,9 +535,46 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
             {chosen.name} <span className="font-normal text-gray-300">· {packContents(chosen)}</span>
           </p>
         </div>
-        <div className="flex items-center justify-between gap-4 sm:justify-end">
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
+          {promo ? (
+            <div className="flex items-center gap-2 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs">
+              <BadgePercent className="h-3.5 w-3.5 text-emerald-400" aria-hidden />
+              <span className="font-bold text-emerald-300">
+                {promo.code}
+                {promo.quote.discount_amount ? ` · −₹${promo.quote.discount_amount.toLocaleString('en-IN')}` : ''}
+              </span>
+              <button type="button" onClick={clearPromo} className="font-semibold uppercase tracking-wider text-gray-400 hover:text-red-400">
+                Remove
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={promoInput}
+                onChange={e => setPromoInput(e.target.value.toUpperCase())}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') applyPromo();
+                }}
+                placeholder="Promo code"
+                aria-label="Promo code"
+                className="w-36 rounded-lg border border-orange-400/40 bg-white/10 px-3 py-2 text-xs uppercase tracking-wide text-white placeholder:normal-case placeholder:text-gray-300 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/60"
+              />
+              <button
+                type="button"
+                onClick={applyPromo}
+                disabled={checkingPromo || !promoInput.trim()}
+                className="rounded-lg bg-orange-500 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-orange-400 disabled:bg-white/10 disabled:text-gray-400"
+              >
+                {checkingPromo ? 'Checking…' : 'Apply'}
+              </button>
+            </div>
+          )}
           <p className="text-xl font-extrabold">
-            ₹{chosen.price.toLocaleString('en-IN')}
+            {promo && payable < chosen.price && (
+              <span className="mr-2 text-sm font-semibold text-gray-400 line-through">₹{chosen.price.toLocaleString('en-IN')}</span>
+            )}
+            {payable === 0 ? 'Free' : `₹${payable.toLocaleString('en-IN')}`}
           </p>
           <button
             type="button"
@@ -485,7 +582,7 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
             disabled={!data.can_purchase || buying}
             className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {buying ? 'Opening…' : 'Pay now'}
+            {buying ? 'Opening…' : payable === 0 ? 'Add pack' : 'Pay now'}
           </button>
         </div>
       </div>
@@ -634,13 +731,15 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn" onClick={onClose}>
       <div
-        className="relative w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden animate-scaleIn"
+        // Never taller than the screen: the middle scrolls, the header and the Pay button stay in view. Without a
+        // height limit the card ran past a short screen and, being `overflow-hidden`, was cut off with no way to scroll.
+        className="relative flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden animate-scaleIn"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div
           className={cn(
-            'relative p-5 overflow-hidden text-white',
+            'relative shrink-0 p-5 overflow-hidden text-white',
             plan.tier === 'premium' ? 'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500' : 'bg-gradient-to-br from-brand-500 via-brand-400 to-pink-500',
             'bg-[length:200%_auto] animate-gradient-x',
           )}
@@ -670,7 +769,7 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
           </div>
         </div>
 
-        <div className="p-5 sm:p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
           {/* Plan summary */}
           <div className="bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-xl p-3 mb-4">
             <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 mb-1">What you get</p>
@@ -840,6 +939,10 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
             )}
           </div>
 
+        </div>
+
+        {/* Pinned to the foot of the card, so paying is never below the fold. */}
+        <div className="shrink-0 border-t border-gray-100 p-4 dark:border-gray-800 sm:px-6">
           {/* Pay button */}
           <button
             onClick={handlePay}

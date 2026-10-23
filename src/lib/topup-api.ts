@@ -2,7 +2,8 @@
  * Top-up packs — extra mock and practice tests bought on top of a plan. The backend's four endpoints:
  *
  *   GET  /api/v1/user/topup/packs     → the packs, the saved balance, can_purchase and reason
- *   POST /api/v1/user/topup/order     → { pack_id } → Razorpay Checkout data (the server sets the price)
+ *   POST /api/v1/user/topup/order     → { pack_id, promo_code? } → Razorpay Checkout data (the server sets the price)
+ *   POST /api/v1/user/promo/validate  → { code, pack_id } → the price with the code applied (a preview)
  *   POST /api/v1/user/topup/verify    → the same 3 Razorpay fields as plan verify → the new balance
  *   GET  /api/v1/user/topup/balance   → { mock, practice }
  *
@@ -54,6 +55,20 @@ export interface TopUpOrder {
   gst_percent?: number;
   gst_amount?: number;
   /** Rupees, GST included. */
+  final_amount?: number;
+  /** Rupees taken off by the promo code, when one was used. */
+  discount_amount?: number;
+  promo_code?: string | null;
+  /** Present when `activated`: the balance after the pack was added without a payment (a 100%-off code). */
+  balance?: unknown;
+}
+
+/** What `/user/promo/validate` says about a code for a pack. Rupees. */
+export interface TopUpPromoQuote {
+  valid: boolean;
+  message: string;
+  base_amount?: number;
+  discount_amount?: number;
   final_amount?: number;
 }
 
@@ -112,8 +127,15 @@ export function getTopUpBalance(): Promise<TopUpBalance> {
   return userApi.get<unknown>('/api/v1/user/topup/balance').then(balanceFrom);
 }
 
-export function createTopUpOrder(packId: string): Promise<TopUpOrder> {
-  return userApi.post<TopUpOrder>('/api/v1/user/topup/order', { pack_id: packId });
+/** An empty or missing `promoCode` means no code. A bad code is a 400 whose message says why. */
+export function createTopUpOrder(packId: string, promoCode?: string | null): Promise<TopUpOrder> {
+  const code = promoCode?.trim();
+  return userApi.post<TopUpOrder>('/api/v1/user/topup/order', { pack_id: packId, ...(code ? { promo_code: code } : {}) });
+}
+
+/** Previews what a promo code does to a pack's price. The order applies the code again, so this is only a preview. */
+export function validateTopUpPromo(code: string, packId: string): Promise<TopUpPromoQuote> {
+  return userApi.post<TopUpPromoQuote>('/api/v1/user/promo/validate', { code: code.trim(), pack_id: packId });
 }
 
 export function verifyTopUp(req: TopUpVerifyRequest): Promise<TopUpBalance> {

@@ -204,13 +204,20 @@ export default function AdminDashboardPage() {
           </div>
 
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Administration</p>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3">
             <QuickAction
               icon={<Users className="w-5 h-5" />}
               label="Users"
               description="Manage learners"
               onClick={() => navigate('/org/users')}
               tone="indigo"
+            />
+            <QuickAction
+              icon={<HistoryIcon className="w-5 h-5" />}
+              label="User History"
+              description="Tests by user"
+              onClick={() => navigate('/org/history')}
+              tone="emerald"
             />
             <QuickAction
               icon={<Tag className="w-5 h-5" />}

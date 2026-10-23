@@ -455,11 +455,24 @@ function TestCard({
   );
 }
 
+/**
+ * Whether the person has an attempt open on this assessment: the list says so, or their History shows one in
+ * progress for it. Either is enough, so this works whether or not the list endpoint sends the id.
+ */
+function useHasOpenAttempt(a: ApiEvalAssessment): boolean {
+  const { history } = useUserPortal();
+  return !!a.in_progress_attempt_id || history.some(h => h.status === 'in_progress' && h.test_id === a.assessment_id);
+}
+
 // ─── FreeAssessmentCard (self-service free assessments) ───────────────────────
 
 function FreeAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }) {
   const navigate = useNavigate();
-  const isExpired = !!a.due_date && new Date(a.due_date) < new Date();
+  const pastDue = !!a.due_date && new Date(a.due_date) < new Date();
+  // The due date only stops a new start. An attempt begun in time can still be resumed and submitted after it
+  // (its own timer still applies), so a card with an open attempt is not "expired" for the person who has one.
+  const hasOpenAttempt = useHasOpenAttempt(a);
+  const isExpired = pastDue && !hasOpenAttempt;
 
   return (
     <div
@@ -519,7 +532,7 @@ function FreeAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
           )}
         >
           {a.due_date
-            ? `${isExpired ? 'Expired' : 'Due'}: ${new Date(a.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
+            ? `${pastDue ? 'Expired' : 'Due'}: ${new Date(a.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
             : 'No deadline'}
         </p>
 
@@ -540,7 +553,7 @@ function FreeAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
                 : 'bg-emerald-600 text-white hover:bg-emerald-700',
             )}
           >
-            {a.mode === 'mock' ? 'Start Mock' : 'Start Practice'}
+            {hasOpenAttempt ? 'Resume' : a.mode === 'mock' ? 'Start Mock' : 'Start Practice'}
           </button>
         )}
       </div>
@@ -552,7 +565,10 @@ function FreeAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
 
 function EvalAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }) {
   const navigate = useNavigate();
-  const isExpired = !!a.due_date && new Date(a.due_date) < new Date();
+  const pastDue = !!a.due_date && new Date(a.due_date) < new Date();
+  // Past the due date a new attempt cannot be started, but one already open can be resumed and submitted.
+  const hasOpenAttempt = useHasOpenAttempt(a);
+  const isExpired = pastDue && !hasOpenAttempt;
   const canStart = a.has_invitation && !isExpired;
 
   const handleStart = () => {
@@ -613,9 +629,9 @@ function EvalAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
 
       {/* Footer */}
       <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2">
-        <p className={cn('text-[11px]', isExpired ? 'text-red-500 font-medium' : 'text-gray-400 dark:text-gray-500')}>
+        <p className={cn('text-[11px]', pastDue ? 'text-red-500 font-medium' : 'text-gray-400 dark:text-gray-500')}>
           {a.due_date
-            ? `${isExpired ? 'Expired' : 'Due'}: ${format(new Date(a.due_date), 'dd MMM yyyy')}`
+            ? `${pastDue ? 'Expired' : 'Due'}: ${format(new Date(a.due_date), 'dd MMM yyyy')}`
             : 'No deadline'}
         </p>
 
@@ -629,7 +645,7 @@ function EvalAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
                 : 'bg-emerald-600 text-white hover:bg-emerald-700',
             )}
           >
-            {a.mode === 'mock' ? 'Start Mock' : 'Start Practice'}
+            {hasOpenAttempt ? 'Resume' : a.mode === 'mock' ? 'Start Mock' : 'Start Practice'}
           </button>
         ) : isExpired ? (
           <span className="text-xs font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg">

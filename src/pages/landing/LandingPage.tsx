@@ -127,7 +127,7 @@ function Hero() {
             {/* Which exam is open today — a sticker that floats beside the last line. (No <span>s
                 inside it: the heading's own `span` rule would colour them orange.) */}
             <span className="mge-live-chip">
-              <b>TNPSC Group 4</b>
+              <b>TNPSC Group 4 &amp; 2</b>
               <em>
                 <i aria-hidden="true" />
                 Live
@@ -223,7 +223,7 @@ function FreshAttempts() {
 function Stats() {
   // The same figures as the Exams page, so the two never disagree.
   const items: Array<{ icon: LucideIcon; value: string; label: string; sub?: string; levels?: boolean; tone: string }> = [
-    { icon: Database, value: EXAMS_STATS.questions, label: 'Group 4 Questions', sub: 'with various difficulty levels', levels: true, tone: 'blue' },
+    { icon: Database, value: EXAMS_STATS.questions, label: 'Group 4 & 2 Questions', sub: 'with various difficulty levels', levels: true, tone: 'blue' },
     { icon: Users, value: EXAMS_STATS.aspirants, label: 'Aspirants', sub: 'currently practising here', tone: 'purple' },
     { icon: FileText, value: EXAMS_STATS.newQuestions, label: 'New Questions', sub: 'added every week', tone: 'sky' },
     { icon: Landmark, value: 'Government Exams', label: 'Focused Preparation', tone: 'green' },
@@ -290,7 +290,7 @@ function ExamBanner() {
       <div className="mge-exam-banner">
         <div className="mge-exam-copy">
           <span className="mge-kicker">Currently Available</span>
-          <h2>TNPSC Group 4</h2>
+          <h2>TNPSC Group 4 &amp; 2</h2>
           <p>Complete preparation with full mock tests, unit-wise practice tests and previous year question papers.</p>
         </div>
         <div className="mge-exam-art">
@@ -678,7 +678,7 @@ function FinalCta() {
           <Rocket size={64} />
           <div>
             <h2>Take the First Step Towards Your Goal</h2>
-            <p>Join {CONFIG.students} aspirants preparing for TNPSC Group 4 with MyGovExams.</p>
+            <p>Join {CONFIG.students} aspirants preparing for TNPSC Group 4 &amp; 2 with MyGovExams.</p>
           </div>
         </div>
         <ButtonLink to={CONFIG.signupPath}>

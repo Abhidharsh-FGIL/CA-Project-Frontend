@@ -47,9 +47,14 @@ afterEach(() => {
 describe('googleAuth', () => {
   it('signs an existing account in and keeps its tokens', async () => {
     fetchMock.mockResolvedValue(json(200, { access_token: 'a1', refresh_token: 'r1', token_type: 'bearer' }));
-    await expect(googleAuth('google-id-token')).resolves.toEqual({ kind: 'signed-in' });
+    await expect(googleAuth('google-id-token')).resolves.toEqual({ kind: 'signed-in', created: false });
     expect(getUserToken()).toBe('a1');
     expect(store.get('user_refresh_token')).toBe('r1');
+  });
+
+  it('says when the server made a new account in the same call', async () => {
+    fetchMock.mockResolvedValue(json(200, { access_token: 'a', refresh_token: 'r', token_type: 'bearer', is_new_user: true }));
+    await expect(googleAuth('google-id-token')).resolves.toEqual({ kind: 'signed-in', created: true });
   });
 
   it('sends the Google token, and nothing else, when there is no profile yet', async () => {

@@ -27,8 +27,8 @@ const practiceTag = (over: Partial<TnpscTagValue> = {}): TnpscTagValue => ({
 describe('stageUnits', () => {
   it('flattens every published unit across the stage, in printed order', () => {
     const units = stageUnits(stage);
-    // Group 4: Tamil 7 + English 7 + General Studies 6 + Aptitude 2.
-    expect(units).toHaveLength(22);
+    // Group 4: Tamil 7 + English 7 + General Studies 7 + Aptitude 2.
+    expect(units).toHaveLength(23);
     expect(units[0].unit.label).toBe('I');
     // Each unit knows the section it was printed under, for the picker's hint.
     expect(new Set(units.map(u => u.sectionName))).toEqual(

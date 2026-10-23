@@ -313,7 +313,7 @@ function CategoryBreakdown({
 
       <div className="grid gap-3 md:grid-cols-[minmax(0,15rem)_1fr]">
         {/* Picker: a scrolling strip on a phone, a column beside the detail from tablet up. */}
-        <nav className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0" aria-label="Categories">
+        <nav className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 md:mx-0 md:max-h-[26rem] md:flex-col md:overflow-x-hidden md:overflow-y-auto md:px-0 md:pb-0 md:pr-1" aria-label="Categories">
           {categories.map(c => {
             const isPicked = c.name === picked.name;
             const acc = pctOf(c);

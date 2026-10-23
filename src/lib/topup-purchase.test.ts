@@ -18,9 +18,31 @@ describe('purchaseTopUp', () => {
   it('orders the pack, takes payment, verifies, and reports the new balance', async () => {
     const d = deps();
     const out = await purchaseTopUp(req, d);
-    expect(d.createOrder).toHaveBeenCalledWith('pack-1');
+    expect(d.createOrder).toHaveBeenCalledWith('pack-1', undefined);
     expect(d.verifyPayment).toHaveBeenCalledWith(PAID);
     expect(out).toMatchObject({ kind: 'paid', balance: { mock: 13, practice: 42 } });
+  });
+
+  it('sends the promo code with the order, and sends none when there is none', async () => {
+    const d = deps();
+    await purchaseTopUp({ ...req, promoCode: 'SAVE10' }, d);
+    expect(d.createOrder).toHaveBeenCalledWith('pack-1', 'SAVE10');
+    const d2 = deps();
+    await purchaseTopUp(req, d2);
+    expect(d2.createOrder).toHaveBeenCalledWith('pack-1', undefined);
+  });
+
+  it('skips Razorpay when a 100%-off code already added the pack, and reports the balance from the order', async () => {
+    const d = deps({ createOrder: vi.fn(async () => ({ activated: true, balance: { mock: 7, practice: 9 }, promo_code: 'FREE', discount_amount: 449 })) });
+    const out = await purchaseTopUp({ ...req, promoCode: 'FREE' }, d);
+    expect(d.openCheckout).not.toHaveBeenCalled();
+    expect(d.verifyPayment).not.toHaveBeenCalled();
+    expect(out).toMatchObject({ kind: 'paid', balance: { mock: 7, practice: 9 } });
+  });
+
+  it('surfaces an invalid code’s message, and nothing is charged', async () => {
+    const out = await purchaseTopUp({ ...req, promoCode: 'OLD' }, deps({ createOrder: vi.fn(async () => { throw new Error('Promo code has expired'); }) }));
+    expect(out).toEqual({ kind: 'failed', message: 'Promo code has expired' });
   });
 
   it('opens Razorpay with the server’s amount, never a figure of its own', async () => {

@@ -823,6 +823,8 @@ export interface ApiEvalAssessment {
   pricing_type: 'free' | 'paid';
   shuffle_questions: boolean;
   max_attempts: number | null;
+  /** The person's open attempt on this assessment, when the list says so; the History list is the fallback. */
+  in_progress_attempt_id?: string | null;
   /**
    * Where the admin placed the paper in the exam — present once the backend returns the
    * placement (BACKEND_WORK.md item 5). `tnpsc_unit_id` marks a unit paper; `tnpsc_section_name`

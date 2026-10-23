@@ -13,6 +13,7 @@ import {
   Mail,
   Target,
 } from 'lucide-react';
+import { trackCompleteRegistration } from '@/lib/meta-pixel';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { STUDENT_PASSWORD_LOGIN } from '@/config/features';
 import { GOOGLE_ENABLED } from '@/config/google';
@@ -62,7 +63,9 @@ export default function LoginPage() {
     setGoogleError('');
     const res = await signInWithGoogle(credential);
     if (res.ok) {
-      toast.success('Welcome back!');
+      // A brand-new account the server made on the spot (it says so) is a registration; an existing one is not.
+      if (res.created) trackCompleteRegistration(`google:${credential.slice(-24)}`);
+      toast.success(res.created ? 'Account created successfully!' : 'Welcome back!');
       navigate('/user/dashboard');
     } else if (res.needsProfile) {
       toast.info('Almost there — add a few details to create your account.');

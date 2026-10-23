@@ -20,6 +20,8 @@ import { difficultyLabel } from '@/lib/eval-difficulty';
 interface Props {
   assessmentId: string;
   onBack: () => void;
+  /** Open straight on one attempt's report — from the History tab. Going back from it returns to the assessment. */
+  initialAttempt?: { attemptId: string; label: string } | null;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -43,7 +45,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 // ── Attempt Detail View — renders the full student-style report ──
-function AttemptDetailView({ assessmentId, attemptId, studentLabel, onBack }: {
+export function AttemptDetailView({ assessmentId, attemptId, studentLabel, onBack }: {
   assessmentId: string;
   attemptId: string;
   studentLabel: string;
@@ -397,12 +399,12 @@ function invitationAttempts(detail: any, inv: any): any[] {
 }
 
 // ── Main Report Component ──
-export function EvalAssessmentReport({ assessmentId, onBack }: Props) {
+export function EvalAssessmentReport({ assessmentId, onBack, initialAttempt }: Props) {
   const { data: detail, isLoading } = useEvalAssessmentDetail(assessmentId);
   const reinvite = useReinviteEvalAssessment();
   const isExpired = !!(detail?.due_date && new Date(detail.due_date) < new Date()) || !!(detail?.ends_at && new Date(detail.ends_at) < new Date());
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
-  const [viewingAttempt, setViewingAttempt] = useState<{ attemptId: string; label: string } | null>(null);
+  const [viewingAttempt, setViewingAttempt] = useState<{ attemptId: string; label: string } | null>(initialAttempt ?? null);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedInvitations, setExpandedInvitations] = useState<Set<string>>(new Set());
 
