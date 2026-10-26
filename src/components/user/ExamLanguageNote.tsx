@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
  * the rest of this screen shows and changing it should show the result at once. With no answer yet
  * (an account from before the question) it asks, and until it is answered both papers are listed.
  */
-export function ExamLanguageNote({ className }: { className?: string }) {
+export function ExamLanguageNote({ className, examName }: { className?: string; examName?: string }) {
   const { user, updateProfile } = useUserPortal();
   const [saving, setSaving] = useState<string | null>(null);
   const chosen = examLanguageOf(user?.medium);
@@ -29,7 +29,7 @@ export function ExamLanguageNote({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded-2xl border px-4 py-3',
+        'flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border px-3.5 py-2.5',
         chosen
           ? 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900'
           : 'border-amber-200 dark:border-amber-900 bg-amber-50/70 dark:bg-amber-950/30',
@@ -49,11 +49,11 @@ export function ExamLanguageNote({ className }: { className?: string }) {
 
       <div className="min-w-0 flex-1 basis-56">
         <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-          {chosen ? 'Select Your Language' : 'Which language paper do you sit?'}
+          {chosen ? 'Choose your language paper' : 'Which language paper do you sit?'}
         </p>
         <p className="text-[12px] leading-relaxed text-gray-500 dark:text-gray-400">
           {chosen
-            ? 'Choose either General Tamil or General English.'
+            ? `${examName ?? 'This exam'} lets you write General Tamil or General English. Pick the one you will write, and only its tests are shown below.`
             : 'You sit General Tamil or General English, never both. Choose yours and only its papers are listed.'}
         </p>
       </div>

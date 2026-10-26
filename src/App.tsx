@@ -61,6 +61,7 @@ import UserProgressPage from "@/pages/user/UserProgressPage";
 import UserSavedPage from "@/pages/user/UserSavedPage";
 import UserAboutPage from "@/pages/user/UserAboutPage";
 import PlanNoticeHost from "@/components/user/PlanNoticeHost";
+import ReferralAskHost from "@/components/user/ReferralAskHost";
 import SessionExpiredHost from "@/components/SessionExpiredHost";
 import { announcePlanNotice } from "@/lib/plan-notice-bus";
 
@@ -191,6 +192,7 @@ function UserPortalRoutes() {
   return (
     <UserPortalProvider>
       <PlanNoticeHost />
+      <ReferralAskHost />
       <Routes>
         {/* Public user routes — accessible without a token */}
         <Route index element={<Navigate to="/user/login" replace />} />

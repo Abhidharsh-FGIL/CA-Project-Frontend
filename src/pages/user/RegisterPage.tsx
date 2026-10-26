@@ -21,6 +21,7 @@ import { ROUTES } from '@/pages/landing/LandingShell';
 import { ArtImage, AuthField, AuthLayout, AuthModal } from './auth/AuthShell';
 import { GoogleButton } from './auth/GoogleButton';
 import { trackCompleteRegistration } from '@/lib/meta-pixel';
+import { askAboutReferral } from '@/components/user/ReferralAskHost';
 import { cleanReferralInput, clearSavedReferral, refFromSearch, saveReferral, savedReferral, validateReferralCode } from '@/lib/referralApi';
 
 interface FormErrors {
@@ -74,6 +75,12 @@ export default function RegisterPage() {
   const [referralCheck, setReferralCheck] = useState<
     { state: 'idle' } | { state: 'checking' } | { state: 'ok'; text: string } | { state: 'bad'; text: string }
   >({ state: 'idle' });
+  // A Google sign-up with no code is asked once, in a popup, whether a friend referred them.
+  const askedReferral = useRef(false);
+  const [askReferral, setAskReferral] = useState(false);
+  const [askCode, setAskCode] = useState('');
+  const [askError, setAskError] = useState<string | null>(null);
+  const [askChecking, setAskChecking] = useState(false);
   const cameFromLink = !!linkRef.current && cleanReferralInput(referral).toUpperCase() === linkRef.current.toUpperCase();
 
   useEffect(() => {
@@ -133,9 +140,62 @@ export default function RegisterPage() {
   };
 
   /** The code to send with a Google request, when there is one. */
-  const referralForGoogle = () => {
-    const code = cleanReferralInput(referral);
-    return code ? { code, fromLink: cameFromLink } : undefined;
+  const referralForGoogle = (override?: string) => {
+    const code = cleanReferralInput(override ?? referral);
+    return code ? { code, fromLink: cameFromLink && code.toUpperCase() === linkRef.current?.toUpperCase() } : undefined;
+  };
+
+  /** A Google sign-up: the server makes the account from the token and these details, and signs it in. */
+  const createGoogleAccount = async (code?: string) => {
+    if (!google) return;
+    setSubmitting(true);
+    try {
+      justSignedUp.current = true;
+      const made = await signInWithGoogle(google.credential, form, referralForGoogle(code));
+      if (made.ok) {
+        trackCompleteRegistration(form.email || google.email);
+        toast.success('Account created successfully!');
+        reportReferral(made);
+        clearSavedReferral();
+        navigate(FIRST_LANDING, { replace: true });
+      } else {
+        justSignedUp.current = false;
+        setRegisterError(made.error || 'Registration failed. Please try again.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  /** "No, skip": carry on without a referral. */
+  const skipReferral = () => {
+    setAskReferral(false);
+    void createGoogleAccount('');
+  };
+
+  /** "Continue" with a code: check it first, so a typo is caught here rather than after the account is made. */
+  const useAskedReferral = async () => {
+    const code = cleanReferralInput(askCode);
+    if (!code) {
+      setAskError('Enter a referral code, or skip.');
+      return;
+    }
+    setAskChecking(true);
+    setAskError(null);
+    try {
+      const r = await validateReferralCode(code);
+      if (!r.valid) {
+        setAskError(r.message || 'Referral code not found.');
+        return;
+      }
+    } catch {
+      // Not being able to check is not a reason to stop: the server checks again, and a wrong code never blocks Google sign-up.
+    } finally {
+      setAskChecking(false);
+    }
+    setReferral(code);
+    setAskReferral(false);
+    void createGoogleAccount(code);
   };
 
   /** What happened to the code on a Google sign-up: linked, or turned down (the person is in either way). */
@@ -156,24 +216,20 @@ export default function RegisterPage() {
       );
       return;
     }
-    setSubmitting(true);
-    try {
-      if (google) {
-        // A Google sign-up: the server makes the account from the token and these details, and signs it in.
-        justSignedUp.current = true;
-        const made = await signInWithGoogle(google.credential, form, referralForGoogle());
-        if (made.ok) {
-          trackCompleteRegistration(form.email || google.email);
-          toast.success('Account created successfully!');
-          reportReferral(made);
-          clearSavedReferral();
-          navigate(FIRST_LANDING, { replace: true });
-        } else {
-          justSignedUp.current = false;
-          setRegisterError(made.error || 'Registration failed. Please try again.');
-        }
+    if (google) {
+      // No code in the field: ask once whether anyone referred them, then make the account from the popup's answer.
+      if (!cleanReferralInput(referral) && !askedReferral.current) {
+        askedReferral.current = true;
+        setAskCode('');
+        setAskError(null);
+        setAskReferral(true);
         return;
       }
+      await createGoogleAccount();
+      return;
+    }
+    setSubmitting(true);
+    try {
       const res = await register({
         ...form,
         referralCode: cleanReferralInput(referral),
@@ -206,6 +262,8 @@ export default function RegisterPage() {
       if (res.created) {
         reportReferral(res);
         clearSavedReferral();
+        // Google made the account in one step, so there was no form to ask on: ask now, unless a code already linked.
+        if (res.referralApplied !== true) askAboutReferral();
       }
       navigate('/user/dashboard', { replace: true });
       return;
@@ -383,6 +441,48 @@ export default function RegisterPage() {
           <Link to={ROUTES.login}>Login</Link>
         </p>
       </div>
+
+      {askReferral && (
+        <AuthModal>
+          <div className="mge-modal-icon mge-tile-orange">
+            <Gift size={30} />
+          </div>
+          <h2>Were you referred by someone?</h2>
+          <p>Link your account to the friend who told you about MyGovExams. You can skip this.</p>
+          <div style={{ textAlign: 'left', marginBottom: 14 }}>
+            <AuthField
+              icon={Gift}
+              value={askCode}
+              onChange={v => {
+                setAskCode(v);
+                setAskError(null);
+              }}
+              placeholder="Referral code"
+              autoComplete="off"
+              error={askError ?? undefined}
+              hint="Code, or your friend’s mobile number or email"
+            />
+          </div>
+          <button
+            type="button"
+            className="mge-btn mge-btn-primary mge-auth-submit"
+            onClick={useAskedReferral}
+            disabled={askChecking}
+            autoFocus
+          >
+            {askChecking ? 'Checking…' : 'Continue'}
+          </button>
+          <button
+            type="button"
+            className="mge-btn mge-auth-submit"
+            style={{ marginTop: 10, background: 'transparent', color: 'inherit', boxShadow: 'none' }}
+            onClick={skipReferral}
+            disabled={askChecking}
+          >
+            No, skip
+          </button>
+        </AuthModal>
+      )}
 
       {registerError && (
         <AuthModal>

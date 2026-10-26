@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { here } from '@/lib/report-origin';
 import { skipsStageList } from '@/lib/exam-listing';
@@ -60,6 +60,7 @@ import {
   Globe2,
   Landmark,
   KeyRound,
+  Check,
   Languages,
   Layers,
   ListChecks,
@@ -293,6 +294,8 @@ export default function TnpscStagePage() {
   const [openTopicSections, setOpenTopicSections] = useState<string[]>([]);
   const toggleTopicSection = (key: string) =>
     setOpenTopicSections(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
+  /** The tabs and what they list: where "Take Mock Exam" brings you to. */
+  const pathRef = useRef<HTMLDivElement>(null);
 
   const mock = useTnpscMockTests(groupId, stageId, language);
   const practice = useTnpscPracticeTests(groupId, stageId, language);
@@ -316,6 +319,18 @@ export default function TnpscStagePage() {
     () => (stage ? buildKeyTopicSections(stage, practiceTests.filter(isKeyTopicPaper)) : []),
     [stage, practiceTests],
   );
+
+  // The first section with topics is open on arrival, so it is plain that there is something inside; once per exam and
+  // language, so it does not reopen after being closed.
+  const seededTopics = useRef('');
+  useEffect(() => {
+    const sig = `${groupId}/${stageId}/${language}`;
+    if (seededTopics.current === sig) return;
+    const first = keyTopicSections.find(sec => sec.topicCount > 0);
+    if (!first) return;
+    seededTopics.current = sig;
+    setOpenTopicSections([first.key]);
+  }, [keyTopicSections, groupId, stageId, language]);
 
   const sections = useMemo<SectionModel[]>(() => {
     if (!stage) return [];
@@ -425,17 +440,13 @@ export default function TnpscStagePage() {
   };
 
   /**
-   * "Take Mock Exam": straight into the full mock, not to a list of them. The first paper that is open to this
-   * person and not yet cleared; failing that the first one that is open; failing that the first there is (a locked
-   * one goes to the plans, as every other link to it does). Only when the papers have not loaded - or there are
-   * none - does it open the Exam tab instead.
+   * "Take Mock Exam": shows the Exam tab and brings its papers into view, rather than starting one — the aspirant sees
+   * the full mocks there and picks which to sit.
    */
   const takeMock = () => {
-    const tests = mock.levels.flatMap(l => l.tests);
-    const open = (t: TnpscTest) => !t.is_locked && !(t.max_attempts != null && t.attempts_used >= t.max_attempts);
-    const pick = tests.find(t => open(t) && !t.is_completed) ?? tests.find(open) ?? tests[0];
-    if (!pick) return setTab('exam');
-    navigate(pick.is_locked ? '/user/subscription' : testHref(pick), { state: { from: here() } });
+    setTab('exam');
+    // After the tab has switched and its list has rendered.
+    window.setTimeout(() => pathRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
   };
 
   return (
@@ -451,7 +462,7 @@ export default function TnpscStagePage() {
 
       <StageHero stage={stage} groupName={group.name} accent={group.accent} onTakeMock={takeMock} />
 
-      {offersLanguageChoice && <ExamLanguageNote className="mb-4 sm:mb-5" />}
+      {offersLanguageChoice && <ExamLanguageNote examName={group.name} className="mb-4 sm:mb-5" />}
 
       {/* Syllabus beside the papers, so what's in the exam stays in view while
           picking one — 30% of the width open, a rail when folded. */}
@@ -472,7 +483,9 @@ export default function TnpscStagePage() {
         />
 
         <div className="min-w-0 space-y-4">
-          <TrackTabs tab={tab} onChange={setTab} />
+          <div ref={pathRef} className="scroll-mt-4">
+            <TrackTabs tab={tab} onChange={setTab} />
+          </div>
 
           {isLoading ? (
             <LoadingRow
@@ -787,66 +800,71 @@ function ExamTrack({
 
   return (
     <div className="space-y-4">
-      {/* A mock is the real thing in rehearsal: the banner says how closely it follows the official paper. */}
-      <div className="rounded-2xl border border-emerald-200 bg-white p-4 dark:border-emerald-900/60 dark:bg-gray-900">
-        <div className="flex items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
-            <img src={`${import.meta.env.BASE_URL}tnpsc-logo.png`} alt="TNPSC" className="h-8 w-8 object-contain" draggable={false} />
-          </span>
-          <div className="min-w-0">
-            <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-900 dark:text-gray-100">
-              Just like the official exam
-              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                Official pattern
-              </span>
-            </p>
-            <p className="mt-0.5 text-xs leading-relaxed text-gray-600 dark:text-gray-400">
-              Every mock is set to the real exam pattern, in one sitting — the same paper structure you will face on the day.{' '}
-              {LEVEL_GATE_ENABLED ? (
-                <>
-                  Score <b>{passPercentage}% or more</b> in a Simple mock to unlock Medium, and in a Medium mock to unlock Complex.
-                </>
-              ) : (
-                <>
-                  A paper counts as <b>cleared</b> once you score {passPercentage}% or more.
-                </>
-              )}
-            </p>
+      {/* A mock is the real thing in rehearsal: the card says how closely it follows the official paper. */}
+      <div className="overflow-hidden rounded-2xl border border-emerald-200 bg-white dark:border-emerald-900/60 dark:bg-gray-900">
+        <div className="h-1.5 bg-gradient-to-r from-emerald-500 to-teal-400" />
+        <div className="p-4 sm:p-5">
+          <div className="flex items-start gap-3.5">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 ring-1 ring-emerald-100 dark:bg-emerald-950/40 dark:ring-emerald-900/60">
+              <img src={`${import.meta.env.BASE_URL}tnpsc-logo.png`} alt="TNPSC" className="h-9 w-9 object-contain" draggable={false} />
+            </span>
+            <div className="min-w-0">
+              <p className="flex flex-wrap items-center gap-2 text-base font-extrabold text-gray-900 dark:text-gray-100">
+                Just like the official exam
+                <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                  Official pattern
+                </span>
+              </p>
+              <p className="mt-1 text-[13px] leading-relaxed text-gray-600 dark:text-gray-400">
+                Every mock follows the real paper structure and is taken in one sitting, so exam day feels familiar.{' '}
+                {LEVEL_GATE_ENABLED ? (
+                  <>
+                    Score <b>{passPercentage}% or more</b> in a Simple mock to unlock Medium, and in a Medium mock to unlock Complex.
+                  </>
+                ) : (
+                  <>
+                    A paper counts as <b>cleared</b> once you score {passPercentage}% or more.
+                  </>
+                )}
+              </p>
+            </div>
           </div>
+          {pattern && (
+            <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              {[
+                { icon: <FileText className="h-4 w-4" />, value: String(totalQuestions ?? pattern.total_questions), label: 'Questions' },
+                { icon: <Layers className="h-4 w-4" />, value: String(pattern.total_marks), label: 'Marks' },
+                {
+                  icon: <Clock className="h-4 w-4" />,
+                  value: `${pattern.duration_minutes % 60 === 0 ? pattern.duration_minutes / 60 : (pattern.duration_minutes / 60).toFixed(1)}h`,
+                  label: 'Duration',
+                },
+                {
+                  icon: <AlertCircle className="h-4 w-4" />,
+                  value: pattern.negative_marking ? `−${pattern.negative_mark_value || 0.25}` : 'None',
+                  label: 'Negative marking',
+                },
+              ].map(t => (
+                <div key={t.label} className="flex items-center gap-2.5 rounded-xl bg-gray-50 px-3 py-2.5 dark:bg-gray-800/60">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-emerald-600 shadow-sm dark:bg-gray-900 dark:text-emerald-300">
+                    {t.icon}
+                  </span>
+                  <span className="min-w-0 leading-tight">
+                    <span className="block text-base font-extrabold text-gray-900 dark:text-gray-100">{t.value}</span>
+                    <span className="block text-[11px] text-gray-500 dark:text-gray-400">{t.label}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        {pattern && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {[
-              { icon: <FileText className="h-3.5 w-3.5" />, label: `${totalQuestions ?? pattern.total_questions} questions` },
-              { icon: <Layers className="h-3.5 w-3.5" />, label: `${pattern.total_marks} marks` },
-              {
-                icon: <Clock className="h-3.5 w-3.5" />,
-                label: `${pattern.duration_minutes % 60 === 0 ? pattern.duration_minutes / 60 : (pattern.duration_minutes / 60).toFixed(1)} hours`,
-              },
-              {
-                icon: <AlertCircle className="h-3.5 w-3.5" />,
-                label: pattern.negative_marking
-                  ? `Negative marking${pattern.negative_mark_value ? ` (−${pattern.negative_mark_value})` : ''}`
-                  : 'No negative marking',
-              },
-            ].map(chip => (
-              <span
-                key={chip.label}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200"
-              >
-                {chip.icon}
-                {chip.label}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
       {!LEVELS_HIDDEN && groups.length > 1 && <LevelRail levels={levels} />}
 
       {groups.length === 0 || total === 0 ? (
         <EmptyRow label="No mock tests have been published for this stage yet." />
       ) : (
-        groups.map(g => <LevelSection key={g.level} group={g} />)
+        groups.map(g => <MockLevel key={g.level} group={g} />)
       )}
     </div>
   );
@@ -889,6 +907,142 @@ function LevelRail({ levels }: { levels: TnpscLevelGroup[] }) {
         );
       })}
     </div>
+  );
+}
+
+/**
+ * A difficulty's mocks as cards. A locked or empty level keeps its own notice (`LevelSection`); an open one is a
+ * heading and a grid of papers, without a second box around them.
+ */
+function MockLevel({ group }: { group: TnpscLevelGroup }) {
+  if (!group.is_unlocked || group.tests.length === 0) return <LevelSection group={group} />;
+  const meta = LEVEL_META[group.level];
+  return (
+    <section>
+      <div className="mb-2.5 flex flex-wrap items-end justify-between gap-2 px-0.5">
+        <div className="min-w-0">
+          <h3 className="flex items-center gap-2 text-base font-extrabold text-gray-900 dark:text-gray-100">
+            {LEVELS_HIDDEN ? 'Full mock papers' : `${meta.label} level mocks`}
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+              {group.tests.length}
+            </span>
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {LEVELS_HIDDEN ? 'Set to the official exam pattern — the real question count, in one sitting.' : meta.blurb}
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {group.tests.map((t, i) => (
+          <MockCard key={t.test_id} test={t} index={i} passPercentage={group.required_percentage} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** One full mock: what it is, how you stand on it, and a clear way in. */
+function MockCard({ test, index, passPercentage }: { test: TnpscTest; index: number; passPercentage?: number }) {
+  const attemptsLeft = test.max_attempts == null ? null : Math.max(0, test.max_attempts - test.attempts_used);
+  const exhausted = attemptsLeft === 0;
+  const best = test.best_percentage != null ? Math.round(test.best_percentage) : null;
+
+  const status = test.is_completed ? (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+      <CheckCircle2 className="h-3 w-3" /> Cleared
+    </span>
+  ) : null;
+
+  const action = test.is_locked ? (
+    <span className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-amber-50 px-3.5 text-xs font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+      <Lock className="h-3.5 w-3.5" /> Upgrade to unlock
+    </span>
+  ) : exhausted ? (
+    <span className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gray-100 px-3.5 text-xs font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+      <Lock className="h-3.5 w-3.5" /> No attempts left
+    </span>
+  ) : (
+    <span className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 px-4 text-sm font-bold text-white shadow-sm transition group-hover/mock:shadow-md group-hover/mock:brightness-105">
+      {best != null ? 'Take again' : 'Start exam'} <ChevronRight className="h-4 w-4" />
+    </span>
+  );
+
+  const body = (
+    <>
+      <div className="flex items-start gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
+          <FileText className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <p className="line-clamp-2 text-[15px] font-extrabold leading-snug text-gray-900 dark:text-gray-100">{test.title}</p>
+            {status}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <MiniChip icon={<FileText className="h-3 w-3" />} label={`${test.question_count} Qs`} />
+            {test.time_limit_minutes ? <MiniChip icon={<Clock className="h-3 w-3" />} label={`${test.time_limit_minutes} min`} /> : null}
+            {test.negative_marking && (
+              <span className="rounded-md bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-600 dark:bg-red-950/40 dark:text-red-300">
+                −{test.negative_mark_value || 0.25} negative
+              </span>
+            )}
+            {test.level && !LEVELS_HIDDEN && (
+              <span className={cn('rounded-md border px-2 py-1 text-[10px] font-semibold', LEVEL_META[test.level as TnpscLevel].chip)}>
+                {LEVEL_META[test.level as TnpscLevel].label}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+        <div className="min-w-0 text-xs text-gray-500 dark:text-gray-400">
+          {best != null ? (
+            <>
+              <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400">Best score</span>
+              <span className="text-base font-extrabold text-gray-900 dark:text-gray-100">{best}%</span>
+              {LEVEL_GATE_ENABLED && !test.is_completed && passPercentage != null && (
+                <span className="ml-1 text-amber-600 dark:text-amber-400">· needs {passPercentage}%</span>
+              )}
+            </>
+          ) : test.max_attempts != null ? (
+            `${test.attempts_used}/${test.max_attempts} attempts used`
+          ) : (
+            'Not attempted yet'
+          )}
+        </div>
+        {action}
+      </div>
+    </>
+  );
+
+  const shell = cn(
+    'group/mock block rounded-2xl border bg-white p-4 animate-slideUp transition-all dark:bg-gray-900',
+    test.is_locked || exhausted
+      ? 'border-gray-100 dark:border-gray-800'
+      : 'border-emerald-100 shadow-sm hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md dark:border-emerald-900/50 dark:hover:border-emerald-700',
+  );
+
+  if (exhausted) {
+    return (
+      <button
+        type="button"
+        onClick={() => showPlanNotice(attemptsUsed(test.max_attempts))}
+        className={cn(shell, 'w-full text-left opacity-75 hover:opacity-100')}
+        style={{ animationDelay: `${index * 0.04}s` }}
+      >
+        {body}
+      </button>
+    );
+  }
+  return (
+    <Link
+      to={test.is_locked ? '/user/subscription' : testHref(test)}
+      state={{ from: here() }}
+      className={shell}
+      style={{ animationDelay: `${index * 0.04}s` }}
+    >
+      {body}
+    </Link>
   );
 }
 
@@ -1341,93 +1495,121 @@ function StatCard({
 // ─── Tabs and banner ──────────────────────────────────────────────────────────
 
 /**
- * The three tracks as the path to follow: Key Topics, then Practice, then Exam. The step you are on is highlighted,
- * and a line under the bar says what that step is for.
+ * The three ways to take a test, side by side. They are kinds of test, not stages to go through in order: Key Topics
+ * for one topic at a time, Practice for a unit or subject, Exam for the full paper in the official pattern. Pick
+ * whichever you need today.
  */
-const PATH_STEPS: Array<{ key: Tab; label: string; icon: React.ReactNode; note: string; tag?: string }> = [
-  { key: 'topics', label: 'Key Topics', icon: <KeyRound className="w-4 h-4" />, note: 'Strengthen your basics, one topic at a time.' },
-  { key: 'practice', label: 'Practice', icon: <Pencil className="w-4 h-4" />, note: 'Practice by unit or take a full subject test.' },
-  { key: 'exam', label: 'Exam', icon: <FileText className="w-4 h-4" />, note: 'Experience the official exam pattern.', tag: 'Official pattern' },
+const PATH_STEPS: Array<{
+  key: Tab;
+  label: string;
+  icon: React.ReactNode;
+  note: string;
+  tag?: string;
+  /** Each kind of test has its own colour, so which one you are in reads at a glance. */
+  on: string;
+  tileOn: string;
+  check: string;
+  tile: string;
+  edge: string;
+}> = [
+  {
+    key: 'topics',
+    label: 'Practice by Key Topics',
+    icon: <KeyRound className="w-5 h-5" />,
+    note: 'One topic at a time — build your basics',
+    on: 'border-blue-500 shadow-blue-100',
+    tileOn: 'bg-blue-600 text-white',
+    check: 'bg-blue-600',
+    tile: 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300',
+    edge: 'border-t-blue-500 hover:border-blue-300',
+  },
+  {
+    key: 'practice',
+    label: 'Practice by Unit',
+    icon: <Pencil className="w-5 h-5" />,
+    note: 'Pick a unit, then Simple, Medium or Complex',
+    on: 'border-orange-500 shadow-orange-100',
+    tileOn: 'bg-orange-500 text-white',
+    check: 'bg-orange-500',
+    tile: 'bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-300',
+    edge: 'border-t-orange-500 hover:border-orange-300',
+  },
+  {
+    key: 'exam',
+    label: 'Mock Exam',
+    icon: <FileText className="w-5 h-5" />,
+    note: 'Full paper, timed like the real one',
+    tag: 'Official pattern',
+    on: 'border-emerald-500 shadow-emerald-100',
+    tileOn: 'bg-emerald-600 text-white',
+    check: 'bg-emerald-600',
+    tile: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300',
+    edge: 'border-t-emerald-500 hover:border-emerald-300',
+  },
 ];
 
 function TrackTabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
-  const at = PATH_STEPS.findIndex(s => s.key === tab);
   return (
     <div>
-      <div role="tablist" aria-label="Preparation path" className="grid grid-cols-3 gap-1.5 sm:flex sm:flex-wrap sm:items-center">
-        {PATH_STEPS.map((it, i) => {
-          const active = i === at;
+      <div role="tablist" aria-label="Test type" className="grid grid-cols-3 gap-2 sm:gap-3">
+        {PATH_STEPS.map(it => {
+          const active = it.key === tab;
           return (
-            <div key={it.key} className="sm:flex sm:items-center sm:gap-1.5">
-              {i > 0 && (
-                <ChevronRight
-                  className={cn('hidden h-4 w-4 shrink-0 sm:block', i <= at ? 'text-orange-400' : 'text-gray-300 dark:text-gray-600')}
-                  aria-hidden
-                />
+            <button
+              key={it.key}
+              role="tab"
+              aria-selected={active}
+              onClick={() => onChange(it.key)}
+              className={cn(
+                'group relative flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-center transition-all sm:flex-row sm:items-center sm:gap-3 sm:px-4 sm:py-3.5 sm:text-left',
+                active
+                  ? cn('border-2 bg-white text-gray-900 shadow-lg dark:bg-gray-900 dark:text-gray-100 dark:shadow-none', it.on)
+                  : cn('border-t-4 border-gray-200 bg-white text-gray-700 hover:-translate-y-0.5 hover:shadow-md dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200', it.edge),
               )}
-              <button
-                role="tab"
-                aria-selected={active}
-                aria-current={active ? 'step' : undefined}
-                onClick={() => onChange(it.key)}
+            >
+              <span
                 className={cn(
-                  // A phone gets three equal tiles on one row (number and icon over the name); from `sm` they are the
-                  // usual row of steps with arrows between.
-                  'flex w-full flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 text-[12px] font-bold transition-all sm:inline-flex sm:w-auto sm:flex-row sm:gap-2 sm:px-3 sm:text-xs',
-                  active
-                    ? 'border-transparent bg-gradient-to-r from-brand-600 to-brand-400 text-white shadow-md shadow-orange-200/60 dark:shadow-none'
-                    : i < at
-                      ? 'border-orange-200 bg-white text-gray-700 hover:border-orange-300 dark:border-orange-900/60 dark:bg-gray-900 dark:text-gray-200'
-                      : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:text-gray-200',
+                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors',
+                  active ? it.tileOn : it.tile,
                 )}
               >
-                <span className="flex items-center gap-1.5 sm:contents">
-                  <span
-                    className={cn(
-                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold',
-                      active ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
-                    )}
-                  >
-                    {i + 1}
-                  </span>
-                  {it.icon}
+                {it.icon}
+              </span>
+              <span className="min-w-0">
+                <span className="flex flex-wrap items-center justify-center gap-1.5 text-[13px] font-extrabold sm:justify-start sm:text-sm">
+                  {it.label}
+                  {it.tag && (
+                    <span
+                      className={cn(
+                        'hidden items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold lg:inline-flex',
+                        'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+                      )}
+                    >
+                      <img src={`${import.meta.env.BASE_URL}tnpsc-logo.png`} alt="" className="h-3.5 w-3.5 object-contain" draggable={false} />
+                      {it.tag}
+                    </span>
+                  )}
                 </span>
-                {it.label}
-                {it.tag && (
-                  <span
-                    className={cn(
-                      'hidden items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold sm:inline-flex',
-                      active ? 'bg-white/25 text-white' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
-                    )}
-                  >
-                    <img src={`${import.meta.env.BASE_URL}tnpsc-logo.png`} alt="" className="h-3.5 w-3.5 object-contain" draggable={false} />
-                    {it.tag}
-                  </span>
-                )}
-              </button>
-            </div>
+                <span className={cn('mt-0.5 hidden text-xs leading-snug sm:block', 'text-gray-500 dark:text-gray-400')}>
+                  {it.note}
+                </span>
+              </span>
+              {active && (
+                <span className={cn('absolute right-2.5 top-2.5 hidden h-5 w-5 items-center justify-center rounded-full sm:flex', it.check)} aria-hidden>
+                  <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                </span>
+              )}
+            </button>
           );
         })}
       </div>
-      {at >= 0 && (
-        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          <span className="font-semibold text-orange-600 dark:text-orange-400">
-            Step {at + 1} of {PATH_STEPS.length}
-          </span>{' '}
-          – {PATH_STEPS[at].note}
-        </p>
-      )}
-      <div className="mt-3 flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50/70 px-3.5 py-3 dark:border-sky-900/60 dark:bg-sky-950/30">
-        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-300">
-          <Shuffle className="h-4 w-4" aria-hidden />
+      {/* One line, not a banner: every test draws a new set of questions. */}
+      <p className="mt-2.5 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+        <Shuffle className="h-3.5 w-3.5 shrink-0 text-sky-500" aria-hidden />
+        <span>
+          <span className="font-semibold text-gray-700 dark:text-gray-200">Fresh questions every attempt</span> — a new set of expert-validated questions each time.
         </span>
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Fresh Questions Every Attempt</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-gray-600 dark:text-gray-400">
-            A new set of expert-validated questions every time you practise.
-          </p>
-        </div>
-      </div>
+      </p>
     </div>
   );
 }

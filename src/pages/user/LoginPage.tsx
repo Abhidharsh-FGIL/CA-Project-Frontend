@@ -22,6 +22,7 @@ import { ROUTES } from '@/pages/landing/LandingShell';
 import { ArtImage, AuthField, AuthLayout, AuthModal } from './auth/AuthShell';
 import { LoginOtpForm } from './auth/LoginOtpForm';
 import { GoogleButton } from './auth/GoogleButton';
+import { askAboutReferral } from '@/components/user/ReferralAskHost';
 
 /** What the product offers, as a row under the form. */
 const POINTS = [
@@ -66,6 +67,8 @@ export default function LoginPage() {
       // A brand-new account the server made on the spot (it says so) is a registration; an existing one is not.
       if (res.created) trackCompleteRegistration(`google:${credential.slice(-24)}`);
       toast.success(res.created ? 'Account created successfully!' : 'Welcome back!');
+      // A new account made in one step has no form to ask about a referral on: ask once it is made, unless a code linked.
+      if (res.created && res.referralApplied !== true) askAboutReferral();
       navigate('/user/dashboard');
     } else if (res.needsProfile) {
       toast.info('Almost there — add a few details to create your account.');

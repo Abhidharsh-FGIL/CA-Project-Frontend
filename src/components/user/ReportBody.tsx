@@ -943,7 +943,8 @@ export function AttemptReport({
         <ReportTitleRow
           model={model}
           canDownload
-          onDownload={() => downloadReportPdf(`${model.meta.testName} - ${studentName}`)}
+          // The report download is for mock tests only.
+          onDownload={placement.track === 'mock' ? () => downloadReportPdf(`${model.meta.testName} - ${studentName}`) : undefined}
         />
       )}
 
