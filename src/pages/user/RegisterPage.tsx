@@ -4,65 +4,33 @@ import {
   ArrowRight,
   BarChart3,
   BookOpen,
-  Calendar,
   AlertCircle,
   CheckCircle2,
   FileText,
+  Gift,
   Mail,
   Phone,
   Target,
   User,
-  Users,
 } from 'lucide-react';
 import { useUserPortal } from '@/contexts/UserPortalContext';
-import { TNPSC_GROUPS } from '@/config/tnpsc';
 import { GOOGLE_ENABLED } from '@/config/google';
 import { formNameFrom, readGoogleCredential } from '@/lib/google-identity';
-import { UPCOMING_EXAMS, splitExams } from '@/lib/exam-listing';
 import { toast } from 'sonner';
 import { ROUTES } from '@/pages/landing/LandingShell';
-import { ArtImage, AuthField, AuthLayout, AuthModal, AuthSelect } from './auth/AuthShell';
+import { ArtImage, AuthField, AuthLayout, AuthModal } from './auth/AuthShell';
 import { GoogleButton } from './auth/GoogleButton';
 import { trackCompleteRegistration } from '@/lib/meta-pixel';
-
-/** Today in the person's own calendar, as `YYYY-MM-DD` — the latest birth date the form takes. */
-const todayISO = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+import { cleanReferralInput, clearSavedReferral, refFromSearch, saveReferral, savedReferral, validateReferralCode } from '@/lib/referralApi';
 
 interface FormErrors {
   name?: string;
   email?: string;
   phone?: string;
-  date_of_birth?: string;
-  gender?: string;
-  student_class?: string;
-  section?: string;
-  roll_no?: string;
-  school_name?: string;
-  medium?: string;
-  class_teacher?: string;
-  academic_year?: string;
-  preferred_exam?: string;
 }
 
 /** Where a newly created account lands: the exam list, not the (still empty) dashboard. */
 const FIRST_LANDING = '/user/exams';
-
-const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
-/**
- * Exams an aspirant can register against — the ones that are open (see `exam-listing.ts`), read
- * from the shared catalog rather than hardcoded, so opening another exam offers it here too. The
- * stored value is the group id; the label is what the aspirant reads. An exam that is not open
- * yet is not offered: signing up for it would land on screens that say it is coming soon.
- */
-const EXAM_OPTIONS = [
-  ...splitExams(TNPSC_GROUPS).open.map(g => ({ value: g.id, label: g.name, disabled: false })),
-  // The rest are listed so aspirants see what is coming, but cannot be chosen yet.
-  ...splitExams(TNPSC_GROUPS).soon.map(g => ({ value: g.id, label: `${g.name} (Coming soon)`, disabled: true })),
-  ...UPCOMING_EXAMS.map(e => ({ value: e.id, label: `${e.name} (Coming soon)`, disabled: true })),
-];
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -91,20 +59,49 @@ export default function RegisterPage() {
     name: google ? formNameFrom(google.name) : '',
     email: google?.email ?? '',
     phone: '',
-    date_of_birth: '',
-    gender: '',
-    student_class: '',
-    section: '',
-    roll_no: '',
-    school_name: '',
-    medium: '',
-    class_teacher: '',
-    academic_year: '',
-    // With one exam open there is nothing to choose, so it is already chosen.
-    preferred_exam: EXAM_OPTIONS.length === 1 ? EXAM_OPTIONS[0].value : '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
+
+  // The optional referral field. A share link (`?ref=CODE`) fills it in, and the code is checked as it is typed.
+  // A link's code is kept as well: a Google sign-in can reload the page and lose the `?ref=` from the address.
+  const linkRef = useRef(refFromSearch(location.search) ?? savedReferral());
+  useEffect(() => {
+    const fromAddress = refFromSearch(location.search);
+    if (fromAddress) saveReferral(fromAddress);
+  }, [location.search]);
+  const [referral, setReferral] = useState(linkRef.current ?? '');
+  const [referralCheck, setReferralCheck] = useState<
+    { state: 'idle' } | { state: 'checking' } | { state: 'ok'; text: string } | { state: 'bad'; text: string }
+  >({ state: 'idle' });
+  const cameFromLink = !!linkRef.current && cleanReferralInput(referral).toUpperCase() === linkRef.current.toUpperCase();
+
+  useEffect(() => {
+    const code = cleanReferralInput(referral);
+    if (!code) {
+      setReferralCheck({ state: 'idle' });
+      return;
+    }
+    setReferralCheck({ state: 'checking' });
+    let current = true;
+    const t = setTimeout(() => {
+      validateReferralCode(code)
+        .then(r => {
+          if (!current) return;
+          setReferralCheck(
+            r.valid
+              ? { state: 'ok', text: `✓ ${r.message || 'Referral verified'}${r.referrer_name ? ` (${r.referrer_name})` : ''}` }
+              : { state: 'bad', text: r.message || 'Referral code not found.' },
+          );
+        })
+        // Not being able to check is not a reason to stop someone signing up; the server checks again on register.
+        .catch(() => current && setReferralCheck({ state: 'idle' }));
+    }, 500);
+    return () => {
+      current = false;
+      clearTimeout(t);
+    };
+  }, [referral]);
 
   const [otpModalOpen, setOtpModalOpen] = useState(false);
   /** A sign-up the server turned down — shown in a popup, so it cannot be missed at the bottom of a long form. */
@@ -131,15 +128,20 @@ export default function RegisterPage() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Enter a valid email';
     if (!/^\d{10}$/.test(form.phone)) e.phone = 'Enter a valid 10-digit mobile number';
 
-    // Aspirant details relevant to competitive exams.
-    if (!form.date_of_birth) e.date_of_birth = 'Date of birth is required';
-    else if (form.date_of_birth > todayISO()) e.date_of_birth = 'Date of birth cannot be in the future';
-    if (!form.gender) e.gender = 'Select a gender';
-    if (!form.preferred_exam) e.preferred_exam = 'Select the exam you are preparing for';
-    // Class / Section / Roll No. / School / Teacher / Academic Year are not collected for competitive exams.
-
     setErrors(e);
     return Object.keys(e).length === 0;
+  };
+
+  /** The code to send with a Google request, when there is one. */
+  const referralForGoogle = () => {
+    const code = cleanReferralInput(referral);
+    return code ? { code, fromLink: cameFromLink } : undefined;
+  };
+
+  /** What happened to the code on a Google sign-up: linked, or turned down (the person is in either way). */
+  const reportReferral = (r: { referralApplied?: boolean | null; referralMessage?: string | null }) => {
+    if (r.referralApplied === true) toast.success('✓ Referral applied');
+    else if (r.referralApplied === false && r.referralMessage) toast.info(r.referralMessage);
   };
 
   const handleSubmit = async (ev: React.FormEvent) => {
@@ -149,7 +151,7 @@ export default function RegisterPage() {
       // error somewhere off screen above the button they just pressed.
       requestAnimationFrame(() =>
         document
-          .querySelector<HTMLElement>('.mge-input-error input, .mge-input-error select')
+          .querySelector<HTMLElement>('.mge-input-error input')
           ?.focus({ preventScroll: false }),
       );
       return;
@@ -159,10 +161,12 @@ export default function RegisterPage() {
       if (google) {
         // A Google sign-up: the server makes the account from the token and these details, and signs it in.
         justSignedUp.current = true;
-        const made = await signInWithGoogle(google.credential, form);
+        const made = await signInWithGoogle(google.credential, form, referralForGoogle());
         if (made.ok) {
           trackCompleteRegistration(form.email || google.email);
           toast.success('Account created successfully!');
+          reportReferral(made);
+          clearSavedReferral();
           navigate(FIRST_LANDING, { replace: true });
         } else {
           justSignedUp.current = false;
@@ -170,7 +174,11 @@ export default function RegisterPage() {
         }
         return;
       }
-      const res = await register(form);
+      const res = await register({
+        ...form,
+        referralCode: cleanReferralInput(referral),
+        referralFromLink: cameFromLink,
+      });
       if (res.ok) {
         setOtpSentTo(res.otpSentTo || form.email);
         setOtpModalOpen(true);
@@ -190,11 +198,15 @@ export default function RegisterPage() {
    * the form is filled from Google and the person adds the rest.
    */
   const googleSignUp = async (credential: string) => {
-    const res = await signInWithGoogle(credential);
+    const res = await signInWithGoogle(credential, undefined, referralForGoogle());
     if (res.ok) {
       // A brand-new account the server made on the spot (it says so) is a registration; an existing one is not.
       if (res.created) trackCompleteRegistration(`google:${credential.slice(-24)}`);
       toast.success(res.created ? 'Account created successfully!' : 'Welcome back!');
+      if (res.created) {
+        reportReferral(res);
+        clearSavedReferral();
+      }
       navigate('/user/dashboard', { replace: true });
       return;
     }
@@ -222,6 +234,7 @@ export default function RegisterPage() {
       if (res.ok) {
         trackCompleteRegistration(form.email);
         toast.success('Account created successfully!');
+        clearSavedReferral();
         navigate(FIRST_LANDING, { replace: true });
       } else {
         justSignedUp.current = false;
@@ -326,32 +339,19 @@ export default function RegisterPage() {
             autoComplete="tel-national"
           />
           <AuthField
-            icon={Calendar}
-            type="date"
-            label="Date of Birth"
-            max={todayISO()}
-            value={form.date_of_birth}
-            onChange={v => setForm(f => ({ ...f, date_of_birth: v }))}
-            error={errors.date_of_birth}
-            autoComplete="bday"
-          />
-          <AuthSelect
-            icon={Users}
-            label="Gender"
-            placeholder="Select gender"
-            value={form.gender}
-            onChange={v => setForm(f => ({ ...f, gender: v }))}
-            error={errors.gender}
-            options={GENDER_OPTIONS}
-          />
-          <AuthSelect
-            icon={Target}
-            label="Preparing for"
-            placeholder="Select the exam"
-            value={form.preferred_exam}
-            onChange={v => setForm(f => ({ ...f, preferred_exam: v }))}
-            error={errors.preferred_exam}
-            options={EXAM_OPTIONS}
+            icon={Gift}
+            value={referral}
+            onChange={setReferral}
+            placeholder="Referral code (optional)"
+            autoComplete="off"
+            error={referralCheck.state === 'bad' ? referralCheck.text : undefined}
+            hint={
+              referralCheck.state === 'ok'
+                ? referralCheck.text
+                : referralCheck.state === 'checking'
+                  ? 'Checking…'
+                  : 'Code, or your friend’s mobile number or email'
+            }
           />
 
           <button type="submit" disabled={submitting} className="mge-btn mge-btn-primary mge-auth-submit">

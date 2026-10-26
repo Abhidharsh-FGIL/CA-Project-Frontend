@@ -937,6 +937,7 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
                 )}
               </div>
             )}
+
           </div>
 
         </div>

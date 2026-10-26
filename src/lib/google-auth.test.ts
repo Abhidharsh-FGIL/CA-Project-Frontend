@@ -47,14 +47,14 @@ afterEach(() => {
 describe('googleAuth', () => {
   it('signs an existing account in and keeps its tokens', async () => {
     fetchMock.mockResolvedValue(json(200, { access_token: 'a1', refresh_token: 'r1', token_type: 'bearer' }));
-    await expect(googleAuth('google-id-token')).resolves.toEqual({ kind: 'signed-in', created: false });
+    await expect(googleAuth('google-id-token')).resolves.toMatchObject({ kind: 'signed-in', created: false, referralApplied: null });
     expect(getUserToken()).toBe('a1');
     expect(store.get('user_refresh_token')).toBe('r1');
   });
 
   it('says when the server made a new account in the same call', async () => {
     fetchMock.mockResolvedValue(json(200, { access_token: 'a', refresh_token: 'r', token_type: 'bearer', is_new_user: true }));
-    await expect(googleAuth('google-id-token')).resolves.toEqual({ kind: 'signed-in', created: true });
+    await expect(googleAuth('google-id-token')).resolves.toMatchObject({ kind: 'signed-in', created: true });
   });
 
   it('sends the Google token, and nothing else, when there is no profile yet', async () => {
@@ -62,6 +62,38 @@ describe('googleAuth', () => {
     await googleAuth('google-id-token');
     expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v1/user/auth/google');
     expect(bodyOfCall()).toEqual({ id_token: 'google-id-token' });
+  });
+
+  it('sends the referral code with the token, marking one that came from a link', async () => {
+    fetchMock.mockResolvedValue(json(200, { access_token: 'a', refresh_token: 'r', token_type: 'bearer' }));
+    await googleAuth('google-id-token', profile, { code: 'MGE-A7K92', fromLink: true });
+    expect(bodyOfCall()).toMatchObject({ id_token: 'google-id-token', referral_code: 'MGE-A7K92', referral_source: 'link' });
+  });
+
+  it('leaves out referral_source for a code that was typed, and the whole pair when there is no code', async () => {
+    fetchMock.mockImplementation(async () => json(200, { access_token: 'a', refresh_token: 'r', token_type: 'bearer' }));
+    await googleAuth('t', profile, { code: 'MGE-A7K92', fromLink: false });
+    expect(bodyOfCall()).not.toHaveProperty('referral_source');
+    await googleAuth('t', profile, { code: '', fromLink: true });
+    expect(bodyOfCall(1)).not.toHaveProperty('referral_code');
+  });
+
+  it('reports whether the code linked, and why not when it did not — the person is signed in either way', async () => {
+    fetchMock.mockResolvedValueOnce(
+      json(200, { access_token: 'a', refresh_token: 'r', token_type: 'bearer', is_new_user: true, referral_applied: true, referral_message: 'Referral code applied' }),
+    );
+    await expect(googleAuth('t', profile, { code: 'MGE-A7K92', fromLink: true })).resolves.toMatchObject({
+      referralApplied: true,
+      referralMessage: 'Referral code applied',
+    });
+    fetchMock.mockResolvedValueOnce(
+      json(200, { access_token: 'a', refresh_token: 'r', token_type: 'bearer', referral_applied: false, referral_message: 'Referral code not found' }),
+    );
+    await expect(googleAuth('t', profile, { code: 'BAD', fromLink: false })).resolves.toMatchObject({
+      kind: 'signed-in',
+      referralApplied: false,
+      referralMessage: 'Referral code not found',
+    });
   });
 
   it('asks for the missing details when Google is fine but there is no account, and signs nobody in', async () => {

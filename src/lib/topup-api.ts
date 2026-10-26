@@ -130,7 +130,10 @@ export function getTopUpBalance(): Promise<TopUpBalance> {
 /** An empty or missing `promoCode` means no code. A bad code is a 400 whose message says why. */
 export function createTopUpOrder(packId: string, promoCode?: string | null): Promise<TopUpOrder> {
   const code = promoCode?.trim();
-  return userApi.post<TopUpOrder>('/api/v1/user/topup/order', { pack_id: packId, ...(code ? { promo_code: code } : {}) });
+  return userApi.post<TopUpOrder>('/api/v1/user/topup/order', {
+    pack_id: packId,
+    ...(code ? { promo_code: code } : {}),
+  });
 }
 
 /** Previews what a promo code does to a pack's price. The order applies the code again, so this is only a preview. */

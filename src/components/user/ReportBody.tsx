@@ -39,6 +39,7 @@ import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { resolveLanguage, translationOf, type LangMode } from '@/lib/question-language';
 import { downloadQuestionCsv } from '@/lib/question-export';
+import { downloadReportPdf } from '@/lib/print-report';
 import { readProctoringRecord } from '@/lib/proctoring-record';
 import { canDownloadQuestions } from '@/lib/download-access';
 import { ReportLanguageProvider, type ReportLanguage } from '@/components/user/report-ui';
@@ -932,14 +933,18 @@ export function AttemptReport({
   }
 
   const attemptContent = (
-    <div className="space-y-5">
+    <div id="report-pdf-root" className="space-y-5">
       {model && (
         // Download and share are deliberately not wired: the PDF export does not
         // exist yet (the handler only raised "coming soon"), and a shared link
         // needs a viewer who is not signed in as this aspirant. `ReportTitleRow`
         // hides each button when its handler is absent, so passing neither is all
         // it takes — and passing them again is all it takes to bring them back.
-        <ReportTitleRow model={model} />
+        <ReportTitleRow
+          model={model}
+          canDownload
+          onDownload={() => downloadReportPdf(`${model.meta.testName} - ${studentName}`)}
+        />
       )}
 
       {model && <PassMarkNote model={model} track={placement.track} />}
@@ -1015,6 +1020,7 @@ export function AttemptReport({
       {questions.length > 0 && (
         <div
           id="question-insights"
+          data-no-print
           className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4"
         >
           <div className="flex items-center gap-2 mb-3 flex-wrap">

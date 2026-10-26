@@ -46,6 +46,7 @@ import UserStudyPlanPage from "@/pages/user/UserStudyPlanPage";
 import StudyPlanWizardPage from "@/pages/user/StudyPlanWizardPage";
 import UserProfilePage from "@/pages/user/UserProfilePage";
 import SubscriptionPage from "@/pages/user/SubscriptionPage";
+import ReferralPage from "@/pages/user/ReferralPage";
 import NotificationsPage from "@/pages/user/NotificationsPage";
 import PaymentHistoryPage from "@/pages/user/PaymentHistoryPage";
 import { UserEvalAssessmentPage } from "@/pages/user/UserEvalAssessmentPage";
@@ -181,6 +182,11 @@ function HomePage() {
   );
 }
 
+function SignupLinkRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={`/user/register${search}`} replace />;
+}
+
 function UserPortalRoutes() {
   return (
     <UserPortalProvider>
@@ -221,6 +227,7 @@ function UserPortalRoutes() {
           <Route path="report/:attemptId" element={<UserReportPage />} />
           <Route path="profile" element={<UserProfilePage />} />
           <Route path="subscription" element={<SubscriptionPage />} />
+          <Route path="referral" element={<ReferralPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="billing" element={<PaymentHistoryPage />} />
           <Route path="about" element={<UserAboutPage />} />
@@ -257,6 +264,10 @@ function AppRoutes() {
         <Route path="/org/evaluation/generating/:jobId" element={<EvalGeneratingPage />} />
       </Route>
       <Route path="/take-assessment" element={<TakeAssessmentPage />} />
+
+      {/* The share link the backend gives out (`#/signup?ref=CODE` or `#/register?ref=CODE`) lands on the sign-up page, code and all. */}
+      <Route path="/signup" element={<SignupLinkRedirect />} />
+      <Route path="/register" element={<SignupLinkRedirect />} />
 
       {/* User Portal — scoped so UserPortalProvider only mounts on /user/* */}
       <Route path="/user/*" element={<UserPortalRoutes />} />

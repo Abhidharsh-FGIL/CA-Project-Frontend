@@ -41,7 +41,9 @@ import {
   Sparkles,
   Target,
   Trophy,
+  Share2,
   Users,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { publicApi } from '@/lib/api';
@@ -669,6 +671,95 @@ function Pricing() {
   );
 }
 
+/** Refer & Earn, told once, with the three things a visitor asks: what do I do, what do I get, when is it paid. */
+const referralSteps: Array<{ icon: LucideIcon; title: string; desc: string }> = [
+  { icon: Users, title: 'Share your code', desc: 'Every account gets a personal referral code and link, ready to share on WhatsApp.' },
+  { icon: Sparkles, title: 'Your friend joins and subscribes', desc: 'They sign up with your code and buy a plan.' },
+  { icon: Gift, title: 'You earn cash', desc: 'You get 5% of their eligible purchases as real cash.' },
+];
+
+function Referral() {
+  return (
+    <section className="mge-container" id="refer-and-earn" aria-labelledby="mge-ref-title">
+      <div className="mge-ref">
+        <span className="mge-ref-orb mge-ref-orb-a" aria-hidden="true" />
+        <span className="mge-ref-orb mge-ref-orb-b" aria-hidden="true" />
+        <div className="mge-ref-top">
+          <div className="mge-ref-copy">
+            <span className="mge-ref-kicker">
+              <Gift size={14} aria-hidden="true" /> Refer &amp; Earn
+            </span>
+            <h2 id="mge-ref-title">
+              Share MyGovExams. <span>Earn real cash.</span>
+            </h2>
+            <p>
+              Invite friends who are preparing for government exams. When they subscribe, you earn cash — paid out to your UPI or bank account.
+            </p>
+            <div className="mge-ref-big">
+              <strong>5%</strong>
+              <span>
+                cash on every eligible
+                <br />
+                purchase your friend makes
+              </span>
+            </div>
+            <div className="mge-ref-actions">
+              <ButtonLink to={CONFIG.signupPath} className="mge-ref-cta">
+                Get your referral code <ArrowRight size={18} />
+              </ButtonLink>
+              <span className="mge-ref-note">
+                <CalendarDays size={15} aria-hidden="true" /> Withdraw from the 1st to the 7th of every month
+              </span>
+            </div>
+          </div>
+
+          {/* What a member sees on their Refer & Earn page: the code to share, and what it has earned. */}
+          <div className="mge-ref-mock" aria-hidden="true">
+            <p className="mge-ref-mock-label">Your referral code</p>
+            <div className="mge-ref-code-row">
+              <span className="mge-ref-code">MGE-K5J2P</span>
+              <span className="mge-ref-copybtn">Copy</span>
+            </div>
+            <span className="mge-ref-wa">
+              <Share2 size={15} /> Share on WhatsApp
+            </span>
+            <div className="mge-ref-mock-stats">
+              <div>
+                <Users size={16} />
+                <strong>3</strong>
+                <span>Friends referred</span>
+              </div>
+              <div>
+                <CheckCircle2 size={16} />
+                <strong>2</strong>
+                <span>Paid users</span>
+              </div>
+              <div>
+                <Wallet size={16} />
+                <strong>₹450</strong>
+                <span>Total earned</span>
+              </div>
+            </div>
+            <em className="mge-ref-example">Example</em>
+          </div>
+        </div>
+
+        <ol className="mge-ref-steps">
+          {referralSteps.map((st, i) => (
+            <li key={st.title}>
+              <span className="mge-ref-num">{i + 1}</span>
+              <div>
+                <h3>{st.title}</h3>
+                <p>{st.desc}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
 function FinalCta() {
   return (
     <section className="mge-container mge-cta-section">
@@ -718,6 +809,7 @@ export default function LandingPage() {
         <Features />
         <ExamBanner />
         <HowItWorks />
+        <Referral />
         <Pricing />
         <FinalCta />
       </main>

@@ -66,7 +66,9 @@ export const PAPER_NAME =['General Tamil', 'General Studies', 'Aptitude & Mental
 
 function pathOf(q: QuestionReviewItem): Array<{ level: TreeLevel; name: string }> {
   const out: Array<{ level: TreeLevel; name: string }> = [];
-  const paper = PAPER_NAME[paperSection(q)];
+  const section = paperSection(q);
+  // The language paper carries the language the candidate sat: General English is not filed under General Tamil.
+  const paper = section === 0 && /general english/i.test(`${q.subject ?? ''}`) ? 'General English' : PAPER_NAME[section];
   const unit = clean(q.unit_name);
   const category = clean(q.category);
   const sub = clean(q.subtopic_name) || clean(q.subtopic);

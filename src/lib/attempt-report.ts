@@ -602,7 +602,8 @@ export function metricsFor(questions: QuestionReviewItem[]): NodeMetrics {
 /** Where a question's subject sits in a paper: 0 Tamil, 2 Aptitude, 1 everything else (General Studies). */
 export function paperSection(q: QuestionReviewItem | undefined): number {
   const text = `${q?.subject ?? ''} ${q?.subject_id ?? ''}`.toLowerCase();
-  if (/tamil|தமிழ்/.test(text)) return 0;
+  // The language paper: General Tamil, or General English for the candidate who sits that instead.
+  if (/tamil|தமிழ்|general english/.test(text)) return 0;
   if (/aptitude|mental|reasoning|mathematic|maths|numerical|logical|data interpretation|திறன|கணிதம்/.test(text)) return 2;
   return 1;
 }
@@ -2421,6 +2422,16 @@ function buildInsights(
       action: 'Practise full-length papers against the clock so the whole paper gets reached.',
     });
   }
+
+  // Ranked on the evidence, not on where a unit sits in the paper. A mock lists its largest section first, so
+  // without this "the first three gaps" were the first three units of that section, however well the others did.
+  // Strengths run best first; gaps run weakest first, with the ones that are only "too few answers" after the
+  // measured ones.
+  const bySubject = new Map(subjects.map(s => [s.subjectId, s]));
+  const accuracyOf = (i: Insight) => bySubject.get(i.subjectId ?? '')?.metrics.accuracy ?? 0;
+  const thin = (i: Insight) => bySubject.get(i.subjectId ?? '')?.state === 'INSUFFICIENT_EVIDENCE';
+  strengths.sort((a, b) => accuracyOf(b) - accuracyOf(a));
+  gaps.sort((a, b) => Number(thin(a)) - Number(thin(b)) || accuracyOf(a) - accuracyOf(b));
 
   return { strengths, gaps, coverageGaps, quickWins };
 }

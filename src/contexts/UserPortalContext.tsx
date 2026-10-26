@@ -80,11 +80,20 @@ interface UserPortalContextValue {
    */
   signInWithGoogle: (
     idToken: string,
-    profile?: { name: string; phone: string } & StudentDetailFields,
-  ) => Promise<{ ok: boolean; error?: string; needsProfile?: { email: string; name: string }; created?: boolean }>;
+    profile?: { name: string; phone: string } & Partial<StudentDetailFields>,
+    referral?: { code: string; fromLink: boolean },
+  ) => Promise<{
+    ok: boolean;
+    error?: string;
+    needsProfile?: { email: string; name: string };
+    created?: boolean;
+    /** Whether the referral code linked: true, false (with `referralMessage`), or null when none was sent or the account was not new. */
+    referralApplied?: boolean | null;
+    referralMessage?: string | null;
+  }>;
   /** Sign in with that one-time password — the same session `login` starts. */
   loginWithOtp: (identifier: string, otp: string) => Promise<{ ok: boolean; error?: string }>;
-  register: (data: { name: string; email: string; phone: string } & StudentDetailFields) => Promise<{ ok: boolean; error?: string; otpSentTo?: string }>;
+  register: (data: { name: string; email: string; phone: string; referralCode?: string; referralFromLink?: boolean } & Partial<StudentDetailFields>) => Promise<{ ok: boolean; error?: string; otpSentTo?: string }>;
   verifyOtp: (otp: string) => Promise<{ ok: boolean; error?: string }>;
   resendOtp: () => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -312,29 +321,29 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const signInWithGoogle = useCallback(
-    async (idToken: string, profile?: { name: string; phone: string } & StudentDetailFields) => {
+    async (
+      idToken: string,
+      profile?: { name: string; phone: string } & Partial<StudentDetailFields>,
+      referral?: { code: string; fromLink: boolean },
+    ) => {
       try {
         const result = await googleAuth(
           idToken,
           profile && {
             full_name: profile.name,
             mobile_number: profile.phone,
-            date_of_birth: profile.date_of_birth,
-            gender: profile.gender,
-            student_class: profile.student_class,
-            section: profile.section,
-            roll_no: profile.roll_no,
-            school_name: profile.school_name,
-            medium: profile.medium,
-            class_teacher: profile.class_teacher,
-            academic_year: profile.academic_year,
-            preferred_exam: profile.preferred_exam,
           },
+          referral,
         );
         if (result.kind === 'needs-profile') return { ok: false, needsProfile: { email: result.email, name: result.name } };
         await startSession();
         // With a profile sent, this call is the one that made the account.
-        return { ok: true, created: result.created === true || !!profile };
+        return {
+          ok: true,
+          created: result.created === true || !!profile,
+          referralApplied: result.referralApplied ?? null,
+          referralMessage: result.referralMessage ?? null,
+        };
       } catch (err) {
         return { ok: false, error: describeApiError(err, 'Google sign-in failed') };
       } finally {
@@ -360,22 +369,14 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
   );
 
   const register = useCallback(
-    async (data: { name: string; email: string; phone: string } & StudentDetailFields) => {
+    async (data: { name: string; email: string; phone: string; referralCode?: string; referralFromLink?: boolean } & Partial<StudentDetailFields>) => {
       try {
+        const referral = data.referralCode?.trim();
         await registerUser({
           full_name: data.name,
           email_address: data.email,
           mobile_number: data.phone,
-          date_of_birth: data.date_of_birth,
-          gender: data.gender,
-          student_class: data.student_class,
-          section: data.section,
-          roll_no: data.roll_no,
-          school_name: data.school_name,
-          medium: data.medium,
-          class_teacher: data.class_teacher,
-          academic_year: data.academic_year,
-          preferred_exam: data.preferred_exam,
+          ...(referral ? { referral_code: referral, ...(data.referralFromLink ? { referral_source: 'link' as const } : {}) } : {}),
         });
         setPendingRegistrationEmail(data.email);
         return { ok: true, otpSentTo: data.email };

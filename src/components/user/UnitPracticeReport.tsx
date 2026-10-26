@@ -13,10 +13,11 @@
  * to do.
  */
 import { useMemo, useState } from 'react';
-import { Award, ChevronDown, CheckCircle2, Circle, Clock, MinusCircle, Trophy, XCircle } from 'lucide-react';
+import { Award, ChevronDown, Download, CheckCircle2, Circle, Clock, MinusCircle, Trophy, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ACCENT, MeterRow, ReportCard } from '@/components/user/report-ui';
 import { OverallScoreSummary } from '@/components/user/AttemptDiagnosticReport';
+import { downloadReportPdf } from '@/lib/print-report';
 import { isAttempted, type AttemptReportModel } from '@/lib/attempt-report';
 import type { QuestionReviewItem } from '@/lib/userPortalApi';
 import { MathText } from '@/components/ui/MathText';
@@ -165,7 +166,18 @@ export function UnitPracticeReport({
   const verdict = verdictFor(s.percentage, mark);
 
   return (
-    <div className="space-y-3 sm:space-y-4">
+    <div id="report-pdf-root" className="space-y-3 sm:space-y-4">
+      {/* Saves the report as a PDF - everything on this page except the list of every question and answer. */}
+      <div data-no-print className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => downloadReportPdf(model.meta.testName || subject?.name || 'Practice report')}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3.5 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+        >
+          <Download className="h-3.5 w-3.5" /> Download report
+        </button>
+      </div>
+
       {/* ── Which set, and how it went ────────────────────────────────── */}
       <ReportCard>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -220,7 +232,9 @@ export function UnitPracticeReport({
       <CategoryBreakdown questions={model.questions} passPercentage={mark.pass} />
 
       {/* ── Every question ────────────────────────────────────────────── */}
-      <QuestionRecap model={model} />
+      <div data-no-print>
+        <QuestionRecap model={model} />
+      </div>
 
     </div>
   );

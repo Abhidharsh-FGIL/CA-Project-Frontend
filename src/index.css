@@ -901,3 +901,38 @@ body, input, textarea, select, button {
 @media (prefers-reduced-motion: reduce) {
   .cta-flip-digit, .cta-colon, .cta-arrow { animation: none; }
 }
+
+/* Printing a report ("Download report" = Save as PDF): the portal's header, footer and buttons, and the part
+   that lists every question with the student's answer, are left out; the rest prints in full. The portal's own
+   boxes are locked to the screen height with their own scrollbars, so they are opened up here or only what
+   is on screen would print. */
+@media print {
+  [data-no-print] { display: none !important; }
+  html, body, #root { height: auto !important; overflow: visible !important; position: static !important; }
+  [data-print-unlock] { height: auto !important; min-height: 0 !important; overflow: visible !important; display: block !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .animate-fadeIn, .animate-slideUp, .animate-scaleIn, .animate-slideInLeft { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .rounded-2xl, .rounded-xl { break-inside: avoid; }
+  @page { margin: 12mm; }
+}
+
+/* While a report is being drawn into its PDF, nothing moves: animations and transitions are held at their end. */
+.pdf-capture *, .pdf-capture *::before, .pdf-capture *::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition: none !important;
+}
+/* ...and wide tables are not cut off by their own horizontal scroll box. */
+.pdf-capture .overflow-x-auto { overflow: visible !important; }
+/* The parts that stay out of the PDF are taken out of the layout, not just left blank; long names are shown whole,
+   in full lines (a tight box clipped the tops and bottoms of Tamil letters). */
+.pdf-capture [data-no-print] { display: none !important; }
+.pdf-capture .truncate,
+.pdf-capture [class*="line-clamp"] {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+  max-width: none !important;
+  -webkit-line-clamp: unset !important;
+}
+.pdf-capture td, .pdf-capture th { line-height: 1.5; }

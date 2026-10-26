@@ -5,7 +5,7 @@
  *   POST  /api/v1/user/auth/register/           → { full_name, email_address, mobile_number, password,
  *                                                    date_of_birth, gender, student_class, section, roll_no,
  *                                                    school_name, medium, class_teacher, academic_year,
- *                                                    preferred_exam }  (all required)
+ *                                                    preferred_exam }  (only the first three are required)
  *   POST  /api/v1/user/auth/verify-otp/         → { email_address, otp }
  *   POST  /api/v1/user/auth/resend-otp/         → { email_address }
  *   POST  /api/v1/user/auth/login/              → { email, password }
@@ -86,10 +86,15 @@ export interface UserProfile extends Partial<StudentDetailFields> {
 
 // ─── Request payload shapes ───────────────────────────────────────────────────
 
-export interface RegisterPayload extends StudentDetailFields {
+/** Only these three are required; the student details can be added later from the profile. */
+export interface RegisterPayload extends Partial<StudentDetailFields> {
   full_name: string;
   email_address: string;
   mobile_number: string;
+  /** Optional: a referral code, the referrer's mobile number or their email. A wrong one makes the server refuse. */
+  referral_code?: string;
+  /** "link" only when the code came from a share link. */
+  referral_source?: 'link';
 }
 
 export interface VerifyOtpPayload {
@@ -162,14 +167,21 @@ export async function verifyLoginOtp(payload: LoginOtpPayload): Promise<AuthToke
 }
 
 /** What a new account needs beyond what Google gives (name and email): the same details the sign-up form asks for. */
-export type GoogleSignUpProfile = StudentDetailFields & {
+export type GoogleSignUpProfile = Partial<StudentDetailFields> & {
   full_name: string;
   mobile_number: string;
 };
 
 export type GoogleAuthResult =
   /** Signed in (an existing account), or the account was created from `profile` and signed in. */
-  | { kind: 'signed-in'; /** True when the server made a new account in this very call. */ created?: boolean }
+  | {
+      kind: 'signed-in';
+      /** True when the server made a new account in this very call. */
+      created?: boolean;
+      /** true: the code linked. false: it did not (the person is signed in anyway; `referralMessage` says why). null/absent: no code, or an existing account. */
+      referralApplied?: boolean | null;
+      referralMessage?: string | null;
+    }
   /** Google is fine but no account exists yet, and no `profile` was sent to make one with. */
   | { kind: 'needs-profile'; email: string; name: string };
 
@@ -183,15 +195,37 @@ export type GoogleAuthResult =
  *   no account, no `profile`    → 200 { needs_profile: true, email, name }
  *   no account, with `profile`  → the account is created, then the same tokens
  */
-export async function googleAuth(idToken: string, profile?: GoogleSignUpProfile): Promise<GoogleAuthResult> {
-  const res = await publicApi.post<Partial<AuthTokenResponse> & { needs_profile?: boolean; email?: string; name?: string; is_new_user?: boolean; created?: boolean; new_user?: boolean }>(
-    '/api/v1/user/auth/google',
-    { id_token: idToken, ...(profile ? { profile } : {}) },
-  );
+export async function googleAuth(
+  idToken: string,
+  profile?: GoogleSignUpProfile,
+  referral?: { code: string; fromLink: boolean },
+): Promise<GoogleAuthResult> {
+  const res = await publicApi.post<
+    Partial<AuthTokenResponse> & {
+      needs_profile?: boolean;
+      email?: string;
+      name?: string;
+      is_new_user?: boolean;
+      created?: boolean;
+      new_user?: boolean;
+      referral_applied?: boolean | null;
+      referral_message?: string | null;
+    }
+  >('/api/v1/user/auth/google', {
+    id_token: idToken,
+    ...(profile ? { profile } : {}),
+    // The server links it for a new account only, and a wrong code never blocks the sign-in.
+    ...(referral?.code ? { referral_code: referral.code, ...(referral.fromLink ? { referral_source: 'link' } : {}) } : {}),
+  });
   if (res?.access_token && res?.refresh_token) {
     keepTokens(res as AuthTokenResponse);
     // Whichever name the server uses for "this call made a new account"; absent means an existing one.
-    return { kind: 'signed-in', created: res.is_new_user === true || res.created === true || res.new_user === true };
+    return {
+      kind: 'signed-in',
+      created: res.is_new_user === true || res.created === true || res.new_user === true,
+      referralApplied: res.referral_applied ?? null,
+      referralMessage: res.referral_message ?? null,
+    };
   }
   if (res?.needs_profile) return { kind: 'needs-profile', email: res.email ?? '', name: res.name ?? '' };
   throw new Error('Google sign-in did not complete. Please try again.');

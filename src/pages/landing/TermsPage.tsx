@@ -49,6 +49,18 @@ const SECTIONS: LegalSection[] = [
     ],
   },
   {
+    title: 'Refer & Earn Program',
+    points: [
+      "Cashback is applicable only to a friend's first eligible purchase.",
+      'Cashback is calculated at 5% of the eligible purchase amount, excluding GST.',
+      'Subsequent purchases are not eligible for referral cashback.',
+      'Rewards remain pending for 15 days before becoming available for withdrawal.',
+      "Rewards are reversed if a friend's payment is refunded.",
+      'Withdrawals may require verification, such as PAN verification, and may be subject to applicable taxes.',
+      "The minimum withdrawal amount is ₹200, and withdrawals are available once per month, subject to the program's terms.",
+    ],
+  },
+  {
     title: 'Intellectual Property',
     body: [
       'The content, design, branding, and educational materials available on MyGovExams belong to their respective owners and may not be reproduced or commercially distributed without permission.',

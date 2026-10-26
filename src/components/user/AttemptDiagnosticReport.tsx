@@ -8,6 +8,7 @@
  * topic or an exam; the taxonomy arrives in the model.
  */
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { usePrinting } from '@/lib/print-state';
 import { useCountUp } from '@/hooks/use-count-up';
 import {
   PolarAngleAxis,
@@ -394,7 +395,7 @@ export function ReportTitleRow({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div data-no-print className="flex items-center gap-2 flex-shrink-0">
         {language && onLanguageChange && (
           <div className="text-right">
             <LanguageToggle value={language} onChange={onLanguageChange} />
@@ -415,7 +416,7 @@ export function ReportTitleRow({
             <Download className="w-3.5 h-3.5" />
             {/* The locked state says what is true of the report, not what to buy —
                 the plan is not named anywhere in the chrome any more. */}
-            {canDownload ? 'Download PDF' : 'Download unavailable'}
+            {canDownload ? 'Download report' : 'Download unavailable'}
           </button>
         )}
         {onShare && (
@@ -810,7 +811,24 @@ function buildTakeaways(model: AttemptReportModel): Array<{ text: string; accent
   const out: Array<{ text: string; accent: Accent; icon: React.ReactNode }> = [];
   const cfg = model.config;
 
-  for (const s of model.subjects) {
+  // Drawn from every unit, not the first few in paper order: the strongest one, the two weakest, then the one
+  // closest to a strength. (Listing units as they come put a mock's largest section in all three lines.)
+  const measured = model.subjects.filter(s => s.state === 'MEASURED' && s.metrics.accuracy != null);
+  const byAccuracy = [...measured].sort((a, b) => (b.metrics.accuracy ?? 0) - (a.metrics.accuracy ?? 0));
+  const picked: typeof measured = [];
+  const take = (s: (typeof measured)[number] | undefined) => {
+    if (s && !picked.includes(s)) picked.push(s);
+  };
+  take(byAccuracy.find(s => s.status === 'STRONG'));
+  for (const s of [...byAccuracy].reverse()) {
+    if (picked.length >= 3) break;
+    if ((s.metrics.accuracy ?? 0) < cfg.developingAccuracy) take(s);
+  }
+  take(byAccuracy.find(s => !picked.includes(s) && (s.metrics.accuracy ?? 0) >= cfg.developingAccuracy && s.status !== 'STRONG'));
+  for (const s of [...byAccuracy].reverse()) take(s); // fill what is left, weakest first
+  const ordered = picked.slice(0, 3);
+
+  for (const s of ordered) {
     if (out.length >= 3) break;
     const acc = s.metrics.accuracy;
     if (acc == null || s.state === 'NOT_ASSESSED') continue;
@@ -1102,6 +1120,8 @@ export function SubjectPerformance({
   // categories and sub-categories in its detail. Subjects start folded, so the page opens on the
   // handful of subjects rather than on every unit.
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set());
+  // A printed copy (Download report) shows every subject open, with its units.
+  const printing = usePrinting();
   const toggleGroup = (key: string) =>
     setOpenGroups(prev => {
       const next = new Set(prev);
@@ -1113,7 +1133,7 @@ export function SubjectPerformance({
 
   // Status judges a unit, so the column is there only while unit rows are: on the subject rows alone it
   // would be a column of dashes.
-  const showStatus = !tree || openGroups.size > 0;
+  const showStatus = !tree || openGroups.size > 0 || printing;
 
   const headers: Array<{ label: string; note?: string; align?: 'right' }> = [
     { label: byUnit ? 'Subject / Unit' : 'Subject' },
@@ -1235,7 +1255,7 @@ export function SubjectPerformance({
             {tree
               ? tree.map(group => {
                   const key = group.subject ?? '__other';
-                  const open = openGroups.has(key);
+                  const open = openGroups.has(key) || printing;
                   const total = group.items.reduce(
                     (t, { subject }) => ({
                       questions: t.questions + subject.metrics.questions,
@@ -2059,14 +2079,16 @@ export function StrengthsAndGaps({ model }: { model: AttemptReportModel }) {
    * its figure — the full evidence/implication/action trio lives in the model and
    * is surfaced on the priority list rather than repeated four times here.
    */
-  const strengths = model.strengths.map(s => `${s.title} — ${s.evidence}`);
+  // The model ranks both lists (strongest first, weakest first), so the short lists here are the best and the worst
+  // across every unit of the paper.
+  const strengths = model.strengths.slice(0, 5).map(s => `${s.title} — ${s.evidence}`);
   const improve: string[] = [];
 
   const sum = model.summary;
   if (sum.attemptRate != null && sum.attemptRate < model.config.targetCoverage) {
     improve.push(`Increase attempt rate across all subjects (currently ${sum.attemptRate}%)`);
   }
-  for (const g of model.gaps.slice(0, 3)) improve.push(`${g.title} (${g.evidence})`);
+  for (const g of model.gaps.slice(0, 4)) improve.push(`${g.title} (${g.evidence})`);
   if (model.coverageGaps.length > 0) {
     const names = model.coverageGaps.slice(0, 3).map(c => c.title).join(', ');
     improve.push(`Review core concepts in ${names}${model.coverageGaps.length > 3 ? ' and others' : ''} (not attempted)`);

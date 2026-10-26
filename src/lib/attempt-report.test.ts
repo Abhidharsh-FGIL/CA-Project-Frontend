@@ -1121,3 +1121,37 @@ describe('§18 marks left on the table', () => {
     expect(m.coverage.marksAtStake!).toBeLessThanOrEqual(exam.totalMarks);
   });
 });
+
+describe('strengths, gaps and takeaways across a whole mock', () => {
+  // A mock lists its biggest section first. The gaps and takeaways must still be the weakest units, wherever they sit.
+  const unit = (name: string, id: string, correct: number, wrong: number) =>
+    block('General Tamil', correct, wrong, 0, { unit_id: id, unit_name: name });
+  const m = buildAttemptReport(
+    detail([
+      ...unit('Grammar', 'u-grammar', 17, 8), // 68 %
+      ...unit('Literature', 'u-lit', 5, 10), // 33 %
+      ...block('Aptitude & Mental Ability', 1, 9, 0, { unit_id: 'u-reason', unit_name: 'Reasoning' }), // 10 %
+      ...block('General Studies', 6, 14, 0, { unit_id: 'u-econ', unit_name: 'Economy' }), // 30 %
+      ...block('General Studies', 7, 13, 0, { unit_id: 'u-hist', unit_name: 'TN History' }), // 35 %
+      ...block('General Tamil', 14, 1, 0, { unit_id: 'u-comp', unit_name: 'Comprehension' }), // 93 %
+    ]),
+  );
+
+  it('lists the weakest units first, from every section', () => {
+    expect(m.gaps.slice(0, 3).map(g => g.title)).toEqual(['Reasoning', 'Economy', 'Literature']);
+  });
+
+  it('lists the strongest unit first', () => {
+    expect(m.strengths[0].title).toBe('Comprehension');
+  });
+});
+
+describe('the language paper section', () => {
+  it('counts General English with General Tamil, not with General Studies', async () => {
+    const { paperSection } = await import('./attempt-report');
+    expect(paperSection(q({ subject: 'General Tamil' }))).toBe(0);
+    expect(paperSection(q({ subject: 'General English' }))).toBe(0);
+    expect(paperSection(q({ subject: 'General Studies' }))).toBe(1);
+    expect(paperSection(q({ subject: 'Aptitude & Mental Ability' }))).toBe(2);
+  });
+});

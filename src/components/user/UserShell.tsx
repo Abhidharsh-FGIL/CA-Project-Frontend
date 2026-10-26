@@ -10,6 +10,7 @@ import {
   Menu,
   Moon,
   Receipt,
+  Gift,
   History as HistoryIcon,
   Headset,
   Sparkles,
@@ -239,7 +240,7 @@ export function UserShell({ children }: UserShellProps) {
   );
 
   return (
-    <div className="h-[100dvh] flex flex-col overflow-hidden bg-white dark:bg-gray-950">
+    <div data-print-unlock className="h-[100dvh] flex flex-col overflow-hidden bg-white dark:bg-gray-950">
       {/* ── Drawer (mobile) ───────────────────────────────────────────────── */}
       {drawerOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
@@ -258,10 +259,10 @@ export function UserShell({ children }: UserShellProps) {
       )}
 
       {/* ── Main column ───────────────────────────────────────────────────── */}
-      <div className="flex-1 min-w-0 flex flex-col h-full">
+      <div data-print-unlock className="flex-1 min-w-0 flex flex-col h-full">
         {/* A warm orange gradient with a soft light from the top-left, a lifted edge below, and the navigation in a
             glass capsule — orange and lively rather than a flat dark block. */}
-        <header className="relative z-30 h-16 flex-shrink-0 bg-gradient-to-r from-[#f57a22] via-[#ec5d1a] to-[#d8460f] dark:from-[#b8420f] dark:via-[#a93a0c] dark:to-[#8f2f0a] shadow-[0_10px_28px_-12px_rgba(216,70,15,0.7)]">
+        <header data-no-print className="relative z-30 h-16 flex-shrink-0 bg-gradient-to-r from-[#f57a22] via-[#ec5d1a] to-[#d8460f] dark:from-[#b8420f] dark:via-[#a93a0c] dark:to-[#8f2f0a] shadow-[0_10px_28px_-12px_rgba(216,70,15,0.7)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.30),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(255,200,120,0.18),transparent_50%)]" />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-white/30" />
           <div className="relative h-full px-3 sm:px-5 flex items-center gap-3">
@@ -286,6 +287,22 @@ export function UserShell({ children }: UserShellProps) {
                   <Sparkles className="w-3.5 h-3.5" /> Upgrade
                 </Link>
               )}
+
+              {/* Beside the theme toggle, off the main bar: a reward, not a place to study. Icon only until there is room. */}
+              <Link
+                to="/user/referral"
+                title="Refer & Earn"
+                aria-label="Refer & Earn"
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full text-[13px] font-semibold ring-1 transition-all whitespace-nowrap p-2 xl:px-3.5 xl:py-1.5',
+                  isActive('/user/referral')
+                    ? 'bg-white text-[#d8460f] ring-white shadow-md shadow-orange-900/20'
+                    : 'bg-white/15 text-white ring-white/25 hover:bg-white/25',
+                )}
+              >
+                <Gift className="w-[18px] h-[18px] flex-shrink-0 xl:w-4 xl:h-4" />
+                <span className="hidden xl:inline">Refer &amp; Earn</span>
+              </Link>
 
               <button
                 onClick={toggleMode}
@@ -319,7 +336,8 @@ export function UserShell({ children }: UserShellProps) {
                     {[
                       { to: '/user/profile', label: 'Profile', icon: User },
                       { to: '/user/subscription', label: 'Plans', icon: Sparkles },
-                      { to: '/user/billing', label: 'Payment History', icon: Receipt },
+                      { to: '/user/referral', label: 'Refer & Earn', icon: Gift },
+      { to: '/user/billing', label: 'Payment History', icon: Receipt },
                       { to: '/user/about', label: 'About Us', icon: Info },
                     ].map(({ to, label, icon: Icon }) => (
                       <Link
@@ -368,10 +386,10 @@ export function UserShell({ children }: UserShellProps) {
         </header>
 
         {/* The only scrolling element — html/body are locked in index.css. */}
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin">
+        <div data-print-unlock className="flex-1 min-h-0 overflow-y-auto scrollbar-thin">
           <main className="min-w-0 px-3 sm:px-5 py-5 pb-24 lg:pb-6">{children}</main>
 
-          <footer className="hidden lg:flex items-center justify-between px-5 py-4 text-[11px] text-gray-400 dark:text-gray-600 border-t border-gray-100 dark:border-gray-800">
+          <footer data-no-print className="hidden lg:flex items-center justify-between px-5 py-4 text-[11px] text-gray-400 dark:text-gray-600 border-t border-gray-100 dark:border-gray-800">
           <span>© 2026 MyGovExams. All rights reserved.</span>
           <span className="flex items-center divide-x divide-gray-200 dark:divide-gray-800">
             <Link to="/terms" target="_blank" rel="noopener noreferrer" className="px-3 hover:text-gray-600 dark:hover:text-gray-400">Terms &amp; Conditions</Link>
@@ -385,7 +403,7 @@ export function UserShell({ children }: UserShellProps) {
       </div>
 
       {/* ── Bottom bar (mobile) ───────────────────────────────────────────── */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-t border-gray-100 dark:border-gray-800 flex items-stretch px-1 py-1.5">
+      <nav data-no-print className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-t border-gray-100 dark:border-gray-800 flex items-stretch px-1 py-1.5">
         {MOBILE_NAV.map(({ to, label, short, icon: Icon }) => {
           const active = isActive(to);
           return (
