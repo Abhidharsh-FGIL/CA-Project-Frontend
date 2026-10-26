@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { getTestDetail, type TestDetail } from '@/lib/userPortalApi';
+import { useFreshQuestionsNotice } from '@/components/user/FreshQuestionsNotice';
 import { difficultyLabel } from '@/lib/eval-difficulty';
 
 export default function TestStartPage() {
@@ -36,6 +37,9 @@ export default function TestStartPage() {
       state: { test, course_id: test.course_id },
     });
   };
+
+  // Every attempt is a new set of questions; the note says so before the test is opened.
+  const freshNotice = useFreshQuestionsNotice(handleBegin);
 
   if (loading) {
     return (
@@ -180,7 +184,7 @@ export default function TestStartPage() {
             </label>
 
             <button
-              onClick={handleBegin}
+              onClick={() => agreed && freshNotice.request()}
               disabled={!agreed}
               className="group w-full mt-5 bg-gradient-to-r from-brand-600 via-brand-400 to-brand-600 bg-[length:200%_auto] hover:bg-right-bottom text-white py-3.5 rounded-xl font-semibold transition-all duration-500 shadow-lg shadow-blue-200 dark:shadow-blue-900/40 hover:shadow-xl hover:shadow-blue-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none press"
             >
@@ -192,6 +196,7 @@ export default function TestStartPage() {
           </div>
         </div>
       </div>
+    {freshNotice.dialog}
     </UserShell>
   );
 }

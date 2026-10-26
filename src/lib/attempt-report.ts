@@ -28,7 +28,7 @@ import type {
 } from './userPortalApi';
 import { negativeMarkLoss, type ExamContext, type ExamTaxonomyNode } from './exam-report-config';
 import { difficultyLabel } from '@/lib/eval-difficulty';
-import { findStage, resolveSubjectId } from '@/config/tnpsc';
+import { findStage, resolveSubjectId, unitNameForId } from '@/config/tnpsc';
 import { subjectIdForQuestion } from '@/lib/unit-pool';
 
 // ─── Configuration (§13) ───────────────────────────────────────────────────────
@@ -1020,7 +1020,7 @@ export function buildAttemptReport(
   for (const q of questions) {
     if (byUnit && q.unit_id) {
       const id = `unit:${q.unit_id}`;
-      const entry = bySubject.get(id) ?? { name: (q.unit_name ?? '').trim() || String(q.unit_id), items: [] };
+      const entry = bySubject.get(id) ?? { name: (q.unit_name ?? '').trim() || unitNameForId(q.unit_id) || String(q.unit_id), items: [] };
       entry.items.push(q);
       bySubject.set(id, entry);
       continue;

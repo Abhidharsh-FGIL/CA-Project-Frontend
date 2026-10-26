@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import { isMobileDevice } from '@/lib/device';
+import { FlipTimer } from '@/components/user/FlipTimer';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { MathText } from '@/components/ui/MathText';
 import {
@@ -36,58 +37,6 @@ function padTime(n: number) {
 
 const OPTION_KEYS = ['a', 'b', 'c', 'd', 'e', 'f'];
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
-
-// ── Circular Timer ─────────────────────────────────────────────────────────────
-
-function CircularTimer({
-  secondsLeft,
-  totalSeconds,
-  display,
-  urgent,
-}: {
-  secondsLeft: number | null;
-  totalSeconds: number;
-  display: string | null;
-  urgent: boolean;
-}) {
-  const r = 22;
-  const circ = 2 * Math.PI * r;
-  const progress =
-    secondsLeft !== null && totalSeconds > 0
-      ? Math.max(0, Math.min(1, secondsLeft / totalSeconds))
-      : 1;
-  const offset = circ * (1 - progress);
-
-  return (
-    <div className="relative w-14 h-14 flex-shrink-0">
-      <svg className="w-full h-full -rotate-90" viewBox="0 0 52 52">
-        <circle
-          cx="26" cy="26" r={r}
-          fill="none"
-          stroke="rgba(255,255,255,0.15)"
-          strokeWidth="3"
-        />
-        <circle
-          cx="26" cy="26" r={r}
-          fill="none"
-          stroke={urgent ? '#f87171' : '#ff8f4a'}
-          strokeWidth="3"
-          strokeDasharray={circ}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 1s linear' }}
-        />
-      </svg>
-      <span
-        className={`absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums ${
-          urgent ? 'text-red-300' : 'text-white'
-        }`}
-      >
-        {display ?? '—'}
-      </span>
-    </div>
-  );
-}
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -431,12 +380,7 @@ export default function TestTakingPage() {
 
           <div className="flex items-center gap-3 flex-shrink-0">
             {timerDisplay && (
-              <CircularTimer
-                secondsLeft={secondsLeft}
-                totalSeconds={time_limit > 0 ? time_limit * 60 : 3600}
-                display={timerDisplay}
-                urgent={timerUrgent}
-              />
+              <FlipTimer secondsLeft={secondsLeft} totalSeconds={time_limit > 0 ? time_limit * 60 : 3600} />
             )}
 
             <button

@@ -1,3 +1,4 @@
+import { upperMeridiem } from '@/lib/meridiem';
 import { useEffect, useMemo, useState } from 'react';
 import { displayTitle } from '@/lib/display-title';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -453,14 +454,14 @@ export default function UserPerformancePage() {
                           {displayTitle(h.test_name) ?? 'Test attempt'}
                         </span>
                         <span className="block text-[10px] text-gray-400 capitalize">
-                          {new Date(h.start_time).toLocaleString('en-IN', {
+                          {upperMeridiem(new Date(h.start_time).toLocaleString('en-IN', {
                             day: '2-digit',
                             month: 'short',
                             year: 'numeric',
                             hour: 'numeric',
                             minute: '2-digit',
                             hour12: true,
-                          })}
+                          }))}
                           {h.test_mode ? ` · ${h.test_mode}` : ''}
                         </span>
                       </span>

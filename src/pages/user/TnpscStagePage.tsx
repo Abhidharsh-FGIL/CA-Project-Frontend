@@ -69,9 +69,9 @@ import {
   PanelLeftOpen,
   Pencil,
   Scale,
+  Shuffle,
   Sparkles,
   Star,
-  Timer,
   Target,
   TrendingUp,
   X,
@@ -424,6 +424,20 @@ export default function TnpscStagePage() {
     setUnitFilter(null);
   };
 
+  /**
+   * "Take Mock Exam": straight into the full mock, not to a list of them. The first paper that is open to this
+   * person and not yet cleared; failing that the first one that is open; failing that the first there is (a locked
+   * one goes to the plans, as every other link to it does). Only when the papers have not loaded - or there are
+   * none - does it open the Exam tab instead.
+   */
+  const takeMock = () => {
+    const tests = mock.levels.flatMap(l => l.tests);
+    const open = (t: TnpscTest) => !t.is_locked && !(t.max_attempts != null && t.attempts_used >= t.max_attempts);
+    const pick = tests.find(t => open(t) && !t.is_completed) ?? tests.find(open) ?? tests[0];
+    if (!pick) return setTab('exam');
+    navigate(pick.is_locked ? '/user/subscription' : testHref(pick), { state: { from: here() } });
+  };
+
   return (
     <UserShell>
       {/* An exam with a single open stage has no stage list to go back to, so Back goes to all the examinations. */}
@@ -435,7 +449,7 @@ export default function TnpscStagePage() {
         {skipsStageList(group) ? 'All examinations' : `Back to ${group.name}`}
       </Link>
 
-      <StageHero stage={stage} groupName={group.name} accent={group.accent} onTakeMock={() => setTab('exam')} />
+      <StageHero stage={stage} groupName={group.name} accent={group.accent} onTakeMock={takeMock} />
 
       {offersLanguageChoice && <ExamLanguageNote className="mb-4 sm:mb-5" />}
 
@@ -1257,7 +1271,7 @@ function StageHero({
             // On a phone the button and the figures each take the full width, one under the other, so nothing is cut
             // off at the edge; from a tablet up they sit side by side.
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-4 sm:flex-shrink-0 sm:flex-wrap lg:flex-nowrap lg:ml-auto">
-              {onTakeMock && <TakeMockCta onClick={onTakeMock} />}
+              {onTakeMock && <TakeMockCta onClick={onTakeMock} minutes={stage.pattern.duration_minutes} />}
               <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:gap-2.5 sm:flex-wrap lg:flex-nowrap">
               <StatCard
                 icon={<FileText className="w-4 h-4" />}
@@ -1331,23 +1345,23 @@ function StatCard({
  * and a line under the bar says what that step is for.
  */
 const PATH_STEPS: Array<{ key: Tab; label: string; icon: React.ReactNode; note: string; tag?: string }> = [
-  { key: 'topics', label: 'Key Topics', icon: <KeyRound className="w-4 h-4" />, note: 'Start here — a short test on one topic at a time.' },
-  { key: 'practice', label: 'Practice', icon: <Pencil className="w-4 h-4" />, note: 'Then practise whole units, at the level you choose.' },
-  { key: 'exam', label: 'Exam', icon: <FileText className="w-4 h-4" />, note: 'Finish with a full-length paper, set exactly like the official exam.', tag: 'Official pattern' },
+  { key: 'topics', label: 'Key Topics', icon: <KeyRound className="w-4 h-4" />, note: 'Strengthen your basics, one topic at a time.' },
+  { key: 'practice', label: 'Practice', icon: <Pencil className="w-4 h-4" />, note: 'Practice by unit or take a full subject test.' },
+  { key: 'exam', label: 'Exam', icon: <FileText className="w-4 h-4" />, note: 'Experience the official exam pattern.', tag: 'Official pattern' },
 ];
 
 function TrackTabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   const at = PATH_STEPS.findIndex(s => s.key === tab);
   return (
     <div>
-      <div role="tablist" aria-label="Preparation path" className="flex flex-wrap items-center gap-1.5">
+      <div role="tablist" aria-label="Preparation path" className="grid grid-cols-3 gap-1.5 sm:flex sm:flex-wrap sm:items-center">
         {PATH_STEPS.map((it, i) => {
           const active = i === at;
           return (
-            <div key={it.key} className="flex items-center gap-1.5">
+            <div key={it.key} className="sm:flex sm:items-center sm:gap-1.5">
               {i > 0 && (
                 <ChevronRight
-                  className={cn('h-4 w-4 shrink-0', i <= at ? 'text-orange-400' : 'text-gray-300 dark:text-gray-600')}
+                  className={cn('hidden h-4 w-4 shrink-0 sm:block', i <= at ? 'text-orange-400' : 'text-gray-300 dark:text-gray-600')}
                   aria-hidden
                 />
               )}
@@ -1357,7 +1371,9 @@ function TrackTabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) 
                 aria-current={active ? 'step' : undefined}
                 onClick={() => onChange(it.key)}
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold transition-all',
+                  // A phone gets three equal tiles on one row (number and icon over the name); from `sm` they are the
+                  // usual row of steps with arrows between.
+                  'flex w-full flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 text-[12px] font-bold transition-all sm:inline-flex sm:w-auto sm:flex-row sm:gap-2 sm:px-3 sm:text-xs',
                   active
                     ? 'border-transparent bg-gradient-to-r from-brand-600 to-brand-400 text-white shadow-md shadow-orange-200/60 dark:shadow-none'
                     : i < at
@@ -1365,15 +1381,17 @@ function TrackTabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) 
                       : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:text-gray-200',
                 )}
               >
-                <span
-                  className={cn(
-                    'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold',
-                    active ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
-                  )}
-                >
-                  {i + 1}
+                <span className="flex items-center gap-1.5 sm:contents">
+                  <span
+                    className={cn(
+                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold',
+                      active ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+                    )}
+                  >
+                    {i + 1}
+                  </span>
+                  {it.icon}
                 </span>
-                {it.icon}
                 {it.label}
                 {it.tag && (
                   <span
@@ -1396,15 +1414,28 @@ function TrackTabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) 
           <span className="font-semibold text-orange-600 dark:text-orange-400">
             Step {at + 1} of {PATH_STEPS.length}
           </span>{' '}
-          · {PATH_STEPS[at].note}
+          – {PATH_STEPS[at].note}
         </p>
       )}
+      <div className="mt-3 flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50/70 px-3.5 py-3 dark:border-sky-900/60 dark:bg-sky-950/30">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-300">
+          <Shuffle className="h-4 w-4" aria-hidden />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Fresh Questions Every Attempt</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-gray-600 dark:text-gray-400">
+            A new set of expert-validated questions every time you practise.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
 function TrackBanner({ tab }: { tab: Tab }) {
   const practice = tab === 'practice';
   const topics = tab === 'topics';
+  // Key Topics and Practice have no banner: the step line under the tabs already says what each is for.
+  if (practice || topics) return null;
   return (
     <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
       <div className="relative flex items-start gap-3">
@@ -1413,12 +1444,12 @@ function TrackBanner({ tab }: { tab: Tab }) {
         </span>
         <div className="min-w-0">
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-            {topics ? 'Choose a Key Topic' : practice ? 'Choose Your Practice' : 'Choose Your Exam'}
+            {topics ? 'Practice by Topic' : 'Choose Your Exam'}
           </p>
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 leading-relaxed">
             {topics
-              ? 'Open a section, pick a key topic and take a short test on just that topic.'
-              : `Select a subject to start unit-wise ${practice ? 'practice' : 'papers'}, or try the full set for a complete ${practice ? 'revision' : 'sitting'}.`}
+              ? 'Select a topic to start practising.'
+              : 'Select a subject to start unit-wise papers, or try the full set for a complete sitting.'}
           </p>
         </div>
       </div>
@@ -2160,39 +2191,56 @@ function ErrorRow({ message }: { message: string }) {
   );
 }
 
-/** The lines that rotate under the "Take Mock Exam" button, each a reason to sit a full paper. */
-const MOCK_LINES = [
-  'Get exam-day confidence before the real day',
-  'Practise under real exam conditions',
-  'Find your weak areas while there is still time',
-  'See exactly where you stand against the pass mark',
-];
-
 /**
- * A call to take a full mock, placed ahead of the paper's figures. The button pulses and its arrow nudges to
- * draw the eye; the line beneath rotates through the reasons to sit one. All of it still for anyone who has
- * asked their system to reduce motion.
+ * A call to take a full mock, placed ahead of the paper's figures.
+ *
+ * A clock and a button in one: the left half is a flip clock counting the paper's own length down - 03:00:00,
+ * 02:59:59 ... - each digit flipping over as it changes, and the right half is the orange button. It is only a
+ * picture of the exam clock (nothing starts until the button is pressed), and under it a line says so. Held
+ * still, at the full time, for anyone who has asked their system to reduce motion.
  */
-function TakeMockCta({ onClick }: { onClick: () => void }) {
-  const [i, setI] = useState(0);
+function TakeMockCta({ onClick, minutes }: { onClick: () => void; minutes: number }) {
+  const total = Math.max(60, Math.round(minutes * 60));
+  const [left, setLeft] = useState(total);
   useEffect(() => {
-    const t = setInterval(() => setI(n => (n + 1) % MOCK_LINES.length), 3200);
+    setLeft(total);
+    const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (still) return;
+    const t = setInterval(() => setLeft(n => (n <= 1 ? total : n - 1)), 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [total]);
+
+  const two = (n: number) => String(n).padStart(2, '0');
+  const parts = [two(Math.floor(left / 3600)), two(Math.floor((left % 3600) / 60)), two(left % 60)];
+
   return (
-    <div className="flex flex-col items-start sm:items-center gap-1.5 sm:max-w-[15rem]">
+    <div className="flex flex-col items-start sm:items-center gap-1.5">
       <button
         type="button"
         onClick={onClick}
-        className="cta-pulse group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-rose-500 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-orange-300/50 transition-transform hover:scale-105 active:scale-95 dark:shadow-none"
+        className="group flex items-stretch overflow-hidden rounded-2xl shadow-md shadow-orange-200/60 transition-all hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 dark:shadow-none"
       >
-        <Timer className="h-4 w-4" />
-        Take Mock Exam
-        <ArrowRight className="cta-arrow h-4 w-4" />
+        <span className="flex items-center gap-1 bg-slate-900 px-3 py-2" aria-hidden>
+          {parts.map((p, idx) => (
+            <span key={idx} className="flex items-center gap-1">
+              <span className="flex gap-[3px]">
+                {p.split('').map((d, k) => (
+                  <span key={k} className="cta-flip-slot relative flex h-7 w-5 items-center justify-center overflow-hidden rounded-[5px] bg-slate-700 font-mono text-[15px] font-bold text-white">
+                    <span key={d} className="cta-flip-digit">{d}</span>
+                    <span className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-slate-900/70" />
+                  </span>
+                ))}
+              </span>
+              {idx < parts.length - 1 && <span className="cta-colon pb-0.5 text-base font-bold text-orange-400">:</span>}
+            </span>
+          ))}
+        </span>
+        <span className="flex items-center gap-2 bg-gradient-to-r from-amber-500 via-orange-500 to-orange-600 px-4 text-sm font-extrabold text-white transition-[filter] group-hover:brightness-110">
+          Take Mock Exam
+          <ArrowRight className="cta-arrow h-4 w-4" />
+        </span>
       </button>
-      <p key={i} className="animate-fadeIn text-center text-[11px] font-semibold leading-snug text-gray-600 dark:text-gray-300">
-        {MOCK_LINES[i]}
-      </p>
+      <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">Timed exactly like the real exam</p>
     </div>
   );
 }

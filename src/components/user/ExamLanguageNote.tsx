@@ -49,11 +49,11 @@ export function ExamLanguageNote({ className }: { className?: string }) {
 
       <div className="min-w-0 flex-1 basis-56">
         <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-          {chosen ? 'Your language paper' : 'Which language paper do you sit?'}
+          {chosen ? 'Select Your Language' : 'Which language paper do you sit?'}
         </p>
         <p className="text-[12px] leading-relaxed text-gray-500 dark:text-gray-400">
           {chosen
-            ? 'Candidates must choose either General Tamil or General English, as taking both tests is not permitted. Only the test applicable to the candidate is listed here.'
+            ? 'Choose either General Tamil or General English.'
             : 'You sit General Tamil or General English, never both. Choose yours and only its papers are listed.'}
         </p>
       </div>

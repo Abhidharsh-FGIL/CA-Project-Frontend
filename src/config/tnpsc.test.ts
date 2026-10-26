@@ -159,3 +159,23 @@ describe('uniformMarksPerQuestion', () => {
     expect(marksForSubject(stage, stage!.subjects[0].name)).toBe(1);
   });
 });
+
+describe('unitNameForId', () => {
+  it('names a unit from its id alone, never the id', async () => {
+    const { unitNameForId } = await import('@/config/tnpsc');
+    expect(unitNameForId('g4-ta-grammar')).toBeTruthy();
+    expect(unitNameForId('g4-ta-grammar')).not.toMatch(/^g4-/);
+    expect(unitNameForId('g4-apt-reasoning')).not.toMatch(/^g4-/);
+  });
+
+  it('finds a Group 2 unit, and falls back to its Group 4 twin', async () => {
+    const { unitNameForId } = await import('@/config/tnpsc');
+    expect(unitNameForId('g2-gs-geography')).toBe(unitNameForId('g4-gs-geography'));
+  });
+
+  it('says nothing for an id that is not a unit', async () => {
+    const { unitNameForId } = await import('@/config/tnpsc');
+    expect(unitNameForId('nope')).toBeNull();
+    expect(unitNameForId(null)).toBeNull();
+  });
+});

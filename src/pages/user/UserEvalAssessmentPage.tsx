@@ -11,6 +11,7 @@ import { attemptsUsed, reportLocked } from '@/lib/plan-notice';
 import { showPlanNotice } from '@/lib/plan-notice-bus';
 import { reportIsLocked } from '@/lib/report-access';
 import { planAllowance } from '@/lib/plan-allowance';
+import { FlipTimer } from '@/components/user/FlipTimer';
 import { difficultyLabel } from '@/lib/eval-difficulty';
 import { saveProctoringRecord } from '@/lib/proctoring-record';
 import { getCurrentSubscription, usageFor } from '@/lib/subscriptionApi';
@@ -35,6 +36,7 @@ import {
   Target,
 } from 'lucide-react';
 import { UserShell } from '@/components/user/UserShell';
+import { useFreshQuestionsNotice } from '@/components/user/FreshQuestionsNotice';
 import {
   isBilingualQuestion,
   langModeOptions,
@@ -159,98 +161,6 @@ function formatTime(s: number): string {
   if (h > 0)
     return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-}
-
-// ─── Circular Timer ────────────────────────────────────────────────────────────
-
-function CircularTimer({
-  secondsLeft,
-  totalSeconds,
-  display,
-}: {
-  secondsLeft: number | null;
-  totalSeconds: number;
-  display: string | null;
-}) {
-  const r = 30;
-  const circ = 2 * Math.PI * r;
-  const progress =
-    secondsLeft !== null && totalSeconds > 0
-      ? Math.max(0, Math.min(1, secondsLeft / totalSeconds))
-      : 1;
-  const offset = circ * (1 - progress);
-
-  // Urgency states (mirrors the original exam-timer design)
-  const s = secondsLeft ?? Infinity;
-  const isCritical = s < 30;
-  const isUrgent = s < 60 && !isCritical;
-  const isWarning = s < 300 && !isUrgent && !isCritical;
-
-  const ringColor = isCritical
-    ? '#f87171'
-    : isUrgent
-      ? '#ef4444'
-      : isWarning
-        ? '#fbbf24'
-        : '#ff8f4a';
-  const textColor = isCritical || isUrgent
-    ? 'text-red-300'
-    : isWarning
-      ? 'text-amber-300'
-      : 'text-white';
-  const trackColor = isCritical ? 'rgba(248,113,113,0.25)' : 'rgba(255,255,255,0.15)';
-
-  // An hours-long paper shows "1:12:13" — seven glyphs where the ring was sized for
-  // five ("59:59"). At text-sm that overflows the circle and collides with the
-  // stroke, so step the type down as the string grows.
-  // The ring's inner diameter is 56px (r=30, stroke 4, rendered 1:1 at 72px), so
-  // the text has to shrink as the string grows or it collides with the stroke.
-  const len = display?.length ?? 0;
-  const timeClass =
-    len >= 8 ? 'text-[10px]' : len >= 7 ? 'text-[11px]' : len >= 6 ? 'text-xs' : 'text-sm';
-
-  return (
-    <div
-      className={`relative w-[72px] h-[72px] flex-shrink-0 ${
-        isCritical ? 'animate-[shake_0.5s_ease-in-out_infinite]' : ''
-      }`}
-    >
-      {/* Pulsing glow when time is critical */}
-      {isCritical && (
-        <div
-          className="absolute inset-0 rounded-full bg-red-500/30 animate-ping"
-          style={{ animationDuration: '1.5s' }}
-        />
-      )}
-      <svg className="w-full h-full -rotate-90" viewBox="0 0 72 72">
-        <circle cx="36" cy="36" r={r} fill="none" stroke={trackColor} strokeWidth="4" />
-        <circle
-          cx="36" cy="36" r={r}
-          fill="none"
-          stroke={ringColor}
-          strokeWidth={isCritical ? 5 : 4}
-          strokeDasharray={circ}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 1s linear' }}
-        />
-      </svg>
-      <div
-        className={`absolute inset-0 flex flex-col items-center justify-center px-0.5 ${
-          isCritical || isUrgent ? 'animate-pulse' : ''
-        }`}
-      >
-        <span className={`${timeClass} font-bold tabular-nums leading-none ${textColor}`}>
-          {display ?? '—'}
-        </span>
-        {(isCritical || isUrgent) && (
-          <span className="text-[8px] font-bold text-red-400 mt-0.5 tracking-wide">
-            HURRY!
-          </span>
-        )}
-      </div>
-    </div>
-  );
 }
 
 /**
@@ -1302,6 +1212,14 @@ export function UserEvalAssessmentPage() {
     }
   };
 
+  // A new attempt is a new set of questions, and the note says so first. Resuming one keeps its own questions,
+  // and a paper with no attempts left only opens the plans popup — neither needs the note.
+  const freshNotice = useFreshQuestionsNotice(handleStart);
+  const beginTest = () => {
+    if (attemptsSpent || assessment?.in_progress_attempt_id) handleStart();
+    else freshNotice.request();
+  };
+
   const setAnswer = (questionId: string, value: any) => {
     setResponses(prev => ({ ...prev, [questionId]: value }));
   };
@@ -1512,7 +1430,7 @@ export function UserEvalAssessmentPage() {
               )}
 
               <button
-                onClick={handleStart}
+                onClick={beginTest}
                 disabled={!attemptsSpent && !agreed}
                 className="group w-full mt-5 bg-gradient-to-r from-brand-600 via-brand-400 to-brand-600 bg-[length:200%_auto] hover:bg-right-bottom text-white py-3.5 rounded-xl font-semibold transition-all duration-500 shadow-lg shadow-blue-200 dark:shadow-blue-900/40 hover:shadow-xl hover:shadow-blue-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
               >
@@ -1530,6 +1448,7 @@ export function UserEvalAssessmentPage() {
             </div>
           </div>
         </div>
+        {freshNotice.dialog}
       </UserShell>
     );
   }
@@ -1947,11 +1866,7 @@ export function UserEvalAssessmentPage() {
 
           <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
             {timeLeft !== null && (
-              <CircularTimer
-                secondsLeft={timeLeft}
-                totalSeconds={assessment?.time_limit_seconds ?? 3600}
-                display={formatTime(timeLeft)}
-              />
+              <FlipTimer secondsLeft={timeLeft} totalSeconds={assessment?.time_limit_seconds ?? 3600} />
             )}
 
             {/* Proctoring violation counter */}

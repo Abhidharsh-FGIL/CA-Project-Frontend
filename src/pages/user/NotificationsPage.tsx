@@ -1,3 +1,4 @@
+import { upperMeridiem } from '@/lib/meridiem';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserShell } from '@/components/user/UserShell';
@@ -70,7 +71,7 @@ export default function NotificationsPage() {
 
   const formatTime = (iso: string) => {
     const d = new Date(iso);
-    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return upperMeridiem(d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }));
   };
 
   const filterCount = (k: FilterKey) => {

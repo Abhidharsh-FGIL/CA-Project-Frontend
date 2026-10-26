@@ -1,3 +1,4 @@
+import { upperMeridiem } from '@/lib/meridiem';
 import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import { displayTitle } from '@/lib/display-title';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -438,7 +439,7 @@ function AttemptRow({
   const gateReport = useReportGate();
   const { name, level } = splitLevel(a.test_name);
   const when = outcome === 'unfinished' ? started : (ended ?? started);
-  const time = when.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const time = upperMeridiem(when.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
 
   return (
     <>

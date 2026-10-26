@@ -1,3 +1,4 @@
+import { upperMeridiem } from '@/lib/meridiem';
 import { useEffect, useMemo, useState } from 'react';
 import { displayTitle } from '@/lib/display-title';
 import { Link } from 'react-router-dom';
@@ -343,7 +344,7 @@ export default function UserDashboardPage() {
               icon={<ClipboardList className="w-5 h-5" />}
               tone="indigo"
               value={scopedAssessments.length}
-              label={`${trackNoun}s Assigned`}
+              label={`${trackNoun}s Available`}
               delta={null}
             />
             <StatCard
@@ -518,13 +519,13 @@ export default function UserDashboardPage() {
                           {displayTitle(r.test_name) ?? 'Test attempt'}
                         </span>
                         <span className="block text-[10px] text-gray-400">
-                          {new Date(r.start_time).toLocaleString('en-IN', {
+                          {upperMeridiem(new Date(r.start_time).toLocaleString('en-IN', {
                             day: '2-digit',
                             month: 'short',
                             hour: 'numeric',
                             minute: '2-digit',
                             hour12: true,
-                          })}
+                          }))}
                         </span>
                       </span>
                       <span className="text-xs font-bold text-brand-700 dark:text-brand-400">

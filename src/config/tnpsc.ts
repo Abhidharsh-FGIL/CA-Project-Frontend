@@ -2098,6 +2098,26 @@ export function unitDisplayName(
   return section && isTamilOnlySection(section) ? unit.name_ta : unit.name;
 }
 
+/**
+ * The name a unit is shown under, from its id alone - for a report that has only the id on a question
+ * ("g4-ta-grammar"). Looked for in every exam's stages, since one paper can hold another exam's units
+ * (a Group 2 paper built from Group 4 questions), and a `g2-` id falls back to its Group 4 twin.
+ * Null when no unit has that id.
+ */
+export function unitNameForId(unitId: string | null | undefined): string | null {
+  if (!unitId) return null;
+  const tries = [unitId, unitId.replace(/^g2-/, 'g4-')];
+  for (const id of tries) {
+    for (const group of TNPSC_GROUPS) {
+      for (const stage of group.stages) {
+        const found = stageUnits(stage).find(u => u.unit.id === id);
+        if (found) return unitDisplayName(stage, found.unit);
+      }
+    }
+  }
+  return null;
+}
+
 /** One unit of a stage by id, wherever it sits. */
 export function findUnit(
   stage: TnpscStage | undefined,

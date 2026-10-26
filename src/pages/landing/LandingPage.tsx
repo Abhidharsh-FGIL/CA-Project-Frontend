@@ -75,34 +75,33 @@ const heroChecks = ['Full mock tests', 'Unit-wise practice', 'Previous year pape
 const features: Array<{ icon: LucideIcon; title: string; desc: string; tone: string; soon?: boolean }> = [
   {
     icon: ClipboardList,
-    title: 'AI-Powered Full Mock Tests',
-    desc: 'Experience exam-style mock tests with a fresh set of AI-generated questions every time you attempt a test. Practise more, improve accuracy and build exam confidence.',
+    title: 'Expert-Curated Mock Tests',
+    desc: 'Experience real exam-style mock tests with carefully curated and validated questions. Get a fresh set of questions with every attempt to strengthen your knowledge, improve accuracy, and build exam confidence.',
     tone: 'blue',
   },
   {
     icon: Target,
     title: 'Smart Subject & Unit-wise Practice',
-    desc: 'Practise with AI-generated questions across subjects and units. Choose Simple, Medium or Complex levels and learn with clear, easy-to-understand AI explanations.',
+    desc: 'Practice with expert-validated questions across subjects and units. Choose Simple, Medium, or Complex difficulty levels and strengthen your understanding with detailed explanations.',
     tone: 'pink',
   },
   {
     icon: BookOpen,
     title: 'Previous Year Question Papers',
-    desc: 'Practice questions from previous years’ exams and get AI-powered explanations to understand exam patterns, important topics, and frequently asked questions.',
+    desc: 'Practice authentic previous-year questions with detailed explanations. Understand exam patterns, important topics, and frequently tested concepts.',
     tone: 'purple',
   },
   {
     icon: BarChart3,
-    title: 'Comprehensive AI Performance Analysis',
-    desc: 'Get detailed AI-driven insights into your scores, accuracy, strengths, weaknesses, and topic-wise performance, along with clear recommendations on what to focus on next.',
+    title: 'AI-Powered Performance Insights',
+    desc: 'Understand your strengths, weaknesses, accuracy, and topic-wise performance through AI-driven analysis. Identify improvement areas and prepare more effectively.',
     tone: 'green',
   },
   {
     icon: CalendarDays,
     title: 'AI-Personalized Study Plans',
-    desc: 'Turn your performance insights into a step-by-step study plan. Let AI identify areas for improvement, recommend relevant topics, and create a practical plan to help you prepare more effectively.',
+    desc: 'Get personalized study recommendations based on your performance, knowledge gaps, and learning progress.',
     tone: 'rose',
-    soon: true,
   },
 ];
 
@@ -110,7 +109,7 @@ const steps: Array<{ name: string; desc: string; icon: LandingIcon; soon?: boole
   { name: 'Choose a Test', desc: 'Take a full mock test or practice by subject, part and unit.', icon: ChooseTestIcon },
   { name: 'Practice & Learn', desc: 'Attempt questions at Simple, Medium, and Complex difficulty levels.', icon: PracticeIcon },
   { name: 'Get Your AI Report', desc: 'See your score, accuracy, strengths, weak areas and comparisons.', icon: ReportIcon },
-  { name: 'Build Your Study Plan', desc: 'Get a personalized plan based on your performance and focus on weak topics.', icon: PlanIcon, soon: true },
+  { name: 'Build Your Study Plan', desc: 'Get a personalized plan based on your performance and focus on weak topics.', icon: PlanIcon },
 ];
 
 function Hero() {
@@ -260,9 +259,9 @@ function Features() {
     <section className="mge-container mge-ai-section" aria-labelledby="mge-ai-title">
       <div className="mge-ai-heading">
         <h2 id="mge-ai-title">
-          Powered by <span>AI.</span> Designed for Your Success.
+          Expert-Curated Questions. <span>AI-Powered Insights.</span>
         </h2>
-        <p>From your first practice question to your personalized study plan, AI supports every step of your preparation.</p>
+        <p>Practice with expert-validated questions, track your performance through AI-powered analytics, and improve with personalized study recommendations.</p>
       </div>
       <div className="mge-ai-grid">
         {features.map(f => (
@@ -398,7 +397,7 @@ function DemoCards() {
       <figure>
         <div className="mge-demo-card">
           <h4>
-            Personalized Study Plan <em className="mge-soon-tag">Coming soon</em>
+            Personalized Study Plan
           </h4>
           <h5 className="mge-plan-title">Your 4-Week Study Plan</h5>
           {(
