@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 
 /**
- * The exam countdown as a flip clock: HH : MM : SS in dark tiles, each digit tipping over as it changes.
+ * The exam countdown as a flip clock: HH : MM : SS as white tiles with dark digits on the header, each digit tipping over as it changes.
  *
  * It shows the real time left (never a made-up one). The digits warm to amber in the last five minutes and
  * go red in the last minute, so running out of time is seen without reading the numbers. Hours are left off
@@ -17,14 +17,14 @@ export function FlipTimer({ secondsLeft, totalSeconds }: { secondsLeft: number |
 
   const urgent = s < 60;
   const warning = s < 300 && !urgent;
-  const tile = urgent ? 'bg-red-900/70 text-red-200' : warning ? 'bg-amber-900/60 text-amber-200' : 'bg-slate-700 text-white';
-  const colon = urgent ? 'text-red-300' : warning ? 'text-amber-300' : 'text-orange-400';
+  const tile = urgent ? 'bg-red-500 text-white' : warning ? 'bg-amber-400 text-slate-900' : 'bg-white text-slate-900 shadow-sm';
+  const colon = urgent ? 'text-red-400' : warning ? 'text-amber-300' : 'text-orange-400';
 
   return (
     <span
       role="timer"
       aria-label={`${showHours ? `${parts[0]} hours ` : ''}${parts[parts.length - 2]} minutes ${parts[parts.length - 1]} seconds left`}
-      className="flex items-center gap-1 rounded-xl bg-slate-900/80 px-2 py-1.5 ring-1 ring-white/10"
+      className="flex items-center gap-1 rounded-xl bg-white/10 px-2 py-1.5 ring-1 ring-white/15"
     >
       {parts.map((p, idx) => (
         <span key={idx} className="flex items-center gap-1">
@@ -38,7 +38,7 @@ export function FlipTimer({ secondsLeft, totalSeconds }: { secondsLeft: number |
                 )}
               >
                 <span key={d} className="cta-flip-digit">{d}</span>
-                <span className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-slate-900/70" />
+                <span className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-slate-900/15" />
               </span>
             ))}
           </span>
