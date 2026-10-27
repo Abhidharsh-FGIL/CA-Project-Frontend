@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
 
+/** This build's key, set by vite.config.ts (`dev` when not a production build). */
+declare const __APP_BUILD__: string;
+
 interface ImportMetaEnv {
   /** Backend base URL, no trailing slash. */
   readonly VITE_API_BASE_URL?: string;

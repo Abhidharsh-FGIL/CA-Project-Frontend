@@ -62,6 +62,7 @@ import UserSavedPage from "@/pages/user/UserSavedPage";
 import UserAboutPage from "@/pages/user/UserAboutPage";
 import PlanNoticeHost from "@/components/user/PlanNoticeHost";
 import ReferralAskHost from "@/components/user/ReferralAskHost";
+import AppUpdateHost from "@/components/AppUpdateHost";
 import SessionExpiredHost from "@/components/SessionExpiredHost";
 import { announcePlanNotice } from "@/lib/plan-notice-bus";
 
@@ -296,6 +297,7 @@ const App = () => (
                   <ScrollToTop />
                   <MetaPixelPageViews />
                   <SessionExpiredHost />
+                  <AppUpdateHost />
                   <ErrorBoundary>
                     <AppRoutes />
                   </ErrorBoundary>

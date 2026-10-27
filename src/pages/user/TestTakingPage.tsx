@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react';
+import { useHoldUpdates } from '@/lib/app-version';
 import { isMobileDevice } from '@/lib/device';
 import { FlipTimer } from '@/components/user/FlipTimer';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -41,6 +42,8 @@ const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function TestTakingPage() {
+  // A test in progress is never reloaded for an update.
+  useHoldUpdates(true);
   const { testId } = useParams<{ testId: string }>();
   const navigate = useNavigate();
   const location = useLocation();

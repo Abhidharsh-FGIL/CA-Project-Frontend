@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react';
+import { useHoldUpdates } from '@/lib/app-version';
 import { isMobileDevice } from '@/lib/device';
 import { useSearchParams } from 'react-router-dom';
 import { BASE_URL, buildUrl } from '@/lib/api';
@@ -285,6 +286,8 @@ export default function TakeAssessmentPage() {
   const isPopup = searchParams.get('popup') === '1';
 
   const [pageState, setPageState] = useState<PageState>('loading');
+  // Answering, or sending the answers: not the moment to reload for an update.
+  useHoldUpdates(pageState === 'active' || pageState === 'submitting');
   const [info, setInfo] = useState<AssessmentInfo | null>(null);
   const [attempt, setAttempt] = useState<AttemptData | null>(null);
   const [responses, setResponses] = useState<Record<string, string>>({});

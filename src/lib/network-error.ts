@@ -10,6 +10,7 @@
  * browser needs and the browser throws that answer away, which reads exactly like being offline —
  * so the message does not claim to know which it was.
  */
+import { noteServerBuild } from './app-version';
 
 export const NETWORK_ERROR_MESSAGE = "Couldn't reach the server. Please check your connection and try again.";
 export const NETWORK_ERROR_CODE = 'NETWORK_ERROR';
@@ -50,7 +51,10 @@ export function isServerFault(status: number): boolean {
  */
 export async function fetchOrExplain(input: string, init?: RequestInit): Promise<Response> {
   try {
-    return await fetch(input, init);
+    const res = await fetch(input, init);
+    // The server may say which build is deployed (X-App-Build); a different one means this page is out of date.
+    noteServerBuild(res.headers.get('x-app-build'));
+    return res;
   } catch (error) {
     throw isNetworkFailure(error) ? new NetworkError(error) : error;
   }

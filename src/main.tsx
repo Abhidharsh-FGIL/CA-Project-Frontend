@@ -2,6 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import { BASE_URL } from "./lib/api";
+import { reloadForUpdate } from "./lib/app-version";
 import "./index.css";
 
 // Module load fingerprint — re-evaluated each time this bundle is parsed.
@@ -32,6 +33,12 @@ if ("caches" in window) {
     }
   });
 }
+
+// A page opened before a deploy can ask for a file the new deploy no longer has. Vite reports that as
+// `vite:preloadError`; one reload brings the new build. Once per tab session, so a real outage cannot loop.
+window.addEventListener("vite:preloadError", () => {
+  reloadForUpdate("preload-error");
+});
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

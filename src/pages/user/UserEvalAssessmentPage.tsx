@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useHoldUpdates } from '@/lib/app-version';
 import { isMobileDevice } from '@/lib/device';
 import { displayTitle } from '@/lib/display-title';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -741,6 +742,8 @@ export function UserEvalAssessmentPage() {
   });
 
   const [pageState, setPageState] = useState<PageState>('loading');
+  // A paper in progress (or being sent in) is never reloaded for an update.
+  useHoldUpdates(pageState === 'active' || pageState === 'submitting' || pageState === 'analysing');
   const [assessment, setAssessment] = useState<AssessmentDetailResponse | null>(null);
   const [rawQuestions, setRawQuestions] = useState<EvalAttemptQuestion[]>([]);
   /** Bilingual papers show both languages by default, as the printed paper does. */
