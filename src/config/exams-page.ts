@@ -5,7 +5,7 @@
  * them: confirm each before it goes public, and change them here.
  */
 export const EXAMS_STATS = {
-  questions: '15,000+',
+  questions: '17,000+',
   aspirants: '2,000+',
   newQuestions: '1,500+',
 };
