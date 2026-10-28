@@ -12,6 +12,7 @@ import {
   type TnpscTopic,
 } from '@/config/tnpsc';
 import type { TnpscTest } from '@/lib/tnpscApi';
+import { officialCategories, type Syllabus } from '@/lib/taxonomyApi';
 
 /**
  * Letters only, lowercased — ids, Tamil labels and titles all normalise to this.
@@ -142,13 +143,43 @@ export function unitTopicsWithCategories(stage: TnpscStage, unit: { id: string }
   });
 }
 
+/** Whether an official category is this topic: same name, same id, or the abbreviation it glosses ("LCM"). */
+function isOfficialFor(topic: TnpscTopic, official: string): boolean {
+  const o = norm(official);
+  if (!o) return false;
+  if (norm(topic.name) === o || norm(topic.id) === o) return true;
+  const gloss = /\(([^)]+)\)\s*$/.exec(topic.name)?.[1];
+  return !!gloss && norm(gloss) === o;
+}
+
+/**
+ * A unit's topics named and ordered by the official list (built from the uploaded sheets).
+ *
+ * An official category that is a known topic keeps that topic's id — so the papers filed under it still find it
+ * — and takes the official name. One that is not becomes a topic of its own, named and keyed by the category
+ * (a key-topic paper is filed under the category text). Topics the list does not mention follow, so a paper
+ * filed under an old name is never dropped from the page. No official list: the topics as they were.
+ */
+export function withOfficialNames(topics: TnpscTopic[], official: Array<{ name: string }>): TnpscTopic[] {
+  if (official.length === 0) return topics;
+  const used = new Set<TnpscTopic>();
+  const named = official.map(c => {
+    // Every spelling of it is this one row ("Lowest Common Multiple (LCM)" printed, "LCM" from a paper); the
+    // papers of each still match the row by name.
+    const same = topics.filter(t => !used.has(t) && isOfficialFor(t, c.name));
+    same.forEach(t => used.add(t));
+    return { id: same[0]?.id ?? c.name, name: c.name };
+  });
+  return [...named, ...topics.filter(t => !used.has(t))];
+}
+
 /**
  * Each printed section with the topics that have a paper, grouped by unit.
  *
  * Only topics with a paper are listed: a topic is a "key topic" here because someone made a test for
  * it. A section with none is still returned, so the page can show it as coming rather than drop it.
  */
-function buildSections(stage: TnpscStage, tests: TnpscTest[]): KeyTopicSection[] {
+function buildSections(stage: TnpscStage, tests: TnpscTest[], syllabus?: Syllabus | null): KeyTopicSection[] {
   return (stage.pattern?.sections ?? []).map(section => {
     const groups: KeyTopicGroup[] = (
       section.units?.length
@@ -156,7 +187,7 @@ function buildSections(stage: TnpscStage, tests: TnpscTest[]): KeyTopicSection[]
             key: unit.id,
             label: unit.label,
             name: unitDisplayName(stage, unit),
-            topics: unitTopicsWithCategories(stage, unit, tests)
+            topics: withOfficialNames(unitTopicsWithCategories(stage, unit, tests), officialCategories(syllabus, unit.id))
               .map(topic => ({ topic, tests: testsForTopic(unit.id, topic, tests) }))
               .filter(r => r.tests.length > 0),
           }))
@@ -223,7 +254,8 @@ function claimOnce(sections: KeyTopicSection[]): KeyTopicSection[] {
   });
 }
 
-export function buildKeyTopicSections(stage: TnpscStage, tests: TnpscTest[]): KeyTopicSection[] {
-  return claimOnce(buildSections(stage, tests));
+/** `syllabus` is the official list (`GET /syllabus`); without it the hand-typed syllabus names the topics. */
+export function buildKeyTopicSections(stage: TnpscStage, tests: TnpscTest[], syllabus?: Syllabus | null): KeyTopicSection[] {
+  return claimOnce(buildSections(stage, tests, syllabus));
 }
 

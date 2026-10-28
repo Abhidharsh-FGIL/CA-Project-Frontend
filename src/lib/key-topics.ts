@@ -101,10 +101,27 @@ export function chaptersForTopic(questions: any[], topic: TnpscTopic): string[] 
 }
 
 /**
+ * The key-topic choices for a unit: its official categories (from the uploaded sheets), in syllabus order, each
+ * with how many bank questions carry exactly that name. A name the sheets never used is not offered — it is
+ * fixed on the Topic Names page instead. Null when the unit has no official list yet, so the caller falls back
+ * to the bank's own categories.
+ *
+ * What a key-topic paper is chosen from: the category is the tag on a question (e.g. அணியிலக்கணம்), so a paper
+ * drawn from one category takes that category's questions.
+ */
+export function officialCategoryOptions(
+  official: Array<{ name: string }>,
+  bank: Array<{ name: string; count: number }>,
+): Array<{ name: string; count: number }> | null {
+  if (official.length === 0) return null;
+  const counts = new Map(bank.map(c => [c.name, c.count]));
+  return official.map(c => ({ name: c.name, count: counts.get(c.name) ?? 0 }));
+}
+
+/**
  * The categories the question bank gives a unit's questions, with how many each holds — most first.
  *
- * What a key-topic paper is chosen from: the category is the bank's own tag on a question (e.g. அணியிலக்கணம்),
- * so a paper drawn from one category takes that category's questions.
+ * The admin's key-topic choices before the unit has an official list (and the counts shown beside it after).
  */
 export function bankCategoryCounts(
   stage: TnpscStage | undefined,

@@ -43,6 +43,7 @@ import {
   type KeyTopicRow,
   type KeyTopicSection,
 } from '@/lib/key-topic-sections';
+import { useSyllabus } from '@/hooks/use-syllabus';
 import { unitChipLabel } from '@/lib/unit-chip';
 import { levelStats, type LevelKey, type LevelStat } from '@/lib/unit-levels';
 import { testHref, type TnpscLevelGroup, type TnpscTest } from '@/lib/tnpscApi';
@@ -315,9 +316,12 @@ export default function TnpscStagePage() {
     [tab, practiceTests, mock.levels],
   );
 
+  // Key topics are named and ordered by the official list (the uploaded sheets), the same names the admin picks
+  // from. Until it loads, or if it cannot be read, the hand-typed syllabus names them.
+  const syllabus = useSyllabus(groupId, stageId);
   const keyTopicSections = useMemo<KeyTopicSection[]>(
-    () => (stage ? buildKeyTopicSections(stage, practiceTests.filter(isKeyTopicPaper)) : []),
-    [stage, practiceTests],
+    () => (stage ? buildKeyTopicSections(stage, practiceTests.filter(isKeyTopicPaper), syllabus) : []),
+    [stage, practiceTests, syllabus],
   );
 
   // The first section with topics is open on arrival, so it is plain that there is something inside; once per exam and

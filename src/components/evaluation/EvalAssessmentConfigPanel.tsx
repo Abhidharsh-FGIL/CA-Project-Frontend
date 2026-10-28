@@ -80,7 +80,9 @@ import {
   unitWeightsFromSyllabus,
 } from '@/lib/unit-pool';
 import { getSyllabusChapters, getSyllabusSubjects } from '@/data/examSyllabus';
-import { bankCategoryCounts } from '@/lib/key-topics';
+import { bankCategoryCounts, officialCategoryOptions } from '@/lib/key-topics';
+import { officialCategories } from '@/lib/taxonomyApi';
+import { useSyllabus } from '@/hooks/use-syllabus';
 
 interface Props {
   onCreated: (assessmentId: string) => void;
@@ -536,15 +538,17 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag }: Pro
     );
   }, [bankQuestions, selectedSubjects, selectedUnits, unitMode, tnpscStage, source]);
 
-  /** The placed unit's categories, as the bank tags its questions, with counts — the key-topic choices. */
+  /**
+   * The key-topic choices: the placed unit's official categories, with how many bank questions carry each.
+   * Before the unit has an official list (or when it cannot be read), the bank's own categories, as before.
+   */
   const placedUnit = findUnit(tnpscStage, tnpscTag.unit_id);
-  const categoryOptions = useMemo(
-    () =>
-      tnpscTag.scope === 'topic' && placedUnit
-        ? bankCategoryCounts(tnpscStage, placedUnit, bankQuestions as any[])
-        : null,
-    [tnpscTag.scope, placedUnit, tnpscStage, bankQuestions],
-  );
+  const syllabus = useSyllabus(tnpscTag.group_id, tnpscTag.stage_id);
+  const categoryOptions = useMemo(() => {
+    if (tnpscTag.scope !== 'topic' || !placedUnit) return null;
+    const bank = bankCategoryCounts(tnpscStage, placedUnit, bankQuestions as any[]);
+    return officialCategoryOptions(officialCategories(syllabus, placedUnit.id), bank) ?? bank;
+  }, [tnpscTag.scope, placedUnit, tnpscStage, bankQuestions, syllabus]);
 
   /**
    * Chapters to choose from: what the bank holds, then what the syllabus expects.

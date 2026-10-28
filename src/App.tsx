@@ -28,6 +28,7 @@ import AdminUsersPage from "@/pages/org/AdminUsersPage";
 import AdminHistoryPage from "@/pages/org/AdminHistoryPage";
 import AdminUserHistoryPage from "@/pages/org/AdminUserHistoryPage";
 import AdminAuditPage from "@/pages/org/AdminAuditPage";
+import AdminTaxonomyPage from "@/pages/org/AdminTaxonomyPage";
 import AdminSettingsPage from "@/pages/org/AdminSettingsPage";
 import { EvalPaperDetailPage } from "@/components/evaluation/EvalPaperDetailPage";
 import { EvalGeneratingPage } from "@/pages/org/EvalGeneratingPage";
@@ -261,6 +262,7 @@ function AppRoutes() {
         <Route path="/org/history" element={<AdminHistoryPage />} />
         <Route path="/org/history/:userId" element={<AdminUserHistoryPage />} />
         <Route path="/org/audit" element={<AdminAuditPage />} />
+        <Route path="/org/topic-names" element={<AdminTaxonomyPage />} />
         <Route path="/org/settings" element={<AdminSettingsPage />} />
         <Route path="/org/evaluation" element={<EvaluationHubPage />} />
         <Route path="/org/evaluation/paper/:paperId" element={<EvalPaperDetailPage />} />

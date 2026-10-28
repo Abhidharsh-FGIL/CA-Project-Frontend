@@ -21,6 +21,7 @@ import {
   Home,
   ChevronDown,
   LogOut,
+  ListTree,
 } from 'lucide-react';
 
 interface GenVerseShellProps {
@@ -38,6 +39,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: '/org/dashboard', icon: LayoutDashboard, group: 'main' },
   { label: 'Evaluation Hub', path: '/org/evaluation', icon: Database, group: 'content' },
+  { label: 'Topic Names', path: '/org/topic-names', icon: ListTree, group: 'content' },
   { label: 'Courses', path: '/org/courses', icon: BookOpen, group: 'content' },
   { label: 'Users', path: '/org/users', icon: Users, group: 'admin' },
   { label: 'History', path: '/org/history', icon: History, group: 'admin' },
