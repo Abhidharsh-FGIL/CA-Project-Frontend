@@ -56,6 +56,8 @@ export interface EvalAssessmentConfig {
    */
   poolMode?: PoolMode;
   poolFilter?: PoolFilter | null;
+  /** The Simple / Medium / Complex mix a whole or mixed paper was made to — BACKEND_BLEND_EDIT.md §3. */
+  difficultyBlend?: { easy: number; medium: number; hard: number };
   pricingType?: 'free' | 'paid';
   price?: number;
   promoCode?: string;
@@ -138,6 +140,7 @@ export function useCreateEvalAssessment() {
         paper_weights: config.paperWeights,
         pool_mode: config.poolMode ?? 'fixed',
         pool_filter: config.poolFilter ?? null,
+        difficulty_blend: config.difficultyBlend ?? null,
         pricing_type: config.pricingType,
         price: config.price,
         promo_code: config.promoCode || null,
@@ -312,6 +315,40 @@ export function useDeleteEvalAssessment() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['eval-assessments'] });
       toast.success('Assessment deleted');
+    },
+  });
+}
+
+/**
+ * Change the difficulty mix of a mock, a full set or a mixed unit / key-topic set.
+ *
+ * `PATCH /api/v1/evaluation/assessments/{id}/blend` — the server draws the paper's questions again to the new mix
+ * from the pool it was made from, and stores the mix (BACKEND_BLEND_EDIT.md). Attempts already taken keep the
+ * questions they were sat on. A server without the endpoint answers 404/405, which is said plainly.
+ */
+export function useUpdateAssessmentBlend() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, blend }: { id: string; blend: { easy: number; medium: number; hard: number } }) =>
+      api.patch<any>(`/api/v1/evaluation/assessments/${id}/blend`, { difficulty_blend: blend }),
+    onSuccess: (res: any, { id }) => {
+      qc.invalidateQueries({ queryKey: ['eval-assessments'] });
+      qc.invalidateQueries({ queryKey: ['eval-assessment-detail', id] });
+      const short = res?.shortfall && Object.values(res.shortfall).some((n: any) => Number(n) > 0);
+      if (short) {
+        toast.warning(res?.message || 'Mix updated, but the bank is short at some difficulty, so the rest came from the other levels.', {
+          duration: 10000,
+        });
+      } else {
+        toast.success('Difficulty mix updated');
+      }
+    },
+    onError: (err: any) => {
+      if (err?.status === 404 || err?.status === 405) {
+        toast.error('Changing the mix of a saved assessment is not available on the server yet.', { duration: 10000 });
+        return;
+      }
+      toast.error(err?.message || 'Could not update the difficulty mix');
     },
   });
 }

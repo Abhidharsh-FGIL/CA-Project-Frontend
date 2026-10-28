@@ -80,6 +80,13 @@ vi.mock('@/hooks/use-admin-history', () => ({
   useAdminHistoryUser: () => ({ data: detailData, isLoading: false, isFetching: false, isError: false, error: null }),
 }));
 
+// Where each assessment sits, as the Evaluation Hub's list says: a Group 2 practice set in Unit II of Aptitude.
+vi.mock('@/hooks/use-eval-assessments', () => ({
+  useEvalAssessments: () => ({
+    data: [{ id: 'asmt-g2', title: 'TNPSC Group 2 Prelims — Reasoning · Mixed', group_id: 'group-2', stage_id: 'group-2-prelims', track: 'practice', scope: 'unit', unit_id: 'g2-apt-reasoning' }],
+  }),
+}));
+
 import AdminHistoryPage from '@/pages/org/AdminHistoryPage';
 import AdminUserHistoryPage from '@/pages/org/AdminUserHistoryPage';
 
@@ -237,5 +244,18 @@ describe('Admin → one user’s history: assessment attempts', () => {
     expect(html).toContain('Group 4 Full Mock 1');
     expect((html.match(/<button[^>]*>(?:(?!<\/button>).)*Report<\/button>/g) ?? []).length).toBe(0);
     reset();
+  });
+});
+
+describe('Admin → one user’s history: where each test sits', () => {
+  it('names the unit under the test, and drops the exam prefix from the name', () => {
+    detailData = {
+      ...detail,
+      attempts: [{ ...detail.attempts[0], attempt_id: 'g1', test_id: 'asmt-g2', source: 'assessment', test_name: 'TNPSC Group 2 Prelims — Reasoning · Mixed' }],
+    };
+    const html = page();
+    expect(html).toContain('>Reasoning · Mixed<');
+    expect(html).toContain('TNPSC Group 2 · Aptitude &amp; Mental Ability › Unit II · Reasoning');
+    detailData = detail;
   });
 });

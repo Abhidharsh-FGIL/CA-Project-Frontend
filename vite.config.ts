@@ -43,9 +43,9 @@ export default defineConfig(({ command }) => ({
   //   host: "::",
   //   port: 4201,
   // },
-  // Served from the site root. Code that builds a URL (payment return, share links, artwork) reads
+  // Served under /assessment/. Code that builds a URL (payment return, share links, artwork) reads
   // `import.meta.env.BASE_URL` rather than hardcoding a prefix, so this is the one place it lives.
-  base: '/',
+  // base: '/assessment/',
   plugins: [react(), emitVersionFile()],
   // `dev` outside a real build: nothing is offered an update while developing or testing.
   define: {

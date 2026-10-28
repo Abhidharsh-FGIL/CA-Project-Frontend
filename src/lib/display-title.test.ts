@@ -6,6 +6,7 @@ describe('displayTitle', () => {
     expect(displayTitle('TNPSC Group 4 — இலக்கணம் · Medium')).toBe('இலக்கணம் · Medium');
     expect(displayTitle('TNPSC Group 1 – Indian Polity · Mixed')).toBe('Indian Polity · Mixed');
     expect(displayTitle('GAT-B — Section A · Simple')).toBe('Section A · Simple');
+    expect(displayTitle('TNPSC Group 2 Prelims — Reasoning · Mixed')).toBe('Reasoning · Mixed');
   });
 
   it('leaves other titles and empty values alone', () => {

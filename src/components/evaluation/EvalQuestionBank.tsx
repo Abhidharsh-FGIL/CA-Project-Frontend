@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Trash2, Layers, Download, Pencil, Loader2, Globe, FileText, Type, Image, X } from 'lucide-react';
+import { Trash2, Layers, Download, Pencil, Loader2, Globe, FileText, Type, Image, X, Tag } from 'lucide-react';
 import { useEvalQuestions, useEvalSubjectSuggestions, useDeleteEvalQuestion, useUpdateEvalQuestion } from '@/hooks/use-evaluation';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { EvalFilterBar } from './EvalFilterBar';
@@ -67,13 +67,19 @@ function displayOptions(options: any): { label: string; text: string | null; ima
   return [];
 }
 
+/** A question's category and sub-category, under whichever name the bank's response uses. */
+const clean = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+const categoryOfQ = (q: any): string | null => clean(q?.category) ?? clean(q?.category_name);
+const subtopicOfQ = (q: any): string | null =>
+  clean(q?.subtopic) ?? clean(q?.sub_topic) ?? clean(q?.subtopic_name) ?? clean(q?.sub_category) ?? clean(q?.subcategory);
+
 export function EvalQuestionBank() {
   const [search, setSearch] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
-  const [groupBy, setGroupBy] = useState<'none' | 'subject' | 'chapter' | 'type' | 'difficulty'>('none');
+  const [groupBy, setGroupBy] = useState<'none' | 'subject' | 'chapter' | 'category' | 'subtopic' | 'type' | 'difficulty'>('none');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editQuestion, setEditQuestion] = useState<any | null>(null);
   const [editText, setEditText] = useState('');
@@ -193,6 +199,57 @@ export function EvalQuestionBank() {
     }
   };
 
+  /**
+   * Set one sub-category across a selection — the way to tag questions that were imported without one, without
+   * re-uploading the sheet. Like the difficulty action, it checks what the server stored afterwards.
+   */
+  const [subOpen, setSubOpen] = useState(false);
+  const [subValue, setSubValue] = useState('');
+  const [subSaving, setSubSaving] = useState(false);
+  const subtopicSuggestions = useMemo(() => {
+    const seen = new Map<string, string>();
+    (questions ?? []).forEach((q: any) => {
+      const v = subtopicOfQ(q);
+      if (v && !seen.has(v.toLowerCase())) seen.set(v.toLowerCase(), v);
+    });
+    return [...seen.values()].sort((a, b) => a.localeCompare(b));
+  }, [questions]);
+
+  const setSubtopicOn = async (rows: any[], value: string) => {
+    const want = value.trim();
+    if (rows.length === 0 || !want) return;
+    setSubSaving(true);
+    let done = 0;
+    const failures: string[] = [];
+    await mapLimit(rows, 4, async (q: any) => {
+      try {
+        await api.patch(`/api/v1/evaluation/questions/${q.id}`, { subtopic: want });
+        done += 1;
+      } catch (err: any) {
+        failures.push(err?.message ?? q.id);
+      }
+    });
+    await qc.refetchQueries({ queryKey: ['eval-questions'] });
+    const fresh = new Map<string, any>();
+    qc.getQueriesData<any[]>({ queryKey: ['eval-questions'] }).forEach(([, list]) => (list ?? []).forEach(x => fresh.set(x.id, x)));
+    const seen = rows.filter(q => fresh.has(q.id));
+    const unchanged = seen.filter(q => (subtopicOfQ(fresh.get(q.id)) ?? '').toLowerCase() !== want.toLowerCase());
+    setSubSaving(false);
+
+    if (failures.length > 0) toast.error(`${failures.length} could not be updated — ${failures[0]}`);
+    if (done > 0 && seen.length > 0 && unchanged.length === seen.length) {
+      toast.error(
+        'The server accepted the request but did not store the sub-category. The questions endpoint needs to accept `subtopic` on PATCH.',
+        { duration: 10000 },
+      );
+      return;
+    }
+    if (unchanged.length > 0) toast.warning(`${seen.length - unchanged.length} of ${seen.length} questions tagged “${want}”; ${unchanged.length} did not change.`);
+    else if (done > 0) toast.success(`${done} question${done === 1 ? '' : 's'} tagged “${want}”.`);
+    setSubOpen(false);
+    setSubValue('');
+  };
+
   const filtered = useMemo(() => {
     if (!questions) return [];
     if (!search) return questions;
@@ -200,7 +257,9 @@ export function EvalQuestionBank() {
     return questions.filter((q: any) =>
       q.text?.toLowerCase().includes(lower) ||
       q.subject?.toLowerCase().includes(lower) ||
-      q.chapter?.toLowerCase().includes(lower)
+      q.chapter?.toLowerCase().includes(lower) ||
+      categoryOfQ(q)?.toLowerCase().includes(lower) ||
+      subtopicOfQ(q)?.toLowerCase().includes(lower)
     );
   }, [questions, search]);
 
@@ -210,7 +269,9 @@ export function EvalQuestionBank() {
     if (groupBy === 'none') return { '': visibleQuestions };
     const groups: Record<string, any[]> = {};
     visibleQuestions.forEach((q: any) => {
-      const key = q[groupBy] || 'Uncategorized';
+      const key =
+        (groupBy === 'subtopic' ? subtopicOfQ(q) : groupBy === 'category' ? categoryOfQ(q) : q[groupBy]) ||
+        (groupBy === 'subtopic' ? 'No sub-category' : 'Uncategorized');
       if (!groups[key]) groups[key] = [];
       groups[key].push(q);
     });
@@ -406,6 +467,44 @@ export function EvalQuestionBank() {
                   </SelectContent>
                 </Select>
 
+                <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => setSubOpen(true)} disabled={subSaving}>
+                  <Tag className="h-3 w-3" /> {subSaving ? 'Tagging…' : `Set sub-category (${visibleSelected.length})`}
+                </Button>
+                <Dialog open={subOpen} onOpenChange={o => !subSaving && setSubOpen(o)}>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Set sub-category</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">
+                      Tags the {visibleSelected.length} selected question{visibleSelected.length === 1 ? '' : 's'}. Reports show it under each
+                      category.
+                    </p>
+                    <Input
+                      list="eval-subtopic-suggestions"
+                      value={subValue}
+                      onChange={e => setSubValue(e.target.value)}
+                      placeholder="e.g. Blood Relations"
+                      autoFocus
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') setSubtopicOn(visibleSelected, subValue);
+                      }}
+                    />
+                    <datalist id="eval-subtopic-suggestions">
+                      {subtopicSuggestions.map(v => (
+                        <option key={v} value={v} />
+                      ))}
+                    </datalist>
+                    <DialogFooter>
+                      <Button variant="ghost" onClick={() => setSubOpen(false)} disabled={subSaving}>
+                        Cancel
+                      </Button>
+                      <Button onClick={() => setSubtopicOn(visibleSelected, subValue)} disabled={subSaving || !subValue.trim()}>
+                        {subSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
                 <Button variant="outline" size="sm" className="gap-1 text-xs text-destructive" onClick={handleDeleteSelected}>
                   <Trash2 className="h-3 w-3" /> Delete ({visibleSelected.length})
                 </Button>
@@ -422,6 +521,8 @@ export function EvalQuestionBank() {
                 <SelectItem value="none">No Grouping</SelectItem>
                 <SelectItem value="subject">By Subject</SelectItem>
                 <SelectItem value="chapter">By Chapter</SelectItem>
+                <SelectItem value="category">By Category</SelectItem>
+                <SelectItem value="subtopic">By Sub-category</SelectItem>
                 <SelectItem value="difficulty">By Difficulty</SelectItem>
               </SelectContent>
             </Select>
@@ -453,6 +554,7 @@ export function EvalQuestionBank() {
                   <TableHead className="min-w-[300px]">Question</TableHead>
                   <TableHead>Subject</TableHead>
                   <TableHead>Chapter</TableHead>
+                  <TableHead>Category / Sub-category</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Difficulty</TableHead>
                   <TableHead>Source</TableHead>
@@ -509,6 +611,16 @@ export function EvalQuestionBank() {
                     </TableCell>
                     <TableCell>
                       {q.chapter && <Badge variant="outline" className="text-[10px]">{q.chapter}</Badge>}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col items-start gap-1">
+                        {categoryOfQ(q) && <Badge variant="outline" className="text-[10px]">{categoryOfQ(q)}</Badge>}
+                        {subtopicOfQ(q) ? (
+                          <Badge variant="secondary" className="text-[10px]">{subtopicOfQ(q)}</Badge>
+                        ) : (
+                          <span className="text-[10px] italic text-muted-foreground">No sub-category</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="text-[10px]">{TYPE_LABELS[q.type] || q.type}</Badge>

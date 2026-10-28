@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TNPSC_GROUPS, stageUnits } from '@/config/tnpsc';
-import { buildAssessmentTree, kindOf, seedFor } from './assessment-hierarchy';
+import { buildAssessmentTree, kindOf, placementLine, seedFor, unitForAssessment } from './assessment-hierarchy';
 import { EMPTY_TAG } from './tnpscAdminApi';
 
 const stage = TNPSC_GROUPS.find(g => g.id === 'group-4')!.stages[0];
@@ -86,11 +86,10 @@ describe('Group 2', () => {
   const g2units = stageUnits(g2stage);
   const g2gs = g2units.find(u => u.sectionName === 'General Studies')!;
 
-  it('has its own units, filed under its own ids and not Group 4’s', () => {
+  it('uses Group 4’s units, under Group 4’s ids', () => {
     expect(g2units.length).toBeGreaterThan(0);
-    expect(g2units.every(u => u.unit.id.startsWith('g2-'))).toBe(true);
-    const g4ids = new Set(units.map(u => u.unit.id));
-    expect(g2units.some(u => g4ids.has(u.unit.id))).toBe(false);
+    expect(g2units.map(u => u.unit.id)).toEqual(units.map(u => u.unit.id));
+    expect(g2units.every(u => u.unit.id.startsWith('g4-'))).toBe(true);
   });
 
   it('files a Group 2 assessment under Group 2, by its stage and unit', () => {
@@ -105,7 +104,34 @@ describe('Group 2', () => {
   });
 
   it('starts from Group 4’s split, so the wizard’s unit weightage is filled in the same way', () => {
-    const g4by = new Map(units.map(u => [u.unit.id.replace('g4-', ''), u.unit.questions]));
-    for (const u of g2units) expect(u.unit.questions).toBe(g4by.get(u.unit.id.replace('g2-', '')));
+    const g4by = new Map(units.map(u => [u.unit.id, u.unit.questions]));
+    for (const u of g2units) expect(u.unit.questions).toBe(g4by.get(u.unit.id));
+  });
+});
+
+describe('Group 2 assessments find their units as Group 4 ones do', () => {
+  const g2 = TNPSC_GROUPS.find(g => g.id === 'group-2')!.stages.find(st => st.id === 'group-2-prelims')!;
+  const base = { group_id: 'group-2', stage_id: 'group-2-prelims', track: 'practice', scope: 'unit' };
+
+  it('takes the Group 4 unit id, and reads an old g2- id as the same unit', () => {
+    expect(unitForAssessment(g2, 'g4-apt-reasoning')?.unit.id).toBe('g4-apt-reasoning');
+    expect(unitForAssessment(g2, 'g4-apt-reasoning')?.unit.id).toBe('g4-apt-reasoning');
+  });
+
+  it('reads the unit off the title when the tag has none', () => {
+    expect(unitForAssessment(g2, null, 'TNPSC Group 2 Prelims — Reasoning · Mixed')?.unit.id).toBe('g4-apt-reasoning');
+    expect(unitForAssessment(g2, null, 'Aptitude: Simplification · Mixed')?.unit.id).toBe('g4-apt-aptitude');
+    expect(unitForAssessment(g2, null, 'Something else · Mixed')).toBeUndefined();
+  });
+
+  it('files them under their unit in the tree, and names the unit in a line', () => {
+    const rows = [
+      { id: 'a', title: 'TNPSC Group 2 Prelims — Reasoning · Mixed', ...base, unit_id: 'g4-apt-reasoning' },
+      { id: 'b', title: 'TNPSC Group 2 Prelims — Reasoning · Mixed', ...base },
+    ];
+    const tree = buildAssessmentTree(rows);
+    const apt = tree.groups.find(g => g.id === 'group-2')!.practice.find(sec => sec.name === 'Aptitude & Mental Ability')!;
+    expect(apt.units.find(u => u.unitId === 'g4-apt-reasoning')!.items.map(r => r.id)).toEqual(['a', 'b']);
+    expect(placementLine(rows[1])).toBe('TNPSC Group 2 · Aptitude & Mental Ability › Unit II · Reasoning');
   });
 });

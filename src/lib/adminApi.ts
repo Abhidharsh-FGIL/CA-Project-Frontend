@@ -126,6 +126,10 @@ export interface AdminUserOut {
   phone_verified: boolean;
   subscription_tier: SubscriptionTier;
   subscription_expiry: string | null;
+  /** 'monthly' | 'yearly' for the plan in force, when the server sends it. */
+  billing_cycle?: 'monthly' | 'yearly' | null;
+  /** When the plan in force began, when the server sends it. */
+  subscription_start?: string | null;
   created_at: string;
   is_active: boolean;
   account_suspended: boolean;

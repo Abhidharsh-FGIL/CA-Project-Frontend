@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { UnitPracticeReport } from '@/components/user/UnitPracticeReport';
+import { UnitPracticeReport, setTopicFromTitle } from '@/components/user/UnitPracticeReport';
 import type { AttemptReportModel } from '@/lib/attempt-report';
 
 /** A practice set the way the report reads it: 40 questions, 4 right — a set that did not pass. */
@@ -70,5 +70,22 @@ describe('the practice-set report header', () => {
     const html = render(model({ percentage: null, correctPct: null, score: null }));
     expect(html).toContain('Not scored');
     expect(html).not.toContain('NaN');
+  });
+});
+
+describe('setTopicFromTitle', () => {
+  it('reads the topic a key-topic set is named for, and nothing for a unit set', () => {
+    expect(setTopicFromTitle('இலக்கணம்: சொல்லிலக்கணம் · Mixed')).toBe('சொல்லிலக்கணம்');
+    expect(setTopicFromTitle('TNPSC Group 4 — Aptitude: Simplification · Simple')).toBe('Simplification');
+    expect(setTopicFromTitle('Reasoning · Mixed')).toBeNull();
+    expect(setTopicFromTitle(null)).toBeNull();
+  });
+});
+
+describe('the practice-set report header: when it was submitted', () => {
+  it('shows the submission date and time', () => {
+    const m = model();
+    (m.meta as any).submittedAt = '2026-10-22T19:40:00+05:30';
+    expect(render(m)).toContain('Submitted 22 Oct 2026, 7:40 PM');
   });
 });

@@ -9,6 +9,8 @@
  */
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { usePrinting } from '@/lib/print-state';
+import { submittedLabel } from '@/lib/report-submitted';
+import { formatDateTime } from '@/lib/admin-history-format';
 import { useCountUp } from '@/hooks/use-count-up';
 import {
   PolarAngleAxis,
@@ -161,13 +163,20 @@ export function ReportCover({
    */
   const rows: Array<{ icon: React.ReactNode; label: string; value: string }> = [
     { icon: <User className="w-3.5 h-3.5" />, label: 'Student', value: studentName },
-    {
-      icon: <CalendarDays className="w-3.5 h-3.5" />,
-      label: 'Test Date',
-      value: model.meta.date
-        ? new Date(model.meta.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-        : '—',
-    },
+    // When it was handed in, to the minute; an attempt with no submission time falls back to the day it began.
+    model.meta.submittedAt
+      ? {
+          icon: <CalendarDays className="w-3.5 h-3.5" />,
+          label: model.meta.autoSubmitted ? 'Auto-submitted' : 'Submitted',
+          value: formatDateTime(model.meta.submittedAt),
+        }
+      : {
+          icon: <CalendarDays className="w-3.5 h-3.5" />,
+          label: 'Test Date',
+          value: model.meta.date
+            ? new Date(model.meta.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+            : '—',
+        },
     { icon: <FileText className="w-3.5 h-3.5" />, label: 'Total Questions', value: String(s.totalQuestions) },
   ];
 
@@ -364,15 +373,20 @@ export function ReportTitleRow({
   onLanguageChange?: (next: ReportLanguage) => void;
 }) {
   const s = model.summary;
+  // Each item carries its own icon, so one that is missing does not shift the icons of the rest.
+  const submitted = submittedLabel(model.meta);
   const meta = [
-    model.meta.date
-      ? new Date(model.meta.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-      : null,
-    `${s.totalQuestions} Questions`,
-    s.timeUsedSec != null ? mins(s.timeUsedSec) : null,
-  ].filter(Boolean) as string[];
-
-  const icons = [<CalendarDays key="d" className="w-3.5 h-3.5" />, <Target key="q" className="w-3.5 h-3.5" />, <Clock key="t" className="w-3.5 h-3.5" />];
+    {
+      icon: <CalendarDays className="w-3.5 h-3.5" />,
+      text:
+        submitted ??
+        (model.meta.date
+          ? new Date(model.meta.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+          : null),
+    },
+    { icon: <Target className="w-3.5 h-3.5" />, text: `${s.totalQuestions} Questions` },
+    { icon: <Clock className="w-3.5 h-3.5" />, text: s.timeUsedSec != null ? mins(s.timeUsedSec) : null },
+  ].filter((m): m is { icon: JSX.Element; text: string } => !!m.text);
 
   return (
     <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -386,10 +400,10 @@ export function ReportTitleRow({
           </span>
         </div>
         <div className="flex items-center gap-3 flex-wrap mt-1.5">
-          {meta.map((m, i) => (
-            <span key={m} className="inline-flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
-              <span className="text-violet-500">{icons[i]}</span>
-              {m}
+          {meta.map(m => (
+            <span key={m.text} className="inline-flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
+              <span className="text-violet-500">{m.icon}</span>
+              {m.text}
             </span>
           ))}
         </div>

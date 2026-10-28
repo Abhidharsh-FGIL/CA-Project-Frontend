@@ -107,7 +107,7 @@ export function useEvalQuestions(filters?: {
   grade?: string;
   board?: string;
   paperId?: string;
-}) {
+}, options?: { enabled?: boolean }) {
   const { orgId } = useWorkspaceContext();
   // Filters with nothing in them are the same request as no filters. `undefined` and
   // `{ source: undefined }` hashed to different keys, so the assessment wizard fetched
@@ -115,6 +115,7 @@ export function useEvalQuestions(filters?: {
   const active = Object.fromEntries(Object.entries(filters ?? {}).filter(([, v]) => v != null && v !== ''));
   return useQuery({
     queryKey: ['eval-questions', orgId, active],
+    enabled: options?.enabled ?? true,
     // The list is the whole bank, tens of thousands of questions. React Query deep-compares
     // a refetch against the cached copy to keep references stable, which on a response this
     // size costs seconds of main-thread time and buys nothing here.

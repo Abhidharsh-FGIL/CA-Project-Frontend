@@ -317,6 +317,8 @@ export interface AttemptReportModel {
     examName: string | null;
     mode: string | null;
     date: string | null;
+    /** When the attempt was submitted (or the timer submitted it); null for one still in progress. */
+    submittedAt: string | null;
     status: string;
     autoSubmitted: boolean;
   };
@@ -851,7 +853,8 @@ export function normalizeAttemptDetail(detail: AttemptDetailResponse): AttemptDe
     // `chapter` is what the question bank calls the topic; `topic` is what the
     // Excel importer calls it. Either resolves to the same level of the syllabus.
     topic: q.topic ?? q.chapter ?? q.topic_name ?? null,
-    subtopic: q.subtopic ?? q.sub_topic ?? q.subtopic_name ?? null,
+    // The bank's sub-category, under whichever name the response uses for it.
+    subtopic: q.subtopic ?? q.sub_topic ?? q.subtopic_name ?? q.sub_category ?? q.subcategory ?? null,
     // Stable ids, where the backend assigns them: the same subject printed in two
     // languages shares an id but not a name, and grouping by name would split it.
     subject_id: q.subject_id ?? null,
@@ -1434,6 +1437,7 @@ export function buildAttemptReport(
       examName: detail.attempt?.subject ?? null,
       mode: detail.attempt?.test_mode ?? null,
       date: detail.attempt?.start_time ?? null,
+      submittedAt: detail.attempt?.end_time ?? (detail.attempt as any)?.submitted_at ?? null,
       status: detail.attempt?.status ?? 'submitted',
       autoSubmitted: !!detail.attempt?.auto_submitted,
     },

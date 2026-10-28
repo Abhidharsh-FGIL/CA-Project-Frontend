@@ -77,6 +77,39 @@ const TIER_META: Record<SubscriptionTier, { icon: typeof Sparkles; color: string
   },
 };
 
+/**
+ * Monthly or Yearly, for a paid user. The server's own `billing_cycle` when it sends one; otherwise worked out
+ * from the plan's start and end; otherwise, with only the end date, "Yearly" when more than two months are left
+ * (no monthly plan runs that long). Null when it cannot be told.
+ */
+function cycleOf(u: AdminUserOut): 'monthly' | 'yearly' | null {
+  if (u.subscription_tier === 'free') return null;
+  if (u.billing_cycle) return u.billing_cycle;
+  if (u.subscription_start && u.subscription_expiry) {
+    const days = (Date.parse(u.subscription_expiry) - Date.parse(u.subscription_start)) / 86_400_000;
+    if (Number.isFinite(days) && days > 0) return days > 60 ? 'yearly' : 'monthly';
+  }
+  if (u.subscription_expiry && (Date.parse(u.subscription_expiry) - Date.now()) / 86_400_000 > 62) return 'yearly';
+  return null;
+}
+
+function CycleTag({ user }: { user: AdminUserOut }) {
+  const cycle = cycleOf(user);
+  if (!cycle) return null;
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold',
+        cycle === 'yearly'
+          ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900'
+          : 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:ring-sky-900',
+      )}
+    >
+      {cycle === 'yearly' ? 'Yearly' : 'Monthly'}
+    </span>
+  );
+}
+
 export default function AdminUsersPage() {
   const [page] = useState(1);
   const [search, setSearch] = useState('');
@@ -254,10 +287,13 @@ export default function AdminUsersPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider', tierMeta.pill)}>
-                            <TierIcon className="w-2.5 h-2.5" />
-                            {tierMeta.label}
-                          </span>
+                          <div className="flex flex-col items-start gap-1">
+                            <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider', tierMeta.pill)}>
+                              <TierIcon className="w-2.5 h-2.5" />
+                              {tierMeta.label}
+                            </span>
+                            <CycleTag user={u} />
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <span className={cn('inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border', statusMeta.cls)}>
@@ -355,6 +391,7 @@ export default function AdminUsersPage() {
                     <TierIcon className="w-2.5 h-2.5" />
                     {tierMeta.label}
                   </span>
+                  <CycleTag user={u} />
                   <span className={cn('inline-flex items-center gap-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border', statusMeta.cls)}>
                     <StatusIcon className="w-2.5 h-2.5" />
                     {statusMeta.label}
@@ -455,7 +492,7 @@ function UserDetailModal({
             <DetailRow
               icon={<TierIcon className="w-3.5 h-3.5" />}
               label="Plan"
-              value={tierMeta.label}
+              value={cycleOf(user) ? `${tierMeta.label} · ${cycleOf(user) === 'yearly' ? 'Yearly' : 'Monthly'}` : tierMeta.label}
             />
             <DetailRow
               icon={<Calendar className="w-3.5 h-3.5" />}

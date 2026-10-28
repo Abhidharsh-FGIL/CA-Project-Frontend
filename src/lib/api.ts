@@ -11,8 +11,8 @@ import { filenameFromDisposition } from './content-disposition';
 export const BASE_URL: string =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ??
 
-  'https://futuregenautomation.com/school_assessment/api';
-  // 'https://mygovexams.com/school_assessment';
+  // 'https://futuregenautomation.com/school_assessment/api';
+  'https://mygovexams.com/school_assessment';
 
 // Loud, unmistakable log so it's obvious in DevTools Console what URL is live
 console.log(

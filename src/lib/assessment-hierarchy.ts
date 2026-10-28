@@ -17,7 +17,9 @@ import {
   subjectForUnit,
   unitDisplayName,
   type TnpscStage,
+  type TnpscSyllabusUnit,
 } from '@/config/tnpsc';
+import { displayTitle } from '@/lib/display-title';
 import { groupOfStage, isTagged, readTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
 
 type Row = Record<string, any>;
@@ -66,6 +68,32 @@ export interface AssessmentTree {
 }
 
 /** The stage a group's units are published under — Group 4's written paper. */
+/**
+ * The unit an assessment sits in, in its own stage's terms.
+ *
+ * Group 2 shares Group 4's question bank, so a Group 2 assessment can carry the Group 4 id of its unit
+ * (`g4-apt-reasoning`) — or, where the server would not take a Group 2 unit, no unit at all. So the id is tried as
+ * it is, then as the stage's own twin (`g2-` ⇄ `g4-`), and failing both the title is read: "Reasoning · Mixed" and
+ * "Aptitude: Simplification · Mixed" name their unit first.
+ */
+export function unitForAssessment(
+  stage: TnpscStage | undefined,
+  unitId: string | null | undefined,
+  title?: string | null,
+): { unit: TnpscSyllabusUnit; sectionName: string } | undefined {
+  const units = stageUnits(stage);
+  if (unitId) {
+    const tries = [unitId, unitId.replace(/^g4-/, 'g2-'), unitId.replace(/^g2-/, 'g4-')];
+    for (const id of tries) {
+      const hit = units.find(u => u.unit.id === id);
+      if (hit) return hit;
+    }
+  }
+  const head = (displayTitle(title ?? '') || '').split(/\s*[·:]\s*/)[0]?.trim().toLowerCase();
+  if (!head) return undefined;
+  return units.find(u => u.unit.name.toLowerCase() === head || (u.unit.name_ta ?? '').toLowerCase() === head);
+}
+
 function unitStageOf(groupId: string): TnpscStage | undefined {
   return TNPSC_GROUPS.find(g => g.id === groupId)?.stages.find(s => stageUnits(s).length > 0);
 }
@@ -123,7 +151,7 @@ export function buildAssessmentTree(assessments: Row[]): AssessmentTree {
     const sections = kind === 'keytopic' ? g.keyTopics : g.practice;
     // The unit decides the subject; a whole-subject set names its subject itself.
     const stage = findStage(groupId, tag.stage_id ?? undefined)?.stage ?? unitStageOf(groupId);
-    const hit = tag.unit_id ? stageUnits(stage).find(u => u.unit.id === tag.unit_id) : undefined;
+    const hit = unitForAssessment(stage, tag.unit_id, row.title);
     const sectionName = hit?.sectionName ?? tag.section_name;
     const section = sections.find(s => s.name === sectionName);
     if (!section) {
@@ -132,7 +160,7 @@ export function buildAssessmentTree(assessments: Row[]): AssessmentTree {
     }
     g.total += 1;
     section.total += 1;
-    const unit = section.units.find(u => u.unitId === tag.unit_id);
+    const unit = hit ? section.units.find(u => u.unitId === hit.unit.id) : undefined;
     if (unit) unit.items.push(row);
     else section.whole.push(row);
   }
@@ -171,4 +199,32 @@ export function seedFor(
   }
   // A whole subject: only Practice has such a set; a key topic always sits in a unit.
   return { ...base, track: 'practice', scope: kind === 'keytopic' ? 'topic' : 'section', section_name: kind === 'keytopic' ? null : at?.section ?? null };
+}
+
+/**
+ * Where an assessment sits, read off its own tag — group, kind, section and unit — for a list that only has the
+ * paper's name. Null when the tag places it nowhere.
+ */
+export function placementOf(row: Row): { group: string; kind: AssessmentKind; section: string | null; unit: string | null } | null {
+  const tag = readTnpscTag(row);
+  const kind = tag.stage_id && tag.track ? kindOf(tag) : null;
+  const groupId = tag.group_id ?? groupOfStage(tag.stage_id);
+  const group = TNPSC_GROUPS.find(g => g.id === groupId);
+  if (!kind || !group) return null;
+  const stage = findStage(group.id, tag.stage_id ?? undefined)?.stage ?? unitStageOf(group.id);
+  const hit = unitForAssessment(stage, tag.unit_id, row.title);
+  return {
+    group: group.name,
+    kind,
+    section: hit?.sectionName ?? tag.section_name ?? null,
+    unit: hit ? `Unit ${hit.unit.label} · ${unitDisplayName(stage, hit.unit)}` : null,
+  };
+}
+
+/** The placement as one line: "TNPSC Group 2 · Aptitude & Mental Ability › Unit II · Reasoning". */
+export function placementLine(row: Row): string | null {
+  const p = placementOf(row);
+  if (!p) return null;
+  if (p.kind === 'mock') return `${p.group} · Full mock`;
+  return [p.group, [p.section, p.unit].filter(Boolean).join(' › ')].filter(Boolean).join(' · ');
 }

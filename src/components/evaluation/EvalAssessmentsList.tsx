@@ -6,11 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Search, Trash2, FileText, Users, Send, CheckCircle, AlertCircle, TrendingUp, BookOpen, Shuffle, Pin, ChevronDown, ChevronUp, Tag, EyeOff, ListTree, LayoutGrid } from 'lucide-react';
+import { Search, Trash2, FileText, Users, Send, CheckCircle, AlertCircle, TrendingUp, BookOpen, Shuffle, Pin, ChevronDown, ChevronUp, Tag, EyeOff, ListTree, LayoutGrid, SlidersHorizontal } from 'lucide-react';
 import { useEvalAssessments, useDeleteEvalAssessment, useEvalInvitationStats } from '@/hooks/use-eval-assessments';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { format } from 'date-fns';
 import { TnpscTagDialog } from './TnpscTagDialog';
+import { EditBlendDialog } from './EditBlendDialog';
+import { BulkBlendDialog } from './BulkBlendDialog';
+import { blendKindOf, storedBlend } from '@/lib/assessment-blend';
 import { describeTag, isTagged, listReportsPlacement, readTnpscTag } from '@/lib/tnpscAdminApi';
 import { TNPSC_GROUPS } from '@/config/tnpsc';
 import { difficultyLabel } from '@/lib/eval-difficulty';
@@ -57,6 +60,10 @@ function AssessmentCard({
 }: AssessmentCardProps) {
   const [showQuestions, setShowQuestions] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
+  const [blendOpen, setBlendOpen] = useState(false);
+  // A mock, a full set or a mixed unit / key-topic set has a difficulty mix that can be changed.
+  const mixKind = blendKindOf(a);
+  const mix = storedBlend(a);
   const tnpsc = readTnpscTag(a);
   const placed = isTagged(tnpsc);
   /** Untagged *and* the server would have told us if it were tagged. */
@@ -78,7 +85,8 @@ function AssessmentCard({
               </span>
             )}
             <p className="text-xs text-muted-foreground mt-0.5">
-              {difficultyLabel(a.difficulty)} • {a.question_count} Q
+              {difficultyLabel(a.difficulty)}
+              {mix && ` ${mix.easy}/${mix.medium}/${mix.hard}`} • {a.question_count} Q
               {a.max_score ? ` • ${a.max_score} marks` : ''}
               {a.negative_marking && ` • -${a.negative_mark_value || 0.25} negative`}
             </p>
@@ -223,6 +231,11 @@ function AssessmentCard({
             >
               <Tag className="h-3 w-3" /> {placed || !notPlaced ? 'Placement' : 'Place'}
             </Button>
+            {mixKind && (
+              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setBlendOpen(true)}>
+                <SlidersHorizontal className="h-3 w-3" /> Difficulty
+              </Button>
+            )}
             {!isExpired && (
               <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
                 onClick={() => onDistribute(a.id)}>
@@ -258,6 +271,7 @@ function AssessmentCard({
       </CardContent>
 
       <TnpscTagDialog open={tagOpen} onOpenChange={setTagOpen} assessment={a} />
+      {mixKind && <EditBlendDialog open={blendOpen} onOpenChange={setBlendOpen} assessment={a} />}
     </Card>
   );
 }
@@ -268,6 +282,7 @@ export function EvalAssessmentsList({ onDistribute, onViewReport, onCreate }: Pr
   const [view, setView] = useState<'syllabus' | 'all'>('syllabus');
   const [statusFilter, setStatusFilter] = useState('all');
   const [placementFilter, setPlacementFilter] = useState('all');
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const { data: assessments, isLoading } = useEvalAssessments({ search });
   const deleteAssessment = useDeleteEvalAssessment();
@@ -357,6 +372,9 @@ export function EvalAssessmentsList({ onDistribute, onViewReport, onCreate }: Pr
             <SelectItem value="expired">Expired</SelectItem>
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setBulkOpen(true)}>
+          <SlidersHorizontal className="h-3.5 w-3.5" /> Set mix for many
+        </Button>
         <div className="inline-flex rounded-md border p-0.5" role="group" aria-label="How to list assessments">
           {([
             ['syllabus', 'By syllabus', ListTree],
@@ -414,6 +432,8 @@ export function EvalAssessmentsList({ onDistribute, onViewReport, onCreate }: Pr
           </span>
         </button>
       )}
+
+      {bulkOpen && <BulkBlendDialog open={bulkOpen} onOpenChange={setBulkOpen} assessments={(assessments as any[]) ?? []} />}
 
       {view === 'syllabus' ? (
         <AssessmentHierarchy

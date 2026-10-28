@@ -1297,18 +1297,15 @@ const G4_ENGLISH_UNITS: TnpscSyllabusUnit[] = [
 // ─── Groups ────────────────────────────────────────────────────────────────────
 
 /**
- * Another exam's units, filed under its own ids — an assessment is tagged with a unit id, so two exams
- * that share a syllabus still need ids that say which exam a paper belongs to. The per-unit question
- * counts come across too: they are what the assessment wizard turns into its "Unit Weightage" split, and
- * Group 2 is set up with Group 4's split. Replace them here when Group 2's own published split is known.
+ * Group 2 prelims uses Group 4's units as they are — the same ids (`g4-apt-reasoning`), names and question split.
+ * The server and the question bank know the Group 4 ids, so a Group 2 assessment is placed with them; which exam a
+ * paper is for is said by its group and stage, not by the unit id. Give Group 2 its own units here only if its
+ * published syllabus ever differs from Group 4's.
  */
-const cloneUnits = (units: TnpscSyllabusUnit[], from: string, to: string): TnpscSyllabusUnit[] =>
-  units.map(u => ({ ...u, id: u.id.replace(from, to) }));
-
-const G2_GENERAL_STUDIES_UNITS = cloneUnits(G4_GENERAL_STUDIES_UNITS, 'g4-', 'g2-');
-const G2_APTITUDE_UNITS = cloneUnits(G4_APTITUDE_UNITS, 'g4-', 'g2-');
-const G2_TAMIL_UNITS = cloneUnits(G4_TAMIL_UNITS, 'g4-', 'g2-');
-const G2_ENGLISH_UNITS = cloneUnits(G4_ENGLISH_UNITS, 'g4-', 'g2-');
+const G2_GENERAL_STUDIES_UNITS = G4_GENERAL_STUDIES_UNITS;
+const G2_APTITUDE_UNITS = G4_APTITUDE_UNITS;
+const G2_TAMIL_UNITS = G4_TAMIL_UNITS;
+const G2_ENGLISH_UNITS = G4_ENGLISH_UNITS;
 
 export const TNPSC_GROUPS: TnpscGroup[] = [
   {
@@ -2124,7 +2121,9 @@ export function findUnit(
   unitId: string | null | undefined,
 ): TnpscSyllabusUnit | undefined {
   if (!unitId) return undefined;
-  return stageUnits(stage).find(u => u.unit.id === unitId)?.unit;
+  // A `g2-` id is from before Group 2 shared Group 4's units; it is the Group 4 unit of the same name.
+  const id = unitId.replace(/^g2-/, 'g4-');
+  return stageUnits(stage).find(u => u.unit.id === id)?.unit;
 }
 
 /**

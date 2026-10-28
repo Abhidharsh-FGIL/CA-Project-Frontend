@@ -1001,6 +1001,8 @@ Create it anyway?`);
       shuffleQuestions,
       poolMode: pool.mode,
       poolFilter: pool.filter,
+      // The mix a whole or mixed paper was made to, so the server can keep it and the Difficulty dialog can show it.
+      difficultyBlend: wantsBlend ? activeBlend : undefined,
       // The server draws a shuffled paper by subject, so unit weights are folded down to
       // subjects for it — and sent as they are too, for the day it can use them
       // (BACKEND_WORK.md item 14).

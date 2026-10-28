@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CalendarDays, ClipboardList, FileText, Loader2, Mail, Phone, Sparkles, Tag, Target, UserX } from 'lucide-react';
 import { GenVerseShell } from '@/components/layout/GenVerseShell';
 import { AttemptDetailView } from '@/components/evaluation/EvalAssessmentReport';
 import { useAdminHistoryUser } from '@/hooks/use-admin-history';
+import { useEvalAssessments } from '@/hooks/use-eval-assessments';
+import { placementLine } from '@/lib/assessment-hierarchy';
+import { displayTitle } from '@/lib/display-title';
 import {
   DASH,
   attemptStatus,
@@ -78,6 +81,13 @@ export function UserHistoryDetail({
   const [mode, setMode] = useState<HistoryModeFilter>('all');
   const { data, isLoading, isFetching, isError, error } = useAdminHistoryUser(userId, mode);
   const notFound = isError && (error as { status?: number })?.status === 404;
+  // The server names each test but not where it sits; an assessment's own tag says its group, subject and unit.
+  const { data: assessments } = useEvalAssessments();
+  const placeOf = useMemo(() => {
+    const byId = new Map<string, string | null>();
+    for (const row of (assessments ?? []) as Array<Record<string, any>>) byId.set(String(row.id), placementLine(row));
+    return (id: string) => byId.get(id) ?? null;
+  }, [assessments]);
 
   return (
       <div className="space-y-4 pb-6">
@@ -186,6 +196,7 @@ export function UserHistoryDetail({
                         <AttemptRow
                           key={a.attempt_id}
                           a={a}
+                          place={placeOf(a.test_id)}
                           onOpen={() => onOpenAttempt(a)}
                         />
                       ))}
@@ -242,14 +253,15 @@ export function UserHistoryDetail({
   );
 }
 
-function AttemptRow({ a, onOpen }: { a: HistoryAttempt; onOpen: () => void }) {
+function AttemptRow({ a, place, onOpen }: { a: HistoryAttempt; place: string | null; onOpen: () => void }) {
   const status = attemptStatus(a.status);
   // Only an assessment attempt has an admin report to open; an in-progress one has none yet.
   const canOpen = a.source === 'assessment' && a.status !== 'in_progress';
   return (
     <tr className="border-t border-gray-50 dark:border-gray-800 hover:bg-orange-50/30 dark:hover:bg-gray-800/30">
       <td className="px-4 py-2.5 text-[13px] font-semibold text-gray-900 dark:text-gray-100 max-w-[320px]">
-        <span className="line-clamp-2">{a.test_name || DASH}</span>
+        <span className="line-clamp-2">{displayTitle(a.test_name) || DASH}</span>
+        {place && <span className="mt-0.5 block truncate text-[11px] font-medium text-gray-500 dark:text-gray-400">{place}</span>}
       </td>
       <td className="px-4 py-2.5">
         <span

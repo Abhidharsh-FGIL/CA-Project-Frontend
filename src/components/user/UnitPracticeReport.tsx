@@ -12,9 +12,11 @@
  * inside the unit if there is more than one, every question, and the next thing
  * to do.
  */
+import { displayTitle } from '@/lib/display-title';
 import { useMemo, useState } from 'react';
 import { Award, ChevronDown, CheckCircle2, Circle, Clock, MinusCircle, Trophy, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { submittedLabel } from '@/lib/report-submitted';
 import { ACCENT, MeterRow, ReportCard } from '@/components/user/report-ui';
 import { OverallScoreSummary } from '@/components/user/AttemptDiagnosticReport';
 import { isAttempted, type AttemptReportModel } from '@/lib/attempt-report';
@@ -181,6 +183,9 @@ export function UnitPracticeReport({
             <span className={cn('rounded-md px-1.5 py-0.5 text-[10px] font-bold', ACCENT.indigo.chip)}>{level}</span>
           )}
           <span className="text-[11px] text-gray-500 dark:text-gray-400">{s.totalQuestions} questions</span>
+          {submittedLabel(model.meta) && (
+            <span className="text-[11px] text-gray-500 dark:text-gray-400">· {submittedLabel(model.meta)}</span>
+          )}
         </div>
         {verdict.performance && verdict.performance !== 'needs-improvement' ? (
           // Passed: the verdict arrives with a pop, a ring of light and a sheen, so a pass feels like one.
@@ -217,7 +222,7 @@ export function UnitPracticeReport({
       <OverallScoreSummary model={model} />
 
       {/* ── Categories inside the unit, each opening to its subtopics ── */}
-      <CategoryBreakdown questions={model.questions} passPercentage={mark.pass} />
+      <CategoryBreakdown questions={model.questions} passPercentage={mark.pass} fallback={setTopicFromTitle(model.meta.testName)} />
 
       {/* ── Every question ────────────────────────────────────────────── */}
       <div data-no-print>
@@ -235,9 +240,24 @@ export function UnitPracticeReport({
  * reviewing a practice set is the ones you missed, and making someone scroll
  * past twenty correct answers to find three wrong ones is the wrong default.
  */
-/** The category a question belongs to, and the subtopic under it. */
-const categoryOf = (q: QuestionReviewItem) => (q.category ?? '').trim() || 'Other';
-const subtopicOf = (q: QuestionReviewItem) => (q.subtopic ?? q.subtopic_name ?? '').trim() || 'General';
+/**
+ * The category a question belongs to, and the subtopic under it.
+ *
+ * Not every question comes back with a category. Then its topic (the bank's `chapter`) stands in, and failing that
+ * the topic the set is named for — a key-topic set, "இலக்கணம்: சொல்லிலக்கணம் · Mixed", is all one topic.
+ */
+const categoryOf = (q: QuestionReviewItem, fallback: string | null) =>
+  (q.category ?? '').trim() || (q.topic ?? q.chapter ?? '').trim() || fallback || 'Other';
+
+/** The topic a key-topic set is named for: what follows the unit in "Unit: Topic · Level". Null for a unit set. */
+export function setTopicFromTitle(title: string | null | undefined): string | null {
+  const head = (displayTitle(title ?? '') || '').split('·')[0];
+  const i = head.indexOf(':');
+  return i >= 0 ? head.slice(i + 1).trim() || null : null;
+}
+/** A question with no sub-category of its own. */
+const NO_SUBTOPIC = 'General';
+const subtopicOf = (q: QuestionReviewItem) => (q.subtopic ?? q.subtopic_name ?? '').trim() || NO_SUBTOPIC;
 
 /**
  * The unit's categories, each a dropdown that opens to its subtopics.
@@ -248,9 +268,12 @@ const subtopicOf = (q: QuestionReviewItem) => (q.subtopic ?? q.subtopic_name ?? 
 function CategoryBreakdown({
   questions,
   passPercentage,
+  fallback,
 }: {
   questions: QuestionReviewItem[];
   passPercentage: number;
+  /** The category for a question that has none of its own. */
+  fallback: string | null;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -258,7 +281,7 @@ function CategoryBreakdown({
     type Sub = { name: string; questions: number; correct: number };
     const byCat = new Map<string, { name: string; questions: number; correct: number; results: boolean[]; subs: Map<string, Sub> }>();
     for (const q of questions) {
-      const cat = categoryOf(q);
+      const cat = categoryOf(q, fallback);
       const sub = subtopicOf(q);
       let c = byCat.get(cat);
       if (!c) {
@@ -281,7 +304,7 @@ function CategoryBreakdown({
     return [...byCat.values()]
       .map(c => ({ ...c, subs: [...c.subs.values()] }))
       .sort((a, b) => rate(a) - rate(b) || b.questions - a.questions);
-  }, [questions]);
+  }, [questions, fallback]);
 
   if (categories.length === 0) return null;
 
@@ -381,7 +404,7 @@ function CategoryBreakdown({
             </div>
           </div>
 
-          {picked.subs.length > 1 && (
+          {picked.subs.some(sub => sub.name !== NO_SUBTOPIC) ? (
             <div className="mt-4 border-t border-gray-100 pt-3 dark:border-gray-800">
               <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
                 Sub-categories
@@ -403,6 +426,10 @@ function CategoryBreakdown({
                 })}
               </ul>
             </div>
+          ) : (
+            <p className="mt-4 border-t border-gray-100 pt-3 text-[11px] text-gray-500 dark:border-gray-800 dark:text-gray-400">
+              These questions are not tagged with a sub-category.
+            </p>
           )}
         </div>
       </div>
