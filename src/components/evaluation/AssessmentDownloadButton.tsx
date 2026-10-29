@@ -11,6 +11,7 @@ import {
 import { Download, FileText, FileType, Loader2, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { printQuestionPaper, type PrintQuestion } from '@/lib/question-paper-print';
 import { exportAssessment, type MetaField, type QuestionData } from '@/lib/eval-export-utils';
 
@@ -43,6 +44,7 @@ function normaliseQuestion(q: any): PrintQuestion {
  */
 export function AssessmentDownloadButton({ assessment }: Props) {
   const [busy, setBusy] = useState(false);
+  const { orgId } = useWorkspaceContext();
 
   /**
    * Assemble the paper.
@@ -77,7 +79,10 @@ export function AssessmentDownloadButton({ assessment }: Props) {
     // Fall back to the question bank when the assessment draws straight from it.
     if (pool.length === 0 && detail?.question_ids?.length) {
       try {
-        pool = (await api.get<any[]>(`/api/v1/evaluation/questions?ids=${detail.question_ids.join(',')}`)) || [];
+        // The bank endpoint refuses a request without the organisation (422).
+        const params = new URLSearchParams({ ids: detail.question_ids.join(',') });
+        if (orgId) params.set('org_id', orgId);
+        pool = (await api.get<any[]>(`/api/v1/evaluation/questions?${params}`)) || [];
       } catch {
         /* endpoint may not accept an ids filter */
       }

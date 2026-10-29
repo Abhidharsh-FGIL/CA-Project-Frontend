@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { GenVerseShell } from '@/components/layout/GenVerseShell';
 import { PageHeader } from '@/components/layout/AppShell';
 import {
@@ -26,7 +27,8 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAdminUsers, useAdminUserActions } from '@/hooks/use-admin-users';
-import { usersApi, type AdminUserOut } from '@/lib/adminApi';
+import { usersApi, paymentsApi, type AdminUserOut, type PaymentTxnOut, type PlanOut } from '@/lib/adminApi';
+import { useAdminPlans } from '@/hooks/use-admin-plans';
 import type { SubscriptionTier } from '@/data/userPortalSampleData';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 
@@ -110,6 +112,94 @@ function CycleTag({ user }: { user: AdminUserOut }) {
   );
 }
 
+const fmtDate = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+
+/** The last ten digits of a mobile number, so "+91 97890 33463" and "9789033463" are the same. */
+const phoneKey = (phone: string | null | undefined) => {
+  const d = (phone ?? '').replace(/\D/g, '');
+  return d.length >= 10 ? d.slice(-10) : null;
+};
+
+const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+
+/**
+ * What a user has spent. Their recorded payments when there are any. A paid user with none on record (a plan given
+ * by an admin, or bought before payments were logged) is shown at the current price of their plan and billing
+ * cycle, from the backend's plan list, marked as such.
+ */
+function spendFor(
+  u: AdminUserOut,
+  paid: Map<string, number> | undefined,
+  plans: PlanOut[] | undefined,
+): { text: string; fromPlan: boolean; cycle: 'monthly' | 'yearly' | null } {
+  const recorded = paid?.get(String(u.user_id)) ?? 0;
+  if (recorded > 0) return { text: inr(recorded), fromPlan: false, cycle: null };
+  if (u.subscription_tier !== 'free') {
+    const plan = plans?.find(p => p.name === u.subscription_tier);
+    if (plan) {
+      const cycle = cycleFromPlan(u, plan);
+      const price = cycle === 'yearly' ? plan.price_yearly : plan.price_monthly || plan.price;
+      if (price > 0) return { text: inr(price), fromPlan: true, cycle };
+    }
+  }
+  return { text: paid ? inr(0) : '—', fromPlan: false, cycle: null };
+}
+
+/** Monthly or yearly — the user's own, or the plan duration their dates are nearest to. Monthly when unknown. */
+function cycleFromPlan(u: AdminUserOut, plan: PlanOut): 'monthly' | 'yearly' {
+  const known = cycleOf(u);
+  if (known) return known;
+  if (u.subscription_start && u.subscription_expiry) {
+    const days = (Date.parse(u.subscription_expiry) - Date.parse(u.subscription_start)) / 86_400_000;
+    if (Number.isFinite(days) && plan.duration_days_monthly && plan.duration_days_yearly) {
+      return Math.abs(days - plan.duration_days_yearly) < Math.abs(days - plan.duration_days_monthly) ? 'yearly' : 'monthly';
+    }
+  }
+  return 'monthly';
+}
+
+function SpentCell({ spend }: { spend: ReturnType<typeof spendFor> }) {
+  return (
+    <div
+      className="text-right"
+      title={spend.fromPlan ? 'No payment on record for this user — this is the current price of their plan' : undefined}
+    >
+      <p className={cn('text-sm font-bold tabular-nums', spend.fromPlan ? 'text-gray-600 dark:text-gray-300' : 'text-gray-900 dark:text-gray-100')}>
+        {spend.text}
+      </p>
+      {spend.fromPlan && (
+        <p className="text-[9px] text-gray-400 whitespace-nowrap">{spend.cycle === 'yearly' ? 'Yearly' : 'Monthly'} plan price</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * What each user has paid: every successful transaction's final amount, summed per user. Refunded and failed
+ * payments count for nothing. The list is read page by page, so every transaction is counted.
+ */
+function useSpendByUser() {
+  return useQuery({
+    queryKey: ['admin-users-spend'],
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const all: PaymentTxnOut[] = [];
+      for (let page = 1; page <= 50; page++) {
+        const res = await paymentsApi.list({ page, limit: 100 });
+        all.push(...(res?.items ?? []));
+        if (!res || page >= (res.pages ?? 1) || (res.items ?? []).length === 0) break;
+      }
+      const spend = new Map<string, number>();
+      all.forEach(t => {
+        if (String(t.payment_status).toLowerCase() !== 'success') return;
+        spend.set(String(t.user_id), (spend.get(t.user_id) ?? 0) + (Number(t.final_amount) || 0));
+      });
+      return spend;
+    },
+  });
+}
+
 export default function AdminUsersPage() {
   const [page] = useState(1);
   const [search, setSearch] = useState('');
@@ -126,6 +216,50 @@ export default function AdminUsersPage() {
     limit: 100,
   });
   const users: AdminUserOut[] = usersData?.items ?? [];
+  // The cards count every user, whatever the filters below show — the same request with no filters.
+  const { data: allData } = useAdminUsers({ page: 1, limit: 100 });
+  const everyone: AdminUserOut[] = allData?.items ?? [];
+  const { data: spendByUser, isError: spendFailed } = useSpendByUser();
+  // "—" until the payments are in (or when they could not be read), never a ₹0 that is not known to be true.
+  const { data: plans } = useAdminPlans();
+  const spendOf = (u: AdminUserOut) => spendFor(u, spendByUser, plans);
+  const tierCount = (tier: SubscriptionTier) => everyone.filter(u => u.subscription_tier === tier).length;
+  // Under "Paying users": how they split across the paid plans people are actually on — "22 Standard · 3 Ultimate".
+  const paidBreakdown = (Object.keys(TIER_META) as SubscriptionTier[])
+    .filter(t => t !== 'free' && tierCount(t) > 0)
+    .map(t => `${tierCount(t)} ${TIER_META[t].label}`)
+    .join(' · ');
+  /**
+   * The tier filters: the plans switched on in the backend, plus any tier users are still on (a switched-off plan
+   * with holders, or Free). Nothing else — a tier no plan offers and nobody holds is not a filter. Cheapest first.
+   */
+  const tierChips = useMemo(() => {
+    const held = new Set(everyone.map(u => u.subscription_tier));
+    const price = (t: string) => {
+      const p = plans?.find(x => x.name === t);
+      return p ? p.price_monthly || p.price || 0 : t === 'free' ? -1 : Number.MAX_SAFE_INTEGER;
+    };
+    const tiers = new Set<string>([...(plans ?? []).filter(p => p.active).map(p => p.name), ...held]);
+    return [...tiers]
+      .filter((t): t is SubscriptionTier => t in TIER_META)
+      .sort((a, b) => price(a) - price(b))
+      .map(t => ({ tier: t, label: TIER_META[t].label, active: plans?.find(p => p.name === t)?.active ?? t === 'free' }));
+  }, [plans, everyone]);
+  const spentOf = (u: AdminUserOut) => spendOf(u).text;
+  if (spendFailed) console.warn('[Users] could not read payments for the Spent column');
+  // How many accounts each mobile number is on — one person signing up again under a new email.
+  const phoneCount = useMemo(() => {
+    const m = new Map<string, number>();
+    everyone.forEach(u => {
+      const k = phoneKey(u.phone);
+      if (k) m.set(k, (m.get(k) ?? 0) + 1);
+    });
+    return m;
+  }, [everyone]);
+  const sharedPhone = (u: AdminUserOut) => {
+    const k = phoneKey(u.phone);
+    return k ? (phoneCount.get(k) ?? 0) > 1 : false;
+  };
   // Derive selected from the live list so the modal always reflects post-mutation state
   const selected = users.find(u => u.user_id === selectedId) ?? null;
   const { lock, unlock, suspend, reactivate } = useAdminUserActions();
@@ -140,18 +274,17 @@ export default function AdminUsersPage() {
 
   const stats = useMemo(() => {
     return {
-      total: users.length,
-      active: users.filter(u => u.is_active && !u.account_locked && !u.account_suspended).length,
-      locked: users.filter(u => u.account_locked).length,
-      premium: users.filter(u => u.subscription_tier === 'premium').length,
-      paying: users.filter(u => u.subscription_tier !== 'free').length,
-      expiringSoon: users.filter(u => {
+      total: allData?.total ?? everyone.length,
+      active: everyone.filter(u => u.is_active && !u.account_locked && !u.account_suspended).length,
+      locked: everyone.filter(u => u.account_locked).length,
+      paying: everyone.filter(u => u.subscription_tier !== 'free').length,
+      expiringSoon: everyone.filter(u => {
         if (u.subscription_tier === 'free' || !u.subscription_expiry) return false;
         const days = (new Date(u.subscription_expiry).getTime() - Date.now()) / 86_400_000;
         return days > 0 && days <= 7;
       }).length,
     };
-  }, [users]);
+  }, [everyone, allData?.total]);
 
   const toggleLock = (user: AdminUserOut) => {
     if (user.account_locked) {
@@ -201,7 +334,7 @@ export default function AdminUsersPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatChip icon={<Users />} label="Total Users" value={stats.total} tone="indigo" />
           <StatChip icon={<UserCheck />} label="Active" value={stats.active} tone="emerald" />
-          <StatChip icon={<Crown />} label="Paying Users" value={stats.paying} tone="amber" sub={`${stats.premium} on Premium`} />
+          <StatChip icon={<Crown />} label="Paying Users" value={stats.paying} tone="amber" sub={paidBreakdown || undefined} />
           <StatChip icon={<AlertTriangle />} label="Expiring ≤7d" value={stats.expiringSoon} tone="rose" />
         </div>
 
@@ -221,9 +354,14 @@ export default function AdminUsersPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Filter className="w-4 h-4 text-gray-400" />
               <Chip active={tierFilter === 'all'} onClick={() => setTierFilter('all')}>All Tiers</Chip>
-              {(['free', 'standard', 'ultimate', 'premium'] as SubscriptionTier[]).map(t => (
-                <Chip key={t} active={tierFilter === t} onClick={() => setTierFilter(t)}>
-                  {TIER_META[t].label}
+              {tierChips.map(t => (
+                <Chip key={t.tier} active={tierFilter === t.tier} onClick={() => setTierFilter(t.tier)}>
+                  <span className={cn(!t.active && 'line-through opacity-70')} title={t.active ? undefined : 'This plan is switched off'}>
+                    {t.label}
+                  </span>
+                  <span className={cn('ml-1 tabular-nums', tierFilter === t.tier ? 'text-white/80' : 'text-gray-400')}>
+                    {tierCount(t.tier)}
+                  </span>
                 </Chip>
               ))}
               <span className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
@@ -241,19 +379,22 @@ export default function AdminUsersPage() {
             <table className="w-full text-sm">
               <thead className="bg-gradient-to-r from-gray-50 to-blue-50/30 dark:from-gray-800/60 dark:to-blue-950/30 border-b border-gray-100 dark:border-gray-800">
                 <tr className="text-left text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold">
-                  <th className="px-4 py-3">User</th>
-                  <th className="px-4 py-3">Tier</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Subscription Expiry</th>
-                  <th className="px-4 py-3">Activity</th>
-                  <th className="px-4 py-3 text-right">Spent</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="px-3 py-3">Name</th>
+                  <th className="px-3 py-3">Email</th>
+                  <th className="px-3 py-3">Phone</th>
+                  <th className="px-3 py-3">Subscription</th>
+                  <th className="px-3 py-3">Joined On</th>
+                  <th className="px-3 py-3">Expiry</th>
+                  <th className="px-3 py-3">Status</th>
+                  <th className="px-3 py-3">Activity</th>
+                  <th className="px-3 py-3 text-right">Spent</th>
+                  <th className="px-3 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-16 text-center">
+                    <td colSpan={10} className="px-4 py-16 text-center">
                       <Users className="w-10 h-10 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
                       <p className="text-sm text-gray-500 dark:text-gray-400">No users match the filters</p>
                     </td>
@@ -273,20 +414,36 @@ export default function AdminUsersPage() {
                         onClick={() => setSelectedId(u.user_id)}
                         className="border-b border-gray-50 dark:border-gray-800 hover:bg-gradient-to-r hover:from-blue-50/40 hover:to-purple-50/40 dark:hover:from-blue-950/20 dark:hover:to-purple-950/20 cursor-pointer transition-colors"
                       >
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm">
                               {u.name[0]}
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{u.name}</p>
-                              <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[200px]">
-                                {u.email}
-                              </p>
-                            </div>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 max-w-[160px] truncate" title={u.name}>
+                              {u.name}
+                            </p>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3 text-xs text-gray-700 dark:text-gray-300">
+                          <span className="block max-w-[220px] truncate" title={u.email}>{u.email}</span>
+                        </td>
+                        <td className="px-3 py-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap tabular-nums">
+                          {u.phone || <span className="text-gray-400">—</span>}
+                          {sharedPhone(u) && (
+                            <button
+                              type="button"
+                              title="This number is on more than one account — click to list them"
+                              onClick={e => {
+                                e.stopPropagation();
+                                setSearch(phoneKey(u.phone) ?? '');
+                              }}
+                              className="mt-0.5 block text-[9px] font-semibold text-violet-600 hover:underline dark:text-violet-400"
+                            >
+                              Duplicate phone ({phoneCount.get(phoneKey(u.phone)!)})
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-3 py-3">
                           <div className="flex flex-col items-start gap-1">
                             <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider', tierMeta.pill)}>
                               <TierIcon className="w-2.5 h-2.5" />
@@ -295,40 +452,36 @@ export default function AdminUsersPage() {
                             <CycleTag user={u} />
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className={cn('inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border', statusMeta.cls)}>
-                            <StatusIcon className="w-3 h-3" />
-                            {statusMeta.label}
-                          </span>
-                          {!u.otp_verified && (
-                            <p className="text-[9px] text-amber-600 dark:text-amber-400 mt-0.5">Not verified</p>
-                          )}
+                        <td className="px-3 py-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                          {fmtDate(u.created_at)}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-700 dark:text-gray-300">
+                        <td className="px-3 py-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
                           {u.subscription_tier === 'free' || !u.subscription_expiry ? (
                             <span className="text-gray-400">—</span>
                           ) : (
                             <div className={cn('inline-flex items-center gap-1', expiringSoon && 'text-rose-600 dark:text-rose-400')}>
                               {expiringSoon && <AlertTriangle className="w-3 h-3" />}
-                              {new Date(u.subscription_expiry).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              {fmtDate(u.subscription_expiry)}
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-700 dark:text-gray-300">
+                        <td className="px-3 py-3">
+                          <span className={cn('inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border', statusMeta.cls)}>
+                            <StatusIcon className="w-3 h-3" />
+                            {statusMeta.label}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
                           <p className="inline-flex items-center gap-1">
                             <ClipboardCheck className="w-3 h-3 text-gray-400" />
                             {u.total_attempts} {u.total_attempts === 1 ? 'test' : 'tests'}
                           </p>
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-                            {u.last_login
-                              ? `Last: ${new Date(u.last_login).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
-                              : 'Never signed in'}
-                          </p>
+                          {u.last_login && (
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Last: {fmtDate(u.last_login)}</p>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <p className="text-sm font-bold text-gray-900 dark:text-gray-100 tabular-nums">
-                            ₹0
-                          </p>
+                          <SpentCell spend={spendOf(u)} />
                         </td>
                         <td className="px-4 py-3 text-right">
                           {u.account_suspended ? (
@@ -383,8 +536,12 @@ export default function AdminUsersPage() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{u.name}</p>
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{u.email}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                      {u.phone || 'No phone'} · Joined {fmtDate(u.created_at)}
+                      {u.subscription_tier !== 'free' && u.subscription_expiry ? ` · Expires ${fmtDate(u.subscription_expiry)}` : ''}
+                    </p>
                   </div>
-                  <p className="text-sm font-bold text-gray-900 dark:text-gray-100 tabular-nums">₹0</p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-gray-100 tabular-nums">{spentOf(u)}</p>
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider', tierMeta.pill)}>
@@ -421,6 +578,7 @@ export default function AdminUsersPage() {
           onClose={() => setSelectedId(null)}
           onToggleLock={() => toggleLock(selected)}
           onToggleSuspend={() => toggleSuspend(selected)}
+          spent={spendOf(selected).fromPlan ? `${spentOf(selected)} (plan price — no payment on record)` : spentOf(selected)}
         />
       )}
     </GenVerseShell>
@@ -432,11 +590,13 @@ function UserDetailModal({
   onClose,
   onToggleLock,
   onToggleSuspend,
+  spent,
 }: {
   user: AdminUserOut;
   onClose: () => void;
   onToggleLock: () => void;
   onToggleSuspend: () => void;
+  spent: string;
 }) {
   const tierMeta = TIER_META[user.subscription_tier];
   const TierIcon = tierMeta.icon;
@@ -518,7 +678,7 @@ function UserDetailModal({
             <DetailRow
               icon={<IndianRupee className="w-3.5 h-3.5" />}
               label="Lifetime Spend"
-              value="₹0"
+              value={spent}
             />
             <DetailRow
               icon={<Calendar className="w-3.5 h-3.5" />}
@@ -530,7 +690,7 @@ function UserDetailModal({
               label="Last Login"
               value={user.last_login
                 ? new Date(user.last_login).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-                : 'Never'}
+                : '—'}
             />
           </DetailGroup>
 
