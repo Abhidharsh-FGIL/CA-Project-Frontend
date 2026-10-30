@@ -11,6 +11,8 @@ import { showPlanNotice } from '@/lib/plan-notice-bus';
 import { reportIsLocked } from '@/lib/report-access';
 import { PassCelebration } from '@/components/user/PassCelebration';
 import { levelFromTitle, passMarkFor, performanceOf } from '@/config/pass-marks';
+import { stageForTitle } from '@/config/tnpsc';
+import { NextUpCard } from '@/components/user/NextBestPractice';
 
 export default function UserReportPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
@@ -53,6 +55,10 @@ export default function UserReportPage() {
     }
   }, [celebrateKey]);
 
+  // Right after a submit, the report also says what to practise next, for the exam this paper belongs to.
+  const justSubmitted = !!(location.state as { justSubmitted?: boolean } | null)?.justSubmitted;
+  const nextStage = stageForTitle(attempt?.test_name);
+
   if (!attempt || locked) return <Navigate to="/user/history" replace />;
 
   return (
@@ -67,6 +73,10 @@ export default function UserReportPage() {
 
       {celebrate && performance && performance !== 'needs-improvement' && attempt.percentage != null && (
         <PassCelebration performance={performance} percent={attempt.percentage} onDone={doneCelebrating} />
+      )}
+
+      {justSubmitted && nextStage && (
+        <NextUpCard exam={nextStage.group_id} stage={nextStage.id} justTaken={attempt.test_id} />
       )}
 
       <NoCopy>

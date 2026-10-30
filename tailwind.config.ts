@@ -123,8 +123,7 @@ export default {
       fontFamily: {
         // Open Sans has no Tamil; Noto Sans Tamil is loaded beside it in index.html.
         sans: ["Open Sans", "Noto Sans Tamil", "system-ui", "sans-serif"],
-        display: ["Open Sans", "Noto Sans Tamil", "system-ui", "sans-serif"],
-      },
+        display: ["Open Sans", "Noto Sans Tamil", "system-ui", "sans-serif"],      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },

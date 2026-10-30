@@ -1,9 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { bankUnitIds, bankUnitWeights } from '@/lib/assessment-pool';
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { stageUnitId, stageUnitIds, stageUnitWeights } from '@/lib/assessment-pool';
 import { api } from '@/lib/api';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { toast } from 'sonner';
-import { describeUnitNotOnServer } from '@/lib/tnpscAdminApi';
+import { describeUnitNotOnServer, groupOfStage } from '@/lib/tnpscAdminApi';
+import { syllabusApi } from '@/lib/taxonomyApi';
 import type { PoolFilter, PoolMode } from '@/lib/assessment-pool';
 
 export interface EvalAssessmentConfig {
@@ -101,11 +102,34 @@ export function useEvalAssessmentDetail(assessmentId?: string) {
   });
 }
 
+/**
+ * The unit ids the server lists for a stage (`GET /syllabus/{exam}/{stage}`), shared with `useSyllabus`'s cache.
+ * Null when there is no stage or the list cannot be read — the ids are then sent as chosen.
+ */
+async function stageUnitIdsFromServer(qc: QueryClient, stageId: string | undefined): Promise<string[] | null> {
+  const groupId = stageId ? groupOfStage(stageId) : null;
+  if (!stageId || !groupId) return null;
+  try {
+    const syllabus = await qc.fetchQuery({
+      queryKey: ['syllabus', groupId, stageId],
+      queryFn: () => syllabusApi.get(groupId, stageId),
+      staleTime: 5 * 60 * 1000,
+    });
+    const ids = (syllabus?.units ?? []).map(u => u.id).filter(Boolean);
+    return ids.length ? ids : null;
+  } catch {
+    return null;
+  }
+}
+
 export function useCreateEvalAssessment() {
   const { orgId } = useWorkspaceContext();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (config: EvalAssessmentConfig) => {
+    mutationFn: async (config: EvalAssessmentConfig) => {
+      // The stage's own unit ids, from the server — what it checks every unit id against.
+      const stageIds = await stageUnitIdsFromServer(qc, config.tnpscStageId);
+      const unitId = (id: string | undefined) => (id ? stageUnitId(id, stageIds) : id);
       const payload = {
         title: config.title,
         course_id: config.courseId || null,
@@ -133,13 +157,14 @@ export function useCreateEvalAssessment() {
         max_attempts: config.maxAttempts || null,
         shuffle_questions: config.shuffleQuestions ?? true,
         subject_weights: config.subjectWeights,
-        // The bank's own ids: Group 2 draws on Group 4's question bank (see `bankUnitId`).
-        unit_ids: bankUnitIds(config.unitIds),
-        unit_weights: bankUnitWeights(config.unitWeights),
+        unit_ids: stageUnitIds(config.unitIds, stageIds),
+        unit_weights: stageUnitWeights(config.unitWeights, stageIds),
         paper_ids: config.paperIds,
         paper_weights: config.paperWeights,
         pool_mode: config.poolMode ?? 'fixed',
-        pool_filter: config.poolFilter ?? null,
+        pool_filter: config.poolFilter
+          ? { ...config.poolFilter, unit_ids: stageUnitIds(config.poolFilter.unit_ids, stageIds) }
+          : null,
         difficulty_blend: config.difficultyBlend ?? null,
         pricing_type: config.pricingType,
         price: config.price,
@@ -151,7 +176,7 @@ export function useCreateEvalAssessment() {
         tnpsc_level: config.tnpscLevel ?? null,
         tnpsc_subject_id: config.tnpscSubjectId ?? null,
         tnpsc_topic_id: config.tnpscTopicId ?? null,
-        tnpsc_unit_id: config.tnpscUnitId ?? null,
+        tnpsc_unit_id: unitId(config.tnpscUnitId) ?? null,
         tnpsc_scope: config.tnpscScope ?? null,
         tnpsc_section_name: config.tnpscSectionName ?? null,
         tnpsc_language: config.tnpscLanguage ?? null,

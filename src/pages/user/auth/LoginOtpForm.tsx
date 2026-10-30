@@ -47,6 +47,8 @@ export function LoginOtpForm({
   /** What the server said about where the code went. */
   const [sentNote, setSentNote] = useState('');
   const [otp, setOtp] = useState('');
+  /** The code itself, shown on the page — the Play reviewers' account only (`review-account.ts`). */
+  const [reviewOtp, setReviewOtp] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -70,6 +72,7 @@ export function LoginOtpForm({
       if (res.ok) {
         setSentNote(res.message || 'OTP sent. Enter it below.');
         setOtp('');
+        setReviewOtp(res.reviewOtp ?? null);
         setCooldown(RESEND_COOLDOWN_SECONDS);
         setExpiresIn(OTP_VALID_SECONDS);
         return 'sent';
@@ -137,6 +140,7 @@ export function LoginOtpForm({
   const changeIdentifier = () => {
     setStep('identify');
     setOtp('');
+    setReviewOtp(null);
     setError('');
   };
 
@@ -194,6 +198,32 @@ export function LoginOtpForm({
       {error && (
         <div className="mge-auth-alert" role="alert">
           {error}
+        </div>
+      )}
+
+      {reviewOtp && !expired && (
+        <div
+          role="status"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            marginBottom: 12,
+            padding: '10px 14px',
+            borderRadius: 12,
+            border: '1px dashed #f59e0b',
+            background: '#fffbeb',
+            color: '#92400e',
+            fontSize: 13,
+          }}
+        >
+          <span>
+            Your OTP: <strong style={{ fontSize: 18, letterSpacing: 4, color: '#78350f' }}>{reviewOtp}</strong>
+          </span>
+          <button type="button" className="mge-link-btn" onClick={() => setOtp(reviewOtp)}>
+            Fill in
+          </button>
         </div>
       )}
 

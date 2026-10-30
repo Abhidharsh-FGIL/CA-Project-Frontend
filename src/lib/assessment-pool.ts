@@ -26,23 +26,34 @@ import type { QuestionDifficulty } from '@/lib/eval-difficulty';
 
 export type PoolMode = 'fixed' | 'live';
 
-/**
- * The unit id the question bank knows a unit by.
- *
- * Group 2 draws on Group 4's question bank, whose questions are tagged with Group 4's unit ids. A Group 2
- * unit is chosen in the wizard under its own `g2-` id (that is what places the paper in Group 2), but the
- * server finds questions by the id they are tagged with — so what is sent to draw from the bank is the
- * bank's id. Group 4's own ids pass through unchanged.
- */
-export const bankUnitId = (id: string): string => id.replace(/^g2-/, 'g4-');
+/** A unit id without its exam prefix: "gs-general-science" for both `g2-gs-general-science` and `g4-gs-general-science`. */
+const unitFamily = (id: string): string => id.replace(/^g\d+-/, '');
 
-/** A list of unit ids, as the bank knows them, each once. */
-export const bankUnitIds = <T extends string[] | null | undefined>(ids: T): T =>
-  (ids ? [...new Set(ids.map(bankUnitId))] : ids) as T;
+/**
+ * A unit id as the stage itself lists it.
+ *
+ * Each stage has its own unit ids on the server (`GET /syllabus/{exam}/{stage}`): Group 2 Prelims'
+ * General Science is `g2-gs-general-science`, and `g4-gs-general-science` is refused there. An id the
+ * stage lists passes through; one it does not is swapped for the stage's unit of the same family; with
+ * no list to check against (the syllabus could not be read), ids pass through unchanged.
+ */
+export function stageUnitId(id: string, stageIds: readonly string[] | null | undefined): string {
+  if (!stageIds?.length || stageIds.includes(id)) return id;
+  return stageIds.find(s => unitFamily(s) === unitFamily(id)) ?? id;
+}
+
+/** A list of unit ids as the stage lists them, each once. */
+export const stageUnitIds = <T extends string[] | null | undefined>(ids: T, stageIds: readonly string[] | null | undefined): T =>
+  (ids ? [...new Set(ids.map(id => stageUnitId(id, stageIds)))] : ids) as T;
 
 /** Weights keyed by unit id, re-keyed the same way. */
-export const bankUnitWeights = <T extends Record<string, number> | undefined>(weights: T): T =>
-  (weights ? Object.fromEntries(Object.entries(weights).map(([id, w]) => [bankUnitId(id), w])) : weights) as T;
+export const stageUnitWeights = <T extends Record<string, number> | undefined>(
+  weights: T,
+  stageIds: readonly string[] | null | undefined,
+): T =>
+  (weights
+    ? Object.fromEntries(Object.entries(weights).map(([id, w]) => [stageUnitId(id, stageIds), w]))
+    : weights) as T;
 
 /** The rule a pool was made by. */
 export interface PoolFilter {
@@ -109,7 +120,7 @@ export function describePool(input: PoolInput): { mode: PoolMode; filter: PoolFi
 
   const filter: PoolFilter = {
     stage_id: input.stageId ?? null,
-    unit_ids: fromBank ? orNull(bankUnitIds(input.unitIds)) : null,
+    unit_ids: fromBank ? orNull(input.unitIds) : null,
     // Only meaningful together: a subject alone ("Aptitude & Mental Ability") spans both the
     // Aptitude and Reasoning units, so it cannot say which a new question belongs to.
     subjects: subjects && chapters ? subjects : null,

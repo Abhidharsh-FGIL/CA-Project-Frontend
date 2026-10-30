@@ -936,3 +936,129 @@ body, input, textarea, select, button {
   -webkit-line-clamp: unset !important;
 }
 .pdf-capture td, .pdf-capture th { line-height: 1.5; }
+
+/* ── "What to practise next" on the dashboard (NextBestPractice.tsx) ─────────────────────────── */
+@property --mge-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+/* Rises into place; `--d` staggers a list. */
+.mge-rise {
+  /* `backwards`, not `both`: once it has risen the element is left alone, so a hover transform can still apply. */
+  animation: mge-rise 0.65s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes mge-rise {
+  from { opacity: 0; transform: translateY(16px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+/* The top pick's border: a band of brand colour slowly circling the card. */
+.mge-orbit-border {
+  background: conic-gradient(from var(--mge-angle), #f97316, #fbbf24, #fb7185, #f97316 60%, #fdba74, #f97316);
+  animation: mge-orbit 6s linear infinite;
+}
+@keyframes mge-orbit { to { --mge-angle: 360deg; } }
+/* A light sweeping across a button now and then. */
+.mge-sheen { position: relative; overflow: hidden; isolation: isolate; }
+.mge-sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.5) 50%, transparent 70%);
+  transform: translateX(-130%);
+  animation: mge-sheen 3.4s ease-in-out infinite;
+}
+@keyframes mge-sheen {
+  0%, 55% { transform: translateX(-130%); }
+  100% { transform: translateX(130%); }
+}
+/* A soft glow drifting behind the top pick. */
+.mge-drift { animation: mge-drift 9s ease-in-out infinite alternate; }
+@keyframes mge-drift {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(-40px, 28px) scale(1.2); }
+}
+.mge-twinkle { animation: mge-twinkle 2.4s ease-in-out infinite; }
+@keyframes mge-twinkle {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.2) rotate(18deg); }
+}
+/* A pulsing "live" dot: the dot is the element, the ring is its ::before. */
+.mge-live { position: relative; }
+.mge-live::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: mge-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes mge-ping { 75%, 100% { transform: scale(2.6); opacity: 0; } }
+/* Faint dotted paper behind the top pick. */
+.mge-dots {
+  background-image: radial-gradient(rgba(249, 115, 22, 0.16) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mge-rise, .mge-orbit-border, .mge-drift, .mge-twinkle { animation: none !important; }
+  .mge-sheen::after, .mge-live::before { animation: none !important; display: none; }
+}
+
+/* ── AI Study Coach panel (NextBestPractice.tsx): set apart from the ordinary cards as the AI's own space ── */
+.mge-ai-border {
+  background: conic-gradient(from var(--mge-angle), #22d3ee, #a855f7, #f0abfc, #22d3ee 70%, #0b1020, #22d3ee);
+  animation: mge-orbit 8s linear infinite;
+}
+/* Slow-moving aurora behind the panel. */
+.mge-aurora { animation: mge-aurora 14s ease-in-out infinite alternate; animation-delay: var(--d, 0ms); }
+@keyframes mge-aurora {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(40px, -30px) scale(1.15); }
+  100% { transform: translate(-30px, 25px) scale(0.95); }
+}
+/* The coach's orb: a spinning band of colour around a calm centre, breathing a soft glow. */
+.mge-orb-ring {
+  background: conic-gradient(from var(--mge-angle), #22d3ee, #a855f7, #f0abfc, #22d3ee);
+  animation: mge-orbit 3.5s linear infinite;
+}
+.mge-orb-glow { animation: mge-breathe 3s ease-in-out infinite; }
+@keyframes mge-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.95; transform: scale(1.18); }
+}
+/* Faint grid, like a canvas the AI drew on. */
+.mge-ai-grid {
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.07) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+/* Typing caret and "thinking" dots. */
+.mge-caret { animation: mge-caret 1s steps(1) infinite; }
+@keyframes mge-caret { 50% { opacity: 0; } }
+.mge-think > span { animation: mge-think 1.2s ease-in-out infinite; }
+.mge-think > span:nth-child(2) { animation-delay: 0.15s; }
+.mge-think > span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes mge-think {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-3px); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mge-ai-border, .mge-aurora, .mge-orb-ring, .mge-orb-glow, .mge-caret, .mge-think > span { animation: none !important; }
+}
+
+/* Particles rising through the AI coach's header. */
+.mge-bubble {
+  animation: mge-bubble var(--t, 9s) ease-in infinite;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes mge-bubble {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  15% { opacity: 0.7; }
+  100% { transform: translateY(-180px) scale(1.1); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mge-bubble { animation: none !important; opacity: 0; }
+}

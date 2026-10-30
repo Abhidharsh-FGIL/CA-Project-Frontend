@@ -498,18 +498,16 @@ export function describeTagError(err: any, tag: TnpscTagValue): string {
 /**
  * The server's "Unit 'x' is not a unit of 'stage'." put in the words that say what to do about it.
  *
- * It means the unit is in the portal's syllabus for that exam but not yet on the server — Group 2 Prelims' units
- * (g2-…) are the case so far — so the fix is on the server's side, and an admin told only the raw sentence
- * cannot tell that. Null for any other message.
+ * Each stage has its own unit ids (`GET /syllabus/{exam}/{stage}` lists them), so this means the portal sent an id
+ * that is not one of that stage's — its unit list is out of step with the server's. Null for any other message.
  */
 export function describeUnitNotOnServer(message: string | null | undefined): string | null {
   const m = /unit '([^']+)' is not a unit of '([^']+)'/i.exec(message ?? '');
   if (!m) return null;
   const [, unit, stage] = m;
   return (
-    `The unit “${unit}” is in the portal's syllabus for ${stage}, but the server does not list it there yet, ` +
-    'so a paper cannot be placed in it. The server needs that exam’s units added (see GROUP2_UNITS.md); ' +
-    'nothing is wrong with how this assessment was set up.'
+    `The unit “${unit}” is not one of the server's units for ${stage}, so the paper was not created. ` +
+    'Reload the page and try again; if it happens again, the portal’s unit list for that exam needs updating.'
   );
 }
 

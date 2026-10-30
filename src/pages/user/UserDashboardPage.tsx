@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { PANEL_SURFACE, UserShell } from '@/components/user/UserShell';
 import { StudyPlanCard } from '@/components/user/study-plan/StudyPlanCard';
+import { AiCoachButton, AiCoachDialog, NextBestPractice, useAiCoachAutoOpen } from '@/components/user/NextBestPractice';
 import { SHOW_STUDY_PLAN } from '@/config/features';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useReportGate } from '@/hooks/use-report-gate';
@@ -90,6 +91,10 @@ export default function UserDashboardPage() {
   const setRange = chooseRange;
   const [activeSubject, setActiveSubject] = useState<number | null>(null);
   const [showAllSubjects, setShowAllSubjects] = useState(false);
+  /** The AI coach's popup: opens by itself once a session, and from the "AI Coach" button. */
+  const [coachOpen, setCoachOpen] = useState(false);
+  useAiCoachAutoOpen(group, GROUP_STAGE[group], () => setCoachOpen(true));
+  const firstName = user?.name?.split(' ')[0];
 
   const analyticsQuery = useQuery<UserDashboardAnalytics>({
     queryKey: ['user-dashboard-analytics', history.length, assessments.length],
@@ -328,6 +333,7 @@ export default function UserDashboardPage() {
         {/* These two scope every card below, so they lead the page rather than
             sitting inside one card as that card's own filter. */}
         <div className="flex items-center gap-2 flex-wrap">
+          <AiCoachButton exam={group} stage={GROUP_STAGE[group]} onClick={() => setCoachOpen(true)} />
           <FilterSelect value={group} options={EXAM_GROUP_OPTIONS} onChange={chooseGroup} ariaLabel="Exam group" />
           <FilterSelect value={track} options={EXAM_TRACK_OPTIONS} onChange={v => setTrack(v)} ariaLabel="Test type" />
           <DateRangeFilter value={range} onChange={setRange} />
@@ -760,6 +766,11 @@ export default function UserDashboardPage() {
           )}
         </Card>
       </div>
+
+      {/* The AI coach: a popup on arrival (and from the button at the top); once closed, it stays here at the foot of
+          the page. Left out if the picks cannot be read. */}
+      <NextBestPractice exam={group} stage={GROUP_STAGE[group]} name={firstName} className="mt-3 sm:mt-4" />
+      <AiCoachDialog exam={group} stage={GROUP_STAGE[group]} name={firstName} open={coachOpen} onOpenChange={setCoachOpen} />
     </UserShell>
   );
 }

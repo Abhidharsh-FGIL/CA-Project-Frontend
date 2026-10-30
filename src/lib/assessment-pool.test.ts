@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bankUnitId, bankUnitIds, bankUnitWeights, describePool } from '@/lib/assessment-pool';
+import { describePool, stageUnitId, stageUnitIds, stageUnitWeights } from '@/lib/assessment-pool';
 
 const base = { source: 'bank' as const, shuffle: true, composed: false, stageId: 'group-4-written' };
 
@@ -118,27 +118,27 @@ describe('describePool — everything else is a fixed set', () => {
   });
 });
 
-describe('the unit ids sent to draw from the bank', () => {
-  it('turns a Group 2 unit into the Group 4 id the bank’s questions are tagged with', () => {
-    expect(bankUnitId('g2-ta-grammar')).toBe('g4-ta-grammar');
-    expect(bankUnitId('g2-gs-indian-polity')).toBe('g4-gs-indian-polity');
+describe('the unit ids sent — as the stage lists them', () => {
+  const g2 = ['g2-ta-grammar', 'g2-gs-general-science', 'g2-gs-geography', 'g2-apt-aptitude'];
+
+  it('keeps an id the stage lists', () => {
+    expect(stageUnitId('g2-gs-general-science', g2)).toBe('g2-gs-general-science');
   });
 
-  it('leaves Group 4’s own ids exactly as they are', () => {
-    expect(bankUnitId('g4-ta-grammar')).toBe('g4-ta-grammar');
-    expect(bankUnitIds(['g4-gs-geography', 'g4-apt-reasoning'])).toEqual(['g4-gs-geography', 'g4-apt-reasoning']);
-    expect(bankUnitWeights({ 'g4-gs-geography': 5 })).toEqual({ 'g4-gs-geography': 5 });
+  it('swaps a Group 4 id for the Group 2 unit of the same family — the UNIT_NOT_IN_STAGE case', () => {
+    expect(stageUnitId('g4-gs-general-science', g2)).toBe('g2-gs-general-science');
+    expect(stageUnitIds(['g4-ta-grammar', 'g2-ta-grammar'], g2)).toEqual(['g2-ta-grammar']);
+    expect(stageUnitWeights({ 'g4-gs-geography': 5 }, g2)).toEqual({ 'g2-gs-geography': 5 });
   });
 
-  it('maps a list and its weights, and keeps a missing list missing', () => {
-    expect(bankUnitIds(['g2-ta-grammar', 'g2-gs-geography'])).toEqual(['g4-ta-grammar', 'g4-gs-geography']);
-    expect(bankUnitWeights({ 'g2-ta-grammar': 10, 'g2-gs-geography': 5 })).toEqual({ 'g4-ta-grammar': 10, 'g4-gs-geography': 5 });
-    expect(bankUnitIds(undefined)).toBeUndefined();
-    expect(bankUnitWeights(undefined)).toBeUndefined();
+  it('passes ids through when the stage’s list could not be read, and keeps a missing list missing', () => {
+    expect(stageUnitId('g4-gs-geography', null)).toBe('g4-gs-geography');
+    expect(stageUnitIds(undefined, g2)).toBeUndefined();
+    expect(stageUnitWeights(undefined, g2)).toBeUndefined();
   });
 
-  it('puts the bank’s ids in a live pool’s rule too', () => {
+  it('a live pool’s rule keeps the Group 2 ids', () => {
     const { filter } = describePool({ ...base, stageId: 'group-2-prelims', unitIds: ['g2-gs-geography'], questions: pool });
-    expect(filter?.unit_ids).toEqual(['g4-gs-geography']);
+    expect(filter?.unit_ids).toEqual(['g2-gs-geography']);
   });
 });

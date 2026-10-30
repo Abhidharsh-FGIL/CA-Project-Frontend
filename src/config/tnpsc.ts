@@ -1297,15 +1297,18 @@ const G4_ENGLISH_UNITS: TnpscSyllabusUnit[] = [
 // ─── Groups ────────────────────────────────────────────────────────────────────
 
 /**
- * Group 2 prelims uses Group 4's units as they are — the same ids (`g4-apt-reasoning`), names and question split.
- * The server and the question bank know the Group 4 ids, so a Group 2 assessment is placed with them; which exam a
- * paper is for is said by its group and stage, not by the unit id. Give Group 2 its own units here only if its
- * published syllabus ever differs from Group 4's.
+ * Group 2 prelims has the same syllabus units as Group 4 — names, labels, question split and topics — under its
+ * own ids: `g2-gs-general-science`, `g2-ta-grammar`, `g2-apt-aptitude`. Those are the ids the server lists for
+ * `group-2-prelims` (`GET /syllabus/group-2/group-2-prelims`) and stores on Group 2 papers; a `g4-` id is not a
+ * unit of that stage and is refused.
  */
-const G2_GENERAL_STUDIES_UNITS = G4_GENERAL_STUDIES_UNITS;
-const G2_APTITUDE_UNITS = G4_APTITUDE_UNITS;
-const G2_TAMIL_UNITS = G4_TAMIL_UNITS;
-const G2_ENGLISH_UNITS = G4_ENGLISH_UNITS;
+const asGroup2 = (units: TnpscSyllabusUnit[]): TnpscSyllabusUnit[] =>
+  units.map(u => ({ ...u, id: u.id.replace(/^g4-/, 'g2-') }));
+
+const G2_GENERAL_STUDIES_UNITS = asGroup2(G4_GENERAL_STUDIES_UNITS);
+const G2_APTITUDE_UNITS = asGroup2(G4_APTITUDE_UNITS);
+const G2_TAMIL_UNITS = asGroup2(G4_TAMIL_UNITS);
+const G2_ENGLISH_UNITS = asGroup2(G4_ENGLISH_UNITS);
 
 export const TNPSC_GROUPS: TnpscGroup[] = [
   {
@@ -2098,18 +2101,14 @@ export function unitDisplayName(
 /**
  * The name a unit is shown under, from its id alone - for a report that has only the id on a question
  * ("g4-ta-grammar"). Looked for in every exam's stages, since one paper can hold another exam's units
- * (a Group 2 paper built from Group 4 questions), and a `g2-` id falls back to its Group 4 twin.
- * Null when no unit has that id.
+ * (a Group 2 paper built from Group 4 questions). Null when no unit has that id.
  */
 export function unitNameForId(unitId: string | null | undefined): string | null {
   if (!unitId) return null;
-  const tries = [unitId, unitId.replace(/^g2-/, 'g4-')];
-  for (const id of tries) {
-    for (const group of TNPSC_GROUPS) {
-      for (const stage of group.stages) {
-        const found = stageUnits(stage).find(u => u.unit.id === id);
-        if (found) return unitDisplayName(stage, found.unit);
-      }
+  for (const group of TNPSC_GROUPS) {
+    for (const stage of group.stages) {
+      const found = stageUnits(stage).find(u => u.unit.id === unitId);
+      if (found) return unitDisplayName(stage, found.unit);
     }
   }
   return null;
@@ -2121,9 +2120,11 @@ export function findUnit(
   unitId: string | null | undefined,
 ): TnpscSyllabusUnit | undefined {
   if (!unitId) return undefined;
-  // A `g2-` id is from before Group 2 shared Group 4's units; it is the Group 4 unit of the same name.
-  const id = unitId.replace(/^g2-/, 'g4-');
-  return stageUnits(stage).find(u => u.unit.id === id)?.unit;
+  const units = stageUnits(stage);
+  // Exactly, else the stage's own unit of the same family: a study plan written with Group 4's
+  // `g4-ta-grammar` finds `g2-ta-grammar` in Group 2. A stage never holds both.
+  const family = (id: string) => id.replace(/^g\d+-/, '');
+  return (units.find(u => u.unit.id === unitId) ?? units.find(u => family(u.unit.id) === family(unitId)))?.unit;
 }
 
 /**

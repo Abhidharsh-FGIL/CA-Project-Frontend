@@ -315,24 +315,24 @@ describe('Group 2 shares the Group 4 question bank', () => {
   const g2unitsOf = (q: any) => stageUnits(g2).filter(x => questionInUnit(g2, q, x.unit)).map(x => x.unit.id);
 
   it('finds the Group 2 unit by subject, as it does for Group 4', () => {
-    expect(g2unitsOf({ subject: 'Indian Polity', chapter: 'Fundamental Rights' })).toEqual(['g4-gs-indian-polity']);
+    expect(g2unitsOf({ subject: 'Indian Polity', chapter: 'Fundamental Rights' })).toEqual(['g2-gs-indian-polity']);
   });
 
-  it('counts a bank question filed under Group 4’s copy of a shared unit toward Group 2, which uses that same unit', () => {
-    expect(g2unitsOf({ unit_id: 'g4-gs-indian-polity' })).toEqual(['g4-gs-indian-polity']);
-    expect(g2unitsOf({ unit_id: 'g4-apt-reasoning' })).toEqual(['g4-apt-reasoning']);
+  it('counts a bank question filed under Group 4’s copy of a shared unit toward Group 2’s unit of the same family', () => {
+    expect(g2unitsOf({ unit_id: 'g4-gs-indian-polity' })).toEqual(['g2-gs-indian-polity']);
+    expect(g2unitsOf({ unit_id: 'g4-apt-reasoning' })).toEqual(['g2-apt-reasoning']);
   });
 
   it('carries the language papers too, finding the Tamil unit by its topic and by Group 4’s unit id', () => {
-    expect(g2unitsOf({ subject: 'General Tamil', chapter: 'இலக்கணம்' })).toEqual(['g4-ta-grammar']);
-    expect(g2unitsOf({ unit_id: 'g4-ta-grammar' })).toEqual(['g4-ta-grammar']);
-    expect(g2unitsOf({ unit_id: 'g4-en-vocabulary' })).toEqual(['g4-en-vocabulary']);
+    expect(g2unitsOf({ subject: 'General Tamil', chapter: 'இலக்கணம்' })).toEqual(['g2-ta-grammar']);
+    expect(g2unitsOf({ unit_id: 'g4-ta-grammar' })).toEqual(['g2-ta-grammar']);
+    expect(g2unitsOf({ unit_id: 'g4-en-vocabulary' })).toEqual(['g2-en-vocabulary']);
   });
 
-  it('shows bank questions against Group 2 units under the Group 4 unit ids', () => {
+  it('shows Group 4-tagged bank questions against Group 2’s own unit ids', () => {
     const counts = unitBankCounts(g2, [{ unit_id: 'g4-gs-indian-polity' }, { unit_id: 'g4-gs-indian-polity' }, { subject: 'Geography of India' }]);
-    expect(counts.byUnit['g4-gs-indian-polity']).toBe(2);
-    expect(counts.byUnit['g4-gs-geography']).toBe(1);
+    expect(counts.byUnit['g2-gs-indian-polity']).toBe(2);
+    expect(counts.byUnit['g2-gs-geography']).toBe(1);
   });
 
   it('does not change Group 4: its own ids still resolve as before', () => {

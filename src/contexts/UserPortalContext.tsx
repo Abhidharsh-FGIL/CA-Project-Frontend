@@ -4,6 +4,7 @@ import { offeredPlans, plansFromApi } from '@/lib/plans';
 import { purchasePlan, type PurchaseOutcome } from '@/lib/purchase';
 import { openCheckout } from '@/lib/razorpay';
 import { createOrder, getCurrentSubscription, verifyPayment } from '@/lib/subscriptionApi';
+import { isReviewAccount, otpFromReply } from '@/lib/review-account';
 import {
   SUBSCRIPTION_PLANS,
   SAMPLE_USER_TRANSACTIONS,
@@ -73,7 +74,7 @@ interface UserPortalContextValue {
 
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   /** Have a one-time password sent to the account behind an email ID or mobile number. `message` says where it went. */
-  sendLoginOtp: (identifier: string) => Promise<{ ok: boolean; message?: string; error?: string }>;
+  sendLoginOtp: (identifier: string) => Promise<{ ok: boolean; message?: string; error?: string; reviewOtp?: string | null }>;
   /**
    * Sign in, or sign up, with a Google ID token. `needsProfile` means Google is fine but there is no account
    * yet: ask for the sign-up details and call again with them. Starts the same session `login` does.
@@ -314,7 +315,15 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
   const sendLoginOtp = useCallback(async (identifier: string) => {
     try {
       const res = await requestLoginOtp(identifier);
-      return { ok: true, message: res?.message };
+      // The Play reviewers' account only: the code itself, when the server sends it back. The server sends it for that
+      // account alone, so the reply decides — signing in with the account's mobile number shows it too.
+      const reviewOtp = otpFromReply(res);
+      if (import.meta.env.DEV && isReviewAccount(identifier)) {
+        // What the server answered for the review account — field names only, so it can be checked from the console.
+        console.info('[login-otp] reply fields:', Object.keys((res ?? {}) as object), reviewOtp ? '→ code found' : '→ no code in reply');
+      }
+      if (reviewOtp && !isReviewAccount(identifier)) console.info('[login-otp] code shown: the server sent it for this account');
+      return { ok: true, message: res?.message, reviewOtp };
     } catch (err) {
       return { ok: false, error: describeApiError(err, 'Could not send the OTP') };
     }

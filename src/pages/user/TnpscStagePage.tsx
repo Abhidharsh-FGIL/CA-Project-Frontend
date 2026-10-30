@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { here } from '@/lib/report-origin';
 import { skipsStageList } from '@/lib/exam-listing';
@@ -44,6 +44,8 @@ import {
   type KeyTopicSection,
 } from '@/lib/key-topic-sections';
 import { useSyllabus } from '@/hooks/use-syllabus';
+import { useRecommendations } from '@/hooks/use-recommendations';
+import { recommendedTestIds } from '@/lib/recommendationsApi';
 import { unitChipLabel } from '@/lib/unit-chip';
 import { levelStats, type LevelKey, type LevelStat } from '@/lib/unit-levels';
 import { testHref, type TnpscLevelGroup, type TnpscTest } from '@/lib/tnpscApi';
@@ -319,6 +321,9 @@ export default function TnpscStagePage() {
   // Key topics are named and ordered by the official list (the uploaded sheets), the same names the admin picks
   // from. Until it loads, or if it cannot be read, the hand-typed syllabus names them.
   const syllabus = useSyllabus(groupId, stageId);
+  // The papers the dashboard is pointing this aspirant to, marked "Recommended for you" in the list.
+  const recommendations = useRecommendations(groupId, stageId);
+  const recommended = useMemo(() => recommendedTestIds(recommendations.data), [recommendations.data]);
   const keyTopicSections = useMemo<KeyTopicSection[]>(
     () => (stage ? buildKeyTopicSections(stage, practiceTests.filter(isKeyTopicPaper), syllabus) : []),
     [stage, practiceTests, syllabus],
@@ -500,11 +505,13 @@ export default function TnpscStagePage() {
           ) : tab === 'topics' ? (
             <>
               <TrackBanner tab={tab} />
-              <KeyTopicsTrack
-                sections={keyTopicSections}
-                open={openTopicSections}
-                onToggle={k => toggleTopicSection(k)}
-              />
+              <RecommendedTests.Provider value={recommended}>
+                <KeyTopicsTrack
+                  sections={keyTopicSections}
+                  open={openTopicSections}
+                  onToggle={k => toggleTopicSection(k)}
+                />
+              </RecommendedTests.Provider>
             </>
           ) : tab === 'exam' ? (
             // Ahead of the sections guard: a mock belongs to no section, so a
@@ -565,6 +572,9 @@ export default function TnpscStagePage() {
 }
 
 // ─── Key topics track ─────────────────────────────────────────────────────────
+
+/** Test ids picked for this aspirant on the dashboard; their lines carry a "Recommended for you" mark. */
+const RecommendedTests = createContext<Set<string>>(new Set());
 
 /**
  * Key topics: each printed section is a dropdown, and opening it lists the topics that have a paper.
@@ -710,6 +720,7 @@ function KeyTopicLine({
 }) {
   const attemptsLeft = test.max_attempts == null ? null : Math.max(0, test.max_attempts - test.attempts_used);
   const exhausted = attemptsLeft === 0;
+  const recommended = useContext(RecommendedTests).has(test.test_id);
 
   const status = test.is_completed
     ? { text: test.best_percentage != null ? `Cleared · ${Math.round(test.best_percentage)}%` : 'Cleared', cls: 'text-emerald-600 dark:text-emerald-400 font-semibold' }
@@ -725,7 +736,16 @@ function KeyTopicLine({
         {number ?? ''}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{label ?? test.title}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{label ?? test.title}</span>
+          {recommended && (
+            <span className="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+              <Sparkles className="h-2.5 w-2.5" />
+              <span className="hidden sm:inline">Recommended for you</span>
+              <span className="sm:hidden">For you</span>
+            </span>
+          )}
+        </span>
         {/* On a phone the figures sit under the name; from `sm` they have their own columns. */}
         <span className="block text-[11px] text-gray-500 sm:hidden">
           {test.question_count} Qs · <span className={status.cls}>{status.text}</span>

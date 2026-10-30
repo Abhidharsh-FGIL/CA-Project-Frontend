@@ -25,6 +25,7 @@
  * without them, which loses the POST body in some redirect-follow scenarios.
  */
 import { publicApi, userApi, setUserTokens, clearUserTokens } from './api';
+import { resetAiCoachShown } from './ai-coach-session';
 
 // ─── Response shapes ──────────────────────────────────────────────────────────
 
@@ -136,7 +137,11 @@ export function registerUser(payload: RegisterPayload) {
 
 /** Keep the tokens of a successful sign-in where the authenticated client reads them. */
 function keepTokens(res: AuthTokenResponse): AuthTokenResponse {
-  if (res?.access_token && res?.refresh_token) setUserTokens(res.access_token, res.refresh_token);
+  if (res?.access_token && res?.refresh_token) {
+    setUserTokens(res.access_token, res.refresh_token);
+    // A new sign-in is a new start: the AI coach's popup is shown again on the dashboard.
+    resetAiCoachShown();
+  }
   return res;
 }
 
@@ -252,6 +257,7 @@ export function resetUserPassword(payload: ResetPasswordPayload) {
 export function logoutUser(): Promise<MessageSuccess> {
   const request = userApi.post<MessageSuccess>('/api/v1/user/auth/logout');
   clearUserTokens();
+  resetAiCoachShown();
   return request;
 }
 

@@ -396,6 +396,15 @@ function NodeRow({
       <span className="text-xs text-gray-600 sm:text-right dark:text-gray-300">
         <span className="sm:hidden">Questions </span>
         {fmt(node.question_count)}
+        {/* No live question has this name any more, but published tests and attempts still carry it. */}
+        {node.question_count === 0 && (node.test_count > 0 || node.attempt_count > 0) && (
+          <span
+            className="block text-[9px] text-gray-400"
+            title="No question in the bank has this name now. Tests (and their attempts) still carry it from when they were built. Fix… renames it there too."
+          >
+            {node.questions_retired ? `${fmt(node.questions_retired)} retired · ` : ''}only in tests
+          </span>
+        )}
       </span>
       <span className="text-xs text-gray-600 sm:text-right dark:text-gray-300">
         <span className="sm:hidden">Tests </span>
