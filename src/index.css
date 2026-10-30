@@ -1008,8 +1008,13 @@ body, input, textarea, select, button {
 
 /* ── AI Study Coach panel (NextBestPractice.tsx): set apart from the ordinary cards as the AI's own space ── */
 .mge-ai-border {
-  background: conic-gradient(from var(--mge-angle), #22d3ee, #a855f7, #f0abfc, #22d3ee 70%, #0b1020, #22d3ee);
+  background: conic-gradient(from var(--mge-angle), #22d3ee, #a855f7, #f0abfc, #22d3ee 70%, #e0e7ff, #22d3ee);
   animation: mge-orbit 8s linear infinite;
+}
+/* The midnight coach (the popup, and the portal's dark mode): the border's quiet stretch is the panel's own navy. */
+.dark .mge-ai-border,
+.mge-ai-border.mge-ai-night {
+  background: conic-gradient(from var(--mge-angle), #22d3ee, #a855f7, #f0abfc, #22d3ee 70%, #0b1020, #22d3ee);
 }
 /* Slow-moving aurora behind the panel. */
 .mge-aurora { animation: mge-aurora 14s ease-in-out infinite alternate; animation-delay: var(--d, 0ms); }

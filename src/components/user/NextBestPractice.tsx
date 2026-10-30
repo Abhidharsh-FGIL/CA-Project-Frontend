@@ -52,20 +52,23 @@ import {
 
 // ─── Look ────────────────────────────────────────────────────────────────────
 
-/** Dark glass: the coach's cards on the midnight body. */
+/**
+ * The coach's cards: frosted white on the light body; dark glass on the midnight one (`dark`: the popup, and the
+ * portal's dark mode).
+ */
 const GLASS =
-  'rounded-2xl bg-white/[0.04] ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_20px_40px_-24px_rgba(0,0,0,0.8)] backdrop-blur-xl';
+  'rounded-2xl bg-white/90 ring-1 ring-slate-200/80 shadow-[0_12px_32px_-20px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:bg-white/[0.04] dark:ring-white/10 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_20px_40px_-24px_rgba(0,0,0,0.8)]';
 /** Neon teal into electric purple: the coach's own colour, for its marks. */
 const NEON_FILL = 'bg-gradient-to-r from-cyan-500 to-purple-600';
 /** The actions: a brighter neon, glowing. */
 const AI_FILL = 'bg-gradient-to-r from-cyan-400 via-sky-500 to-purple-500 shadow-[0_0_24px_rgba(34,211,238,0.45)]';
 
 const TYPE_PILL: Record<RecommendationType, string> = {
-  fix_weak: 'bg-rose-500/15 text-rose-300 ring-rose-400/30',
-  start_new: 'bg-cyan-500/15 text-cyan-300 ring-cyan-400/30',
-  revise: 'bg-purple-500/15 text-purple-300 ring-purple-400/30',
-  level_up: 'bg-emerald-500/15 text-emerald-300 ring-emerald-400/30',
-  full_mock: 'bg-amber-500/15 text-amber-300 ring-amber-400/30',
+  fix_weak: 'bg-rose-500/15 text-rose-600 dark:text-rose-300 ring-rose-400/30',
+  start_new: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 ring-cyan-400/30',
+  revise: 'bg-purple-500/15 text-violet-600 dark:text-purple-300 ring-purple-400/30',
+  level_up: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 ring-emerald-400/30',
+  full_mock: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-amber-400/30',
 };
 const TYPE_DOT: Record<RecommendationType, string> = {
   fix_weak: 'bg-rose-500',
@@ -77,18 +80,19 @@ const TYPE_DOT: Record<RecommendationType, string> = {
 
 /** Mastery colour: fills, figures and the ring's stroke. */
 const FILL = {
-  none: 'bg-slate-600',
-  weak: 'bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.7)]',
-  building: 'bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.7)]',
-  strong: 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.7)]',
+  none: 'bg-slate-300 dark:bg-slate-600',
+  weak: 'bg-rose-500 dark:bg-rose-400 dark:shadow-[0_0_10px_rgba(251,113,133,0.7)]',
+  building: 'bg-amber-500 dark:bg-amber-400 dark:shadow-[0_0_10px_rgba(251,191,36,0.7)]',
+  strong: 'bg-emerald-500 dark:bg-emerald-400 dark:shadow-[0_0_10px_rgba(52,211,153,0.7)]',
 } as const;
 const FIGURE = {
   none: 'text-slate-500',
-  weak: 'text-rose-300',
-  building: 'text-amber-300',
-  strong: 'text-emerald-300',
+  weak: 'text-rose-600 dark:text-rose-300',
+  building: 'text-amber-700 dark:text-amber-300',
+  strong: 'text-emerald-600 dark:text-emerald-300',
 } as const;
-const STROKE = { none: '#475569', weak: '#fb7185', building: '#fbbf24', strong: '#34d399' } as const;
+// Mid tones: they read on the light body and on the dark one.
+const STROKE = { none: '#94a3b8', weak: '#f43f5e', building: '#f59e0b', strong: '#10b981' } as const;
 
 const pct = (n: number | null | undefined) => (n == null ? '—' : `${Math.round(n)}%`);
 const clamp = (n: number | null | undefined) => Math.max(0, Math.min(100, n ?? 0));
@@ -182,8 +186,8 @@ function Orb({ size = 44, className }: { size?: number; className?: string }) {
     <span className={cn('relative inline-grid flex-shrink-0 place-items-center', className)} style={{ width: size, height: size }} aria-hidden>
       <span className="mge-orb-glow absolute inset-0 rounded-full bg-gradient-to-br from-cyan-400/70 via-purple-500/50 to-fuchsia-400/60 blur-md" />
       <span className="mge-orb-ring absolute inset-0 rounded-full" />
-      <span className="absolute inset-[3px] grid place-items-center rounded-full bg-[#0b1020]">
-        <Sparkles className="text-cyan-300 drop-shadow-[0_0_6px_rgba(34,211,238,0.9)]" style={{ width: size * 0.42, height: size * 0.42 }} />
+      <span className="absolute inset-[3px] grid place-items-center rounded-full bg-white dark:bg-[#0b1020]">
+        <Sparkles className="text-cyan-700 dark:text-cyan-300 drop-shadow-[0_0_6px_rgba(34,211,238,0.9)]" style={{ width: size * 0.42, height: size * 0.42 }} />
       </span>
     </span>
   );
@@ -199,9 +203,9 @@ function TypePill({ type }: { type: RecommendationType }) {
 }
 
 const KIND_STYLE: Record<RecommendationKind, string> = {
-  topic: 'bg-cyan-400/15 text-cyan-200 ring-cyan-400/30',
-  unit: 'bg-purple-400/15 text-purple-200 ring-purple-400/30',
-  mock: 'bg-amber-400/15 text-amber-200 ring-amber-400/30',
+  topic: 'bg-cyan-400/15 text-cyan-800 dark:text-cyan-200 ring-cyan-400/30',
+  unit: 'bg-purple-400/15 text-violet-700 dark:text-purple-200 ring-purple-400/30',
+  mock: 'bg-amber-400/15 text-amber-800 dark:text-amber-200 ring-amber-400/30',
 };
 
 /** What a pick covers, said outright: a Key topic, a Whole unit or a Full mock. */
@@ -217,7 +221,7 @@ function KindTag({ rec }: { rec: Recommendation }) {
 /** Marks a line the coach wrote. */
 function AiTag({ label = 'AI' }: { label?: string }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-cyan-400/15 to-purple-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-cyan-300 ring-1 ring-cyan-400/30">
+    <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-cyan-400/15 to-purple-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300 ring-1 ring-cyan-400/30">
       <Wand2 className="h-2.5 w-2.5" />
       {label}
     </span>
@@ -228,7 +232,7 @@ function AiTag({ label = 'AI' }: { label?: string }) {
 function Bar({ value, className, wait = 0 }: { value: number | null | undefined; className?: string; wait?: number }) {
   const entered = useEntered();
   return (
-    <div className={cn('h-1.5 overflow-hidden rounded-full bg-white/10', className)}>
+    <div className={cn('h-1.5 overflow-hidden rounded-full bg-slate-200/70 dark:bg-white/10', className)}>
       <div
         className={cn('h-1.5 rounded-full transition-[width] duration-[1100ms] ease-out', FILL[masteryBand(value)])}
         style={{ width: entered ? `${clamp(value)}%` : '0%', transitionDelay: `${wait}ms` }}
@@ -247,7 +251,7 @@ function Ring({ value, size = 96, label }: { value: number | null | undefined; s
   return (
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
       <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-        <circle cx="50" cy="50" r={r} fill="none" strokeWidth="9" className="stroke-white/10" />
+        <circle cx="50" cy="50" r={r} fill="none" strokeWidth="9" className="stroke-slate-200 dark:stroke-white/10" />
         <circle
           cx="50"
           cy="50"
@@ -263,10 +267,10 @@ function Ring({ value, size = 96, label }: { value: number | null | undefined; s
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={cn('text-xl font-extrabold leading-none tabular-nums', value == null ? 'text-slate-500' : 'text-white')}>
+        <span className={cn('text-xl font-extrabold leading-none tabular-nums', value == null ? 'text-slate-500' : 'text-slate-900 dark:text-white')}>
           {shown == null ? 'New' : `${Math.round(shown)}%`}
         </span>
-        <span className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-slate-400">{label}</span>
+        <span className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</span>
       </div>
     </div>
   );
@@ -278,12 +282,12 @@ function CoachSays({ text, source, wait = 0, children }: { text: string; source?
   return (
     <div className="flex items-start gap-2.5">
       <Orb size={28} className="mt-1" />
-      <div className="min-w-0 flex-1 rounded-2xl rounded-tl-md bg-gradient-to-br from-cyan-400/10 via-white/[0.03] to-purple-500/10 px-3.5 py-2.5 ring-1 ring-cyan-400/20">
+      <div className="min-w-0 flex-1 rounded-2xl rounded-tl-md bg-gradient-to-br from-cyan-400/10 via-white dark:via-white/[0.03] to-purple-500/10 px-3.5 py-2.5 ring-1 ring-cyan-400/20">
         <div className="mb-1">
           <AiTag label={source === 'ai' ? 'AI says' : 'Why this pick'} />
         </div>
         {/* The whole text holds the bubble's size from the start; the typed part is laid over it. */}
-        <p className="relative text-[14.5px] leading-relaxed text-slate-100">
+        <p className="relative text-[14.5px] leading-relaxed text-slate-800 dark:text-slate-100">
           <span className="invisible">{text}</span>
           <span className="absolute inset-0">
             {shown}
@@ -297,6 +301,31 @@ function CoachSays({ text, source, wait = 0, children }: { text: string; source?
 }
 
 // ─── Panel ───────────────────────────────────────────────────────────────────
+
+/**
+ * The topic a pick is about: its unit and category (a whole-unit pick has no category). Not `rec_id`: two different
+ * topics can come back under one id, or none, and closing one closed both; and the server can offer the same topic
+ * again under a new id, test or kind of pick (after a "Not now" it sends Indian Polity back each time). A pick with
+ * neither unit nor category (a full mock) is told apart by its test.
+ */
+const pickKey = (r: Recommendation) => {
+  const unit = r.unit?.id ?? '';
+  const category = r.category?.id ?? r.category?.name ?? '';
+  return unit || category ? `${unit}|${category}` : `test|${r.target?.test_id ?? r.rec_id ?? ''}`;
+};
+
+/** The picks with each topic once — the first, which the server ranks highest — and none the student closed. */
+function visiblePicks(items: Recommendation[], hidden: string[]): Recommendation[] {
+  const seen = new Set(hidden);
+  const out: Recommendation[] = [];
+  for (const r of items) {
+    const key = pickKey(r);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(r);
+  }
+  return out;
+}
 
 export function NextBestPractice({
   exam,
@@ -321,14 +350,14 @@ export function NextBestPractice({
   if (isLoading) return <Thinking className={className} />;
   if (isError || !data) return null;
 
-  const items = data.items.filter(r => !hidden.includes(r.rec_id)).slice(0, 3);
+  const items = visiblePicks(data.items, hidden).slice(0, 3);
   const [top, ...rest] = items;
   const planMinutes = items.reduce((n, r) => n + (r.target.est_minutes ?? 0), 0);
   const updated = ago(data.generated_at);
   const keyTopicsHref = `/user/exams/${exam}/${stage}`;
 
   const dismiss = (r: Recommendation) => {
-    setHidden(h => [...h, r.rec_id]);
+    setHidden(h => [...h, pickKey(r)]);
     feedback.mutate({ recId: r.rec_id, action: 'dismissed' });
   };
   const start = (r: Recommendation) => () => {
@@ -345,17 +374,17 @@ export function NextBestPractice({
           <div className="flex min-w-0 items-center gap-4">
             <Orb size={56} />
             <div className="min-w-0">
-              <p className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.22em] text-cyan-300">
+              <p className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-300">
                 <BrainCircuit className="h-3.5 w-3.5" /> AI Study Coach
               </p>
-              <h2 className="mt-1 text-xl font-extrabold tracking-tight text-white sm:text-[26px]">
+              <h2 className="mt-1 text-xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-[26px]">
                 {name ? `${name}, here's` : "Here's"} what to practise{' '}
-                <span className="relative whitespace-nowrap bg-gradient-to-r from-cyan-300 to-purple-400 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(34,211,238,0.5)]">
+                <span className="relative whitespace-nowrap bg-gradient-to-r from-cyan-600 dark:from-cyan-300 to-violet-600 dark:to-purple-400 bg-clip-text text-transparent dark:drop-shadow-[0_0_12px_rgba(34,211,238,0.5)]">
                   next
                   <span aria-hidden className="absolute -bottom-1 left-0 h-[3px] w-full rounded-full bg-gradient-to-r from-cyan-400 to-purple-500 shadow-[0_0_10px_rgba(34,211,238,0.9)]" />
                 </span>
               </h2>
-              <p className="mt-1.5 flex items-center gap-2 text-[11px] text-slate-400">
+              <p className="mt-1.5 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
                 {data.status === 'computing' ? (
                   <>
                     <ThinkingDots light /> Updating with your latest test…
@@ -373,11 +402,11 @@ export function NextBestPractice({
             </div>
           </div>
           {items.length > 0 && (
-            <div className="hidden flex-shrink-0 items-center gap-3 rounded-2xl bg-white/5 px-4 py-2.5 ring-1 ring-white/10 md:flex">
-              <ListChecks className="h-5 w-5 text-cyan-300" />
+            <div className="hidden flex-shrink-0 items-center gap-3 rounded-2xl bg-white/80 dark:bg-white/5 px-4 py-2.5 ring-1 ring-slate-200 dark:ring-white/10 md:flex">
+              <ListChecks className="h-5 w-5 text-cyan-700 dark:text-cyan-300" />
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Today&apos;s plan</p>
-                <p className="text-sm font-extrabold text-white">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Today&apos;s plan</p>
+                <p className="text-sm font-extrabold text-slate-900 dark:text-white">
                   {items.length} step{items.length === 1 ? '' : 's'}
                   {planMinutes > 0 ? ` · about ${planMinutes} min` : ''}
                 </p>
@@ -389,19 +418,19 @@ export function NextBestPractice({
     >
       {top ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.55fr_1fr]">
-          <TopPick key={top.rec_id} rec={top} sticky={stickyAction} onStart={start(top)} onDismiss={() => dismiss(top)} />
+          <TopPick key={pickKey(top)} rec={top} sticky={stickyAction} onStart={start(top)} onDismiss={() => dismiss(top)} />
           <div className="flex flex-col gap-4">
             {rest.length > 0 && (
               <div className={cn(GLASS, 'mge-rise p-4')} style={delay(140)}>
-                <p className="mb-1.5 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <p className="mb-1.5 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   <span className="flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-purple-300" /> Then try these
+                    <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-purple-300" /> Then try these
                   </span>
-                  <span className="rounded-full bg-cyan-400/15 px-2 py-0.5 text-[10px] text-cyan-300">{rest.length}</span>
+                  <span className="rounded-full bg-cyan-400/15 px-2 py-0.5 text-[10px] text-cyan-700 dark:text-cyan-300">{rest.length}</span>
                 </p>
-                <ul className="divide-y divide-white/10">
+                <ul className="divide-y divide-slate-200/80 dark:divide-white/10">
                   {rest.map((r, i) => (
-                    <AlsoRow key={r.rec_id} rec={r} number={i + 2} wait={240 + i * 120} onStart={start(r)} onDismiss={() => dismiss(r)} />
+                    <AlsoRow key={pickKey(r)} rec={r} number={i + 2} wait={240 + i * 120} onStart={start(r)} onDismiss={() => dismiss(r)} />
                   ))}
                 </ul>
               </div>
@@ -461,12 +490,12 @@ function Shell({
   closeGap?: boolean;
 }) {
   return (
-    <section className={cn('mge-ai-border rounded-[28px] p-[1.5px] shadow-[0_0_60px_-12px_rgba(34,211,238,0.45)]', className)}>
-      <div className="relative overflow-clip rounded-[26.5px] bg-[#0b1020] text-white">
+    <section className={cn('mge-ai-border rounded-[28px] p-[1.5px] shadow-[0_18px_50px_-20px_rgba(99,102,241,0.35)] dark:shadow-[0_0_60px_-12px_rgba(34,211,238,0.45)]', className)}>
+      <div className="relative overflow-clip rounded-[26.5px] bg-gradient-to-br from-white via-sky-50 to-violet-50 text-slate-900 dark:bg-none dark:bg-[#0b1020] dark:text-white">
         <div aria-hidden className="mge-ai-grid pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_at_top,black,transparent_80%)]" />
-        <div aria-hidden className="mge-aurora pointer-events-none absolute -left-24 -top-32 h-96 w-96 rounded-full bg-cyan-500/25 blur-3xl" />
-        <div aria-hidden className="mge-aurora pointer-events-none absolute -right-24 top-0 h-96 w-96 rounded-full bg-purple-600/30 blur-3xl" style={delay(-5000)} />
-        <div aria-hidden className="mge-aurora pointer-events-none absolute -bottom-40 left-1/3 h-96 w-96 rounded-full bg-fuchsia-500/15 blur-3xl" style={delay(-9000)} />
+        <div aria-hidden className="mge-aurora pointer-events-none absolute -left-24 -top-32 h-96 w-96 rounded-full bg-cyan-200/40 dark:bg-cyan-500/25 blur-3xl" />
+        <div aria-hidden className="mge-aurora pointer-events-none absolute -right-24 top-0 h-96 w-96 rounded-full bg-violet-200/45 dark:bg-purple-600/30 blur-3xl" style={delay(-5000)} />
+        <div aria-hidden className="mge-aurora pointer-events-none absolute -bottom-40 left-1/3 h-96 w-96 rounded-full bg-fuchsia-200/30 dark:bg-fuchsia-500/15 blur-3xl" style={delay(-9000)} />
         {header && (
           <div className="relative px-5 pb-5 pt-6 sm:px-7 sm:pt-7">
             {BUBBLES.map(([left, size, t, d], i) => (
@@ -527,7 +556,7 @@ function TopPick({
           onClick={onDismiss}
           title="Not now — show me something else"
           aria-label="Not now"
-          className="rounded-full p-1.5 text-slate-500 transition hover:bg-white/10 hover:text-white"
+          className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white"
         >
           <X className="h-4 w-4" />
         </button>
@@ -536,16 +565,16 @@ function TopPick({
       <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-start">
         <div className="min-w-0 flex-1">
           {/* A Tamil word is kept whole where it fits; only a word too long for the line is broken. */}
-          <h3 className="text-xl font-extrabold leading-snug tracking-tight text-white [overflow-wrap:break-word] sm:text-[22px]">{recommendationTitle(rec)}</h3>
-          <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+          <h3 className="text-xl font-extrabold leading-snug tracking-tight text-slate-900 dark:text-white [overflow-wrap:break-word] sm:text-[22px]">{recommendationTitle(rec)}</h3>
+          <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
             <KindTag rec={rec} />
             {recommendationPlace(rec) && <span>{recommendationPlace(rec)}</span>}
           </p>
           {rec.subcategory && (
-            <p className="mt-3 inline-flex max-w-full items-center gap-2 rounded-lg bg-white/5 px-2.5 py-1.5 text-xs ring-1 ring-white/10">
-              <Target className="h-3.5 w-3.5 flex-shrink-0 text-purple-300" />
-              <span className="flex-shrink-0 whitespace-nowrap text-slate-400">Weak part:</span>
-              <span className="truncate font-semibold text-white">{rec.subcategory.name}</span>
+            <p className="mt-3 inline-flex max-w-full items-center gap-2 rounded-lg bg-white/80 dark:bg-white/5 px-2.5 py-1.5 text-xs ring-1 ring-slate-200 dark:ring-white/10">
+              <Target className="h-3.5 w-3.5 flex-shrink-0 text-violet-600 dark:text-purple-300" />
+              <span className="flex-shrink-0 whitespace-nowrap text-slate-500 dark:text-slate-400">Weak part:</span>
+              <span className="truncate font-semibold text-slate-900 dark:text-white">{rec.subcategory.name}</span>
               {rec.subcategory.mastery != null && (
                 <span className={cn('flex-shrink-0 font-bold tabular-nums', FIGURE[masteryBand(rec.subcategory.mastery)])}>
                   {pct(rec.subcategory.mastery)}
@@ -557,10 +586,10 @@ function TopPick({
         <div className="flex flex-row items-center gap-4 sm:flex-col sm:gap-2">
           <Ring value={tried ? m!.score : null} size={84} label="Your score" />
           {tried && (
-            <p className="flex items-center gap-1 text-[11px] text-slate-400 tabular-nums">
+            <p className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
               {m!.correct} of {m!.attempted} right
               {m!.trend != null && Math.abs(m!.trend) >= 1 && (
-                <span className={cn('inline-flex items-center font-semibold', m!.trend > 0 ? 'text-emerald-300' : 'text-rose-300')}>
+                <span className={cn('inline-flex items-center font-semibold', m!.trend > 0 ? 'text-emerald-600 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300')}>
                   {m!.trend > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                   {Math.abs(Math.round(m!.trend))}
                 </span>
@@ -573,7 +602,7 @@ function TopPick({
       <div className="mt-4">
         <CoachSays text={rec.reason} source={rec.reason_source} wait={500}>
           {rec.tip && (
-            <p className="mt-2 flex gap-1.5 border-t border-white/10 pt-2 text-xs leading-relaxed text-slate-300">
+            <p className="mt-2 flex gap-1.5 border-t border-slate-200 dark:border-white/10 pt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
               <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-500" />
               {rec.tip}
             </p>
@@ -589,14 +618,14 @@ function TopPick({
           'mt-auto pt-5',
           // In the popup the button holds the foot of the window, on a fade so what scrolls under it stays readable.
           sticky &&
-            'sticky bottom-0 z-10 -mx-5 -mb-5 bg-gradient-to-t from-[#0d1326] via-[#0d1326]/95 to-transparent px-5 pb-5 pt-8 sm:-mx-6 sm:-mb-6 sm:px-6 sm:pb-6',
+            'sticky bottom-0 z-10 -mx-5 -mb-5 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-[#0d1326] dark:via-[#0d1326]/95 px-5 pb-5 pt-8 sm:-mx-6 sm:-mb-6 sm:px-6 sm:pb-6',
         )}
       >
         {rec.target.is_locked ? (
           <Link
             to={recommendationHref(rec)}
             title={rec.target.lock_reason ?? undefined}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/50 bg-amber-400/10 text-sm font-bold text-amber-300 hover:bg-amber-400/20"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-amber-300 dark:border-amber-400/50 bg-amber-50 dark:bg-amber-400/10 text-sm font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-400/20"
           >
             <Lock className="h-4 w-4" /> Unlock with a plan
           </Link>
@@ -626,8 +655,8 @@ function GoalStrip({ rec }: { rec: Recommendation }) {
   const score = rec.mastery && rec.mastery.attempted > 0 ? rec.mastery.score : null;
   if (score == null) {
     return (
-      <p className="mt-4 flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2.5 text-xs text-slate-300 ring-1 ring-white/10">
-        <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-cyan-300" />
+      <p className="mt-4 flex items-center gap-2 rounded-xl bg-white/80 dark:bg-white/5 px-3 py-2.5 text-xs text-slate-600 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-white/10">
+        <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-cyan-700 dark:text-cyan-300" />
         Not tried yet. Your first test will set your score.
       </p>
     );
@@ -636,22 +665,22 @@ function GoalStrip({ rec }: { rec: Recommendation }) {
   return (
     <div className="mt-4">
       <div className="flex items-baseline justify-between gap-3 text-[11px]">
-        <span className="font-semibold text-slate-300">Road to a strong score</span>
-        <span className={cn('tabular-nums', left > 0 ? 'text-slate-400' : 'font-semibold text-emerald-300')}>
+        <span className="font-semibold text-slate-600 dark:text-slate-300">Road to a strong score</span>
+        <span className={cn('tabular-nums', left > 0 ? 'text-slate-500 dark:text-slate-400' : 'font-semibold text-emerald-600 dark:text-emerald-300')}>
           {left > 0 ? `${left} points to go` : 'You are there. Keep it up!'}
         </span>
       </div>
-      <div className="relative mt-2.5 h-2 rounded-full bg-white/10">
+      <div className="relative mt-2.5 h-2 rounded-full bg-slate-200/70 dark:bg-white/10">
         <div
           className="relative h-2 rounded-full bg-gradient-to-r from-cyan-400 to-purple-500 shadow-[0_0_12px_rgba(34,211,238,0.6)] transition-[width] duration-[1100ms] ease-out"
           style={{ width: entered ? `${clamp(score)}%` : '0%' }}
         >
           {/* A glowing dot where the score ends. */}
-          <span aria-hidden className="absolute -right-1 top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)]" />
+          <span aria-hidden className="absolute -right-1 top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-white shadow ring-2 ring-violet-500 dark:shadow-[0_0_10px_rgba(255,255,255,0.9)] dark:ring-0" />
         </div>
-        <span aria-hidden className="absolute -top-1 h-4 w-0.5 rounded bg-emerald-300" style={{ left: `${GOAL}%` }} />
+        <span aria-hidden className="absolute -top-1 h-4 w-0.5 rounded bg-emerald-500 dark:bg-emerald-300" style={{ left: `${GOAL}%` }} />
       </div>
-      <div className="relative mt-1 h-4 text-[10px] font-semibold text-emerald-300">
+      <div className="relative mt-1 h-4 text-[10px] font-semibold text-emerald-600 dark:text-emerald-300">
         <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${GOAL}%` }}>
           Goal {GOAL}%
         </span>
@@ -673,13 +702,13 @@ function StatTiles({ rec }: { rec: Recommendation }) {
     <div className="mt-3 grid gap-2" style={{ gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))` }}>
       {tiles.map(({ Icon, value, label }) => (
         // On a phone each tile is a narrow column, so icon, number and label stack; from `sm` they sit side by side.
-        <div key={label} className="flex flex-col items-center gap-1.5 rounded-xl bg-white/5 px-1.5 py-2.5 text-center ring-1 ring-white/10 sm:flex-row sm:gap-2 sm:px-2.5 sm:py-2 sm:text-left">
+        <div key={label} className="flex flex-col items-center gap-1.5 rounded-xl bg-white/80 dark:bg-white/5 px-1.5 py-2.5 text-center ring-1 ring-slate-200 dark:ring-white/10 sm:flex-row sm:gap-2 sm:px-2.5 sm:py-2 sm:text-left">
           <span className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-lg bg-cyan-400/10 ring-1 ring-cyan-400/25">
-            <Icon className="h-3.5 w-3.5 text-cyan-300" />
+            <Icon className="h-3.5 w-3.5 text-cyan-700 dark:text-cyan-300" />
           </span>
           <div className="min-w-0 max-w-full">
-            <p className="text-sm font-extrabold leading-none text-white sm:truncate">{value}</p>
-            <p className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+            <p className="text-sm font-extrabold leading-none text-slate-900 dark:text-white sm:truncate">{value}</p>
+            <p className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
           </div>
         </div>
       ))}
@@ -706,21 +735,21 @@ function AlsoRow({
   const tried = !!m && m.attempted > 0;
   return (
     <li
-      className="mge-rise group relative -mx-2 flex items-start gap-3 rounded-xl px-2 py-3 transition-all duration-300 hover:translate-x-1 hover:bg-white/[0.06]"
+      className="mge-rise group relative -mx-2 flex items-start gap-3 rounded-xl px-2 py-3 transition-all duration-300 hover:translate-x-1 hover:bg-slate-100/70 dark:hover:bg-white/[0.06]"
       style={delay(wait)}
     >
-      <span className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-full bg-white/5 text-xs font-extrabold text-cyan-300 ring-1 ring-cyan-400/30 transition group-hover:bg-gradient-to-br group-hover:from-cyan-400 group-hover:to-purple-500 group-hover:text-white group-hover:shadow-[0_0_14px_rgba(34,211,238,0.6)]">
+      <span className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-full bg-white/80 dark:bg-white/5 text-xs font-extrabold text-cyan-700 dark:text-cyan-300 ring-1 ring-cyan-400/30 transition group-hover:bg-gradient-to-br group-hover:from-cyan-400 group-hover:to-purple-500 group-hover:text-white group-hover:shadow-[0_0_14px_rgba(34,211,238,0.6)]">
         {number}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
           <span className={cn('h-1.5 w-1.5 rounded-full', TYPE_DOT[rec.type])} />
           {TYPE_LABEL[rec.type] ?? rec.type}
         </div>
-        <p className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-white" title={recommendationTitle(rec)}>
+        <p className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-slate-900 dark:text-white" title={recommendationTitle(rec)}>
           {recommendationTitle(rec)}
         </p>
-        <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
+        <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
           <KindTag rec={rec} />
           {recommendationPlace(rec) && <span className="truncate">{recommendationPlace(rec)}</span>}
         </p>
@@ -730,9 +759,9 @@ function AlsoRow({
             <span className={cn('text-[11px] font-bold tabular-nums', FIGURE[masteryBand(m!.score)])}>{pct(m!.score)}</span>
           </div>
         ) : (
-          <p className="mt-1 text-[11px] font-medium text-cyan-300">Not tried yet</p>
+          <p className="mt-1 text-[11px] font-medium text-cyan-700 dark:text-cyan-300">Not tried yet</p>
         )}
-        <p className="mt-1.5 line-clamp-2 text-[11px] italic leading-snug text-purple-200/80">“{rec.reason}”</p>
+        <p className="mt-1.5 line-clamp-2 text-[11px] italic leading-snug text-violet-700/80 dark:text-purple-200/80">“{rec.reason}”</p>
       </div>
       {/* The button is centred on the row's height, so it lines up whether the title takes one line or two. */}
       <div className="flex flex-shrink-0 self-center">
@@ -742,8 +771,8 @@ function AlsoRow({
           className={cn(
             'inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition',
             rec.target.is_locked
-              ? 'border border-amber-400/50 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20'
-              : 'bg-cyan-400/10 text-cyan-300 ring-1 ring-cyan-400/30 hover:bg-cyan-400 hover:text-slate-950 hover:shadow-[0_0_16px_rgba(34,211,238,0.7)]',
+              ? 'border border-amber-300 dark:border-amber-400/50 bg-amber-50 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-400/20'
+              : 'bg-cyan-400/10 text-cyan-700 dark:text-cyan-300 ring-1 ring-cyan-400/30 hover:bg-cyan-400 hover:text-slate-950 hover:shadow-[0_0_16px_rgba(34,211,238,0.7)]',
           )}
         >
           {rec.target.is_locked ? (
@@ -763,7 +792,7 @@ function AlsoRow({
         onClick={onDismiss}
         title="Not now — show me something else"
         aria-label="Not now"
-        className="absolute right-1 top-1 rounded-full p-1 text-slate-500 opacity-0 transition hover:bg-white/10 hover:text-white focus:opacity-100 group-hover:opacity-100"
+        className="absolute right-1 top-1 rounded-full p-1 text-slate-500 opacity-0 transition hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white focus:opacity-100 group-hover:opacity-100"
       >
         <X className="h-3.5 w-3.5" />
       </button>
@@ -779,12 +808,12 @@ function Readiness({ readiness, wait = 0 }: { readiness: NonNullable<Recommendat
       <div className="flex items-center gap-4">
         <Ring value={readiness.score} size={84} label="Ready" />
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">How ready you are</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">How ready you are</p>
           <ul className="mt-2 space-y-2">
             {readiness.sections.map((s, i) => (
               <li key={s.name}>
                 <div className="flex justify-between gap-3 text-[11px]">
-                  <span className="truncate text-slate-300">{s.name}</span>
+                  <span className="truncate text-slate-600 dark:text-slate-300">{s.name}</span>
                   <span className={cn('font-bold tabular-nums', FIGURE[masteryBand(s.score)])}>{pct(s.score)}</span>
                 </div>
                 <Bar value={s.score} className="mt-1" wait={wait + 150 + i * 120} />
@@ -811,13 +840,13 @@ function SkillMap({ units, improved, keyTopicsHref }: { units: WeakMapUnit[]; im
     <div className={cn(GLASS, 'mge-rise mt-4 p-4 sm:p-5')} style={delay(420)}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="flex items-center gap-2 text-sm font-extrabold text-white">
-            <BrainCircuit className="h-4 w-4 text-cyan-300" /> Your topics
+          <h3 className="flex items-center gap-2 text-sm font-extrabold text-slate-900 dark:text-white">
+            <BrainCircuit className="h-4 w-4 text-cyan-700 dark:text-cyan-300" /> Your topics
             <AiTag label="AI" />
           </h3>
-          <p className="mt-0.5 text-[11px] text-slate-400">Units you have tried, weakest first. Tap a topic to practise it.</p>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Units you have tried, weakest first. Tap a topic to practise it.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 text-[10px] font-medium text-slate-400">
+        <div className="flex flex-wrap items-center gap-3 text-[10px] font-medium text-slate-500 dark:text-slate-400">
           <Legend tone="weak" label="Weak" />
           <Legend tone="building" label="Getting better" />
           <Legend tone="strong" label="Strong" />
@@ -826,13 +855,13 @@ function SkillMap({ units, improved, keyTopicsHref }: { units: WeakMapUnit[]; im
 
       {improved.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+          <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-300">
             <TrendingUp className="h-3.5 w-3.5" /> Improving
           </span>
           {improved.slice(0, 6).map(i => (
             <span
               key={i.category}
-              className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[11px] text-emerald-300 ring-1 ring-emerald-400/30"
+              className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[11px] text-emerald-600 dark:text-emerald-300 ring-1 ring-emerald-400/30"
             >
               <span className="font-semibold">{i.category}</span> {Math.round(i.from)}% → <span className="font-bold">{Math.round(i.to)}%</span>
             </span>
@@ -841,15 +870,15 @@ function SkillMap({ units, improved, keyTopicsHref }: { units: WeakMapUnit[]; im
       )}
 
       {shown.length > 0 && (
-        <ul className="mt-3 divide-y divide-white/10">
+        <ul className="mt-3 divide-y divide-slate-200/80 dark:divide-white/10">
           {shown.map((u, ui) => (
             <li key={u.unit_id} className="mge-rise grid grid-cols-1 items-start gap-2 py-3 sm:grid-cols-[220px_1fr] sm:gap-4" style={delay(Math.min(ui, 8) * 70 + 500)}>
               <div className="flex items-center gap-2.5">
-                <span className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg bg-white/5 text-[11px] font-bold text-cyan-300 ring-1 ring-cyan-400/30">
+                <span className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg bg-white/80 dark:bg-white/5 text-[11px] font-bold text-cyan-700 dark:text-cyan-300 ring-1 ring-cyan-400/30">
                   {u.label ?? '★'}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="line-clamp-2 text-sm font-semibold leading-snug text-white" title={displayUnitName(u.unit_id, u.unit_name)}>
+                  <p className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900 dark:text-white" title={displayUnitName(u.unit_id, u.unit_name)}>
                     {displayUnitName(u.unit_id, u.unit_name)}
                   </p>
                   <div className="mt-1 flex items-center gap-2">
@@ -871,7 +900,7 @@ function SkillMap({ units, improved, keyTopicsHref }: { units: WeakMapUnit[]; im
                         key={c.id ?? c.name}
                         to={keyTopicsHref}
                         title={`${c.name} — ${pct(c.mastery)} mastery from ${c.attempted} question${c.attempted === 1 ? '' : 's'}`}
-                        className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-white/[0.05] px-2.5 py-1 text-[11px] text-slate-200 ring-1 ring-white/10 transition duration-200 hover:-translate-y-0.5 hover:bg-white/10 hover:ring-cyan-400/50 hover:shadow-[0_0_14px_rgba(34,211,238,0.35)]"
+                        className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-white dark:bg-white/[0.05] px-2.5 py-1 text-[11px] text-slate-700 dark:text-slate-200 ring-1 ring-slate-200 dark:ring-white/10 transition duration-200 hover:-translate-y-0.5 hover:bg-slate-100 dark:hover:bg-white/10 hover:ring-cyan-400/50 hover:shadow-[0_0_14px_rgba(34,211,238,0.35)]"
                       >
                         <span className={cn('h-1.5 w-1.5 flex-shrink-0 rounded-full', FILL[band])} />
                         {/* A long Tamil name wraps inside the tag; the dot and the percentage keep their place. */}
@@ -890,7 +919,7 @@ function SkillMap({ units, improved, keyTopicsHref }: { units: WeakMapUnit[]; im
         <button
           type="button"
           onClick={() => setShowAll(v => !v)}
-          className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-cyan-300 hover:underline"
+          className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-cyan-700 dark:text-cyan-300 hover:underline"
         >
           {showAll ? (
             <>
@@ -919,8 +948,8 @@ function Legend({ tone, label }: { tone: 'weak' | 'building' | 'strong'; label: 
 function ThinkingDots({ light = false }: { light?: boolean }) {
   return (
     <span className="mge-think inline-flex items-center gap-0.5" aria-hidden>
-      <span className={cn('h-1 w-1 rounded-full', light ? 'bg-white' : 'bg-cyan-300')} />
-      <span className={cn('h-1 w-1 rounded-full', light ? 'bg-cyan-200' : 'bg-cyan-500')} />
+      <span className={cn('h-1 w-1 rounded-full', light ? 'bg-cyan-500 dark:bg-white' : 'bg-cyan-400 dark:bg-cyan-300')} />
+      <span className={cn('h-1 w-1 rounded-full', light ? 'bg-violet-400 dark:bg-cyan-200' : 'bg-cyan-500')} />
       <span className="h-1 w-1 rounded-full bg-rose-400" />
     </span>
   );
@@ -935,8 +964,8 @@ function Thinking({ className }: { className?: string }) {
         <div className="flex items-center gap-4">
           <Orb size={56} />
           <div>
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-cyan-300">AI Study Coach</p>
-            <p className="mt-1 flex items-center gap-2 text-lg font-bold text-white">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-300">AI Study Coach</p>
+            <p className="mt-1 flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white">
               Analysing your attempts <ThinkingDots light />
             </p>
           </div>
@@ -985,7 +1014,10 @@ export function AiCoachDialog({
       >
         <DialogTitle className="sr-only">AI Study Coach — what to practise next</DialogTitle>
         <DialogDescription className="sr-only">Your personalised practice picks, exam readiness and skill map.</DialogDescription>
-        <NextBestPractice exam={exam} stage={stage} name={name} stickyAction />
+        {/* The popup keeps the coach's midnight look; on the page it is light (unless the portal is in dark mode). */}
+        <div className="dark">
+          <NextBestPractice exam={exam} stage={stage} name={name} stickyAction />
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -1000,14 +1032,15 @@ export function AiCoachButton({ exam, stage, onClick, className }: { exam: strin
       type="button"
       onClick={onClick}
       className={cn(
-        'mge-ai-border group rounded-full p-[1.5px] shadow-[0_0_18px_-2px_rgba(34,211,238,0.6)] transition hover:scale-[1.03] hover:shadow-[0_0_26px_rgba(168,85,247,0.7)]',
+        'mge-ai-border mge-ai-night group rounded-full p-[1.5px] shadow-[0_0_18px_-2px_rgba(34,211,238,0.6)] transition hover:scale-[1.03] hover:shadow-[0_0_26px_rgba(168,85,247,0.7)]',
         className,
       )}
     >
-      <span className="flex items-center gap-2 rounded-full bg-[#0b1020] py-1 pl-1 pr-3.5">
+      {/* The button is always the midnight coach, as the popup it opens is. */}
+      <span className="dark flex items-center gap-2 rounded-full bg-[#0b1020] py-1 pl-1 pr-3.5">
         <Orb size={26} />
         <span className="bg-gradient-to-r from-cyan-300 to-purple-300 bg-clip-text text-xs font-extrabold text-transparent">AI Coach</span>
-        <span className="rounded-full bg-cyan-400/15 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300 ring-1 ring-cyan-400/30">{data.items.length} picks</span>
+        <span className="rounded-full bg-cyan-400/15 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300 ring-1 ring-cyan-400/30">{visiblePicks(data.items, []).length} picks</span>
       </span>
     </button>
   );
@@ -1057,7 +1090,7 @@ export function NextUpCard({ exam, stage, justTaken }: { exam: string; stage: st
     return (
       <div data-no-print className="mb-4">
         <Shell>
-          <p className="flex items-center gap-3 text-sm font-semibold text-slate-200">
+          <p className="flex items-center gap-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
             <Orb size={32} /> Working out what you should practise next <ThinkingDots />
           </p>
         </Shell>
@@ -1076,10 +1109,10 @@ export function NextUpCard({ exam, stage, justTaken }: { exam: string; stage: st
               </span>
               <TypePill type={next.type} />
             </div>
-            <p className="mt-1.5 flex flex-wrap items-center gap-2 text-lg font-extrabold text-white">
+            <p className="mt-1.5 flex flex-wrap items-center gap-2 text-lg font-extrabold text-slate-900 dark:text-white">
               {recommendationTitle(next)}
               <KindTag rec={next} />
-              <span className="text-xs font-normal text-slate-400">{recommendationPlace(next)}</span>
+              <span className="text-xs font-normal text-slate-500 dark:text-slate-400">{recommendationPlace(next)}</span>
             </p>
             <div className="mt-2">
               <CoachSays text={next.reason} source={next.reason_source} wait={300} />
@@ -1091,7 +1124,7 @@ export function NextUpCard({ exam, stage, justTaken }: { exam: string; stage: st
             className={cn(
               'inline-flex h-11 flex-shrink-0 items-center gap-2 rounded-xl px-5 text-sm font-bold transition',
               next.target.is_locked
-                ? 'border border-amber-400/50 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20'
+                ? 'border border-amber-300 dark:border-amber-400/50 bg-amber-50 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-400/20'
                 : cn('mge-sheen text-white hover:scale-[1.03] hover:shadow-[0_0_36px_rgba(168,85,247,0.6)]', AI_FILL),
             )}
           >
