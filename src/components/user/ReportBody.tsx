@@ -45,6 +45,7 @@ import { canDownloadQuestions } from '@/lib/download-access';
 import { ReportLanguageProvider, type ReportLanguage } from '@/components/user/report-ui';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { bilingual } from '@/lib/bilingual';
 import { buildAttemptReport, factsFromModel } from '@/lib/attempt-report';
 import { DEPTH_NOTE, reportDepth, showsPanel } from '@/lib/report-depth';
 import { UnitPracticeReport } from '@/components/user/UnitPracticeReport';
@@ -268,18 +269,18 @@ function QuestionCard({
             {/* The category and the subtopic under it. The subject only where a question has no category. */}
             {q.category ? (
               <span className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded font-medium">
-                {q.category}
+                {bilingual(q.category)}
               </span>
             ) : (
               q.subject && (
                 <span className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded font-medium">
-                  {q.subject}
+                  {bilingual(q.subject)}
                 </span>
               )
             )}
             {(q.subtopic ?? q.subtopic_name) && (
               <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.5 rounded font-medium">
-                {q.subtopic ?? q.subtopic_name}
+                {bilingual(q.subtopic ?? q.subtopic_name)}
               </span>
             )}
             {q.time_spent_seconds > 0 && (

@@ -41,6 +41,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { bilingual } from '@/lib/bilingual';
 import type {
   SkhcReport as SkhcReportData,
   SkhcComparisonSubject,
@@ -185,7 +186,7 @@ function ExamOverview({ exams }: { exams: SkhcExamRow[] }) {
 function ComparisonSubjectRow({ s }: { s: SkhcComparisonSubject }) {
   return (
     <tr className="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
-      <td className="px-3 py-2 font-medium text-gray-800 dark:text-gray-200">{s.subject}</td>
+      <td className="px-3 py-2 font-medium text-gray-800 dark:text-gray-200">{bilingual(s.subject)}</td>
       <td className="text-center px-2 py-2 text-gray-500 tabular-nums">{s.previous_marks}</td>
       <td className="text-center px-2 py-2 font-semibold text-gray-900 dark:text-gray-100 tabular-nums">{s.current_marks}</td>
       <td className="text-center px-2 py-2"><DeltaPill value={s.delta_marks} /></td>
@@ -267,7 +268,7 @@ function SubjectPerformanceTable({ subjects }: { subjects: SkhcSubjectPerformanc
             const g = gradeMeta(s.grade);
             return (
               <tr key={i} className="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
-                <td className="px-3 py-2.5 font-medium text-gray-800 dark:text-gray-200">{s.subject}</td>
+                <td className="px-3 py-2.5 font-medium text-gray-800 dark:text-gray-200">{bilingual(s.subject)}</td>
                 <td className="text-center px-2 py-2.5 text-gray-500 tabular-nums">{s.first_percentage}%</td>
                 <td className="text-center px-2 py-2.5 font-semibold text-gray-900 dark:text-gray-100 tabular-nums">{s.latest_percentage}%</td>
                 <td className="text-center px-2 py-2.5"><DeltaPill value={s.delta_marks} /></td>
@@ -291,7 +292,7 @@ function DiagnosticCard({ d }: { d: SkhcSubjectDiagnostic }) {
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-3.5">
       <div className="flex items-center justify-between gap-2 mb-1.5">
-        <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{d.subject}</span>
+        <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{bilingual(d.subject)}</span>
         <div className="flex items-center gap-2">
           <span className={cn('text-sm font-bold tabular-nums', g.text)}>{d.percentage}%</span>
           <span className={cn('w-5 h-5 rounded text-white text-[10px] font-bold flex items-center justify-center', g.bg)}>{d.grade}</span>
@@ -319,7 +320,7 @@ function ImprovementPlanRow({ item }: { item: SkhcImprovementPlanItem }) {
         <span className={cn('text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border', cls)}>
           {item.priority}
         </span>
-        <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{item.subject}</span>
+        <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{bilingual(item.subject)}</span>
       </div>
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
         <span className="font-semibold text-gray-600 dark:text-gray-300">Gap:</span> {item.gap_identified}
@@ -364,7 +365,7 @@ function ImprovementPlanTable({ items }: { items: SkhcImprovementPlanItem[] }) {
               <td className="px-3 py-2.5 font-bold whitespace-nowrap" style={{ color: priorityColor(item.priority) }}>
                 {item.priority}
               </td>
-              <td className="px-3 py-2.5 font-medium text-gray-800 dark:text-gray-200">{item.subject}</td>
+              <td className="px-3 py-2.5 font-medium text-gray-800 dark:text-gray-200">{bilingual(item.subject)}</td>
               <td className="px-3 py-2.5 text-gray-600 dark:text-gray-400">{item.gap_identified}</td>
               <td className="px-3 py-2.5 text-gray-600 dark:text-gray-400">{item.recommended_action}</td>
               {hasDuration && <td className="px-3 py-2.5 text-gray-600 dark:text-gray-400 whitespace-nowrap">{item.duration ?? '—'}</td>}
@@ -722,7 +723,7 @@ function SubjectChart({ chart }: { chart: SkhcSubjectChart }) {
   const narrow = useNarrowScreen();
   const examLabels = (chart.exam_labels || []).map((l) => reExam(l));
   const data = (chart.subjects || []).map((s) => {
-    const row: Record<string, any> = { subject: s.subject };
+    const row: Record<string, any> = { subject: bilingual(s.subject) };
     examLabels.forEach((lbl, i) => {
       row[lbl] = s.percentages?.[i] ?? null;
     });
@@ -912,7 +913,7 @@ export function SkhcReport({ report }: { report: SkhcReportData }) {
   const cmpVerdict = verdictMeta(comparison?.verdict);
 
   const trendData = (score_trend?.points ?? []).map(p => ({ label: reExam(p.label), percentage: p.percentage, score: p.score }));
-  const radarData = (proficiency_radar ?? []).map(r => ({ subject: r.subject, First: r.first_percentage, Latest: r.latest_percentage }));
+  const radarData = (proficiency_radar ?? []).map(r => ({ subject: bilingual(r.subject), First: r.first_percentage, Latest: r.latest_percentage }));
 
   return (
     <div className="space-y-5">

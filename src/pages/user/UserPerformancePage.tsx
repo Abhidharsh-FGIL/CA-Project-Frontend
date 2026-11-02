@@ -1,6 +1,6 @@
 import { upperMeridiem } from '@/lib/meridiem';
 import { useEffect, useMemo, useState } from 'react';
-import { displayTitle } from '@/lib/display-title';
+import { studentTitle } from '@/lib/bilingual';
 import { Link, useSearchParams } from 'react-router-dom';
 import { readPerformanceView } from '@/lib/performance-view';
 import { here } from '@/lib/report-origin';
@@ -451,7 +451,7 @@ export default function UserPerformancePage() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
-                          {displayTitle(h.test_name) ?? 'Test attempt'}
+                          {studentTitle(h.test_name) || 'Test attempt'}
                         </span>
                         <span className="block text-[10px] text-gray-400 capitalize">
                           {upperMeridiem(new Date(h.start_time).toLocaleString('en-IN', {

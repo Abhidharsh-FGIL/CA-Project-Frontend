@@ -28,6 +28,7 @@ import type {
 } from './userPortalApi';
 import { negativeMarkLoss, type ExamContext, type ExamTaxonomyNode } from './exam-report-config';
 import { difficultyLabel } from '@/lib/eval-difficulty';
+import { bilingual, isTamil, registerPair } from '@/lib/bilingual';
 import { findStage, resolveSubjectId, unitNameForId } from '@/config/tnpsc';
 import { subjectIdForQuestion } from '@/lib/unit-pool';
 
@@ -255,6 +256,12 @@ export interface DiagnosticFinding {
    * should be read as provisional. The wording now says which.
    */
   basis: string;
+}
+
+/** A unit, subject or topic named inside a sentence the reader sees: "English / தமிழ்". Display only. */
+function shownName(node: { name: string; nameLocal?: string | null }): string {
+  const local = node.nameLocal?.trim();
+  return local && isTamil(local) !== isTamil(node.name) ? bilingual(node.name, local) : bilingual(node.name);
 }
 
 /** A line that is simply counted, not inferred — no uncertainty to declare. */
@@ -834,6 +841,13 @@ export function normalizeAttemptDetail(detail: AttemptDetailResponse): AttemptDe
     attempt_type: raw.attempt_type ?? 'eval',
   };
 
+  // The category, sub-category and unit names the server paired with their other language, for every screen.
+  for (const q of raw.questions ?? []) {
+    registerPair(q.category, q.category_en, q.category_ta);
+    registerPair(q.subtopic ?? q.sub_topic ?? q.subtopic_name, q.subtopic_en, q.subtopic_ta);
+    registerPair(q.unit_name, null, q.unit_name_ta);
+  }
+
   const questions: QuestionReviewItem[] = (raw.questions ?? []).map((q: any, i: number) => ({
     ...q,
     question_id: q.question_id ?? q.id ?? `q${i + 1}`,
@@ -1240,7 +1254,7 @@ export function buildAttemptReport(
       status,
       primaryIssue,
       confidence,
-      diagnosis: diagnoseSubject(labels.name, m, state, isSlow, cfg),
+      diagnosis: diagnoseSubject(shownName(labels), m, state, isSlow, cfg),
       issueBadges: badges,
       difficultySplit: difficultyRows(items),
       questionIds: items.map(q => q.question_id),
@@ -1718,7 +1732,7 @@ function buildVerdict(
     const topGap = coverageRows[0] ?? null;
     const addlCorrect = Math.round(((s.accuracy ?? 0) / 100) * s.unattempted);
     const startWhere = topGap
-      ? `Start in ${topGap.name}: ${topGap.skipped} of its ${topGap.questions} questions are still blank${
+      ? `Start in ${shownName(topGap)}: ${topGap.skipped} of its ${topGap.questions} questions are still blank${
           topGap.marksAtStake != null ? `, worth ${topGap.marksAtStake} marks` : ''
         }.`
       : `${s.unattempted} questions across the paper are still blank.`;
@@ -1733,16 +1747,16 @@ function buildVerdict(
   if ((s.accuracy ?? 0) < cfg.targetAccuracy) {
     const worstErr = errorFocusRows[0] ?? null;
     const focus = worstErr
-      ? `${worstErr.name} is doing the most damage: ${worstErr.incorrect} wrong answer${worstErr.incorrect === 1 ? '' : 's'} there alone${
+      ? `${shownName(worstErr)} is doing the most damage: ${worstErr.incorrect} wrong answer${worstErr.incorrect === 1 ? '' : 's'} there alone${
           worstErr.shareOfErrors != null ? ` — ${worstErr.shareOfErrors}% of every mistake in the paper` : ''
         }.`
       : `${s.incorrect} of the ${s.attempted} you answered came back wrong.`;
     return {
       severity: 'needs_focus',
       label: 'Needs focus',
-      note: worstErr ? `${worstErr.name} alone is costing you the most marks` : 'Accuracy is the constraint.',
+      note: worstErr ? `${shownName(worstErr)} alone is costing you the most marks` : 'Accuracy is the constraint.',
       detail: `Coverage is already healthy, so the score is limited by accuracy, not time or nerve. ${focus} More practice volume will not help here; reworking the wrong answers in ${
-        worstErr ? worstErr.name : 'your weakest subject'
+        worstErr ? shownName(worstErr) : 'your weakest subject'
       } will.`,
     };
   }
@@ -1757,12 +1771,12 @@ function buildVerdict(
   return {
     severity: 'on_track',
     label: 'On track',
-    note: strongest ? `${strongest.name} is carrying this attempt at ${strongest.metrics.accuracy}%` : 'Coverage and accuracy both at target.',
+    note: strongest ? `${shownName(strongest)} is carrying this attempt at ${strongest.metrics.accuracy}%` : 'Coverage and accuracy both at target.',
     detail: `You are clearing both the ${cfg.targetCoverage}% coverage and ${cfg.targetAccuracy}% accuracy targets${
-      strongest ? `, led by ${strongest.name}` : ''
+      strongest ? `, led by ${shownName(strongest)}` : ''
     }. ${
       stretch
-        ? `The next stretch is ${stretch.name}, where ${stretch.skipped} of ${stretch.questions} questions are still unanswered.`
+        ? `The next stretch is ${shownName(stretch)}, where ${stretch.skipped} of ${stretch.questions} questions are still unanswered.`
         : 'The work now is holding this while widening into the subjects that carried fewer questions.'
     }`,
   };
@@ -1808,7 +1822,7 @@ function buildDiagnostics(
   const notAssessed = subjects.filter(s => s.state === 'NOT_ASSESSED');
   if (notAssessed.length > 0) {
     const blank = notAssessed.reduce((n, s) => n + s.metrics.questions, 0);
-    const names = notAssessed.slice(0, 3).map(s => s.name).join(', ');
+    const names = notAssessed.slice(0, 3).map(s => shownName(s)).join(', ');
     out.push({
       text: `${notAssessed.length} subject${notAssessed.length === 1 ? '' : 's'} (${names}${notAssessed.length > 3 ? ', …' : ''}) were not assessed in this attempt — ${blank} questions untouched. Their level is unknown, not low.`,
       evidence: notAssessed.slice(0, 5).map(s => `${s.name}: 0 of ${s.metrics.questions} attempted`),
@@ -1832,13 +1846,13 @@ function buildDiagnostics(
       );
     const topicPart =
       weakTopic && (weakTopic.metrics.accuracy ?? 0) < cfg.targetAccuracy
-        ? ` Within it, ${weakTopic.name} is the softest spot at ${weakTopic.metrics.correctPct}% (${weakTopic.metrics.correct}/${weakTopic.metrics.questions}) — the narrowest place to start revising.`
+        ? ` Within it, ${shownName(weakTopic)} is the softest spot at ${weakTopic.metrics.correctPct}% (${weakTopic.metrics.correct}/${weakTopic.metrics.questions}) — the narrowest place to start revising.`
         : '';
     out.push({
-      text: `${weakest.name} is the weakest measured subject at ${weakest.metrics.correctPct}% (${weakest.metrics.correct}/${weakest.metrics.questions}), across ${weakest.metrics.questions} questions in this paper.${topicPart}`,
+      text: `${shownName(weakest)} is the weakest measured subject at ${weakest.metrics.correctPct}% (${weakest.metrics.correct}/${weakest.metrics.questions}), across ${weakest.metrics.questions} questions in this paper.${topicPart}`,
       evidence: [`${weakest.metrics.correct}/${weakest.metrics.attempted} correct`, `${weakest.metrics.questions} questions available`],
       confidence: weakest.confidence,
-      basis: basisFromSample(weakest.metrics.attempted, cfg, `answered ${weakest.name} questions`),
+      basis: basisFromSample(weakest.metrics.attempted, cfg, `answered ${shownName(weakest)} questions`),
     });
   }
 
@@ -1886,7 +1900,7 @@ function buildDiagnostics(
     const top = worstSubjects.slice(0, 2);
     const share = Math.round((top.reduce((n, x) => n + x.metrics.incorrect, 0) / summary.incorrect) * 100);
     out.push({
-      text: `${top.map(x => x.name).join(' and ')} together hold ${share}% of every wrong answer in this paper, so they are where correction pays back fastest.`,
+      text: `${top.map(x => shownName(x)).join(' and ')} together hold ${share}% of every wrong answer in this paper, so they are where correction pays back fastest.`,
       evidence: top.map(x => `${x.name}: ${x.metrics.incorrect} wrong`),
       confidence: 'HIGH',
       basis: COUNTED,
@@ -1900,10 +1914,10 @@ function buildDiagnostics(
   );
   if (strongest && (strongest.metrics.accuracy ?? 0) >= cfg.targetAccuracy) {
     out.push({
-      text: `${strongest.name} is holding up at ${strongest.metrics.correctPct}% (${strongest.metrics.correct}/${strongest.metrics.questions}) — enough evidence to treat it as a strength to maintain rather than rebuild.`,
+      text: `${shownName(strongest)} is holding up at ${strongest.metrics.correctPct}% (${strongest.metrics.correct}/${strongest.metrics.questions}) — enough evidence to treat it as a strength to maintain rather than rebuild.`,
       evidence: [`${strongest.metrics.correct}/${strongest.metrics.attempted} correct`],
       confidence: strongest.confidence,
-      basis: basisFromSample(strongest.metrics.attempted, cfg, `answered ${strongest.name} questions`),
+      basis: basisFromSample(strongest.metrics.attempted, cfg, `answered ${shownName(strongest)} questions`),
     });
   }
 
@@ -1955,36 +1969,36 @@ function buildRadarInterpretation(subjects: SubjectNode[], cfg: ReportConfig): s
   const below = measured.filter(s => (s.metrics.correctPct ?? 0) < cfg.targetAccuracy);
 
   lines.push(
-    `Strongest measured area: ${best.name} at ${best.metrics.correctPct}% (${best.metrics.correct} of ${best.metrics.questions} questions correct).`,
+    `Strongest measured area: ${shownName(best)} at ${best.metrics.correctPct}% (${best.metrics.correct} of ${best.metrics.questions} questions correct).`,
   );
   if (worst.subjectId !== best.subjectId) {
     lines.push(
-      `Weakest measured area: ${worst.name} at ${worst.metrics.correctPct}% (${worst.metrics.correct} of ${worst.metrics.questions}) — a ${Math.round((best.metrics.correctPct ?? 0) - (worst.metrics.correctPct ?? 0))}-point spread across the shape.`,
+      `Weakest measured area: ${shownName(worst)} at ${worst.metrics.correctPct}% (${worst.metrics.correct} of ${worst.metrics.questions}) — a ${Math.round((best.metrics.correctPct ?? 0) - (worst.metrics.correctPct ?? 0))}-point spread across the shape.`,
     );
   }
 
   lines.push(
     atTarget.length === 0
       ? `No subject reaches the ${cfg.targetAccuracy}% target yet, so the whole shape sits inside the target ring.`
-      : `${atTarget.length} of ${measured.length} measured subjects reach the ${cfg.targetAccuracy}% target: ${atTarget.slice(0, 3).map(s => s.name).join(', ')}${atTarget.length > 3 ? ' and others' : ''}.`,
+      : `${atTarget.length} of ${measured.length} measured subjects reach the ${cfg.targetAccuracy}% target: ${atTarget.slice(0, 3).map(s => shownName(s)).join(', ')}${atTarget.length > 3 ? ' and others' : ''}.`,
   );
 
   if (below.length > 0) {
     const worstThree = below.slice(-3).reverse();
     lines.push(
-      `Inside the ring: ${worstThree.map(s => `${s.name} (${s.metrics.correctPct}%)`).join(', ')} — the distance from the ring is the marks available.`,
+      `Inside the ring: ${worstThree.map(s => `${shownName(s)} (${s.metrics.correctPct}%)`).join(', ')} — the distance from the ring is the marks available.`,
     );
   }
 
   if (notAssessed.length > 0) {
     const blank = notAssessed.reduce((n, s) => n + s.metrics.questions, 0);
     lines.push(
-      `${notAssessed.length} axis${notAssessed.length === 1 ? '' : 'es'} sit${notAssessed.length === 1 ? 's' : ''} at 0% because nothing was attempted there (${blank} questions in ${notAssessed.slice(0, 2).map(s => s.name).join(', ')}${notAssessed.length > 2 ? ' and others' : ''}).`,
+      `${notAssessed.length} axis${notAssessed.length === 1 ? '' : 'es'} sit${notAssessed.length === 1 ? 's' : ''} at 0% because nothing was attempted there (${blank} questions in ${notAssessed.slice(0, 2).map(s => shownName(s)).join(', ')}${notAssessed.length > 2 ? ' and others' : ''}).`,
     );
   }
   if (thin.length > 0) {
     lines.push(
-      `${thin.length} subject${thin.length === 1 ? '' : 's'} sit below ${cfg.minEvidence} attempted questions (${thin.slice(0, 2).map(s => s.name).join(', ')}) — plotted, but the figure is not yet reliable.`,
+      `${thin.length} subject${thin.length === 1 ? '' : 's'} sit below ${cfg.minEvidence} attempted questions (${thin.slice(0, 2).map(s => shownName(s)).join(', ')}) — plotted, but the figure is not yet reliable.`,
     );
   }
   lines.push('The target ring is a coaching-centre band, not an official cut-off.');
@@ -2130,9 +2144,9 @@ function subjectNarrative(rows: SubjectShareRow[], cfg: ReportConfig): string {
   const worst = measured.reduce((lo, r) => ((r.accuracy ?? 0) < (lo.accuracy ?? 0) ? r : lo));
   const atTarget = measured.filter(r => (r.accuracy ?? 0) >= cfg.targetAccuracy).length;
   if (best.subjectId === worst.subjectId) {
-    return `${best.name} is the only subject with enough evidence, at ${best.accuracy}%.`;
+    return `${shownName(best)} is the only subject with enough evidence, at ${best.accuracy}%.`;
   }
-  return `${best.name} leads at ${best.accuracy}% and ${worst.name} trails at ${worst.accuracy}% — a ${Math.round((best.accuracy ?? 0) - (worst.accuracy ?? 0))}-point spread. ${atTarget} of ${measured.length} measured subjects clear the ${cfg.targetAccuracy}% target.`;
+  return `${shownName(best)} leads at ${best.accuracy}% and ${shownName(worst)} trails at ${worst.accuracy}% — a ${Math.round((best.accuracy ?? 0) - (worst.accuracy ?? 0))}-point spread. ${atTarget} of ${measured.length} measured subjects clear the ${cfg.targetAccuracy}% target.`;
 }
 
 function errorNarrative(rows: SubjectShareRow[], totalIncorrect: number): string {
@@ -2143,9 +2157,9 @@ function errorNarrative(rows: SubjectShareRow[], totalIncorrect: number): string
   const share = Math.round((combined / totalIncorrect) * 100);
   const marks = top.marksUncollected != null ? ` ${top.marksUncollected} marks went uncollected there.` : '';
   if (rows.length === 1) {
-    return `All ${totalIncorrect} wrong answers are in ${top.name}.${marks}`;
+    return `All ${totalIncorrect} wrong answers are in ${shownName(top)}.${marks}`;
   }
-  return `${top.name} holds the most wrong answers (${top.incorrect} of ${totalIncorrect}, ${top.shareOfErrors}%), and ${topTwo.map(r => r.name).join(' plus ')} together account for ${share}% of every mistake in the paper.${marks} Fixing those two moves the score further than spreading effort evenly.`;
+  return `${shownName(top)} holds the most wrong answers (${top.incorrect} of ${totalIncorrect}, ${top.shareOfErrors}%), and ${topTwo.map(r => shownName(r)).join(' plus ')} together account for ${share}% of every mistake in the paper.${marks} Fixing those two moves the score further than spreading effort evenly.`;
 }
 
 function difficultyNarrative(rows: DifficultyRow[]): string {
@@ -2286,7 +2300,7 @@ function coverageAction(
   if (state === 'NOT_ASSESSED') {
     return topicList
       ? `Start with a short diagnostic across ${topicList}${more} — ${m.questions} questions were available here and none were contested, so there is nothing yet to say whether this is a gap or a strength.`
-      : `Sit a short diagnostic set in ${s.name}. ${m.questions} questions were available and none were attempted, so its level is unknown.`;
+      : `Sit a short diagnostic set in ${shownName(s)}. ${m.questions} questions were available and none were attempted, so its level is unknown.`;
   }
 
   // Partly worked: the advice depends on whether the attempted part held up.
@@ -2333,8 +2347,8 @@ function coverageNarrative(rows: CoverageRow[], totalSkipped: number, marksAtSta
   const lead = `${worth} sit in questions you did not answer — more than most attempts lose to wrong answers.`;
   const biggest =
     top.marksAtStake != null
-      ? ` The largest single block is ${top.name} at ${top.marksAtStake} marks across ${top.skipped} questions.`
-      : ` The largest single block is ${top.name}, ${top.skipped} questions.`;
+      ? ` The largest single block is ${shownName(top)} at ${top.marksAtStake} marks across ${top.skipped} questions.`
+      : ` The largest single block is ${shownName(top)}, ${top.skipped} questions.`;
   const untested =
     untouched.length > 0
       ? ` ${untouched.length} subject${untouched.length === 1 ? '' : 's'} were not touched at all, so they need a diagnostic before they can be planned around rather than a remedial course.`
@@ -2365,7 +2379,7 @@ function buildInsights(
         title: s.name,
         evidence: `0 of ${m.questions} attempted`,
         implication: `${marks} were available and none were contested. Your level here is unmeasured.`,
-        action: `Sit a short ${s.name} diagnostic set to find out where you stand before committing study time.`,
+        action: `Sit a short ${shownName(s)} diagnostic set to find out where you stand before committing study time.`,
       });
       continue;
     }
@@ -2376,7 +2390,7 @@ function buildInsights(
         title: `${s.name} — too few answers to judge`,
         evidence: `${m.correct}/${m.attempted} correct (${m.accuracy}% raw)`,
         implication: `${m.attempted} attempted question${m.attempted === 1 ? '' : 's'} cannot support a reliable conclusion either way.`,
-        action: `Attempt a ${s.name} practice set to establish a real baseline.`,
+        action: `Attempt a ${shownName(s)} practice set to establish a real baseline.`,
       });
       continue;
     }
@@ -2584,24 +2598,24 @@ function splitPriorities(
 function reasonFor(codes: string[], s: SubjectNode): string {
   const m = s.metrics;
   if (codes.includes('NOT_ASSESSED')) {
-    return `All ${m.questions} ${s.name} questions were skipped — worth a short diagnostic before it is prioritised or written off.`;
+    return `All ${m.questions} ${shownName(s)} questions were skipped — worth a short diagnostic before it is prioritised or written off.`;
   }
   if (codes.includes('SMALL_SAMPLE')) {
-    return `${m.attempted} attempted question${m.attempted === 1 ? '' : 's'} in ${s.name} is too thin to act on; collect evidence first.`;
+    return `${m.attempted} attempted question${m.attempted === 1 ? '' : 's'} in ${shownName(s)} is too thin to act on; collect evidence first.`;
   }
   if (codes.includes('LOW_ACCURACY') && codes.includes('LOW_COVERAGE')) {
-    return `${s.name} loses marks twice — ${m.incorrect} wrong of ${m.attempted} attempted, and ${m.skipped} never reached.`;
+    return `${shownName(s)} loses marks twice — ${m.incorrect} wrong of ${m.attempted} attempted, and ${m.skipped} never reached.`;
   }
   if (codes.includes('LOW_ACCURACY')) {
-    return `${s.name} sits at ${m.accuracy}% (${m.correct}/${m.attempted}) on ${m.questions} questions in this paper.`;
+    return `${shownName(s)} sits at ${m.accuracy}% (${m.correct}/${m.attempted}) on ${m.questions} questions in this paper.`;
   }
   if (codes.includes('LOW_COVERAGE')) {
-    return `${s.name} is accurate at ${m.accuracy}%, but ${m.skipped} of ${m.questions} questions were never attempted.`;
+    return `${shownName(s)} is accurate at ${m.accuracy}%, but ${m.skipped} of ${m.questions} questions were never attempted.`;
   }
   if (codes.includes('SLOW')) {
-    return `${s.name} is accurate but averages ${m.avgTimeSec}s a question, which costs time elsewhere.`;
+    return `${shownName(s)} is accurate but averages ${m.avgTimeSec}s a question, which costs time elsewhere.`;
   }
-  return `${s.name} is a current priority.`;
+  return `${shownName(s)} is a current priority.`;
 }
 
 /** §11.3 — the plan's shape must follow the evidence pattern, not a template. */

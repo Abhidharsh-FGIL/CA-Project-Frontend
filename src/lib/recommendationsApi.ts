@@ -7,6 +7,8 @@
  */
 import { userApi } from './api';
 import { unitNameForId } from '@/config/tnpsc';
+import { textLanguage, type ExamLanguage } from './exam-language';
+import { bilingualTitle, isTamil, paperName, registerPair, type PaperLang } from './bilingual';
 
 export type RecommendationType = 'fix_weak' | 'start_new' | 'revise' | 'level_up' | 'full_mock';
 export type RecommendationStatus = 'ready' | 'computing' | 'not_enough_data';
@@ -39,10 +41,10 @@ export interface Recommendation {
   rec_id: string;
   type: RecommendationType;
   priority: number;
-  unit: { id: string; name: string; label?: string | null } | null;
-  category: { id: string | null; name: string } | null;
+  unit: { id: string; name: string; label?: string | null; name_en?: string | null; name_ta?: string | null } | null;
+  category: { id: string | null; name: string; name_en?: string | null; name_ta?: string | null } | null;
   /** The weakest sub-category inside the category, when there is one: what to focus on within the test. */
-  subcategory: { id: string | null; name: string; mastery?: number | null } | null;
+  subcategory: { id: string | null; name: string; mastery?: number | null; name_en?: string | null; name_ta?: string | null } | null;
   mastery: RecommendationMastery | null;
   target: RecommendationTarget;
   reason: string;
@@ -53,6 +55,8 @@ export interface Recommendation {
 export interface WeakMapCategory {
   id: string | null;
   name: string;
+  name_en?: string | null;
+  name_ta?: string | null;
   mastery: number | null;
   attempted: number;
 }
@@ -60,6 +64,8 @@ export interface WeakMapCategory {
 export interface WeakMapUnit {
   unit_id: string;
   unit_name: string;
+  name_en?: string | null;
+  name_ta?: string | null;
   label?: string | null;
   mastery: number | null;
   categories: WeakMapCategory[];
@@ -99,10 +105,13 @@ export interface Recommendations {
 }
 
 export const recommendationsApi = {
-  get: (exam: string, stage: string) =>
-    userApi.get<Recommendations>(
+  get: async (exam: string, stage: string) => {
+    const res = await userApi.get<Recommendations>(
       `/api/v1/user/recommendations?exam=${encodeURIComponent(exam)}&stage=${encodeURIComponent(stage)}`,
-    ),
+    );
+    registerRecommendationNames(res);
+    return res;
+  },
   /** Answers with the refreshed picks (`recommendations`), the dismissed one replaced by the next. */
   feedback: (exam: string, stage: string, recId: string, action: RecommendationFeedback) =>
     userApi.post<{ ok: boolean; recommendations?: Recommendations }>(
@@ -110,6 +119,19 @@ export const recommendationsApi = {
       { action },
     ),
 };
+
+/** Every unit, category and sub-category name the server paired with its other language. */
+function registerRecommendationNames(res: Recommendations | null | undefined): void {
+  for (const r of res?.items ?? []) {
+    if (r.unit) registerPair(r.unit.name, r.unit.name_en, r.unit.name_ta);
+    if (r.category) registerPair(r.category.name, r.category.name_en, r.category.name_ta);
+    if (r.subcategory) registerPair(r.subcategory.name, r.subcategory.name_en, r.subcategory.name_ta);
+  }
+  for (const u of res?.weak_map ?? []) {
+    registerPair(u.unit_name, u.name_en, u.name_ta);
+    for (const c of u.categories ?? []) registerPair(c.name, c.name_en, c.name_ta);
+  }
+}
 
 /** Where a pick's Start button goes: the test itself, or the plans page when it is locked. */
 export function recommendationHref(r: Recommendation): string {
@@ -153,9 +175,19 @@ export function masteryBand(score: number | null | undefined): 'none' | 'weak' |
  * A unit's name as the rest of the app shows it. The backend sends the English name; the Tamil paper's units are
  * printed in Tamil by the commission ("இலக்கணம்", not "Grammar"), and that also tells them apart from the English
  * paper's units of the same name. So the unit is looked up by id, and the backend's name is only the fallback.
+ * Shown in both languages, English first: "Grammar / இலக்கணம்". Display only — never a key.
  */
 export function displayUnitName(id: string | null | undefined, fallback: string): string {
-  return unitNameForId(id) ?? fallback;
+  const name = unitNameForId(id) ?? fallback;
+  const other = fallback && isTamil(fallback) !== isTamil(name) ? fallback : null;
+  return paperName(name, unitPaperLang(id), other) || name;
+}
+
+/** The language paper a unit id belongs to: 'g4-ta-…' is General Tamil (Tamil only), 'g4-en-…' General English (English only). */
+function unitPaperLang(id: string | null | undefined): PaperLang {
+  if (/^g\d+-ta-/.test(id ?? '')) return 'ta';
+  if (/^g\d+-en-/.test(id ?? '')) return 'en';
+  return null;
 }
 
 /**
@@ -163,7 +195,7 @@ export function displayUnitName(id: string | null | undefined, fallback: string)
  * named by its heading, so it only gives the unit's number; a mock gives its own title.
  */
 export function recommendationPlace(r: Recommendation): string {
-  if (!r.unit) return r.target.title ?? '';
+  if (!r.unit) return bilingualTitle(r.target.title ?? '');
   const label = r.unit.label ? `Unit ${r.unit.label}` : '';
   if (recommendationKind(r) === 'unit') return label;
   return `${label ? `${label} · ` : ''}${displayUnitName(r.unit.id, r.unit.name)}`;
@@ -172,7 +204,7 @@ export function recommendationPlace(r: Recommendation): string {
 /** The heading of a pick: the category its test covers, else the unit. The sub-category is shown as its focus. */
 export function recommendationTitle(r: Recommendation): string {
   if (r.type === 'full_mock') return 'Full mock test';
-  return r.category?.name ?? (r.unit ? displayUnitName(r.unit.id, r.unit.name) : 'Practice');
+  return r.category?.name ? paperName(r.category.name, unitPaperLang(r.unit?.id)) : r.unit ? displayUnitName(r.unit.id, r.unit.name) : 'Practice';
 }
 
 /** One plain line saying which tests the picks came from, for the header. */
@@ -193,6 +225,54 @@ export function basisLine(d: Pick<Recommendations, 'status' | 'basis' | 'window_
       // An older stored result, from before the backend said which tests it used.
       return d.status === 'not_enough_data' ? 'Take a few tests and these picks will be made just for you.' : `Based on your last ${tests}`;
   }
+}
+
+/**
+ * The language paper a unit belongs to — General Tamil or General English — or null for a unit everyone sits.
+ * The unit's id says it ("g4-ta-grammar", "g4-en-vocabulary"); failing that, its name ("General English").
+ */
+export function unitLanguage(id: string | null | undefined, name?: string | null): ExamLanguage | null {
+  const m = /(?:^|-)(ta|en)(?:-|$)/.exec(id ?? '');
+  if (m) return m[1] === 'ta' ? 'tamil' : 'english';
+  return textLanguage(name);
+}
+
+/** The language paper a pick is for, or null when it is for everyone (General Studies, Aptitude, a full mock). */
+export function recommendationLanguage(r: Recommendation): ExamLanguage | null {
+  return (r.unit ? unitLanguage(r.unit.id, r.unit.name) : null) ?? textLanguage(r.target.title);
+}
+
+/**
+ * The language paper the aspirant has been practising, from the picks' own record: the units they have a score in and
+ * the readiness sections they have answered. Null when they have practised neither, or both.
+ */
+export function practisedLanguage(d: Pick<Recommendations, 'weak_map' | 'readiness'>): ExamLanguage | null {
+  const seen = new Set<ExamLanguage>();
+  for (const u of d.weak_map ?? []) {
+    const l = u.mastery != null ? unitLanguage(u.unit_id, u.unit_name) : null;
+    if (l) seen.add(l);
+  }
+  for (const s of d.readiness?.sections ?? []) {
+    const l = (s.questions ?? 0) > 0 || (s.score ?? 0) > 0 ? textLanguage(s.name) : null;
+    if (l) seen.add(l);
+  }
+  return seen.size === 1 ? [...seen][0] : null;
+}
+
+/**
+ * The picks as someone sitting `language` should see them: General Tamil and General English are sat one instead of
+ * the other, so nothing from the other paper — no pick, no unit on the skill map, no readiness row. Null shows all.
+ */
+export function recommendationsForLanguage(d: Recommendations, language: ExamLanguage | null): Recommendations {
+  if (!language) return d;
+  const other = (l: ExamLanguage | null) => l !== null && l !== language;
+  return {
+    ...d,
+    items: d.items.filter(r => !other(recommendationLanguage(r))),
+    weak_map: d.weak_map.filter(u => !other(unitLanguage(u.unit_id, u.unit_name))),
+    improved: d.improved.filter(i => !other(unitLanguage(i.unit_id))),
+    readiness: d.readiness && { ...d.readiness, sections: d.readiness.sections.filter(s => !other(textLanguage(s.name))) },
+  };
 }
 
 /** Test ids the aspirant is being pointed to — for the "Recommended for you" badge elsewhere. */

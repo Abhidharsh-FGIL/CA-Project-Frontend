@@ -34,23 +34,24 @@ describe('shortTamilName', () => {
 });
 
 describe('unitChipLabel', () => {
-  it('shows a General Studies unit in English, though it carries a Tamil translation', () => {
-    expect(unitChipLabel({ name: 'General Science', nameTa: 'பொது அறிவியல்' }, false)).toBe('General Science');
+  it('names a unit in both languages, English first', () => {
+    expect(unitChipLabel({ name: 'General Science', nameTa: 'பொது அறிவியல்' }, null)).toBe('General Science / பொது அறிவியல்');
+    expect(unitChipLabel({ name: 'Grammar', nameTa: 'இலக்கணம்' })).toBe('Grammar / இலக்கணம்');
   });
 
-  it('shows the Tamil paper in Tamil', () => {
-    expect(unitChipLabel({ name: 'Grammar', nameTa: 'இலக்கணம்' }, true)).toBe('இலக்கணம்');
+  it('names a unit in one language under the language papers', () => {
+    expect(unitChipLabel({ name: 'Grammar', nameTa: 'இலக்கணம்' }, 'ta')).toBe('இலக்கணம்');
+    expect(unitChipLabel({ name: 'Grammar', nameTa: 'இலக்கணம்' }, 'en')).toBe('Grammar');
   });
 
   it('falls back to English where there is no Tamil name', () => {
-    expect(unitChipLabel({ name: 'Grammar' }, true)).toBe('Grammar');
+    expect(unitChipLabel({ name: 'Grammar' })).toBe('Grammar');
   });
 
   it('gives every General Studies unit a different chip', () => {
     const stage = TNPSC_GROUPS.find(g => g.id === 'group-4')!.stages[0];
     const gs = stageUnits(stage).filter(u => u.sectionName === 'General Studies');
-    const labels = gs.map(u => unitChipLabel({ name: u.unit.name, nameTa: u.unit.name_ta }, false));
+    const labels = gs.map(u => unitChipLabel({ name: u.unit.name, nameTa: u.unit.name_ta }, null));
     expect(new Set(labels).size).toBe(gs.length);
-    expect(labels.every(l => !/[஀-௿]/.test(l))).toBe(true); // no Tamil script
   });
 });

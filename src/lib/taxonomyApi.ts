@@ -8,6 +8,7 @@
  *   - `taxonomyApi.*`    — admin: every name in use (official or not), preview / apply / undo, and the log.
  */
 import { api, publicApi } from './api';
+import { registerServerNames, syllabusNamePairs } from './bilingual';
 import type { PaginatedResponse } from './adminApi';
 
 // ─── Public: the official list ────────────────────────────────────────────────
@@ -15,12 +16,17 @@ import type { PaginatedResponse } from './adminApi';
 export interface SyllabusSubcategory {
   id: string;
   name: string;
+  /** The same name in the other language, as the uploaded sheets gave it. */
+  name_ta?: string | null;
+  name_en?: string | null;
   sort_order: number;
 }
 
 export interface SyllabusCategory {
   id: string;
   name: string;
+  name_ta?: string | null;
+  name_en?: string | null;
   sort_order: number;
   subcategories: SyllabusSubcategory[];
 }
@@ -28,6 +34,8 @@ export interface SyllabusCategory {
 export interface SyllabusUnit {
   id: string;
   name: string;
+  name_ta?: string | null;
+  name_en?: string | null;
   sort_order: number;
   categories: SyllabusCategory[];
 }
@@ -39,8 +47,12 @@ export interface Syllabus {
 }
 
 export const syllabusApi = {
-  get: (exam: string, stage: string) =>
-    publicApi.get<Syllabus>(`/api/v1/syllabus/${encodeURIComponent(exam)}/${encodeURIComponent(stage)}`),
+  get: async (exam: string, stage: string) => {
+    const syllabus = await publicApi.get<Syllabus>(`/api/v1/syllabus/${encodeURIComponent(exam)}/${encodeURIComponent(stage)}`);
+    // The names the sheets gave, in both languages, now read by every screen that shows a name.
+    registerServerNames(syllabusNamePairs(syllabus));
+    return syllabus;
+  },
 };
 
 /** A unit's official categories, in order. Empty when the unit has none yet (or the list could not be read). */
@@ -65,6 +77,8 @@ export interface TaxonomyNode {
   /** Null on a name that is not official. */
   id: string | null;
   name: string;
+  name_ta?: string | null;
+  name_en?: string | null;
   level: TaxonomyLevel;
   official: boolean;
   question_count: number;
@@ -102,6 +116,8 @@ export interface TaxonomyScope {
   unit?: string;
   /** Narrows a sub-category change to one category. */
   category?: string | null;
+  /** With `rename`: set the name in this one language only. The stored name, questions and tests stay as they are. */
+  lang?: 'ta' | 'en';
 }
 
 export interface TaxonomyChange {

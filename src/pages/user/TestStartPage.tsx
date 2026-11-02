@@ -1,3 +1,4 @@
+import { bilingual, studentTitle } from '@/lib/bilingual';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { UserShell } from '@/components/user/UserShell';
@@ -99,12 +100,12 @@ export default function TestStartPage() {
                   </span>
                   {test.subject && (
                     <span className="text-[10px] font-semibold uppercase tracking-wider opacity-90 truncate">
-                      {test.subject}
+                      {bilingual(test.subject)}
                     </span>
                   )}
                 </div>
                 <h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">
-                  {test.name ?? 'Untitled Test'}
+                  {studentTitle(test.name) || 'Untitled Test'}
                 </h1>
                 <p className="text-xs sm:text-sm opacity-90 mt-2 font-serif italic">
                   {isMock

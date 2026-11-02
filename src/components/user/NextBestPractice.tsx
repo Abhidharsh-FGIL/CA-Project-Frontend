@@ -31,17 +31,22 @@ import {
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useRecommendationFeedback, useRecommendations } from '@/hooks/use-recommendations';
+import { useExamLanguage } from '@/hooks/use-exam-language';
 import { aiCoachShownKey } from '@/lib/ai-coach-session';
+import { bilingual } from '@/lib/bilingual';
+import { unitNameForId } from '@/config/tnpsc';
 import {
   KIND_LABEL,
   TYPE_LABEL,
   basisLine,
   displayUnitName,
   masteryBand,
+  practisedLanguage,
   recommendationHref,
   recommendationKind,
   recommendationPlace,
   recommendationTitle,
+  recommendationsForLanguage,
   type Improvement,
   type Recommendation,
   type RecommendationKind,
@@ -49,6 +54,23 @@ import {
   type RecommendationType,
   type WeakMapUnit,
 } from '@/lib/recommendationsApi';
+
+/**
+ * A pick's reason or tip with the names it mentions in both languages — "You got 4 of 14 right in Indian Polity." reads
+ * "…in Indian Polity / இந்திய அரசியலமைப்பு." Only the pick's own unit, category and sub-category are looked for, and a
+ * name already shown in both languages is left alone.
+ */
+function reasonText(r: Recommendation, text: string | null | undefined): string {
+  const t = text ?? '';
+  if (!t) return t;
+  const names = [r.category?.name, r.subcategory?.name, r.unit?.name, r.unit ? unitNameForId(r.unit.id) : null]
+    .map(n => (n ?? '').trim())
+    .filter(n => n && bilingual(n) !== n && !t.includes(bilingual(n)));
+  const list = [...new Set(names)].sort((a, b) => b.length - a.length);
+  if (list.length === 0) return t;
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return t.replace(new RegExp(list.map(esc).join('|'), 'g'), m => bilingual(m));
+}
 
 // ─── Look ────────────────────────────────────────────────────────────────────
 
@@ -303,6 +325,19 @@ function CoachSays({ text, source, wait = 0, children }: { text: string; source?
 // ─── Panel ───────────────────────────────────────────────────────────────────
 
 /**
+ * The picks for this aspirant's language paper only. General Tamil and General English are sat one instead of the
+ * other, so someone practising General English is never sent to a Tamil grammar topic, nor the other way round. The
+ * paper is the one their own tests show; failing that, the one they chose in their profile; failing both, all picks.
+ */
+function useCoachPicks(exam: string, stage: string) {
+  const query = useRecommendations(exam, stage);
+  const chosen = useExamLanguage();
+  const raw = query.data;
+  const data = useMemo(() => (raw ? recommendationsForLanguage(raw, practisedLanguage(raw) ?? chosen) : raw), [raw, chosen]);
+  return { data, isLoading: query.isLoading, isError: query.isError };
+}
+
+/**
  * The topic a pick is about: its unit and category (a whole-unit pick has no category). Not `rec_id`: two different
  * topics can come back under one id, or none, and closing one closed both; and the server can offer the same topic
  * again under a new id, test or kind of pick (after a "Not now" it sends Indian Polity back each time). A pick with
@@ -342,7 +377,7 @@ export function NextBestPractice({
   /** In the popup: the top pick's Start button stays at the foot of the window while the rest scrolls. */
   stickyAction?: boolean;
 }) {
-  const { data, isLoading, isError } = useRecommendations(exam, stage);
+  const { data, isLoading, isError } = useCoachPicks(exam, stage);
   const feedback = useRecommendationFeedback(exam, stage);
   /** Picks put aside here, hidden at once rather than after the server answers. */
   const [hidden, setHidden] = useState<string[]>([]);
@@ -417,7 +452,7 @@ export function NextBestPractice({
       }
     >
       {top ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.55fr_1fr]">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
           <TopPick key={pickKey(top)} rec={top} sticky={stickyAction} onStart={start(top)} onDismiss={() => dismiss(top)} />
           <div className="flex flex-col gap-4">
             {rest.length > 0 && (
@@ -574,7 +609,7 @@ function TopPick({
             <p className="mt-3 inline-flex max-w-full items-center gap-2 rounded-lg bg-white/80 dark:bg-white/5 px-2.5 py-1.5 text-xs ring-1 ring-slate-200 dark:ring-white/10">
               <Target className="h-3.5 w-3.5 flex-shrink-0 text-violet-600 dark:text-purple-300" />
               <span className="flex-shrink-0 whitespace-nowrap text-slate-500 dark:text-slate-400">Weak part:</span>
-              <span className="truncate font-semibold text-slate-900 dark:text-white">{rec.subcategory.name}</span>
+              <span className="truncate font-semibold text-slate-900 dark:text-white">{bilingual(rec.subcategory.name)}</span>
               {rec.subcategory.mastery != null && (
                 <span className={cn('flex-shrink-0 font-bold tabular-nums', FIGURE[masteryBand(rec.subcategory.mastery)])}>
                   {pct(rec.subcategory.mastery)}
@@ -600,11 +635,11 @@ function TopPick({
       </div>
 
       <div className="mt-4">
-        <CoachSays text={rec.reason} source={rec.reason_source} wait={500}>
+        <CoachSays text={reasonText(rec, rec.reason)} source={rec.reason_source} wait={500}>
           {rec.tip && (
             <p className="mt-2 flex gap-1.5 border-t border-slate-200 dark:border-white/10 pt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
               <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-500" />
-              {rec.tip}
+              {reasonText(rec, rec.tip)}
             </p>
           )}
         </CoachSays>
@@ -751,7 +786,7 @@ function AlsoRow({
         </p>
         <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
           <KindTag rec={rec} />
-          {recommendationPlace(rec) && <span className="truncate">{recommendationPlace(rec)}</span>}
+          {recommendationPlace(rec) && <span className="min-w-0 max-w-full truncate" title={recommendationPlace(rec)}>{recommendationPlace(rec)}</span>}
         </p>
         {tried ? (
           <div className="mt-1.5 flex items-center gap-2">
@@ -761,7 +796,7 @@ function AlsoRow({
         ) : (
           <p className="mt-1 text-[11px] font-medium text-cyan-700 dark:text-cyan-300">Not tried yet</p>
         )}
-        <p className="mt-1.5 line-clamp-2 text-[11px] italic leading-snug text-violet-700/80 dark:text-purple-200/80">“{rec.reason}”</p>
+        <p className="mt-1.5 line-clamp-2 text-[11px] italic leading-snug text-violet-700/80 dark:text-purple-200/80">“{reasonText(rec, rec.reason)}”</p>
       </div>
       {/* The button is centred on the row's height, so it lines up whether the title takes one line or two. */}
       <div className="flex flex-shrink-0 self-center">
@@ -813,7 +848,7 @@ function Readiness({ readiness, wait = 0 }: { readiness: NonNullable<Recommendat
             {readiness.sections.map((s, i) => (
               <li key={s.name}>
                 <div className="flex justify-between gap-3 text-[11px]">
-                  <span className="truncate text-slate-600 dark:text-slate-300">{s.name}</span>
+                  <span className="truncate text-slate-600 dark:text-slate-300">{bilingual(s.name)}</span>
                   <span className={cn('font-bold tabular-nums', FIGURE[masteryBand(s.score)])}>{pct(s.score)}</span>
                 </div>
                 <Bar value={s.score} className="mt-1" wait={wait + 150 + i * 120} />
@@ -863,7 +898,7 @@ function SkillMap({ units, improved, keyTopicsHref }: { units: WeakMapUnit[]; im
               key={i.category}
               className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[11px] text-emerald-600 dark:text-emerald-300 ring-1 ring-emerald-400/30"
             >
-              <span className="font-semibold">{i.category}</span> {Math.round(i.from)}% → <span className="font-bold">{Math.round(i.to)}%</span>
+              <span className="font-semibold">{bilingual(i.category)}</span> {Math.round(i.from)}% → <span className="font-bold">{Math.round(i.to)}%</span>
             </span>
           ))}
         </div>
@@ -872,7 +907,7 @@ function SkillMap({ units, improved, keyTopicsHref }: { units: WeakMapUnit[]; im
       {shown.length > 0 && (
         <ul className="mt-3 divide-y divide-slate-200/80 dark:divide-white/10">
           {shown.map((u, ui) => (
-            <li key={u.unit_id} className="mge-rise grid grid-cols-1 items-start gap-2 py-3 sm:grid-cols-[220px_1fr] sm:gap-4" style={delay(Math.min(ui, 8) * 70 + 500)}>
+            <li key={u.unit_id} className="mge-rise grid grid-cols-1 items-start gap-2 py-3 sm:grid-cols-[220px_minmax(0,1fr)] sm:gap-4" style={delay(Math.min(ui, 8) * 70 + 500)}>
               <div className="flex items-center gap-2.5">
                 <span className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg bg-white/80 dark:bg-white/5 text-[11px] font-bold text-cyan-700 dark:text-cyan-300 ring-1 ring-cyan-400/30">
                   {u.label ?? '★'}
@@ -899,12 +934,12 @@ function SkillMap({ units, improved, keyTopicsHref }: { units: WeakMapUnit[]; im
                       <Link
                         key={c.id ?? c.name}
                         to={keyTopicsHref}
-                        title={`${c.name} — ${pct(c.mastery)} mastery from ${c.attempted} question${c.attempted === 1 ? '' : 's'}`}
+                        title={`${bilingual(c.name)} — ${pct(c.mastery)} mastery from ${c.attempted} question${c.attempted === 1 ? '' : 's'}`}
                         className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-white dark:bg-white/[0.05] px-2.5 py-1 text-[11px] text-slate-700 dark:text-slate-200 ring-1 ring-slate-200 dark:ring-white/10 transition duration-200 hover:-translate-y-0.5 hover:bg-slate-100 dark:hover:bg-white/10 hover:ring-cyan-400/50 hover:shadow-[0_0_14px_rgba(34,211,238,0.35)]"
                       >
                         <span className={cn('h-1.5 w-1.5 flex-shrink-0 rounded-full', FILL[band])} />
                         {/* A long Tamil name wraps inside the tag; the dot and the percentage keep their place. */}
-                        <span className="min-w-0 break-words">{c.name}</span>
+                        <span className="min-w-0 break-words">{bilingual(c.name)}</span>
                         <span className={cn('flex-shrink-0 font-bold tabular-nums', FIGURE[band])}>{pct(c.mastery)}</span>
                       </Link>
                     );
@@ -972,7 +1007,7 @@ function Thinking({ className }: { className?: string }) {
         </div>
       }
     >
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.55fr_1fr]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <div className={cn(GLASS, 'h-64 animate-pulse')} />
         <div className="flex flex-col gap-4">
           <div className={cn(GLASS, 'h-32 animate-pulse')} />
@@ -1025,7 +1060,7 @@ export function AiCoachDialog({
 
 /** "AI Coach" at the top of the page: opens the coach's popup. Shown once there are picks to show. */
 export function AiCoachButton({ exam, stage, onClick, className }: { exam: string; stage: string; onClick: () => void; className?: string }) {
-  const { data } = useRecommendations(exam, stage);
+  const { data } = useCoachPicks(exam, stage);
   if (!data || data.items.length === 0) return null;
   return (
     <button
@@ -1052,7 +1087,7 @@ export function AiCoachButton({ exam, stage, onClick, className }: { exam: strin
  * and back to the dashboard does not.
  */
 export function useAiCoachAutoOpen(exam: string, stage: string, open: () => void) {
-  const { data } = useRecommendations(exam, stage);
+  const { data } = useCoachPicks(exam, stage);
   const ready = !!data && data.items.length > 0;
   useEffect(() => {
     if (!ready) return;
@@ -1080,7 +1115,7 @@ export function NextUpCard({ exam, stage, justTaken }: { exam: string; stage: st
   useEffect(() => {
     void qc.invalidateQueries({ queryKey: ['recommendations'] });
   }, [qc]);
-  const { data, isError } = useRecommendations(exam, stage);
+  const { data, isError } = useCoachPicks(exam, stage);
   const feedback = useRecommendationFeedback(exam, stage);
   if (isError || !data) return null;
 
@@ -1115,7 +1150,7 @@ export function NextUpCard({ exam, stage, justTaken }: { exam: string; stage: st
               <span className="text-xs font-normal text-slate-500 dark:text-slate-400">{recommendationPlace(next)}</span>
             </p>
             <div className="mt-2">
-              <CoachSays text={next.reason} source={next.reason_source} wait={300} />
+              <CoachSays text={reasonText(next, next.reason)} source={next.reason_source} wait={300} />
             </div>
           </div>
           <Link

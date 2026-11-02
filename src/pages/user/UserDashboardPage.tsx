@@ -1,6 +1,6 @@
 import { upperMeridiem } from '@/lib/meridiem';
 import { useEffect, useMemo, useState } from 'react';
-import { displayTitle } from '@/lib/display-title';
+import { bilingual, studentTitle } from '@/lib/bilingual';
 import { Link } from 'react-router-dom';
 import { historyHref, performanceHref } from '@/lib/performance-view';
 import { here } from '@/lib/report-origin';
@@ -522,7 +522,7 @@ export default function UserDashboardPage() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
-                          {displayTitle(r.test_name) ?? 'Test attempt'}
+                          {studentTitle(r.test_name) || 'Test attempt'}
                         </span>
                         <span className="block text-[10px] text-gray-400">
                           {upperMeridiem(new Date(r.start_time).toLocaleString('en-IN', {
@@ -641,8 +641,8 @@ export default function UserDashboardPage() {
                     onMouseEnter={() => setActiveSubject(i)}
                     title={
                       sub.correct != null && sub.attempted != null
-                        ? `${sub.subject} — ${sub.correct} of ${sub.attempted} answered correctly`
-                        : sub.subject
+                        ? `${bilingual(sub.subject)} — ${sub.correct} of ${sub.attempted} answered correctly`
+                        : bilingual(sub.subject)
                     }
                     className={cn(
                       'flex items-center gap-2 text-xs rounded-md px-1 -mx-1 py-0.5 cursor-default transition-colors',
@@ -653,7 +653,7 @@ export default function UserDashboardPage() {
                       className="w-2 h-2 rounded-full flex-shrink-0"
                       style={{ background: SUBJECT_COLORS[i % SUBJECT_COLORS.length] }}
                     />
-                    <span className="truncate text-gray-600 dark:text-gray-300">{sub.subject}</span>
+                    <span className="truncate text-gray-600 dark:text-gray-300">{bilingual(sub.subject)}</span>
                     <span className="ml-auto font-bold text-gray-900 dark:text-gray-100">
                       {Math.round(sub.accuracy)}%
                     </span>
@@ -686,7 +686,7 @@ export default function UserDashboardPage() {
                   <ul className="mt-1.5 space-y-1">
                     {needsFocus.map(u => (
                       <li key={u.subject} className="flex items-center justify-between gap-3 text-xs">
-                        <span className="truncate text-gray-700 dark:text-gray-200">{u.subject}</span>
+                        <span className="truncate text-gray-700 dark:text-gray-200">{bilingual(u.subject)}</span>
                         <span className="font-bold text-rose-600 dark:text-rose-400 tabular-nums">{Math.round(u.accuracy)}%</span>
                       </li>
                     ))}
@@ -703,7 +703,7 @@ export default function UserDashboardPage() {
                       style={{ background: SUBJECT_COLORS[activeSubject % SUBJECT_COLORS.length] }}
                     />
                     <span className="font-semibold text-gray-700 dark:text-gray-200">
-                      {listed[activeSubject].subject}
+                      {bilingual(listed[activeSubject].subject)}
                     </span>
                     {listed[activeSubject].correct != null &&
                       listed[activeSubject].attempted != null && (
@@ -739,7 +739,7 @@ export default function UserDashboardPage() {
                       <>
                         Area for Improvement:{' '}
                         <span className="font-semibold text-gray-700 dark:text-gray-200">
-                          {weakestSubject.subject}
+                          {bilingual(weakestSubject.subject)}
                         </span>{' '}
                         ({Math.round(weakestSubject.accuracy)}%).
                       </>

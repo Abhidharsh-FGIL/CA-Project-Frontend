@@ -1,4 +1,5 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react';
+import { bilingual, studentTitle } from '@/lib/bilingual';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useHoldUpdates } from '@/lib/app-version';
 import { isMobileDevice } from '@/lib/device';
 import { FlipTimer } from '@/components/user/FlipTimer';
@@ -375,7 +376,7 @@ export default function TestTakingPage() {
                 {subject}
               </p>
             )}
-            <p className="text-sm sm:text-[15px] font-bold leading-snug truncate">{test_name}</p>
+            <p className="text-sm sm:text-[15px] font-bold leading-snug truncate">{studentTitle(test_name) || test_name}</p>
             <p className="text-[11px] text-gray-400 mt-0.5">
               Q {currentIdx + 1} of {questions.length}
             </p>
@@ -440,7 +441,7 @@ export default function TestTakingPage() {
                     )}
                     {currentQ.subject && (
                       <span className="text-[11px] bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded font-medium">
-                        {currentQ.subject}
+                        {bilingual(currentQ.subject)}
                       </span>
                     )}
                     {currentQ.difficulty && (

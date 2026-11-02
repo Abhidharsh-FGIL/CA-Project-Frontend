@@ -9,7 +9,7 @@ import { useMemo, useState } from 'react';
 import * as HoverCardPrimitive from '@radix-ui/react-hover-card';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { cn } from '@/lib/utils';
-import { displayTitle } from '@/lib/display-title';
+import { studentTitle } from '@/lib/bilingual';
 import { Link } from 'react-router-dom';
 import { ClipboardList, Loader2 } from 'lucide-react';
 import { trendCeiling } from '@/hooks/use-progress-trend';
@@ -29,7 +29,7 @@ export function useTestRows(attempts: ApiAttempt[]): TestRow[] {
       const key = h.test_id || h.test_name || 'unknown';
       const row =
         byTest.get(key) ??
-        { key, name: displayTitle(h.test_name) ?? 'Untitled test', attempts: 0, average: 0, best: 0, scores: [] };
+        { key, name: studentTitle(h.test_name) || 'Untitled test', attempts: 0, average: 0, best: 0, scores: [] };
       row.attempts += 1;
       row.scores.push({ pct: h.percentage ?? 0, date: h.start_time });
       byTest.set(key, row);

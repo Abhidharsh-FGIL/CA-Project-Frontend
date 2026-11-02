@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useHoldUpdates } from '@/lib/app-version';
 import { isMobileDevice } from '@/lib/device';
-import { displayTitle } from '@/lib/display-title';
+import { bilingual, bilingualTitle, studentTitle } from '@/lib/bilingual';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { originOf } from '@/lib/report-origin';
 import { Button } from '@/components/ui/button';
@@ -1304,7 +1304,7 @@ export function UserEvalAssessmentPage() {
                     )}
                   </div>
                   <h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">
-                    {displayTitle(assessment.title)}
+                    {studentTitle(assessment.title)}
                   </h1>
                   <p className="text-xs sm:text-sm opacity-90 mt-2 font-serif italic">
                     {isMock
@@ -1775,7 +1775,7 @@ export function UserEvalAssessmentPage() {
                 <FilterRow
                   key={sec.name}
                   label={sec.short}
-                  title={sec.name}
+                  title={bilingualTitle(sec.name)}
                   count={`${sec.answered}/${sec.total}`}
                   active={filterSection === sec.name}
                   onClick={() => applyFilter(sec.name, 'all')}
@@ -1793,7 +1793,7 @@ export function UserEvalAssessmentPage() {
               <option value="all">All units</option>
               {subjectOptions.map(([key, { label, count }]) => (
                 <option key={key} value={key}>
-                  {label} ({count})
+                  {bilingual(label)} ({count})
                 </option>
               ))}
             </select>
@@ -1852,7 +1852,7 @@ export function UserEvalAssessmentPage() {
               </p>
             )}
             <p className="text-sm sm:text-[15px] font-bold leading-snug truncate">
-              {displayTitle(assessment?.title)}
+              {studentTitle(assessment?.title)}
             </p>
             <p className="text-[11px] text-gray-400 mt-0.5">
               Q {currentIdx + 1} of {totalQ}

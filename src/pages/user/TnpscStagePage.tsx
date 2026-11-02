@@ -81,6 +81,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { bilingual, bilingualTitle, inLanguage, paperLangOf, paperName, paperTitle, type PaperLang } from '@/lib/bilingual';
 
 /**
  * /user/exams/:groupId/:stageId
@@ -248,6 +249,8 @@ interface SectionModel {
    * Tamil sits beside it.
    */
   tamilOnly: boolean;
+  /** The language the paper is sat in: 'ta' General Tamil, 'en' General English, null for the rest (shown in both). */
+  lang: PaperLang;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -391,7 +394,7 @@ export default function TnpscStagePage() {
       // A section whose only subject is the section itself would describe itself: list its units instead,
       // so every row says what is inside it in the same short form.
       if (names.length <= 1 && names.every(x => norm(x) === norm(section.name))) {
-        names = units.map(u => (tamilOnlySection && u.nameTa ? u.nameTa : u.name)).filter(Boolean);
+        names = units.map(u => bilingual(u.name, u.nameTa)).filter(Boolean);
       }
       const blurb =
         names.length > 3 ? `${names.slice(0, 3).join(', ')} and more…` : names.join(', ');
@@ -416,6 +419,7 @@ export default function TnpscStagePage() {
         fullSet: full,
         blurb,
         tamilOnly,
+        lang: paperLangOf(section.name),
       };
     });
   }, [stage, trackTests]);
@@ -528,7 +532,7 @@ export default function TnpscStagePage() {
                   units={drill.units}
                   value={unitFilter}
                   onChange={setUnitFilter}
-                  tamilOnly={drill.tamilOnly}
+                  lang={drill.lang}
                 />
               )}
 
@@ -542,7 +546,7 @@ export default function TnpscStagePage() {
                       order={i}
                       verb={verb}
                       passPercentage={mock.levels[0]?.required_percentage ?? mockPassPercentage()}
-                      tamilOnly={drill.tamilOnly}
+                      lang={drill.lang}
                     />
                   ),
                 )}
@@ -606,6 +610,8 @@ function KeyTopicsTrack({
           const a = accentFor(i);
           const available = sec.topicCount > 0;
           const isOpen = available && open.includes(sec.key);
+          // General Tamil reads in Tamil only and General English in English only; the other papers show both.
+          const lang = paperLangOf(sec.name);
           return (
             <section
               key={sec.key}
@@ -625,7 +631,7 @@ function KeyTopicsTrack({
                 <SectionGlyph name={sec.name} badge={a.badge} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">{sec.name}</h3>
+                    <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">{paperName(sec.name, lang)}</h3>
                     {sec.alternativeTo && (
                       <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 bg-white/70 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded-full">
                         or {sec.alternativeTo}
@@ -655,12 +661,12 @@ function KeyTopicsTrack({
                         <p className={cn('mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider', a.text)}>
                           {g.star && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" aria-hidden />}
                           {g.label ? `Unit ${g.label} · ` : ''}
-                          {g.name}
+                          {paperName(g.name, lang)}
                         </p>
                       )}
                       <ul className="overflow-hidden rounded-xl border border-gray-200 bg-white divide-y divide-gray-100 dark:border-gray-800 dark:bg-gray-900 dark:divide-gray-800">
                         {g.topics.map((r, ri) => (
-                          <KeyTopicItem key={r.topic.id} row={r} index={ri} />
+                          <KeyTopicItem key={r.topic.id} row={r} index={ri} lang={lang} />
                         ))}
                       </ul>
                     </div>
@@ -675,13 +681,13 @@ function KeyTopicsTrack({
   );
 }
 
-function KeyTopicItem({ row, index }: { row: KeyTopicRow; index: number }) {
+function KeyTopicItem({ row, index, lang }: { row: KeyTopicRow; index: number; lang: PaperLang }) {
   const { topic, tests } = row;
   // One paper: the topic is the paper, so the row starts it.
   if (tests.length === 1) {
     return (
       <li>
-        <KeyTopicLine test={tests[0]} number={index + 1} label={topic.name} />
+        <KeyTopicLine test={tests[0]} number={index + 1} label={paperName(topic.name, lang)} />
       </li>
     );
   }
@@ -690,12 +696,12 @@ function KeyTopicItem({ row, index }: { row: KeyTopicRow; index: number }) {
     <li>
       <p className="flex items-center gap-3 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 dark:bg-gray-800/50 dark:text-gray-100">
         <span className="w-6 text-center text-[11px] font-bold tabular-nums text-gray-400">{index + 1}</span>
-        {topic.name}
+        {paperName(topic.name, lang)}
       </p>
       <ul className="divide-y divide-gray-100 dark:divide-gray-800">
         {tests.map(t => (
           <li key={t.test_id}>
-            <KeyTopicLine test={t} nested />
+            <KeyTopicLine test={t} nested lang={lang} />
           </li>
         ))}
       </ul>
@@ -712,11 +718,13 @@ function KeyTopicLine({
   number,
   label,
   nested = false,
+  lang = null,
 }: {
   test: TnpscTest;
   number?: number;
   label?: string;
   nested?: boolean;
+  lang?: PaperLang;
 }) {
   const attemptsLeft = test.max_attempts == null ? null : Math.max(0, test.max_attempts - test.attempts_used);
   const exhausted = attemptsLeft === 0;
@@ -737,7 +745,7 @@ function KeyTopicLine({
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{label ?? test.title}</span>
+          <span className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{label ?? paperTitle(test.title, lang)}</span>
           {recommended && (
             <span className="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
               <Sparkles className="h-2.5 w-2.5" />
@@ -999,7 +1007,7 @@ function MockCard({ test, index, passPercentage }: { test: TnpscTest; index: num
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="line-clamp-2 text-[15px] font-extrabold leading-snug text-gray-900 dark:text-gray-100">{test.title}</p>
+            <p className="line-clamp-2 text-[15px] font-extrabold leading-snug text-gray-900 dark:text-gray-100">{bilingualTitle(test.title)}</p>
             {status}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -1171,7 +1179,7 @@ function DrillHeader({
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-            {section.name} — unit-wise {verb.toLowerCase()}
+            {paperName(section.name, section.lang)} — unit-wise {verb.toLowerCase()}
           </p>
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 leading-relaxed">
             Pick a unit, then a difficulty. Each button opens that paper straight away.
@@ -1195,13 +1203,13 @@ function UnitFilterPills({
   units,
   value,
   onChange,
-  tamilOnly,
+  lang,
 }: {
   units: UnitRowModel[];
   value: string | null;
   onChange: (v: string | null) => void;
-  /** The Tamil paper names its units in Tamil; every other section reads in English. */
-  tamilOnly: boolean;
+  /** General Tamil names its units in Tamil only, General English in English only; the rest in both. */
+  lang: PaperLang;
 }) {
   return (
     <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-1">
@@ -1234,7 +1242,7 @@ function UnitFilterPills({
             )}
           >
             <span className={cn('w-1.5 h-1.5 rounded-full', accentFor(i).dot)} />
-            {unitChipLabel(u, tamilOnly)}
+            {unitChipLabel(u, lang)}
           </button>
         );
       })}
@@ -1274,7 +1282,7 @@ function SectionRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-[15px] sm:text-base font-bold text-gray-900 dark:text-gray-100">
-              {section.name}
+              {paperName(section.name, section.lang)}
             </h3>
             <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-bold', a.soft, a.text)}>
               {section.units.length} Unit{section.units.length === 1 ? '' : 's'}
@@ -1684,15 +1692,15 @@ function UnitListRow({
   order,
   verb,
   passPercentage,
-  tamilOnly,
+  lang,
 }: {
   unit: UnitRowModel;
   index: number;
   order: number;
   verb: string;
   passPercentage: number;
-  /** The Tamil paper: its units need no English gloss. */
-  tamilOnly: boolean;
+  /** General Tamil shows its units in Tamil only, General English in English only. */
+  lang: PaperLang;
 }) {
   const a = accentFor(index);
   const levels = levelStats(unit.tests);
@@ -1720,9 +1728,9 @@ function UnitListRow({
               the two scripts ran together once a title wrapped, and the longer
               General Studies units wrap on every screen width. */}
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-snug">
-            {tamilOnly && unit.nameTa ? unit.nameTa : unit.name}
+            {lang ? inLanguage(unit.name, lang, unit.nameTa) : unit.nameTa ? unit.name : bilingual(unit.name)}
           </p>
-          {!tamilOnly && unit.nameTa && (
+          {!lang && unit.nameTa && unit.nameTa !== unit.name && (
             <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 leading-snug mt-0.5">
               {unit.nameTa}
             </p>
@@ -1810,7 +1818,7 @@ function LevelButton({ stat }: { stat: LevelStat }) {
     <Link
       to={locked ? '/user/subscription' : testHref(test)}
       state={{ from: here() }}
-      title={locked ? (test.lock_reason ?? 'Upgrade to unlock') : test.title}
+      title={locked ? (test.lock_reason ?? 'Upgrade to unlock') : bilingualTitle(test.title)}
       className={className}
     >
       {body}
@@ -1850,7 +1858,7 @@ function FullSetBar({ section, verb }: { section: SectionModel; verb: string }) 
           {test.is_locked ? <Lock className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
         </span>
         <span className="text-left">
-          <span className="block text-xs font-bold leading-tight">{section.name}</span>
+          <span className="block text-xs font-bold leading-tight">{paperName(section.name, section.lang)}</span>
           <span className="block text-[10px] opacity-80">All units</span>
         </span>
         <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-80" />
@@ -1898,7 +1906,7 @@ function PaperRow({
           compact ? 'text-[13px] leading-snug min-h-[2.1rem]' : 'text-[15px]',
         )}
       >
-        {label ?? test.title}
+        {label ?? bilingualTitle(test.title)}
       </p>
       {test.is_completed && (
         <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full flex-shrink-0">
@@ -2146,7 +2154,7 @@ function SyllabusPanel({
               nameTa={u.nameTa}
               count={u.questions != null ? undefined : `${u.topics.length} topics`}
               topics={u.topics}
-              tamilOnly={drill.tamilOnly}
+              lang={drill.lang}
             />
           ))}
         </ul>
@@ -2215,7 +2223,7 @@ function SyllabusPanel({
                 <SectionGlyph name={sec.name} badge={cn(a.badge, 'w-10 h-10 rounded-xl')} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[13px] font-bold text-gray-900 dark:text-gray-100 leading-snug">
-                    {sec.name}
+                    {paperName(sec.name, sec.lang)}
                   </span>
                   <span className="block text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
                     {sec.units.length} Unit{sec.units.length === 1 ? '' : 's'}
@@ -2235,7 +2243,7 @@ function SyllabusPanel({
                       nameTa={u.nameTa}
                       count={u.questions != null ? undefined : `${u.topics.length} topics`}
                       topics={u.topics}
-                      tamilOnly={sec.tamilOnly}
+                      lang={sec.lang}
                     />
                   ))}
                 </ul>
@@ -2269,7 +2277,7 @@ function SyllabusRow({
   nameTa,
   count,
   topics,
-  tamilOnly,
+  lang,
 }: {
   index: number;
   label?: string;
@@ -2278,8 +2286,8 @@ function SyllabusRow({
   /** A line under the name — omitted when there is nothing to say. */
   count?: string;
   topics: TnpscTopic[];
-  /** The Tamil paper: show the Tamil title alone. */
-  tamilOnly?: boolean;
+  /** General Tamil shows the Tamil title alone, General English the English one. */
+  lang?: PaperLang;
 }) {
   const [open, setOpen] = useState(index === 0);
   // "+ N more topics" opens the rest of the list in place.
@@ -2312,9 +2320,9 @@ function SyllabusRow({
 
         <span className="min-w-0 flex-1">
           <span className="block text-xs font-bold text-gray-800 dark:text-gray-100 leading-snug">
-            {tamilOnly && nameTa ? nameTa : name}
+            {lang ? inLanguage(name, lang, nameTa) : nameTa ? name : bilingual(name)}
           </span>
-          {!tamilOnly && nameTa && (
+          {!lang && nameTa && nameTa !== name && (
             <span className="block text-[10px] text-gray-500 dark:text-gray-400 leading-snug">
               {nameTa}
             </span>
@@ -2339,7 +2347,7 @@ function SyllabusRow({
               className="text-[11px] text-gray-600 dark:text-gray-300 leading-snug flex items-start gap-1.5"
             >
               <span className={cn('w-1 h-1 rounded-full mt-1.5 flex-shrink-0', a.dot)} />
-              {t.name}
+              {paperName(t.name, lang ?? null)}
             </li>
           ))}
           {topics.length > PREVIEW && (

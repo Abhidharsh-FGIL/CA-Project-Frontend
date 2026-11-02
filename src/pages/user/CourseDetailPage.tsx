@@ -1,3 +1,4 @@
+import { bilingual, studentTitle } from '@/lib/bilingual';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link, useNavigate, Navigate } from 'react-router-dom';
 import { UserShell } from '@/components/user/UserShell';
@@ -378,10 +379,10 @@ function TestCard({
       <div className="flex items-start gap-2 mb-2 pr-20">
         <div className="min-w-0">
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-2">
-            {test.name || 'Untitled Test'}
+            {studentTitle(test.name) || 'Untitled Test'}
           </p>
           {test.subject && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{test.subject}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{bilingual(test.subject)}</p>
           )}
         </div>
       </div>

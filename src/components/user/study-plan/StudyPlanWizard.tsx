@@ -23,6 +23,7 @@ import {
   Wand2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { bilingual, bilingualTitle } from '@/lib/bilingual';
 import { ACCENT, ReportCard, StatTile } from '@/components/user/report-ui';
 import {
   WEEKDAYS,
@@ -732,7 +733,7 @@ function BasisStep({
     },
     {
       kind: 'attempt',
-      label: latest ? `My last mock — ${latest.test_name ?? 'most recent'}` : 'My last mock',
+      label: latest ? `My last mock — ${bilingualTitle(latest.test_name) || 'most recent'}` : 'My last mock',
       blurb: latest
         ? `${fmtDate(latest.date)}${latest.percentage != null ? ` · ${latest.percentage}%` : ''}. Targets exactly what that paper exposed.`
         : 'Targets exactly what your most recent paper exposed.',
@@ -832,7 +833,7 @@ function BasisStep({
                     )}
                   >
                     <Radio on={active} />
-                    {o.name}
+                    {bilingual(o.name)}
                   </button>
                 );
               })}

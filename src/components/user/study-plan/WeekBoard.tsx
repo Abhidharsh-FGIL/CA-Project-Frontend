@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { bilingual, bilingualTitle } from '@/lib/bilingual';
 import { ACCENT, NotAvailable, ReportCard } from '@/components/user/report-ui';
 import { useStudyPlanDays, useTaskToggle, useWeekWindow } from '@/hooks/use-study-plan';
 import { useTnpscCatalog } from '@/hooks/use-tnpsc';
@@ -384,7 +385,7 @@ export function TaskRow({
                   : 'text-gray-800 dark:text-gray-100',
               )}
             >
-              {task.title}
+              {bilingualTitle(task.title)}
             </p>
             <span className="flex-shrink-0 inline-flex items-center gap-1 text-[13px] tabular-nums font-semibold text-gray-500 dark:text-gray-400">
               <Hourglass className="w-3 h-3" />
@@ -395,7 +396,7 @@ export function TaskRow({
           <div className="mt-1 flex items-center gap-1.5 flex-wrap">
             <TaskKindChip kind={task.kind} />
             <span className="text-[13px] text-gray-400 truncate">
-              {task.topic_name ? `${task.subject_name} · ${task.topic_name}` : task.subject_name}
+              {task.topic_name ? `${bilingual(task.subject_name)} · ${bilingual(task.topic_name)}` : bilingual(task.subject_name)}
             </span>
             {task.question_target > 0 && (
               <span className="text-[13px] tabular-nums text-gray-400">
@@ -468,15 +469,14 @@ function SyllabusBlock({ syllabus }: { syllabus: TaskSyllabus }) {
     <div className="mt-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 px-2.5 py-2">
       <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-200">
         {syllabus.unitLabel ? `Unit ${syllabus.unitLabel} — ` : ''}
-        {syllabus.unitName}
-        {syllabus.unitNameTa && <span className="font-normal text-gray-500 dark:text-gray-400"> ({syllabus.unitNameTa})</span>}
+        {bilingual(syllabus.unitName, syllabus.unitNameTa)}
         <span className="font-normal text-gray-400"> · {syllabus.questions} questions in the paper</span>
       </p>
       <ul className="mt-1 space-y-0.5">
         {shown.map(t => (
           <li key={t.id} className="flex gap-1.5 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">
             <span aria-hidden className="text-gray-300 dark:text-gray-600">•</span>
-            <span>{t.name}</span>
+            <span>{bilingual(t.name)}</span>
           </li>
         ))}
       </ul>

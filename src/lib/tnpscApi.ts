@@ -12,6 +12,7 @@
  * is identical either way; only the accuracy of the grouping differs.
  */
 import { userApi } from './api';
+import { registerPair } from './bilingual';
 import { getUserAssessments, type ApiEvalAssessment } from './userPortalApi';
 import {
   DIFFICULTY_TO_LEVEL,
@@ -70,6 +71,11 @@ export interface TnpscTest {
   subject_name: string | null;
   topic_id: string | null;
   topic_name: string | null;
+  /** The topic's name in the other language, as the uploaded sheets gave it. */
+  topic_name_en?: string | null;
+  topic_name_ta?: string | null;
+  /** The unit's Tamil name, beside `unit_id`. */
+  unit_name_ta?: string | null;
   question_count: number;
   max_marks: number;
   time_limit_minutes: number | null;
@@ -351,6 +357,11 @@ function mergeSections(
 
 // ─── Mock tests (level-gated) ──────────────────────────────────────────────────
 
+/** Every topic name the server paired with its other language, so the stage page shows both. */
+function registerTestNames(tests: TnpscTest[] | undefined): void {
+  (tests ?? []).forEach(t => registerPair(t.topic_name, t.topic_name_en, t.topic_name_ta));
+}
+
 export async function getTnpscMockOverview(
   groupId: string,
   stageId: string,
@@ -360,6 +371,7 @@ export async function getTnpscMockOverview(
       `/api/v1/user/tnpsc/stages/${stageId}/mock-tests`,
     );
     if (res && Array.isArray(res.levels)) {
+      res.levels.forEach(l => registerTestNames(l.tests));
       return {
         stage_id: stageId,
         levels: res.levels,
@@ -534,13 +546,16 @@ export async function getTnpscPracticeSubjects(
     // The stage's own units are the only thing a title can be read against.
     const stage = findStage(groupId, stageId)?.stage;
     if (res && Array.isArray(res.subjects)) {
+      res.subjects.forEach(s => registerTestNames(s.tests));
       return res.subjects.map(s => ({
         ...s,
         tests: withTitlePlacement(stage, withSectionTag(s.tests ?? [])),
       }));
     }
-    if (res && Array.isArray(res.tests)) tests = res.tests;
-    else throw new Error('unexpected payload');
+    if (res && Array.isArray(res.tests)) {
+      registerTestNames(res.tests);
+      tests = res.tests;
+    } else throw new Error('unexpected payload');
   } catch {
     tests = await deriveTests(groupId, stageId, 'practice');
   }

@@ -6,6 +6,7 @@
  * module says so rather than thinning out into a plausible-looking chart (§3, §19).
  */
 import { useEffect, useMemo, useState } from 'react';
+import { bilingual } from '@/lib/bilingual';
 import {
   Bar,
   CartesianGrid,
@@ -644,7 +645,8 @@ export function ProficiencyRadarModule({ model }: { model: ProgressReportModel }
   }
 
   const data = plotted.map(s => ({
-    subject: s.name.length > 22 ? `${s.name.slice(0, 21)}…` : s.name,
+    id: s.subjectId,
+    subject: (n => (n.length > 30 ? `${n.slice(0, 29)}…` : n))(bilingual(s.name)),
     first: s.first?.accuracy ?? null,
     latest: s.latest?.accuracy ?? null,
   }));
@@ -694,18 +696,18 @@ export function ProficiencyRadarModule({ model }: { model: ProgressReportModel }
       <Takeaway>
         {bestGain && (bestGain.deltaPoints ?? 0) > 0 && (
           <>
-            Largest gain: {bestGain.name} ({signed(bestGain.deltaPoints)}, {bestGain.first?.accuracy}% →{' '}
+            Largest gain: {bilingual(bestGain.name)} ({signed(bestGain.deltaPoints)}, {bestGain.first?.accuracy}% →{' '}
             {bestGain.latest?.accuracy}%).{' '}
           </>
         )}
         {worstGain && (worstGain.deltaPoints ?? 0) < 0 && (
           <>
-            Largest decline: {worstGain.name} ({signed(worstGain.deltaPoints)}).{' '}
+            Largest decline: {bilingual(worstGain.name)} ({signed(worstGain.deltaPoints)}).{' '}
           </>
         )}
         {strongestLatest && (
           <>
-            Strongest right now: {strongestLatest.name} at {strongestLatest.latest?.accuracy}%.
+            Strongest right now: {bilingual(strongestLatest.name)} at {strongestLatest.latest?.accuracy}%.
           </>
         )}
       </Takeaway>
@@ -714,14 +716,12 @@ export function ProficiencyRadarModule({ model }: { model: ProgressReportModel }
 }
 
 function RadarCompareTooltip({ active, payload, rows }: any) {
-  const name = payload?.[0]?.payload?.subject;
-  const row: SubjectProgress | undefined = rows.find(
-    (r: SubjectProgress) => r.name === name || r.name.startsWith(String(name).replace('…', '')),
-  );
+  const id = payload?.[0]?.payload?.id;
+  const row: SubjectProgress | undefined = rows.find((r: SubjectProgress) => r.subjectId === id);
   if (!active || !row) return null;
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 shadow-lg max-w-[15rem]">
-      <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-snug">{row.name}</p>
+      <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-snug">{bilingual(row.name)}</p>
       <p className="text-[11px] text-gray-700 dark:text-gray-200 mt-0.5 tabular-nums">
         {row.first?.accuracy ?? '—'}% → {row.latest?.accuracy ?? '—'}% ({signed(row.deltaPoints)})
       </p>
@@ -778,7 +778,7 @@ export function SubjectProgressTable({ model }: { model: ProgressReportModel }) 
                     <td className="px-2 py-2 font-semibold text-gray-900 dark:text-gray-100">
                       <span className="inline-flex items-center gap-1.5">
                         <ChevronDown className={cn('w-3 h-3 text-gray-400 transition-transform', isOpen && 'rotate-180')} />
-                        {s.name}
+                        {bilingual(s.name)}
                       </span>
                     </td>
                     {model.attempts.map(a => {
@@ -947,7 +947,7 @@ export function GapEvolution({ model }: { model: ProgressReportModel }) {
               <tbody>
                 {rows.map(g => (
                   <tr key={g.subjectId} className="border-b border-gray-50 dark:border-gray-800/60">
-                    <td className="px-2 py-2 font-semibold text-gray-900 dark:text-gray-100">{g.name}</td>
+                    <td className="px-2 py-2 font-semibold text-gray-900 dark:text-gray-100">{bilingual(g.name)}</td>
                     <td className="px-2 py-2 text-right tabular-nums text-gray-600 dark:text-gray-300">
                       {fmtPct(g.firstAccuracy)}
                     </td>
@@ -1155,7 +1155,7 @@ export function NextPhasePlan({ model }: { model: ProgressReportModel }) {
       )}
       {model.queuedPriorities.length > 0 && (
         <p className="mt-2.5 text-[11px] text-gray-500 dark:text-gray-400">
-          Queued for a later cycle: {model.queuedPriorities.map(p => p.name).join(', ')}. Held back so the
+          Queued for a later cycle: {model.queuedPriorities.map(p => bilingual(p.name)).join(', ')}. Held back so the
           active list stays achievable.
         </p>
       )}
@@ -1173,7 +1173,7 @@ function PriorityCard({ p }: { p: PlanPriority }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-bold text-gray-900 dark:text-gray-100">
-            {p.rank}. {p.name}
+            {p.rank}. {bilingual(p.name)}
           </p>
           <p className="text-[10px] text-gray-400 mt-0.5 tabular-nums">{p.evidence}</p>
         </div>
@@ -1284,7 +1284,7 @@ function buildWeek(model: ProgressReportModel): WeekRow[] {
     }
     rows.push({
       day,
-      focus: p.name,
+      focus: bilingual(p.name),
       task,
       minutes: Math.round((p.minutesPerSession * scale) / 5) * 5,
       questions: Math.round(p.questionTarget * scale),
@@ -1295,7 +1295,7 @@ function buildWeek(model: ProgressReportModel): WeekRow[] {
   push(WEEK_DAYS[1], second ?? top, (second ?? top).action);
   push(WEEK_DAYS[2], maintain ?? third ?? top, maintain ? maintain.action : (third ?? top).action);
   // A spaced revisit of the hardest item, 3 days after its first session (§14.3).
-  push(WEEK_DAYS[3], top, `Spaced re-test on ${top.name} — same topics, fresh questions, no notes.`, 0.7);
+  push(WEEK_DAYS[3], top, `Spaced re-test on ${bilingual(top.name)} — same topics, fresh questions, no notes.`, 0.7);
   push(WEEK_DAYS[4], third ?? second ?? top, (third ?? second ?? top).action);
   rows.push({
     day: WEEK_DAYS[5],
@@ -1307,7 +1307,7 @@ function buildWeek(model: ProgressReportModel): WeekRow[] {
   rows.push({
     day: WEEK_DAYS[6],
     focus: 'Review',
-    task: `Work the error log from the week, starting with ${top.name}.`,
+    task: `Work the error log from the week, starting with ${bilingual(top.name)}.`,
     minutes: 45,
     questions: 0,
   });

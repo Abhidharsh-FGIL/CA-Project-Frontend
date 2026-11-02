@@ -68,10 +68,12 @@ import {
   WhatThisMeans,
   subjectHue,
   useLabel,
+  bilingualName,
   type Accent,
   type ReportLanguage,
   type StatusTone,
 } from '@/components/user/report-ui';
+import { bilingual, bilingualTitle } from '@/lib/bilingual';
 import {
   DEFAULT_REPORT_CONFIG,
   ISSUE_LABEL,
@@ -261,7 +263,7 @@ export function ReportCover({
             <h1 className="text-[26px] font-bold text-[#122447] dark:text-gray-100 leading-none">
               Assessment Report
             </h1>
-            <p className="text-sm font-bold text-[#122447]/80 dark:text-gray-300 mt-1">{model.meta.testName}</p>
+            <p className="text-sm font-bold text-[#122447]/80 dark:text-gray-300 mt-1">{bilingualTitle(model.meta.testName)}</p>
 
             {/* Tight label column so the colon sits next to the value, as designed. */}
             <dl className="mt-3.5 space-y-1.5">
@@ -393,7 +395,7 @@ export function ReportTitleRow({
       <div className="min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <h2 className="text-lg sm:text-xl font-bold text-[#122447] dark:text-gray-100 leading-tight">
-            {model.meta.testName}
+            {bilingualTitle(model.meta.testName)}
           </h2>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-violet-50 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300 border border-violet-100 dark:border-violet-900">
             This Attempt
@@ -720,6 +722,16 @@ export function AttemptSummary({ model }: { model: AttemptReportModel }) {
   );
 }
 
+/**
+ * An insight's title as the reader sees it: the subject's name in both languages, then whatever follows it
+ * ("— attempt more"). The model's title stays as it is — it is also sent to the server.
+ */
+function insightTitle(model: AttemptReportModel, i: { subjectId: string | null; title: string }): string {
+  const node = i.subjectId ? model.subjects.find(s => s.subjectId === i.subjectId) : undefined;
+  if (node && i.title.startsWith(node.name)) return bilingualName(node) + i.title.slice(node.name.length);
+  return bilingualTitle(i.title);
+}
+
 // ─── Performance snapshot: radar + takeaways (reference screen 3) ──────────────
 
 export function PerformanceSnapshot({
@@ -753,7 +765,7 @@ export function PerformanceSnapshot({
                   data={model.radar.map(r => ({
                     // Long syllabus names ran off the plot and collided with each
                     // other; the tooltip carries the full name.
-                    subject: r.label.length > 18 ? `${r.label.slice(0, 17)}…` : r.label,
+                    subject: bilingual(r.label).length > 18 ? `${bilingual(r.label).slice(0, 17)}…` : bilingual(r.label),
                     full: r.label,
                     value: r.value,
                     target,
@@ -849,19 +861,19 @@ function buildTakeaways(model: AttemptReportModel): Array<{ text: string; accent
 
     if (s.status === 'STRONG') {
       out.push({
-        text: `${s.name} is a strength (${s.metrics.correctPct}% correct).`,
+        text: `${bilingualName(s)} is a strength (${s.metrics.correctPct}% correct).`,
         accent: 'emerald',
         icon: <CheckCircle2 className="w-3 h-3" />,
       });
     } else if (acc >= cfg.developingAccuracy) {
       out.push({
-        text: `${s.name} shows moderate performance (${s.metrics.correctPct}% correct).`,
+        text: `${bilingualName(s)} shows moderate performance (${s.metrics.correctPct}% correct).`,
         accent: 'amber',
         icon: <TrendingUp className="w-3 h-3" />,
       });
     } else if (acc > 0) {
       out.push({
-        text: `${s.name} shows potential but needs work (${s.metrics.correctPct}% correct).`,
+        text: `${bilingualName(s)} shows potential but needs work (${s.metrics.correctPct}% correct).`,
         accent: 'rose',
         icon: <TrendingDown className="w-3 h-3" />,
       });
@@ -888,7 +900,7 @@ function buildTakeaways(model: AttemptReportModel): Array<{ text: string; accent
     });
   } else if (model.gaps.length > 0) {
     out.push({
-      text: `Focus on accuracy in ${model.gaps[0].title} — coverage is already there.`,
+      text: `Focus on accuracy in ${insightTitle(model, model.gaps[0])} — coverage is already there.`,
       accent: 'emerald',
       icon: <Zap className="w-3 h-3" />,
     });
@@ -913,7 +925,7 @@ function RadarAxisTick({ x, y, payload, textAnchor, rows }: any) {
   const row = rows[payload?.index];
   if (!row) return null;
 
-  const words = String(row.label).split(' ');
+  const words = bilingual(String(row.label)).split(' ');
   const lines: string[] = [];
   let line = '';
   for (const w of words) {
@@ -983,7 +995,7 @@ function radarExplanation(model: AttemptReportModel, target: number): string {
   if (measured.length === 0) {
     const available = blank.reduce((n, s) => n + s.metrics.questions, 0);
     return thin.length > 0
-      ? `No subject has enough answered questions to plot a reliable point yet — ${thin.map(s => s.name).join(', ')} ${thin.length === 1 ? 'sits' : 'sit'} below ${cfg.minEvidence} answers, and the remaining axes are empty. The shape fills in as you attempt more of the paper.`
+      ? `No subject has enough answered questions to plot a reliable point yet — ${thin.map(s => bilingualName(s)).join(', ')} ${thin.length === 1 ? 'sits' : 'sit'} below ${cfg.minEvidence} answers, and the remaining axes are empty. The shape fills in as you attempt more of the paper.`
       : `Nothing was attempted, so there is no shape to read. ${available} questions across ${blank.length} subject${blank.length === 1 ? '' : 's'} are waiting on a first attempt.`;
   }
 
@@ -996,14 +1008,14 @@ function radarExplanation(model: AttemptReportModel, target: number): string {
 
   // 1. The shape itself — and whether its lopsidedness is the story or not.
   if (measured.length === 1) {
-    sentences.push(`Only ${best.name} has enough answers to plot, at ${best.metrics.correctPct}% — one point is a line, not yet a shape.`);
+    sentences.push(`Only ${bilingualName(best)} has enough answers to plot, at ${best.metrics.correctPct}% — one point is a line, not yet a shape.`);
   } else if (spread >= 20) {
     sentences.push(
-      `The shape stretches furthest on ${best.name} (${best.metrics.correctPct}%) and pulls in tightest on ${worst.name} (${worst.metrics.correctPct}%) — a ${spread}-point spread, so your preparation is uneven rather than uniformly short.`,
+      `The shape stretches furthest on ${bilingualName(best)} (${best.metrics.correctPct}%) and pulls in tightest on ${bilingualName(worst)} (${worst.metrics.correctPct}%) — a ${spread}-point spread, so your preparation is uneven rather than uniformly short.`,
     );
   } else {
     sentences.push(
-      `The shape is fairly even: ${best.name} leads at ${best.metrics.correctPct}% and ${worst.name} trails at ${worst.metrics.correctPct}%, only ${spread} points apart, so no single subject is dragging it down — the level is what it is across the board.`,
+      `The shape is fairly even: ${bilingualName(best)} leads at ${best.metrics.correctPct}% and ${bilingualName(worst)} trails at ${worst.metrics.correctPct}%, only ${spread} points apart, so no single subject is dragging it down — the level is what it is across the board.`,
     );
   }
 
@@ -1011,7 +1023,7 @@ function radarExplanation(model: AttemptReportModel, target: number): string {
   sentences.push(
     atTarget.length === 0
       ? `No subject clears the ${target}% ring yet, so the whole shape sits inside it.`
-      : `${atTarget.length} of ${measured.length} measured subjects clear the ${target}% ring (${atTarget.slice(0, 3).map(s => s.name).join(', ')}${atTarget.length > 3 ? ' and others' : ''}); the rest of the gap between your outline and the ring is where the marks are.`,
+      : `${atTarget.length} of ${measured.length} measured subjects clear the ${target}% ring (${atTarget.slice(0, 3).map(s => bilingualName(s)).join(', ')}${atTarget.length > 3 ? ' and others' : ''}); the rest of the gap between your outline and the ring is where the marks are.`,
   );
 
   // 3. What closing the nearest gap is worth — the sentence that makes the chart
@@ -1028,8 +1040,8 @@ function radarExplanation(model: AttemptReportModel, target: number): string {
       const worth = perQuestion != null ? Math.round(extraCorrect * perQuestion * 10) / 10 : null;
       sentences.push(
         worth != null
-          ? `${nearest.name} is the closest to the ring at ${m.correctPct}% — getting ${extraCorrect} more of its ${m.questions} questions right would push it to target and is worth about ${worth} marks, which makes it the cheapest gap on this chart to close.`
-          : `${nearest.name} is the closest to the ring at ${m.correctPct}% — ${extraCorrect} more correct out of its ${m.questions} questions would reach target, which makes it the cheapest gap on this chart to close.`,
+          ? `${bilingualName(nearest)} is the closest to the ring at ${m.correctPct}% — getting ${extraCorrect} more of its ${m.questions} questions right would push it to target and is worth about ${worth} marks, which makes it the cheapest gap on this chart to close.`
+          : `${bilingualName(nearest)} is the closest to the ring at ${m.correctPct}% — ${extraCorrect} more correct out of its ${m.questions} questions would reach target, which makes it the cheapest gap on this chart to close.`,
       );
     }
   }
@@ -1038,14 +1050,14 @@ function radarExplanation(model: AttemptReportModel, target: number): string {
   if (blank.length > 0) {
     const q = blank.reduce((n, s) => n + s.metrics.questions, 0);
     sentences.push(
-      `${blank.length} ax${blank.length === 1 ? 'is sits' : 'es sit'} at 0% because nothing was attempted there — ${q} question${q === 1 ? '' : 's'} in ${blank.slice(0, 2).map(s => s.name).join(', ')}${blank.length > 2 ? ' and others' : ''}.`,
+      `${blank.length} ax${blank.length === 1 ? 'is sits' : 'es sit'} at 0% because nothing was attempted there — ${q} question${q === 1 ? '' : 's'} in ${blank.slice(0, 2).map(s => bilingualName(s)).join(', ')}${blank.length > 2 ? ' and others' : ''}.`,
     );
   }
 
   // 5. Points that can swing on a single question.
   if (thin.length > 0) {
     sentences.push(
-      `${thin.slice(0, 2).map(s => `${s.name} (${s.metrics.attempted})`).join(' and ')}${thin.length > 2 ? ' and others' : ''} rest on fewer than ${cfg.minEvidence} answers, so ${thin.length === 1 ? 'that point' : 'those points'} can move a long way on one more question.`,
+      `${thin.slice(0, 2).map(s => `${bilingualName(s)} (${s.metrics.attempted})`).join(' and ')}${thin.length > 2 ? ' and others' : ''} rest on fewer than ${cfg.minEvidence} answers, so ${thin.length === 1 ? 'that point' : 'those points'} can move a long way on one more question.`,
     );
   }
 
@@ -1058,7 +1070,7 @@ function RadarTooltip({ active, payload, rows, target }: any) {
   if (!active || !row) return null;
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 shadow-lg max-w-[15rem]">
-      <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-snug">{row.label}</p>
+      <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-snug">{bilingual(row.label)}</p>
       {row.state === 'NOT_ASSESSED' ? (
         <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
           Nothing attempted — none of its {row.questions} questions were answered, so 0 of {row.questions} are correct.
@@ -1290,7 +1302,7 @@ export function SubjectPerformance({
                         <td className="px-3 py-3 font-bold text-[#122447] dark:text-gray-100">
                           <span className="inline-flex items-center gap-2">
                             <ChevronRight className={cn('w-4 h-4 text-gray-400 transition-transform', open && 'rotate-90')} />
-                            {group.subject ?? 'Other units'}
+                            {group.subject ? bilingual(group.subject) : 'Other units'}
                             <span className="text-[10px] font-medium text-gray-400">
                               {group.items.length} unit{group.items.length === 1 ? '' : 's'}
                             </span>
@@ -1603,7 +1615,7 @@ function SubjectDeepDive({
               </div>
               {untagged > 0 && (
                 <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2">
-                  {untagged} of the {m.questions} questions in {subject.name} carry no topic tag, so they are counted
+                  {untagged} of the {m.questions} questions in {bilingualName(subject)} carry no topic tag, so they are counted
                   in the totals above but appear in none of these rows.
                 </p>
               )}
@@ -1635,7 +1647,7 @@ function SubjectDeepDive({
                 onClick={() => onViewQuestions(subject.subjectId)}
                 className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
               >
-                Open the {m.questions} {subject.name} questions
+                Open the {m.questions} {bilingualName(subject)} questions
                 <ArrowRight className="w-3 h-3" />
               </button>
             )}
@@ -1649,7 +1661,7 @@ function SubjectDeepDive({
                 rather than drawing a one-point line and calling it a trend. */}
             <div className="space-y-2">
               <MeterRow
-                label={`${subject.name} correct`}
+                label={`${bilingualName(subject)} correct`}
                 value={m.correctPct}
                 right={m.correctPct == null ? '—' : `${m.correctPct}%`}
               />
@@ -1659,7 +1671,7 @@ function SubjectDeepDive({
                 right={model.summary.correctPct == null ? '—' : `${model.summary.correctPct}%`}
               />
               <MeterRow
-                label={`${subject.name} coverage`}
+                label={`${bilingualName(subject)} coverage`}
                 value={m.coverage}
                 right={`${m.attempted} of ${m.questions} reached`}
               />
@@ -1706,7 +1718,7 @@ function topicNarrative(subject: SubjectNode): string {
   if (measured.length > 0) {
     const weakest = measured.reduce((lo, t) => ((t.metrics.correctPct ?? 0) < (lo.metrics.correctPct ?? 0) ? t : lo));
     parts.push(
-      `${weakest.name} is the weakest measured topic at ${weakest.metrics.correctPct}% (${weakest.metrics.correct} of ${weakest.metrics.questions} questions correct), and it carries ${weakest.metrics.questions} questions in this paper — the most marks any single topic here is costing you.`,
+      `${bilingualName(weakest)} is the weakest measured topic at ${weakest.metrics.correctPct}% (${weakest.metrics.correct} of ${weakest.metrics.questions} questions correct), and it carries ${weakest.metrics.questions} questions in this paper — the most marks any single topic here is costing you.`,
     );
   } else {
     parts.push(
@@ -1717,7 +1729,7 @@ function topicNarrative(subject: SubjectNode): string {
   if (untouched.length > 0) {
     const q = untouched.reduce((n, t) => n + t.metrics.questions, 0);
     parts.push(
-      `${untouched.length} topic${untouched.length === 1 ? '' : 's'} went entirely unanswered (${untouched.slice(0, 2).map(t => t.name).join(', ')}${untouched.length > 2 ? ' and others' : ''}, ${q} questions) — unknown rather than weak, and the cheapest place to add marks.`,
+      `${untouched.length} topic${untouched.length === 1 ? '' : 's'} went entirely unanswered (${untouched.slice(0, 2).map(t => bilingualName(t)).join(', ')}${untouched.length > 2 ? ' and others' : ''}, ${q} questions) — unknown rather than weak, and the cheapest place to add marks.`,
     );
   }
 
@@ -1735,13 +1747,13 @@ function comparisonNarrative(subject: SubjectNode, model: AttemptReportModel): s
     const d = Math.round(m.correctPct - paperAcc);
     parts.push(
       d === 0
-        ? `${subject.name} is scoring exactly in line with the paper as a whole (${m.correctPct}% correct).`
+        ? `${bilingualName(subject)} is scoring exactly in line with the paper as a whole (${m.correctPct}% correct).`
         : d > 0
-          ? `${subject.name} is ${d} points above your paper average (${m.correctPct}% correct against ${paperAcc}%), so it is carrying the score rather than dragging it.`
-          : `${subject.name} is ${Math.abs(d)} points below your paper average (${m.correctPct}% correct against ${paperAcc}%), so it is one of the places the score is being lost.`,
+          ? `${bilingualName(subject)} is ${d} points above your paper average (${m.correctPct}% correct against ${paperAcc}%), so it is carrying the score rather than dragging it.`
+          : `${bilingualName(subject)} is ${Math.abs(d)} points below your paper average (${m.correctPct}% correct against ${paperAcc}%), so it is one of the places the score is being lost.`,
     );
   } else {
-    parts.push(`There is nothing to compare ${subject.name} against the paper with.`);
+    parts.push(`There is nothing to compare ${bilingualName(subject)} against the paper with.`);
   }
 
   if (m.coverage != null && paperCov != null) {
@@ -1820,9 +1832,9 @@ export function QuestionErrorAnalysis({ model }: { model: AttemptReportModel }) 
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: subjectHue(i) }} />
                   <span
                     className="text-[11px] text-gray-700 dark:text-gray-200 truncate flex-1 min-w-0"
-                    title={r.name}
+                    title={bilingualName(r)}
                   >
-                    {r.name}
+                    {bilingualName(r)}
                   </span>
                   <span className="text-[11px] font-bold tabular-nums text-rose-600 dark:text-rose-400 flex-shrink-0">
                     {r.incorrect}
@@ -1989,8 +2001,8 @@ export function QuestionErrorAnalysis({ model }: { model: AttemptReportModel }) 
                 .map((r, i) => (
                   <div key={r.subjectId}>
                     <div className="flex items-baseline justify-between gap-2 text-[11px]">
-                      <span className="text-gray-700 dark:text-gray-200 truncate" title={r.name}>
-                        {r.name}
+                      <span className="text-gray-700 dark:text-gray-200 truncate" title={bilingualName(r)}>
+                        {bilingualName(r)}
                       </span>
                       <span className="font-bold tabular-nums text-[#122447] dark:text-gray-100 flex-shrink-0">
                         {fmtPct(r.correctPct)}
@@ -2095,16 +2107,16 @@ export function StrengthsAndGaps({ model }: { model: AttemptReportModel }) {
    */
   // The model ranks both lists (strongest first, weakest first), so the short lists here are the best and the worst
   // across every unit of the paper.
-  const strengths = model.strengths.slice(0, 5).map(s => `${s.title} — ${s.evidence}`);
+  const strengths = model.strengths.slice(0, 5).map(s => `${insightTitle(model, s)} — ${s.evidence}`);
   const improve: string[] = [];
 
   const sum = model.summary;
   if (sum.attemptRate != null && sum.attemptRate < model.config.targetCoverage) {
     improve.push(`Increase attempt rate across all subjects (currently ${sum.attemptRate}%)`);
   }
-  for (const g of model.gaps.slice(0, 4)) improve.push(`${g.title} (${g.evidence})`);
+  for (const g of model.gaps.slice(0, 4)) improve.push(`${insightTitle(model, g)} (${g.evidence})`);
   if (model.coverageGaps.length > 0) {
-    const names = model.coverageGaps.slice(0, 3).map(c => c.title).join(', ');
+    const names = model.coverageGaps.slice(0, 3).map(c => insightTitle(model, c)).join(', ');
     improve.push(`Review core concepts in ${names}${model.coverageGaps.length > 3 ? ' and others' : ''} (not attempted)`);
   }
 
@@ -2114,8 +2126,8 @@ export function StrengthsAndGaps({ model }: { model: AttemptReportModel }) {
   const attemptMore: string[] = [];
   for (const q of model.quickWins) {
     const m = /^(.*) — attempt more$/.exec(q.title);
-    if (m) attemptMore.push(m[1]);
-    else quickWins.push(q.title);
+    if (m) attemptMore.push(insightTitle(model, { subjectId: q.subjectId, title: m[1] }));
+    else quickWins.push(insightTitle(model, q));
   }
   if (attemptMore.length > 0) {
     const list =
@@ -2295,11 +2307,11 @@ export function CoverageAnalysis({ model }: { model: AttemptReportModel }) {
                   style={{ background: subjectHue(i) }}
                   aria-hidden
                 >
-                  {r.name.trim().charAt(0).toUpperCase()}
+                  {bilingualName(r).trim().charAt(0).toUpperCase()}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[11px] font-bold text-[#122447] dark:text-gray-100 truncate">
-                    {r.name}
+                    {bilingualName(r)}
                   </span>
                   <span className="block text-[10px] text-gray-400 tabular-nums">
                     {r.skipped} of {r.questions} unanswered
@@ -2326,7 +2338,7 @@ export function CoverageAnalysis({ model }: { model: AttemptReportModel }) {
                   {r.topics.length > 0 ? (
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 mb-1.5">
-                        Syllabus topics in {r.name}
+                        Syllabus topics in {bilingualName(r)}
                       </p>
                       <div className="flex flex-wrap gap-1">
                         {r.topics.map(t => (
@@ -2334,7 +2346,7 @@ export function CoverageAnalysis({ model }: { model: AttemptReportModel }) {
                             key={t}
                             className="text-[10px] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded"
                           >
-                            {t}
+                            {bilingual(t)}
                           </span>
                         ))}
                       </div>
@@ -2643,7 +2655,7 @@ export function QuestionInsightsToolbar({
           <option value="">{model.groupedBy === 'unit' ? 'All units' : 'All subjects'}</option>
           {model.subjects.map(s => (
             <option key={s.subjectId} value={s.subjectId}>
-              {s.name}
+              {bilingualName(s)}
             </option>
           ))}
         </select>

@@ -1,6 +1,7 @@
 import { upperMeridiem } from '@/lib/meridiem';
 import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import { displayTitle } from '@/lib/display-title';
+import { bilingualTitle } from '@/lib/bilingual';
 import { Link, useSearchParams } from 'react-router-dom';
 import { readPerformanceView } from '@/lib/performance-view';
 import { here } from '@/lib/report-origin';
@@ -50,8 +51,8 @@ const LEVEL_TAIL = /\s*[·•|-]\s*(Simple|Medium|Complex|Mixed|Easy|Hard)\s*$/i
 function splitLevel(title: string | null): { name: string; level: string | null } {
   const t = displayTitle(title) ?? 'Test Attempt';
   const m = t.match(LEVEL_TAIL);
-  if (!m || m.index == null) return { name: t, level: null };
-  return { name: t.slice(0, m.index).trim() || t, level: m[1][0].toUpperCase() + m[1].slice(1).toLowerCase() };
+  if (!m || m.index == null) return { name: bilingualTitle(t), level: null };
+  return { name: bilingualTitle(t.slice(0, m.index).trim() || t), level: m[1][0].toUpperCase() + m[1].slice(1).toLowerCase() };
 }
 
 const LEVEL_CHIP: Record<string, string> = {

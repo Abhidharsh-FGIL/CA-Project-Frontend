@@ -1,3 +1,4 @@
+import { bilingual, studentTitle } from '@/lib/bilingual';
 import { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { startTestAttempt, type TestDetail } from '@/lib/userPortalApi';
@@ -66,7 +67,7 @@ export default function TestReadyPage() {
           {/* Subject tag */}
           {test.subject && (
             <p className="text-center text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em] mb-4">
-              {test.subject}
+              {bilingual(test.subject)}
             </p>
           )}
 
@@ -81,7 +82,7 @@ export default function TestReadyPage() {
 
           {/* Title */}
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 text-center leading-snug mb-2">
-            {test.name ?? 'Untitled Test'}
+            {studentTitle(test.name) || 'Untitled Test'}
           </h1>
 
           {/* Mode badge */}

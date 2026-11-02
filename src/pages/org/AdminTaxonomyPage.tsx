@@ -31,6 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { TNPSC_GROUPS } from '@/config/tnpsc';
+import { isTamil, otherName } from '@/lib/bilingual';
 import {
   ACTION_LABEL,
   taxonomyApi,
@@ -383,6 +384,7 @@ function NodeRow({
             )}
             {toggle && <span className="text-[10px] text-gray-400">{toggle.count} sub</span>}
           </div>
+          <PairLine node={node} />
           <p className="text-[10px] text-gray-400">
             {node.source ?? ''}
             {fix && node.suggestion ? (
@@ -438,6 +440,21 @@ function NodeRow({
 const QUIET_KEYS = new Set(['updated_at']);
 const show = (v: unknown) => (v == null || v === '' ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 
+/** The name's other-language pair, or a note that it has none yet. */
+function PairLine({ node }: { node: TaxonomyNode }) {
+  const tamilName = isTamil(node.name);
+  const pair = tamilName ? node.name_en : node.name_ta;
+  return (
+    <p className={cn('text-[10px]', pair ? 'text-gray-500 dark:text-gray-400' : 'text-amber-600 dark:text-amber-400')}>
+      {pair ?? (tamilName ? 'No English name yet' : 'No Tamil name yet')}
+    </p>
+  );
+}
+
+/** What the page offers on a name: the three changes, and setting one language's name on its own. */
+type UiAction = TaxonomyAction | 'translate';
+const uiLabel = (a: UiAction) => (a === 'translate' ? 'Set translation' : ACTION_LABEL[a]);
+
 function ChangeDialog({
   target,
   exam,
@@ -459,8 +476,11 @@ function ChangeDialog({
     return pool.filter(n => n.official && n.name !== node.name).map(n => n.name);
   }, [level, unit, category, node.name]);
 
-  const actions: TaxonomyAction[] = fix ? ['merge', 'mark_official'] : ['rename', 'merge'];
-  const [action, setAction] = useState<TaxonomyAction>(actions[0]);
+  const actions: UiAction[] = fix ? ['merge', 'mark_official'] : ['rename', 'translate', 'merge'];
+  const [action, setAction] = useState<UiAction>(actions[0]);
+  // A translation is the name in the language this one is not in: Tamil for an English name, English for a Tamil one.
+  const lang: 'ta' | 'en' = isTamil(node.name) ? 'en' : 'ta';
+  const [translation, setTranslation] = useState((lang === 'ta' ? node.name_ta : node.name_en) ?? otherName(node.name) ?? '');
   const [mergeTo, setMergeTo] = useState<string>(
     fix && node.suggestion && officialSiblings.includes(node.suggestion.name) ? node.suggestion.name : '',
   );
@@ -468,15 +488,23 @@ function ChangeDialog({
   const [note, setNote] = useState('');
   const [preview, setPreview] = useState<TaxonomyPreview | null>(null);
 
-  const to = action === 'merge' ? mergeTo : action === 'rename' ? renameTo.trim() : null;
-  const ready = action === 'mark_official' || (!!to && to !== node.name);
+  const to =
+    action === 'merge' ? mergeTo : action === 'rename' ? renameTo.trim() : action === 'translate' ? translation.trim() : null;
+  const ready = action === 'mark_official' || (!!to && (action === 'translate' || to !== node.name));
 
+  // A translation is sent as a rename that names its language; the server changes that one name and nothing else.
   const change: TaxonomyChange = {
-    action,
+    action: action === 'translate' ? 'rename' : action,
     level,
     from: node.name,
     to: action === 'mark_official' ? null : to,
-    scope: { exam, stage, unit: unit.id ?? undefined, category: level === 'subcategory' ? category?.name ?? null : undefined },
+    scope: {
+      exam,
+      stage,
+      unit: unit.id ?? undefined,
+      category: level === 'subcategory' ? category?.name ?? null : undefined,
+      ...(action === 'translate' ? { lang } : {}),
+    },
     note: note.trim() || undefined,
   };
 
@@ -492,7 +520,7 @@ function ChangeDialog({
       void qc.invalidateQueries({ queryKey: ['taxonomy'] });
       // The dropdowns and user screens read the official list; let them see the change.
       void qc.invalidateQueries({ queryKey: ['syllabus'] });
-      toast.success(`${ACTION_LABEL[action]} done — ${fmt(res.counts.questions)} questions, ${fmt(res.counts.tests)} tests updated.`, {
+      toast.success(`${uiLabel(action)} done — ${fmt(res.counts.questions)} questions, ${fmt(res.counts.tests)} tests updated.`, {
         action: {
           label: 'Undo',
           onClick: () =>
@@ -545,10 +573,11 @@ function ChangeDialog({
                     : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800',
                 )}
               >
-                <span className="block text-sm font-bold">{ACTION_LABEL[a]}</span>
+                <span className="block text-sm font-bold">{uiLabel(a)}</span>
                 {a === 'merge' && 'Move everything using this name onto an official name.'}
                 {a === 'mark_official' && 'This name is right — add it to the official list.'}
                 {a === 'rename' && 'Change this official name everywhere it is used.'}
+                {a === 'translate' && `Set the ${lang === 'ta' ? 'Tamil' : 'English'} name shown beside it. Nothing else changes.`}
               </button>
             ))}
           </div>
@@ -581,6 +610,24 @@ function ChangeDialog({
                   There is no official {level === 'category' ? 'category in this unit' : 'sub-category in this category'} to merge into.
                 </p>
               )}
+            </div>
+          )}
+
+          {action === 'translate' && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{lang === 'ta' ? 'Tamil' : 'English'} name</p>
+              <Input
+                value={translation}
+                onChange={e => {
+                  setTranslation(e.target.value);
+                  reset();
+                }}
+                placeholder={lang === 'ta' ? 'தமிழ் பெயர்' : 'English name'}
+                autoFocus
+              />
+              <p className="text-[11px] text-gray-500">
+                Shown as “{lang === 'ta' ? `${node.name} / ${translation.trim() || '…'}` : `${translation.trim() || '…'} / ${node.name}`}”.
+              </p>
             </div>
           )}
 
@@ -671,7 +718,7 @@ function ChangeDialog({
               className="flex items-center gap-1.5 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40"
             >
               {applyM.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Apply {ACTION_LABEL[action].toLowerCase()}
+              Apply {uiLabel(action).toLowerCase()}
             </button>
           )}
         </DialogFooter>
@@ -731,7 +778,7 @@ function ChangeLog({ stage }: { stage: string }) {
         >
           <div className="min-w-0 flex-1">
             <p className="text-sm text-gray-900 dark:text-gray-100">
-              <span className="font-bold">{ACTION_LABEL[e.action]}</span> {e.level}{' '}
+              <span className="font-bold">{e.scope?.lang ? `Set ${e.scope.lang === 'ta' ? 'Tamil' : 'English'} name of` : ACTION_LABEL[e.action]}</span> {e.level}{' '}
               <span className="font-semibold">“{e.from}”</span>
               {e.to && (
                 <>

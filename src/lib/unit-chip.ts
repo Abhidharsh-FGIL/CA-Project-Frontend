@@ -1,3 +1,5 @@
+import { inLanguage, type PaperLang } from './bilingual';
+
 /**
  * The label on a unit's filter chip.
  *
@@ -40,11 +42,13 @@ export function shortTamilName(name: string): string {
 }
 
 /**
- * What the chip says: the printed Tamil name under the Tamil paper, the English name
- * everywhere else. A General Studies unit's `nameTa` is a translation supplied for
- * display, and a chip that led with it left an English-reading aspirant looking at
- * a row of Tamil.
+ * What the chip says: both names, English first and each cut short — "Grammar / இலக்கணம்". Every unit is
+ * named in both languages across the portal, except the two language papers: General Tamil's chips are in Tamil
+ * only (`lang` 'ta') and General English's in English only ('en').
  */
-export function unitChipLabel(unit: { name: string; nameTa?: string | null }, tamilOnly: boolean): string {
-  return tamilOnly && unit.nameTa ? shortTamilName(unit.nameTa) : shortEnglishName(unit.name);
+export function unitChipLabel(unit: { name: string; nameTa?: string | null }, lang?: PaperLang): string {
+  if (lang === 'ta') return shortTamilName(unit.nameTa || inLanguage(unit.name, 'ta'));
+  if (lang === 'en') return shortEnglishName(inLanguage(unit.name, 'en'), 20);
+  const en = shortEnglishName(unit.name, 20);
+  return unit.nameTa && unit.nameTa !== unit.name ? `${en} / ${shortTamilName(unit.nameTa)}` : en;
 }

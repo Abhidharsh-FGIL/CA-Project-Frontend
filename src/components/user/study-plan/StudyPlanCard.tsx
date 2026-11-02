@@ -23,6 +23,7 @@ import {
   Wand2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { bilingualTitle } from '@/lib/bilingual';
 import { ACCENT } from '@/components/user/report-ui';
 import { useActiveStudyPlan, useTaskToggle } from '@/hooks/use-study-plan';
 import { MiniRing, fmtMinutes } from './plan-ui';
@@ -175,7 +176,7 @@ function QuickTask({
             : 'text-gray-700 dark:text-gray-200',
         )}
       >
-        {task.title}
+        {bilingualTitle(task.title)}
       </span>
       <span className="flex-shrink-0 text-[13px] tabular-nums text-gray-400">
         {fmtMinutes(task.minutes)}

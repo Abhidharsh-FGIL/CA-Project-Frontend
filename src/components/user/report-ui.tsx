@@ -10,6 +10,7 @@
  */
 import React, { createContext, useContext } from 'react';
 import { cn } from '@/lib/utils';
+import { bilingual, isTamil } from '@/lib/bilingual';
 
 // ─── Reading scale ─────────────────────────────────────────────────────────────
 
@@ -532,8 +533,14 @@ export function useReportLanguage(): ReportLanguage {
  * the paper actually carried.
  */
 export function useLabel(): (node: { name: string; nameLocal?: string | null }) => string {
-  const lang = useReportLanguage();
-  return node => (lang === 'ta' ? node.nameLocal || node.name : node.name);
+  // Every unit, subject and topic name is shown in both languages, "English / தமிழ்", whichever is picked.
+  return bilingualName;
+}
+
+/** A node's name in both languages, using its own other-language name when it carries one. */
+export function bilingualName(node: { name: string; nameLocal?: string | null }): string {
+  const local = node.nameLocal?.trim();
+  return local && isTamil(local) !== isTamil(node.name) ? bilingual(node.name, local) : bilingual(node.name);
 }
 
 /** EN / தமிழ், for the report header. */

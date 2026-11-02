@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { displayTitle } from '@/lib/display-title';
+import { studentTitle } from '@/lib/bilingual';
 import type { ApiAttempt } from '@/lib/userPortalApi';
 
 /**
@@ -18,7 +18,7 @@ export function TestsPerDayChart({ attempts, className = 'h-44 sm:h-56' }: { att
         label: d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
         names: [],
       };
-      e.names.push(displayTitle(h.test_name) ?? 'Test attempt');
+      e.names.push(studentTitle(h.test_name) || 'Test attempt');
       byDay.set(key, e);
     }
     return [...byDay.values()]

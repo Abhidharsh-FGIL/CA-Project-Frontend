@@ -4,7 +4,11 @@ import {
   basisLine,
   displayUnitName,
   masteryBand,
+  practisedLanguage,
   recommendationKind,
+  recommendationLanguage,
+  recommendationsForLanguage,
+  unitLanguage,
   recommendationHref,
   recommendationPlace,
   recommendationTitle,
@@ -38,10 +42,10 @@ describe('recommendationHref', () => {
 
 describe('naming a pick', () => {
   it('titles it by the category its test covers (the sub-category is its focus) and places it in its unit', () => {
-    expect(recommendationTitle(rec())).toBe('HCF');
-    expect(recommendationTitle(rec({ subcategory: { id: 's', name: 'Word problems', mastery: 8 } }))).toBe('HCF');
+    expect(recommendationTitle(rec())).toBe('HCF / மீப்பெரு பொது வகுத்தி (மீ.பொ.வ)');
+    expect(recommendationTitle(rec({ subcategory: { id: 's', name: 'Word problems', mastery: 8 } }))).toBe('HCF / மீப்பெரு பொது வகுத்தி (மீ.பொ.வ)');
     expect(recommendationTitle(rec({ type: 'full_mock', category: null }))).toBe('Full mock test');
-    expect(recommendationPlace(rec())).toBe('Unit I · Aptitude');
+    expect(recommendationPlace(rec())).toBe('Unit I · Aptitude / திறனறிவு');
   });
 
   it("places a full mock by its test's title", () => {
@@ -66,18 +70,19 @@ describe('what a pick covers', () => {
   });
 
   it('names a whole unit once: the heading is the unit, and the line under it only gives its number', () => {
-    expect(recommendationTitle(unitPick)).toBe('Aptitude');
+    expect(recommendationTitle(unitPick)).toBe('Aptitude / திறனறிவு');
     expect(recommendationPlace(unitPick)).toBe('Unit I');
     // a Key topic still names its unit under the heading
-    expect(recommendationPlace(rec())).toBe('Unit I · Aptitude');
+    expect(recommendationPlace(rec())).toBe('Unit I · Aptitude / திறனறிவு');
   });
 });
 
 describe('unit names follow the rest of the app', () => {
-  it("shows the Tamil paper's units in Tamil, and the others in English", () => {
+  it('shows every unit in both languages, English first', () => {
+    // General Tamil in Tamil only, General English in English only, the other papers in both.
     expect(displayUnitName('g4-ta-grammar', 'Grammar')).toBe('இலக்கணம்');
     expect(displayUnitName('g4-en-grammar', 'Grammar')).toBe('Grammar');
-    expect(displayUnitName('g4-apt-aptitude', 'Aptitude')).toBe('Aptitude');
+    expect(displayUnitName('g4-apt-aptitude', 'Aptitude')).toBe('Aptitude / திறனறிவு');
   });
 
   it('falls back to the backend name for a unit the app does not know', () => {
@@ -135,5 +140,49 @@ describe('recommendedTestIds', () => {
     } as Recommendations;
     expect([...recommendedTestIds(data)]).toEqual(['t1']);
     expect(recommendedTestIds(null).size).toBe(0);
+  });
+});
+
+describe('the language paper', () => {
+  const tamil = rec({ rec_id: 'ta', unit: { id: 'g4-ta-grammar', name: 'Grammar', label: 'I' }, category: { id: 'p', name: 'பிழை திருத்தம்' } });
+  const english = rec({ rec_id: 'en', unit: { id: 'g4-en-grammar', name: 'Grammar', label: 'I' }, category: { id: 'q', name: 'Question Tags' } });
+  const english2 = rec({ rec_id: 'en2', unit: { id: 'g4-en-vocabulary', name: 'Vocabulary', label: 'II' }, category: null });
+  const aptitude = rec();
+  const data = (over: Partial<Recommendations> = {}): Recommendations => ({
+    status: 'ready',
+    generated_at: null,
+    based_on_attempts: 1,
+    readiness: { score: 16, sections: [{ name: 'General English', score: 32, questions: 25 }, { name: 'General Tamil', score: null, questions: 0 }, { name: 'General Studies', score: 0 }] },
+    items: [english, tamil, english2, aptitude],
+    weak_map: [
+      { unit_id: 'g4-en-vocabulary', unit_name: 'Vocabulary', mastery: 18, categories: [] },
+      { unit_id: 'g4-ta-grammar', unit_name: 'Grammar', mastery: null, categories: [] },
+    ],
+    improved: [],
+    ...over,
+  });
+
+  it('reads a unit and a pick as Tamil, English or for everyone', () => {
+    expect(unitLanguage('g4-ta-grammar')).toBe('tamil');
+    expect(unitLanguage('g2-en-vocabulary')).toBe('english');
+    expect(unitLanguage('g4-apt-aptitude')).toBeNull();
+    expect(unitLanguage(null, 'General English')).toBe('english');
+    expect(recommendationLanguage(tamil)).toBe('tamil');
+    expect(recommendationLanguage(aptitude)).toBeNull();
+  });
+
+  it('knows the paper from what was practised, and gives up when it was both or neither', () => {
+    expect(practisedLanguage(data())).toBe('english');
+    expect(practisedLanguage(data({ weak_map: [{ unit_id: 'g4-ta-grammar', unit_name: 'Grammar', mastery: 40, categories: [] }] }))).toBeNull();
+    expect(practisedLanguage(data({ weak_map: [], readiness: null }))).toBeNull();
+  });
+
+  it('drops the other paper: its picks, its units and its readiness row, keeping what everyone sits', () => {
+    const d = recommendationsForLanguage(data(), 'english');
+    expect(d.items.map(r => r.rec_id)).toEqual(['en', 'en2', 'r1']);
+    expect(d.weak_map.map(u => u.unit_id)).toEqual(['g4-en-vocabulary']);
+    expect(d.readiness?.sections.map(s => s.name)).toEqual(['General English', 'General Studies']);
+    expect(recommendationsForLanguage(data(), 'tamil').items.map(r => r.rec_id)).toEqual(['ta', 'r1']);
+    expect(recommendationsForLanguage(data(), null).items).toHaveLength(4);
   });
 });

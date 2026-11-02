@@ -22,6 +22,7 @@ import {
   ChevronDown,
   LogOut,
   ListTree,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 interface GenVerseShellProps {
@@ -43,6 +44,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Courses', path: '/org/courses', icon: BookOpen, group: 'content' },
   { label: 'Users', path: '/org/users', icon: Users, group: 'admin' },
   { label: 'History', path: '/org/history', icon: History, group: 'admin' },
+  { label: 'Attempts Report', path: '/org/reports', icon: FileSpreadsheet, group: 'admin' },
   { label: 'Promo Codes', path: '/org/promos', icon: Tag, group: 'admin' },
   { label: 'Plans', path: '/org/plans', icon: Sparkles, group: 'admin' },
   { label: 'Payments', path: '/org/payments', icon: CreditCard, group: 'admin' },
