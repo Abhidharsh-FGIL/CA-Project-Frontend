@@ -11,6 +11,7 @@ import {
   Moon,
   Receipt,
   Gift,
+  MessageSquareHeart,
   History as HistoryIcon,
   Headset,
   Sparkles,
@@ -24,9 +25,14 @@ import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_LINK } from '@/config/suppo
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
+import { GROUP_STAGE } from '@/hooks/use-progress-trend';
+import { useSavedView } from '@/hooks/use-saved-view';
+import { AiCoachButton, AiCoachDialog } from '@/components/user/NextBestPractice';
 
 interface UserShellProps {
   children: ReactNode;
+  /** A page's own button for the header bar, first among the actions on the right (the dashboard's AI Coach). */
+  headerAction?: ReactNode;
 }
 
 interface NavItem {
@@ -108,7 +114,24 @@ const PLAN_LABEL: Record<string, string> = {
  */
 const SHOW_PLAN_UI = false;
 
-export function UserShell({ children }: UserShellProps) {
+/**
+ * The AI Coach button and its popup, for every page that does not bring its own. The exam is the one the aspirant last
+ * chose on the dashboard (or registered for); the dashboard passes its own button, which follows its live filter.
+ */
+function HeaderAiCoach() {
+  const { user } = useUserPortal();
+  const { group } = useSavedView(user);
+  const [open, setOpen] = useState(false);
+  const stage = GROUP_STAGE[group];
+  return (
+    <>
+      <AiCoachButton exam={group} stage={stage} onClick={() => setOpen(true)} />
+      <AiCoachDialog exam={group} stage={stage} name={user?.name?.split(' ')[0]} open={open} onOpenChange={setOpen} />
+    </>
+  );
+}
+
+export function UserShell({ children, headerAction }: UserShellProps) {
   const { user, isAuthenticated, logout } = useUserPortal();
   const { theme, toggleMode } = useTheme();
   const { pathname } = useLocation();
@@ -279,6 +302,7 @@ export function UserShell({ children }: UserShellProps) {
             <div className="ml-4 hidden lg:block">{topNav}</div>
 
             <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+              {headerAction ?? <HeaderAiCoach />}
               {isFree && (
                 <Link
                   to="/user/subscription"
@@ -338,6 +362,7 @@ export function UserShell({ children }: UserShellProps) {
                       { to: '/user/subscription', label: 'Plans', icon: Sparkles },
                       { to: '/user/referral', label: 'Refer & Earn', icon: Gift },
       { to: '/user/billing', label: 'Payment History', icon: Receipt },
+                      { to: '/user/feedback', label: 'Feedback', icon: MessageSquareHeart },
                       { to: '/user/about', label: 'About Us', icon: Info },
                     ].map(({ to, label, icon: Icon }) => (
                       <Link

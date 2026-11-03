@@ -23,6 +23,8 @@ export interface HistoryUser {
   subscription_tier: string;
   /** When the paid plan ends. Null or absent for a free plan, or from a server that does not send it. */
   subscription_expiry?: string | null;
+  /** "Monthly" or "Yearly" for a paid plan. Absent from a server that does not send it. */
+  subscription_period?: string | null;
   joined_at: string | null;
   mock_attempts: number;
   practice_attempts: number;
@@ -30,6 +32,9 @@ export interface HistoryUser {
   /** How many mock / practice tests the student's plan gives access to. Absent from a server that does not send them. */
   mock_available?: number | null;
   practice_available?: number | null;
+  /** Tests taken since the current plan began; what "attended / available" counts. Falls back to the all-time count. */
+  mock_used_this_plan?: number | null;
+  practice_used_this_plan?: number | null;
   /** Null for someone who has never attended a test. */
   last_attempt_at: string | null;
   promo_codes_used: string[];

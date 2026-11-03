@@ -70,6 +70,8 @@ The token's role is `institute` and it carries the `institute_id`. **An institut
 
 Add **`subscription_expiry`** (ISO date-time, null for a free plan) next to `subscription_tier` in both `HistoryUser` rows (list and detail); the institute list shows each student's plan and when it ends.
 
+Also add **`subscription_period`** (`"monthly"` or `"yearly"`, null for a free plan) next to `subscription_tier`; the list shows it beside the plan name ("Ultimate · Monthly"). `joined_at` is already part of the row and is shown as the Joined column.
+
 Also add **`mock_available`** and **`practice_available`** (integers) to the same rows: how many mock and how many practice tests the student's current plan gives access to. The institute list shows them as "attended / available" (e.g. `2 / 10`). Leave them out (or null) to show attended only.
 
 The portal does not use `promo_codes_used` or `promo_redemptions` in this view, so those may be left empty here. Do not send anything else about a student (payments, notes, answers).

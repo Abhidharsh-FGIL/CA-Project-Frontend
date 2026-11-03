@@ -319,7 +319,7 @@ export default function UserDashboardPage() {
   }
 
   return (
-    <UserShell>
+    <UserShell headerAction={<AiCoachButton exam={group} stage={GROUP_STAGE[group]} onClick={() => setCoachOpen(true)} />}>
       {/* ── Greeting ─────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4 sm:mb-5">
         <div>
@@ -333,7 +333,6 @@ export default function UserDashboardPage() {
         {/* These two scope every card below, so they lead the page rather than
             sitting inside one card as that card's own filter. */}
         <div className="flex items-center gap-2 flex-wrap">
-          <AiCoachButton exam={group} stage={GROUP_STAGE[group]} onClick={() => setCoachOpen(true)} />
           <FilterSelect value={group} options={EXAM_GROUP_OPTIONS} onChange={chooseGroup} ariaLabel="Exam group" />
           <FilterSelect value={track} options={EXAM_TRACK_OPTIONS} onChange={v => setTrack(v)} ariaLabel="Test type" />
           <DateRangeFilter value={range} onChange={setRange} />

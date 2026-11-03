@@ -177,6 +177,7 @@ export function UserHistoryList({
                       <th className="px-4 py-3">Email</th>
                       {showPlan && <th className="px-4 py-3">Plan</th>}
                       {showPlan && <th className="px-4 py-3">Plan expires</th>}
+                      {showPlan && <th className="px-4 py-3">Joined</th>}
                       <th className="px-4 py-3 text-center">Mock attended</th>
                       <th className="px-4 py-3 text-center">Practice attended</th>
                       <th className="px-4 py-3">Last attempt</th>
@@ -195,10 +196,11 @@ export function UserHistoryList({
                           <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{u.name}</p>
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300 max-w-[240px] truncate">{u.email}</td>
-                        {showPlan && <td className="px-4 py-3"><PlanChip tier={u.subscription_tier} /></td>}
+                        {showPlan && <td className="px-4 py-3"><PlanChip tier={u.subscription_tier} period={u.subscription_period} /></td>}
                         {showPlan && <td className="px-4 py-3 whitespace-nowrap"><PlanExpiry tier={u.subscription_tier} expiry={u.subscription_expiry} /></td>}
-                        <td className="px-4 py-3 text-center"><Count n={u.mock_attempts} tone="mock" available={showPlan ? u.mock_available : undefined} /></td>
-                        <td className="px-4 py-3 text-center"><Count n={u.practice_attempts} tone="practice" available={showPlan ? u.practice_available : undefined} /></td>
+                        {showPlan && <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700 dark:text-gray-200">{u.joined_at ? formatDate(u.joined_at) : DASH}</td>}
+                        <td className="px-4 py-3 text-center"><Count n={showPlan ? u.mock_used_this_plan ?? u.mock_attempts : u.mock_attempts} tone="mock" available={showPlan ? u.mock_available : undefined} /></td>
+                        <td className="px-4 py-3 text-center"><Count n={showPlan ? u.practice_used_this_plan ?? u.practice_attempts : u.practice_attempts} tone="practice" available={showPlan ? u.practice_available : undefined} /></td>
                         <td className="px-4 py-3 text-xs text-gray-700 dark:text-gray-200 whitespace-nowrap">{formatDateTime(u.last_attempt_at)}</td>
                         {!hidePromos && <td className="px-4 py-3"><Promos codes={u.promo_codes_used} /></td>}
                         <td className="px-4 py-3 text-right">
@@ -229,13 +231,13 @@ export function UserHistoryList({
                   </div>
                   {showPlan && (
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-                      <PlanChip tier={u.subscription_tier} />
+                      <PlanChip tier={u.subscription_tier} period={u.subscription_period} />
                       <PlanExpiry tier={u.subscription_tier} expiry={u.subscription_expiry} />
                     </div>
                   )}
                   <div className="mt-2.5 flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
-                    <span className="inline-flex items-center gap-1.5">Mock <Count n={u.mock_attempts} tone="mock" available={showPlan ? u.mock_available : undefined} /></span>
-                    <span className="inline-flex items-center gap-1.5">Practice <Count n={u.practice_attempts} tone="practice" available={showPlan ? u.practice_available : undefined} /></span>
+                    <span className="inline-flex items-center gap-1.5">Mock <Count n={showPlan ? u.mock_used_this_plan ?? u.mock_attempts : u.mock_attempts} tone="mock" available={showPlan ? u.mock_available : undefined} /></span>
+                    <span className="inline-flex items-center gap-1.5">Practice <Count n={showPlan ? u.practice_used_this_plan ?? u.practice_attempts : u.practice_attempts} tone="practice" available={showPlan ? u.practice_available : undefined} /></span>
                   </div>
                   <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">Last attempt: {formatDateTime(u.last_attempt_at)}</p>
                   {!hidePromos && u.promo_codes_used.length > 0 && <div className="mt-2"><Promos codes={u.promo_codes_used} /></div>}
@@ -265,7 +267,7 @@ export function UserHistoryList({
 }
 
 /** The plan a student is on, as a small chip: free is quiet, a paid plan is not. */
-export function PlanChip({ tier }: { tier: string | null | undefined }) {
+export function PlanChip({ tier, period }: { tier: string | null | undefined; period?: string | null }) {
   const name = (tier || 'free').toLowerCase();
   return (
     <span
@@ -277,6 +279,7 @@ export function PlanChip({ tier }: { tier: string | null | undefined }) {
       )}
     >
       {name}
+      {name !== 'free' && period && <span className="font-medium opacity-80"> · {period}</span>}
     </span>
   );
 }

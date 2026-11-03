@@ -30,6 +30,7 @@ import AdminUserHistoryPage from "@/pages/org/AdminUserHistoryPage";
 import AdminAuditPage from "@/pages/org/AdminAuditPage";
 import AdminTaxonomyPage from "@/pages/org/AdminTaxonomyPage";
 import AdminAttemptsReportPage from "@/pages/org/AdminAttemptsReportPage";
+import AdminFeedbackPage from "@/pages/org/AdminFeedbackPage";
 import AdminSettingsPage from "@/pages/org/AdminSettingsPage";
 import AdminInstitutesPage from "@/pages/org/AdminInstitutesPage";
 import AdminInstituteDetailPage from "@/pages/org/AdminInstituteDetailPage";
@@ -67,6 +68,7 @@ import UserPerformancePage from "@/pages/user/UserPerformancePage";
 import UserProgressPage from "@/pages/user/UserProgressPage";
 import UserSavedPage from "@/pages/user/UserSavedPage";
 import UserAboutPage from "@/pages/user/UserAboutPage";
+import UserFeedbackPage from "@/pages/user/UserFeedbackPage";
 import PlanNoticeHost from "@/components/user/PlanNoticeHost";
 import ReferralAskHost from "@/components/user/ReferralAskHost";
 import AppUpdateHost from "@/components/AppUpdateHost";
@@ -243,6 +245,7 @@ function UserPortalRoutes() {
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="billing" element={<PaymentHistoryPage />} />
           <Route path="about" element={<UserAboutPage />} />
+          <Route path="feedback" element={<UserFeedbackPage />} />
           <Route path="assessment/:assessmentId" element={<UserEvalAssessmentPage />} />
         </Route>
       </Routes>
@@ -274,6 +277,7 @@ function AppRoutes() {
         <Route path="/org/audit" element={<AdminAuditPage />} />
         <Route path="/org/topic-names" element={<AdminTaxonomyPage />} />
         <Route path="/org/reports" element={<AdminAttemptsReportPage />} />
+        <Route path="/org/feedback" element={<AdminFeedbackPage />} />
         <Route path="/org/settings" element={<AdminSettingsPage />} />
         <Route path="/org/evaluation" element={<EvaluationHubPage />} />
         <Route path="/org/evaluation/paper/:paperId" element={<EvalPaperDetailPage />} />

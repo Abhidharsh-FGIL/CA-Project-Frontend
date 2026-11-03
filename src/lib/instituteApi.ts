@@ -217,7 +217,10 @@ function withExpiry<T extends object>(row: T): T {
   const raw = ['subscription_expiry', 'subscription_expires_at', 'plan_expiry', 'plan_expires_at', 'expires_at', 'expiry_date']
     .map(k => r[k])
     .find(v => typeof v === 'string' && v);
-  return raw ? ({ ...row, subscription_expiry: raw } as T) : row;
+  const rawPeriod = ['subscription_period', 'billing_cycle', 'billing_period', 'plan_period', 'plan_type', 'interval', 'duration']
+    .map(k => r[k]).find(v => typeof v === 'string' && v) as string | undefined;
+  const period = rawPeriod && /year|annual/i.test(rawPeriod) ? 'Yearly' : rawPeriod && /month/i.test(rawPeriod) ? 'Monthly' : undefined;
+  return raw || period ? ({ ...row, ...(raw ? { subscription_expiry: raw } : {}), ...(period ? { subscription_period: period } : {}) } as T) : row;
 }
 
 /** The institute's own view of its students: the same shape the admin History reads, from the institute's endpoints. */

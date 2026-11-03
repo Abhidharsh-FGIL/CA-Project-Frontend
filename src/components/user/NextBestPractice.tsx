@@ -1075,7 +1075,7 @@ export function AiCoachButton({ exam, stage, onClick, className }: { exam: strin
       <span className="dark flex items-center gap-2 rounded-full bg-[#0b1020] py-1 pl-1 pr-3.5">
         <Orb size={26} />
         <span className="bg-gradient-to-r from-cyan-300 to-purple-300 bg-clip-text text-xs font-extrabold text-transparent">AI Coach</span>
-        <span className="rounded-full bg-cyan-400/15 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300 ring-1 ring-cyan-400/30">{visiblePicks(data.items, []).length} picks</span>
+        <span className="hidden rounded-full bg-cyan-400/15 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300 ring-1 ring-cyan-400/30 sm:inline">{visiblePicks(data.items, []).length} picks</span>
       </span>
     </button>
   );
