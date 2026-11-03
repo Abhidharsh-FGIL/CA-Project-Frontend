@@ -21,10 +21,15 @@ export interface HistoryUser {
   email: string;
   phone: string | null;
   subscription_tier: string;
+  /** When the paid plan ends. Null or absent for a free plan, or from a server that does not send it. */
+  subscription_expiry?: string | null;
   joined_at: string | null;
   mock_attempts: number;
   practice_attempts: number;
   total_attempts: number;
+  /** How many mock / practice tests the student's plan gives access to. Absent from a server that does not send them. */
+  mock_available?: number | null;
+  practice_available?: number | null;
   /** Null for someone who has never attended a test. */
   last_attempt_at: string | null;
   promo_codes_used: string[];
@@ -74,12 +79,27 @@ export interface HistoryListParams {
   search?: string;
   page?: number;
   limit?: number;
+  /** Only the students tied to this institute. */
+  institute_id?: string;
 }
 
-export const historyApi = {
+/**
+ * Where history is read from. The admin reads everyone; an institute reads only its own students from its own
+ * endpoints. The same pages show either, so a screen asks a source rather than the admin API directly.
+ */
+export interface HistorySource {
+  /** Tells one source's cached pages from another's. */
+  key: string;
+  list: (params?: HistoryListParams) => Promise<PaginatedResponse<HistoryUser>>;
+  get: (userId: string, mode?: HistoryModeFilter) => Promise<HistoryUserDetail>;
+}
+
+export const historyApi: HistorySource = {
+  key: 'admin',
   list: (params: HistoryListParams = {}) => {
     const q = new URLSearchParams();
     if (params.search?.trim()) q.set('search', params.search.trim());
+    if (params.institute_id) q.set('institute_id', params.institute_id);
     q.set('page', String(params.page ?? 1));
     q.set('limit', String(params.limit ?? 20));
     return api.get<PaginatedResponse<HistoryUser>>(`/api/v1/admin/history/users?${q}`);

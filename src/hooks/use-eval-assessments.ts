@@ -79,10 +79,11 @@ export interface EvalAssessmentConfig {
   tnpscLanguage?: 'tamil' | 'english';
 }
 
-export function useEvalAssessments(filters?: { status?: string; search?: string }) {
+export function useEvalAssessments(filters?: { status?: string; search?: string }, options?: { enabled?: boolean }) {
   const { orgId } = useWorkspaceContext();
 
   return useQuery({
+    enabled: options?.enabled ?? true,
     queryKey: ['eval-assessments', orgId, filters],
     queryFn: async () => {
       const params = new URLSearchParams();

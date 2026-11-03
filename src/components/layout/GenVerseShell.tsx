@@ -6,6 +6,7 @@ import { logoutAdmin } from '@/lib/adminAuthApi';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
+  Building2,
   LayoutDashboard,
   Database,
   BookOpen,
@@ -43,6 +44,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Topic Names', path: '/org/topic-names', icon: ListTree, group: 'content' },
   { label: 'Courses', path: '/org/courses', icon: BookOpen, group: 'content' },
   { label: 'Users', path: '/org/users', icon: Users, group: 'admin' },
+  { label: 'Institutes', path: '/org/institutes', icon: Building2, group: 'admin' },
   { label: 'History', path: '/org/history', icon: History, group: 'admin' },
   { label: 'Attempts Report', path: '/org/reports', icon: FileSpreadsheet, group: 'admin' },
   { label: 'Promo Codes', path: '/org/promos', icon: Tag, group: 'admin' },
@@ -62,6 +64,7 @@ function getBackTarget(pathname: string): string | null {
   if (pathname === '/org/dashboard') return null;
   if (pathname.startsWith('/org/evaluation/paper/')) return '/org/evaluation';
   if (pathname.startsWith('/org/history/')) return '/org/history';
+  if (pathname.startsWith('/org/institutes/')) return '/org/institutes';
   return '/org/dashboard';
 }
 

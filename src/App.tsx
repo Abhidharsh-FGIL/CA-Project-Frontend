@@ -31,6 +31,11 @@ import AdminAuditPage from "@/pages/org/AdminAuditPage";
 import AdminTaxonomyPage from "@/pages/org/AdminTaxonomyPage";
 import AdminAttemptsReportPage from "@/pages/org/AdminAttemptsReportPage";
 import AdminSettingsPage from "@/pages/org/AdminSettingsPage";
+import AdminInstitutesPage from "@/pages/org/AdminInstitutesPage";
+import AdminInstituteDetailPage from "@/pages/org/AdminInstituteDetailPage";
+import InstituteLoginPage from "@/pages/institute/InstituteLoginPage";
+import InstitutePortalPage from "@/pages/institute/InstitutePortalPage";
+import { rememberInstituteLink } from "@/lib/instituteApi";
 import { EvalPaperDetailPage } from "@/components/evaluation/EvalPaperDetailPage";
 import { EvalGeneratingPage } from "@/pages/org/EvalGeneratingPage";
 import TakeAssessmentPage from "@/pages/TakeAssessmentPage";
@@ -188,6 +193,8 @@ function HomePage() {
 
 function SignupLinkRedirect() {
   const { search } = useLocation();
+  // An institute's sign-up link names the institute; it is kept so the sign-up call can carry it.
+  rememberInstituteLink(search);
   return <Navigate to={`/user/register${search}`} replace />;
 }
 
@@ -260,6 +267,8 @@ function AppRoutes() {
         <Route path="/org/promos" element={<AdminPromosPage />} />
         <Route path="/org/plans" element={<AdminPlansPage />} />
         <Route path="/org/users" element={<AdminUsersPage />} />
+        <Route path="/org/institutes" element={<AdminInstitutesPage />} />
+        <Route path="/org/institutes/:instituteId" element={<AdminInstituteDetailPage />} />
         <Route path="/org/history" element={<AdminHistoryPage />} />
         <Route path="/org/history/:userId" element={<AdminUserHistoryPage />} />
         <Route path="/org/audit" element={<AdminAuditPage />} />
@@ -270,6 +279,9 @@ function AppRoutes() {
         <Route path="/org/evaluation/paper/:paperId" element={<EvalPaperDetailPage />} />
         <Route path="/org/evaluation/generating/:jobId" element={<EvalGeneratingPage />} />
       </Route>
+      {/* An institute's own sign-in page, and the page it lands on: only its own students. */}
+      <Route path="/institute/:slug" element={<InstituteLoginPage />} />
+      <Route path="/institute/:slug/students" element={<InstitutePortalPage />} />
       <Route path="/take-assessment" element={<TakeAssessmentPage />} />
 
       {/* The share link the backend gives out (`#/signup?ref=CODE` or `#/register?ref=CODE`) lands on the sign-up page, code and all. */}

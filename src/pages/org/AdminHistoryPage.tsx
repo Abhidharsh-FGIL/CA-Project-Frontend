@@ -6,8 +6,8 @@ import { PageHeader } from '@/components/layout/AppShell';
 import { EvalAssessmentReport } from '@/components/evaluation/EvalAssessmentReport';
 import { EvalReportsList } from '@/components/evaluation/EvalReportsList';
 import { useAdminHistoryUsers } from '@/hooks/use-admin-history';
-import { DASH, formatDateTime } from '@/lib/admin-history-format';
-import type { HistoryUser } from '@/lib/adminHistoryApi';
+import { DASH, formatDate, formatDateTime } from '@/lib/admin-history-format';
+import type { HistorySource, HistoryUser } from '@/lib/adminHistoryApi';
 import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 20;
@@ -93,7 +93,19 @@ export default function AdminHistoryPage() {
  *
  * `onOpen` says what choosing someone does; by default it goes to that person's own page.
  */
-export function UserHistoryList({ onOpen }: { onOpen?: (user: HistoryUser) => void }) {
+export function UserHistoryList({
+  onOpen,
+  source,
+  hidePromos = false,
+  showPlan = false,
+}: {
+  onOpen?: (user: HistoryUser) => void;
+  source?: HistorySource;
+  /** An institute's view leaves out the promo codes a student used. */
+  hidePromos?: boolean;
+  /** Adds each student's plan and when it ends. */
+  showPlan?: boolean;
+}) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const search = useDebounced(query.trim());
@@ -102,7 +114,7 @@ export function UserHistoryList({ onOpen }: { onOpen?: (user: HistoryUser) => vo
   // A new search starts from the first page.
   useEffect(() => setPage(1), [search]);
 
-  const { data, isLoading, isFetching, isError, error, refetch } = useAdminHistoryUsers({ search, page, limit: PAGE_SIZE });
+  const { data, isLoading, isFetching, isError, error, refetch } = useAdminHistoryUsers({ search, page, limit: PAGE_SIZE }, source);
   const users = data?.items ?? [];
   const pages = Math.max(1, data?.pages ?? 1);
   const open = (u: HistoryUser) => (onOpen ? onOpen(u) : navigate(`/org/history/${u.user_id}`));
@@ -163,10 +175,12 @@ export function UserHistoryList({ onOpen }: { onOpen?: (user: HistoryUser) => vo
                     <tr className="text-left text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold">
                       <th className="px-4 py-3">Name</th>
                       <th className="px-4 py-3">Email</th>
+                      {showPlan && <th className="px-4 py-3">Plan</th>}
+                      {showPlan && <th className="px-4 py-3">Plan expires</th>}
                       <th className="px-4 py-3 text-center">Mock attended</th>
                       <th className="px-4 py-3 text-center">Practice attended</th>
                       <th className="px-4 py-3">Last attempt</th>
-                      <th className="px-4 py-3">Promo codes used</th>
+                      {!hidePromos && <th className="px-4 py-3">Promo codes used</th>}
                       <th className="px-4 py-3 text-right">View</th>
                     </tr>
                   </thead>
@@ -181,10 +195,12 @@ export function UserHistoryList({ onOpen }: { onOpen?: (user: HistoryUser) => vo
                           <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{u.name}</p>
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300 max-w-[240px] truncate">{u.email}</td>
-                        <td className="px-4 py-3 text-center"><Count n={u.mock_attempts} tone="mock" /></td>
-                        <td className="px-4 py-3 text-center"><Count n={u.practice_attempts} tone="practice" /></td>
+                        {showPlan && <td className="px-4 py-3"><PlanChip tier={u.subscription_tier} /></td>}
+                        {showPlan && <td className="px-4 py-3 whitespace-nowrap"><PlanExpiry tier={u.subscription_tier} expiry={u.subscription_expiry} /></td>}
+                        <td className="px-4 py-3 text-center"><Count n={u.mock_attempts} tone="mock" available={showPlan ? u.mock_available : undefined} /></td>
+                        <td className="px-4 py-3 text-center"><Count n={u.practice_attempts} tone="practice" available={showPlan ? u.practice_available : undefined} /></td>
                         <td className="px-4 py-3 text-xs text-gray-700 dark:text-gray-200 whitespace-nowrap">{formatDateTime(u.last_attempt_at)}</td>
-                        <td className="px-4 py-3"><Promos codes={u.promo_codes_used} /></td>
+                        {!hidePromos && <td className="px-4 py-3"><Promos codes={u.promo_codes_used} /></td>}
                         <td className="px-4 py-3 text-right">
                           <ViewButton onClick={() => open(u)} />
                         </td>
@@ -211,12 +227,18 @@ export function UserHistoryList({ onOpen }: { onOpen?: (user: HistoryUser) => vo
                     </div>
                     <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0 mt-1" />
                   </div>
+                  {showPlan && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                      <PlanChip tier={u.subscription_tier} />
+                      <PlanExpiry tier={u.subscription_tier} expiry={u.subscription_expiry} />
+                    </div>
+                  )}
                   <div className="mt-2.5 flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
-                    <span className="inline-flex items-center gap-1.5">Mock <Count n={u.mock_attempts} tone="mock" /></span>
-                    <span className="inline-flex items-center gap-1.5">Practice <Count n={u.practice_attempts} tone="practice" /></span>
+                    <span className="inline-flex items-center gap-1.5">Mock <Count n={u.mock_attempts} tone="mock" available={showPlan ? u.mock_available : undefined} /></span>
+                    <span className="inline-flex items-center gap-1.5">Practice <Count n={u.practice_attempts} tone="practice" available={showPlan ? u.practice_available : undefined} /></span>
                   </div>
                   <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">Last attempt: {formatDateTime(u.last_attempt_at)}</p>
-                  {u.promo_codes_used.length > 0 && <div className="mt-2"><Promos codes={u.promo_codes_used} /></div>}
+                  {!hidePromos && u.promo_codes_used.length > 0 && <div className="mt-2"><Promos codes={u.promo_codes_used} /></div>}
                 </button>
               ))}
             </div>
@@ -242,7 +264,36 @@ export function UserHistoryList({ onOpen }: { onOpen?: (user: HistoryUser) => vo
   );
 }
 
-function Count({ n, tone }: { n: number; tone: 'mock' | 'practice' }) {
+/** The plan a student is on, as a small chip: free is quiet, a paid plan is not. */
+export function PlanChip({ tier }: { tier: string | null | undefined }) {
+  const name = (tier || 'free').toLowerCase();
+  return (
+    <span
+      className={cn(
+        'rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ring-1 ring-inset',
+        name === 'free'
+          ? 'bg-gray-50 text-gray-500 ring-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700'
+          : 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:ring-amber-900',
+      )}
+    >
+      {name}
+    </span>
+  );
+}
+
+/** When the plan ends: a date for a paid plan, a dash for a free one or one with no date, "Expired" once it has passed. */
+export function PlanExpiry({ tier, expiry }: { tier: string | null | undefined; expiry: string | null | undefined }) {
+  if ((tier || 'free').toLowerCase() === 'free' || !expiry) return <span className="text-gray-300 dark:text-gray-600">{DASH}</span>;
+  const ended = Date.parse(expiry) < Date.now();
+  return (
+    <span className={cn('text-xs', ended ? 'font-semibold text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200')}>
+      {formatDate(expiry)}
+      {ended && ' · expired'}
+    </span>
+  );
+}
+
+function Count({ n, tone, available }: { n: number; tone: 'mock' | 'practice'; available?: number | null }) {
   const Icon = tone === 'mock' ? ClipboardList : Target;
   return (
     <span
@@ -257,6 +308,7 @@ function Count({ n, tone }: { n: number; tone: 'mock' | 'practice' }) {
     >
       <Icon className="w-3 h-3" aria-hidden />
       {n}
+      {available != null && <span className="font-semibold opacity-70">/ {available}</span>}
     </span>
   );
 }

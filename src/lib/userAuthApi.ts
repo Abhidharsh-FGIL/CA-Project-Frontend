@@ -26,6 +26,7 @@
  */
 import { publicApi, userApi, setUserTokens, clearUserTokens } from './api';
 import { resetAiCoachShown } from './ai-coach-session';
+import { forgetInstituteLink, instituteSignupField } from './instituteApi';
 
 // ─── Response shapes ──────────────────────────────────────────────────────────
 
@@ -131,8 +132,11 @@ export interface UpdateProfilePayload extends Partial<StudentDetailFields> {
 
 // ─── Unauthenticated auth endpoints (publicApi — no token ever sent) ─────────
 
-export function registerUser(payload: RegisterPayload) {
-  return publicApi.post<MessageSuccess>('/api/v1/user/auth/register', payload);
+export async function registerUser(payload: RegisterPayload) {
+  // A sign-up from an institute's link ties the student to that institute.
+  const res = await publicApi.post<MessageSuccess>('/api/v1/user/auth/register', { ...payload, ...instituteSignupField() });
+  forgetInstituteLink();
+  return res;
 }
 
 /** Keep the tokens of a successful sign-in where the authenticated client reads them. */
@@ -218,7 +222,7 @@ export async function googleAuth(
     }
   >('/api/v1/user/auth/google', {
     id_token: idToken,
-    ...(profile ? { profile } : {}),
+    ...(profile ? { profile, ...instituteSignupField() } : {}),
     // The server links it for a new account only, and a wrong code never blocks the sign-in.
     ...(referral?.code ? { referral_code: referral.code, ...(referral.fromLink ? { referral_source: 'link' } : {}) } : {}),
   });

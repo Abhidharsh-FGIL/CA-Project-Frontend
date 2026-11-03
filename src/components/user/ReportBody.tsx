@@ -584,6 +584,7 @@ export function AttemptReport({
   progressView,
   examContext = null,
   studentName = 'Student',
+  readOnly = false,
 }: {
   detail: AttemptDetailResponse | null;
   attempt: any;
@@ -601,6 +602,8 @@ export function AttemptReport({
   examContext?: ExamContext | null;
   /** Shown on the cover. Admin passes the candidate; the portal passes the aspirant. */
   studentName?: string;
+  /** For reading on the page only: no PDF and no question download. An institute sees its students' reports this way. */
+  readOnly?: boolean;
 }) {
   const [expandAll, setExpandAll] = useState(false);
   /** Which subject's inline deep dive is open, and which subject filters the questions. */
@@ -945,7 +948,7 @@ export function AttemptReport({
           model={model}
           canDownload
           // The report download is for mock tests only.
-          onDownload={placement.track === 'mock' ? () => downloadReportPdf(`${model.meta.testName} - ${studentName}`) : undefined}
+          onDownload={placement.track === 'mock' && !readOnly ? () => downloadReportPdf(`${model.meta.testName} - ${studentName}`) : undefined}
         />
       )}
 
@@ -1033,7 +1036,7 @@ export function AttemptReport({
             </span>
             {/* The whole paper, not the filtered view — the count is in the label
                 so there is no doubt about what the file will contain. */}
-            {model && canDownloadQuestions(planUser?.email) && (
+            {model && !readOnly && canDownloadQuestions(planUser?.email) && (
               <div className="ml-auto flex items-center gap-1.5">
                 <select
                   value={exportFormat}
@@ -1064,7 +1067,7 @@ export function AttemptReport({
               onClick={() => setExpandAll(v => !v)}
               className={cn(
                 'text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400',
-                !(model && canDownloadQuestions(planUser?.email)) && 'ml-auto',
+                !(model && !readOnly && canDownloadQuestions(planUser?.email)) && 'ml-auto',
               )}
             >
               {expandAll ? 'Collapse all' : 'Expand all'}

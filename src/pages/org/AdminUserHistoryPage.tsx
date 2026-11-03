@@ -17,7 +17,7 @@ import {
   formatScore,
   promoScope,
 } from '@/lib/admin-history-format';
-import type { HistoryAttempt, HistoryModeFilter } from '@/lib/adminHistoryApi';
+import type { HistoryAttempt, HistoryModeFilter, HistorySource } from '@/lib/adminHistoryApi';
 import { cn } from '@/lib/utils';
 
 const TABS: Array<{ value: HistoryModeFilter; label: string }> = [
@@ -73,16 +73,27 @@ export function UserHistoryDetail({
   userId,
   onBack,
   onOpenAttempt,
+  source,
+  hidePromos = false,
+  reportable,
 }: {
   userId: string | undefined;
   onBack?: () => void;
-  onOpenAttempt: (attempt: HistoryAttempt) => void;
+  /** Absent where there is no report to open (an institute's view): the Report column is then left out. */
+  onOpenAttempt?: (attempt: HistoryAttempt) => void;
+  /** Where the history is read from; the admin's by default. */
+  source?: HistorySource;
+  /** An institute's view leaves out the promo codes a student used. */
+  hidePromos?: boolean;
+  /** Which attempts have a report to open. By default only a finished assessment attempt does (the admin's rule). */
+  reportable?: (attempt: HistoryAttempt) => boolean;
 }) {
   const [mode, setMode] = useState<HistoryModeFilter>('all');
-  const { data, isLoading, isFetching, isError, error } = useAdminHistoryUser(userId, mode);
+  const { data, isLoading, isFetching, isError, error } = useAdminHistoryUser(userId, mode, source);
   const notFound = isError && (error as { status?: number })?.status === 404;
   // The server names each test but not where it sits; an assessment's own tag says its group, subject and unit.
-  const { data: assessments } = useEvalAssessments();
+  // An institute's view has no admin token to read the assessments with, and shows no placement.
+  const { data: assessments } = useEvalAssessments(undefined, { enabled: !source });
   const placeOf = useMemo(() => {
     const byId = new Map<string, string | null>();
     for (const row of (assessments ?? []) as Array<Record<string, any>>) byId.set(String(row.id), placementLine(row));
@@ -130,7 +141,7 @@ export function UserHistoryDetail({
                     <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
                       <span className="inline-flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" aria-hidden />{data.email}</span>
                       <span className="inline-flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" aria-hidden />{data.phone || DASH}</span>
-                      <span className="inline-flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" aria-hidden /><span className="capitalize">{data.subscription_tier || DASH}</span> plan</span>
+                      <span className="inline-flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" aria-hidden /><span className="capitalize">{data.subscription_tier || DASH}</span> plan{data.subscription_expiry && (data.subscription_tier || 'free') !== 'free' ? ` · expires ${formatDate(data.subscription_expiry)}` : ''}</span>
                       <span className="inline-flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5" aria-hidden />Joined {formatDate(data.joined_at)}</span>
                     </div>
                   </div>
@@ -188,7 +199,7 @@ export function UserHistoryDetail({
                         <th className="px-4 py-2.5 text-right">Score</th>
                         <th className="px-4 py-2.5 text-right">%</th>
                         <th className="px-4 py-2.5">Status</th>
-                        <th className="px-4 py-2.5 text-right">Report</th>
+                        {onOpenAttempt && <th className="px-4 py-2.5 text-right">Report</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -197,7 +208,8 @@ export function UserHistoryDetail({
                           key={a.attempt_id}
                           a={a}
                           place={placeOf(a.test_id)}
-                          onOpen={() => onOpenAttempt(a)}
+                          onOpen={onOpenAttempt ? () => onOpenAttempt(a) : undefined}
+                          canOpen={reportable ? reportable(a) : undefined}
                         />
                       ))}
                     </tbody>
@@ -207,6 +219,7 @@ export function UserHistoryDetail({
             </section>
 
             {/* Promo codes */}
+            {!hidePromos && (
             <section className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
               <div className="flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 px-4 py-3">
                 <Tag className="w-4 h-4 text-amber-600" aria-hidden />
@@ -247,16 +260,17 @@ export function UserHistoryDetail({
                 </div>
               )}
             </section>
+            )}
           </>
         )}
       </div>
   );
 }
 
-function AttemptRow({ a, place, onOpen }: { a: HistoryAttempt; place: string | null; onOpen: () => void }) {
+function AttemptRow({ a, place, onOpen, canOpen: allowed }: { a: HistoryAttempt; place: string | null; onOpen?: () => void; canOpen?: boolean }) {
   const status = attemptStatus(a.status);
   // Only an assessment attempt has an admin report to open; an in-progress one has none yet.
-  const canOpen = a.source === 'assessment' && a.status !== 'in_progress';
+  const canOpen = allowed ?? (a.source === 'assessment' && a.status !== 'in_progress');
   return (
     <tr className="border-t border-gray-50 dark:border-gray-800 hover:bg-orange-50/30 dark:hover:bg-gray-800/30">
       <td className="px-4 py-2.5 text-[13px] font-semibold text-gray-900 dark:text-gray-100 max-w-[320px]">
@@ -284,6 +298,7 @@ function AttemptRow({ a, place, onOpen }: { a: HistoryAttempt; place: string | n
           {status.label}
         </span>
       </td>
+      {onOpen && (
       <td className="px-4 py-2.5 text-right">
         {canOpen ? (
           <button
@@ -297,6 +312,7 @@ function AttemptRow({ a, place, onOpen }: { a: HistoryAttempt; place: string | n
           <span className="text-gray-300 dark:text-gray-600">{DASH}</span>
         )}
       </td>
+      )}
     </tr>
   );
 }
