@@ -1844,14 +1844,14 @@ export function UserEvalAssessmentPage() {
     <div className="h-[100dvh] flex flex-col bg-slate-100 select-none overflow-hidden">
       {/* Dark header */}
       <header className="flex-shrink-0 bg-slate-900 text-white shadow-lg z-30">
-        <div className="max-w-screen-xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
-          <div className="min-w-0 flex-1">
+        <div className="max-w-screen-xl mx-auto px-3 sm:px-4 py-2.5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-2 gap-y-2 sm:gap-4">
+          <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
             {assessment?.difficulty && (
               <p className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em] leading-none mb-0.5">
                 {difficultyLabel(assessment.difficulty)}
               </p>
             )}
-            <p className="text-sm sm:text-[15px] font-bold leading-snug truncate">
+            <p className="text-sm sm:text-[15px] font-bold leading-snug line-clamp-2 break-words sm:line-clamp-none sm:truncate">
               {studentTitle(assessment?.title)}
             </p>
             <p className="text-[11px] text-gray-400 mt-0.5">

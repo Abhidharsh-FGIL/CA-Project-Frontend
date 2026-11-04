@@ -32,7 +32,7 @@ export interface HistoryUser {
   /** How many mock / practice tests the student's plan gives access to. Absent from a server that does not send them. */
   mock_available?: number | null;
   practice_available?: number | null;
-  /** Tests taken since the current plan began; what "attended / available" counts. Falls back to the all-time count. */
+  /** Tests taken since the current plan began. Sent by the server, but the lists show the all-time `mock_attempts` / `practice_attempts` against what the plan gives. */
   mock_used_this_plan?: number | null;
   practice_used_this_plan?: number | null;
   /** Null for someone who has never attended a test. */

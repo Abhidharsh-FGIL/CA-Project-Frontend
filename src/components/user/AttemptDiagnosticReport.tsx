@@ -68,12 +68,13 @@ import {
   WhatThisMeans,
   subjectHue,
   useLabel,
+  PaperLangContext,
   bilingualName,
   type Accent,
   type ReportLanguage,
   type StatusTone,
 } from '@/components/user/report-ui';
-import { bilingual, bilingualTitle } from '@/lib/bilingual';
+import { bilingual, bilingualTitle, nodeName, unitIdLang } from '@/lib/bilingual';
 import {
   DEFAULT_REPORT_CONFIG,
   ISSUE_LABEL,
@@ -753,10 +754,50 @@ export function PerformanceSnapshot({
           title={model.groupedBy === 'unit' ? 'Unit Proficiency Radar' : 'Subject Proficiency Radar'}
           subtitle="Questions answered correctly out of all questions, against target"
         />
-        {plotted.length < 3 ? (
-          <NotAvailable
-            reason={`Only ${plotted.length} ${model.groupedBy === 'unit' ? 'unit' : 'subject'}${plotted.length === 1 ? '' : 's'} were attempted, which is too few to plot a proficiency shape. The table below carries the same figures.`}
-          />
+        {plotted.length === 0 ? (
+          <NotAvailable reason={`No ${model.groupedBy === 'unit' ? 'unit' : 'subject'} was attempted, so there is nothing to plot yet.`} />
+        ) : plotted.length < 3 ? (
+          <>
+            {/* A shape needs three spokes. With one or two, bars against the target say the same thing plainly. */}
+            <div className="space-y-4 py-1">
+              {plotted.map(r => {
+                const v = Math.max(0, Math.min(100, r.value ?? 0));
+                const met = v >= target;
+                return (
+                  <div key={r.subjectId}>
+                    <div className="flex items-baseline justify-between gap-3 text-xs">
+                      <span className="min-w-0 break-words font-semibold text-gray-800 dark:text-gray-100">{nodeName({ name: r.label, subjectId: r.subjectId })}</span>
+                      <span className="flex-shrink-0 tabular-nums text-gray-500 dark:text-gray-400">
+                        <span className="text-sm font-bold text-gray-900 dark:text-gray-50">{Math.round(v)}%</span> · {r.correct} of {r.questions} correct
+                      </span>
+                    </div>
+                    <div className="relative mt-1.5 h-3 rounded-full bg-gray-100 dark:bg-gray-800">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${v}%`, background: met ? '#10b981' : ACCENT.violet.hex }}
+                      />
+                      <span
+                        className="absolute -top-1 bottom-[-4px] w-0.5 rounded bg-slate-400 dark:bg-slate-500"
+                        style={{ left: `${target}%` }}
+                        title={`Target ${target}%`}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-[10px] text-gray-500 dark:text-gray-400">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: ACCENT.violet.hex }} /> Your performance
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-3 w-0.5 rounded bg-slate-400" /> Target {target}%
+              </span>
+            </div>
+            <NotAvailable
+              reason={`A radar needs at least 3 ${model.groupedBy === 'unit' ? 'units' : 'subjects'}; this paper had ${plotted.length}, so the bars show the same figures.`}
+            />
+          </>
         ) : (
           <>
             <div className="h-[340px] sm:h-[380px]">
@@ -765,7 +806,7 @@ export function PerformanceSnapshot({
                   data={model.radar.map(r => ({
                     // Long syllabus names ran off the plot and collided with each
                     // other; the tooltip carries the full name.
-                    subject: bilingual(r.label).length > 18 ? `${bilingual(r.label).slice(0, 17)}…` : bilingual(r.label),
+                    subject: nodeName({ name: r.label, subjectId: r.subjectId }),
                     full: r.label,
                     value: r.value,
                     target,
@@ -925,23 +966,25 @@ function RadarAxisTick({ x, y, payload, textAnchor, rows }: any) {
   const row = rows[payload?.index];
   if (!row) return null;
 
-  const words = bilingual(String(row.label)).split(' ');
-  const lines: string[] = [];
-  let line = '';
-  for (const w of words) {
-    if ((line + ' ' + w).trim().length > 16 && line) {
-      lines.push(line.trim());
-      line = w;
-    } else {
-      line = `${line} ${w}`.trim();
+  // English then Tamil, each wrapped on its own: English up to two lines, Tamil one, each cut with an ellipsis.
+  const wrap = (text: string, max: number): string[] => {
+    const out: string[] = [];
+    let cur = '';
+    for (const w of text.split(' ')) {
+      if ((cur + ' ' + w).trim().length > 16 && cur) {
+        out.push(cur.trim());
+        cur = w;
+      } else {
+        cur = `${cur} ${w}`.trim();
+      }
     }
-    if (lines.length === 2) break;
-  }
-  if (line && lines.length < 2) lines.push(line);
-  if (lines.length === 2 && words.join(' ').length > lines.join(' ').length) {
-    lines[1] = `${lines[1].slice(0, 14)}…`;
-  }
-
+    if (cur) out.push(cur);
+    const kept = out.slice(0, max);
+    if (out.length > max) kept[max - 1] = `${kept[max - 1].slice(0, 14)}…`;
+    return kept;
+  };
+  const [first, ...rest] = nodeName({ name: String(row.label), subjectId: row.subjectId }).split(' / ');
+  const lines: string[] = rest.length > 0 ? [...wrap(first, 2), ...wrap(rest.join(' / '), 1)] : wrap(first, 2);
   const measured = row.value != null;
   const below = y > 0;
 
@@ -1070,7 +1113,7 @@ function RadarTooltip({ active, payload, rows, target }: any) {
   if (!active || !row) return null;
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 shadow-lg max-w-[15rem]">
-      <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-snug">{bilingual(row.label)}</p>
+      <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-snug">{nodeName({ name: row.label, subjectId: row.subjectId })}</p>
       {row.state === 'NOT_ASSESSED' ? (
         <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
           Nothing attempted — none of its {row.questions} questions were answered, so 0 of {row.questions} are correct.
@@ -1442,7 +1485,15 @@ function isOtherNode(node: TopicNode): boolean {
   return /^(others?|untagged|unspecified)$/i.test(node.name.trim());
 }
 
-function SubjectDeepDive({
+function SubjectDeepDive(props: React.ComponentProps<typeof SubjectDeepDiveBody>) {
+  return (
+    <PaperLangContext.Provider value={unitIdLang(props.subject.subjectId)}>
+      <SubjectDeepDiveBody {...props} />
+    </PaperLangContext.Provider>
+  );
+}
+
+function SubjectDeepDiveBody({
   subject,
   model,
   index,

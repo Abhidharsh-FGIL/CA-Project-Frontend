@@ -1092,7 +1092,7 @@ export function AttemptReport({
           ) : expandAll ? (
             <div className="space-y-2">
               {visibleQuestions.map((q, i) => (
-                <QuestionCard key={q.question_id} q={q} index={i} forceExpanded />
+                <QuestionCard key={q.question_id} q={q} index={i} forceExpanded langMode={questionLang} />
               ))}
             </div>
           ) : (

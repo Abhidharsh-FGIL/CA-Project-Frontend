@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Bug, CreditCard, Lightbulb, Loader2, MessageCircle, MessageSquareHeart, Pencil, RotateCcw, Send, type LucideIcon } from 'lucide-react';
 import { UserShell } from '@/components/user/UserShell';
+import { Mood } from '@/components/feedback/Mood';
 import { LogoMark } from '@/components/brand/Brand';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useMyFeedback, useSendFeedback } from '@/hooks/use-feedback';
@@ -24,8 +25,6 @@ const CATEGORY_ICON: Record<FeedbackCategory, LucideIcon> = {
   content: MessageSquareHeart,
   payment: CreditCard,
 };
-
-const MOODS = ['', '😞', '😕', '🙂', '😊', '🤩'];
 
 const STATUS_DOT: Record<string, string> = {
   new: 'bg-blue-500',
@@ -52,6 +51,7 @@ export default function UserFeedbackPage() {
   const [stage, setStage] = useState<Stage>('rating');
   const [typing, setTyping] = useState(false);
   const [rating, setRating] = useState(0);
+  const [hover, setHover] = useState(0);
   const [category, setCategory] = useState<FeedbackCategory>('general');
   const [message, setMessage] = useState('');
   const send = useSendFeedback();
@@ -98,6 +98,7 @@ export default function UserFeedbackPage() {
   const again = () => {
     setStage('rating');
     setRating(0);
+    setHover(0);
     setCategory('general');
     setMessage('');
   };
@@ -132,32 +133,41 @@ export default function UserFeedbackPage() {
             </Team>
 
             {stage === 'rating' && !typing && (
-              <div className="flex animate-scaleIn flex-wrap justify-end gap-2 pl-10" role="radiogroup" aria-label="Your rating">
-                {[1, 2, 3, 4, 5].map(n => (
-                  <button
-                    key={n}
-                    type="button"
-                    role="radio"
-                    aria-checked={rating === n}
-                    aria-label={`${n} of 5: ${RATING_LABEL[n]}`}
-                    onClick={() => {
-                      setRating(n);
-                      next('topic');
-                    }}
-                    className="group flex w-[3.9rem] flex-col items-center gap-0.5 rounded-2xl border border-orange-200 bg-white px-1 py-2 shadow-sm transition-all hover:-translate-y-1 hover:border-orange-400 hover:shadow-md active:scale-95 dark:border-gray-700 dark:bg-gray-800"
-                  >
-                    <span className="text-2xl transition-transform group-hover:scale-125" aria-hidden>
-                      {MOODS[n]}
-                    </span>
-                    <span className="text-[10px] font-bold text-gray-600 dark:text-gray-300">{RATING_LABEL[n]}</span>
-                  </button>
-                ))}
+              <div className="ml-10 flex animate-scaleIn flex-col items-end">
+                <div className="rounded-2xl bg-white px-4 pb-2.5 pt-3 shadow-sm ring-1 ring-orange-100 dark:bg-gray-800 dark:ring-gray-700" onMouseLeave={() => setHover(0)}>
+                  <div className="flex items-center gap-1 sm:gap-1.5" role="radiogroup" aria-label="Your rating">
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <button
+                        key={n}
+                        type="button"
+                        role="radio"
+                        aria-checked={rating === n}
+                        aria-label={`${n} of 5: ${RATING_LABEL[n]}`}
+                        onMouseEnter={() => setHover(n)}
+                        onFocus={() => setHover(n)}
+                        onBlur={() => setHover(0)}
+                        onClick={() => {
+                          setRating(n);
+                          setHover(0);
+                          next('topic');
+                        }}
+                        className={cn(
+                          'rounded-2xl p-1.5 transition-all duration-200 active:scale-90',
+                          hover === n ? '-translate-y-1.5 scale-125 bg-orange-50 dark:bg-orange-950/30' : hover ? 'opacity-50 grayscale' : '',
+                        )}
+                      >
+                        <Mood level={n} className="h-10 w-10 text-3xl sm:h-12 sm:w-12 sm:text-4xl" />
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-0.5 h-4 text-center text-[11px] font-bold text-orange-600 dark:text-orange-400">{hover ? RATING_LABEL[hover] : 'How do you feel?'}</p>
+                </div>
               </div>
             )}
 
             {(past('rating') || (stage === 'rating' && typing && rating > 0)) && (
               <Me onEdit={() => goBack('rating')}>
-                <span aria-hidden>{MOODS[rating]}</span> {RATING_LABEL[rating]} · {rating} / 5
+                <span className="inline-flex items-center gap-2"><Mood level={rating} className="h-7 w-7 text-xl" />{RATING_LABEL[rating]} · {rating} / 5</span>
               </Me>
             )}
 
@@ -313,10 +323,13 @@ function Typing() {
 
 function MyItem({ f }: { f: MyFeedback }) {
   return (
-    <li className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-1 py-5 sm:grid-cols-[5.5rem_1fr_auto]">
-      <p className="text-2xl font-light tabular-nums text-gray-900 dark:text-gray-50" aria-label={`${f.rating} out of 5`}>
-        {f.rating}
-        <span className="text-sm text-gray-400"> / 5</span>
+    <li className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-1 py-5 sm:grid-cols-[8rem_1fr_auto]">
+      <p className="flex items-center gap-2" aria-label={`${f.rating} out of 5`}>
+        <Mood level={f.rating} className="h-9 w-9 flex-shrink-0 text-2xl" />
+        <span className="text-xl font-light tabular-nums text-gray-900 dark:text-gray-50">
+          {f.rating}
+          <span className="text-sm text-gray-400"> / 5</span>
+        </span>
       </p>
       <p className="min-w-0 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-700 dark:text-gray-200 sm:col-start-2">{f.message}</p>
       <p className="col-start-2 flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400 sm:col-start-3 sm:row-start-1 sm:flex-col sm:items-end sm:gap-1">

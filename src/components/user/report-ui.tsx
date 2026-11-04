@@ -10,7 +10,7 @@
  */
 import React, { createContext, useContext } from 'react';
 import { cn } from '@/lib/utils';
-import { bilingual, isTamil } from '@/lib/bilingual';
+import { bilingual, isTamil, nodeName, type PaperLang } from '@/lib/bilingual';
 
 // ─── Reading scale ─────────────────────────────────────────────────────────────
 
@@ -532,15 +532,19 @@ export function useReportLanguage(): ReportLanguage {
  * shows that one, which is more useful than an empty cell and honest about what
  * the paper actually carried.
  */
-export function useLabel(): (node: { name: string; nameLocal?: string | null }) => string {
-  // Every unit, subject and topic name is shown in both languages, "English / தமிழ்", whichever is picked.
-  return bilingualName;
+export function useLabel(): (node: { name: string; nameLocal?: string | null; subjectId?: string | null }) => string {
+  // Every unit, subject and topic name is shown in both languages, "English / தமிழ்", whichever is picked, except
+  // inside General Tamil or General English, where the paper's own language is used.
+  const lang = React.useContext(PaperLangContext);
+  return node => nodeName({ ...node, lang: node.subjectId ? undefined : lang });
 }
 
+/** The language paper the report is open on, so the topics under a unit follow the unit's paper. */
+export const PaperLangContext = React.createContext<PaperLang>(null);
+
 /** A node's name in both languages, using its own other-language name when it carries one. */
-export function bilingualName(node: { name: string; nameLocal?: string | null }): string {
-  const local = node.nameLocal?.trim();
-  return local && isTamil(local) !== isTamil(node.name) ? bilingual(node.name, local) : bilingual(node.name);
+export function bilingualName(node: { name: string; nameLocal?: string | null; subjectId?: string | null }): string {
+  return nodeName(node);
 }
 
 /** EN / தமிழ், for the report header. */

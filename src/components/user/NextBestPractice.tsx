@@ -1137,7 +1137,7 @@ export function NextUpCard({ exam, stage, justTaken }: { exam: string; stage: st
     <div data-no-print className="mb-4">
       <Shell>
         <div className="flex flex-wrap items-center gap-4">
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-white', NEON_FILL)}>
                 <Sparkles className="h-3 w-3" /> Next for you
@@ -1157,7 +1157,7 @@ export function NextUpCard({ exam, stage, justTaken }: { exam: string; stage: st
             to={recommendationHref(next)}
             onClick={() => !next.target.is_locked && feedback.mutate({ recId: next.rec_id, action: 'started' })}
             className={cn(
-              'inline-flex h-11 flex-shrink-0 items-center gap-2 rounded-xl px-5 text-sm font-bold transition',
+              'inline-flex h-11 w-full flex-shrink-0 items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold transition sm:w-auto',
               next.target.is_locked
                 ? 'border border-amber-300 dark:border-amber-400/50 bg-amber-50 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-400/20'
                 : cn('mge-sheen text-white hover:scale-[1.03] hover:shadow-[0_0_36px_rgba(168,85,247,0.6)]', AI_FILL),

@@ -28,7 +28,7 @@ import type {
 } from './userPortalApi';
 import { negativeMarkLoss, type ExamContext, type ExamTaxonomyNode } from './exam-report-config';
 import { difficultyLabel } from '@/lib/eval-difficulty';
-import { bilingual, isTamil, registerPair } from '@/lib/bilingual';
+import { bilingual, isTamil, nodeName, registerPair } from '@/lib/bilingual';
 import { findStage, resolveSubjectId, unitNameForId } from '@/config/tnpsc';
 import { subjectIdForQuestion } from '@/lib/unit-pool';
 
@@ -259,9 +259,8 @@ export interface DiagnosticFinding {
 }
 
 /** A unit, subject or topic named inside a sentence the reader sees: "English / தமிழ்". Display only. */
-function shownName(node: { name: string; nameLocal?: string | null }): string {
-  const local = node.nameLocal?.trim();
-  return local && isTamil(local) !== isTamil(node.name) ? bilingual(node.name, local) : bilingual(node.name);
+function shownName(node: { name: string; nameLocal?: string | null; subjectId?: string | null }): string {
+  return nodeName(node);
 }
 
 /** A line that is simply counted, not inferred — no uncertainty to declare. */

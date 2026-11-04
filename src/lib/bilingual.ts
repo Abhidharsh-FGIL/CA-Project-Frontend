@@ -396,6 +396,8 @@ export function registerServerNames(pairs: NamePair[]): void {
     if (!ta || !en || !isTamil(ta) || isTamil(en)) continue;
     serverTa.set(key(en), ta);
     serverEn.set(key(ta), en);
+    // The name as the question carries it, when it is worded a little differently from the paired English one.
+    if (!isTamil(name)) serverTa.set(key(name), ta);
   }
 }
 
@@ -495,6 +497,23 @@ export function inLanguage(name: string | null | undefined, lang: 'ta' | 'en', o
 /** A name as a paper shows it: in the paper's own language, or in both for the other papers. */
 export function paperName(name: string | null | undefined, lang: PaperLang, other?: string | null): string {
   return lang ? inLanguage(name, lang, other) : bilingual(name, other);
+}
+
+/** The language paper a unit id belongs to: 'g4-ta-…' is General Tamil (Tamil only), 'g4-en-…' General English (English only). */
+export function unitIdLang(id: string | null | undefined): PaperLang {
+  const m = (id ?? '').replace(/^unit:/, '').match(/^g\d+-(ta|en)-/);
+  return m ? (m[1] as 'ta' | 'en') : null;
+}
+
+/**
+ * A report node's name as its paper shows it: a unit of General Tamil or General English in that paper's language,
+ * every other node in both, using the node's own other-language name when it carries one.
+ */
+export function nodeName(node: { name: string; nameLocal?: string | null; subjectId?: string | null; lang?: PaperLang }): string {
+  const local = node.nameLocal?.trim();
+  const other = local && isTamil(local) !== isTamil(node.name) ? local : null;
+  const lang = node.lang ?? unitIdLang(node.subjectId);
+  return lang ? inLanguage(node.name, lang, other) : bilingual(node.name, other);
 }
 
 /** A test title as a paper shows it. */
