@@ -42,7 +42,7 @@ import { SHOW_STUDY_PLAN } from '@/config/features';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useReportGate } from '@/hooks/use-report-gate';
 import { stageForTitle } from '@/config/tnpsc';
-import { useTnpscCatalog } from '@/hooks/use-tnpsc';
+import { useTnpscCatalog, useTnpscMockTests, useTnpscPracticeTests } from '@/hooks/use-tnpsc';
 import { useExamLanguage } from '@/hooks/use-exam-language';
 import { papersFor } from '@/lib/exam-language';
 import { FilterSelect } from '@/components/user/FilterSelect';
@@ -232,9 +232,26 @@ export default function UserDashboardPage() {
         // GAT-B is not open on the dashboard yet, so its papers are not offered here.
       )
         .filter(x => stageForTitle(x.title)?.group_id !== 'gat-b')
-        .filter(x => groupMatchLoading || matchesGroup({ test_id: x.assessment_id, test_name: x.title })),
+        // A paper the server made for another exam is not this exam's, whatever its title says.
+        .filter(x => !x.group_id || x.group_id === group)
+        .filter(x => groupMatchLoading || matchesGroup({ test_id: x.assessment_id, test_name: x.title }))
+        // The same assessment listed twice is one paper.
+        .filter((x, i, all) => all.findIndex(y => y.assessment_id === x.assessment_id) === i),
     [assessments, track, language, group, groupMatchLoading, matchesGroup],
   );
+
+  // "Available" is what the Exams screen lists for this exam and language: the stage's own catalog, each paper once.
+  // The assessments list above also holds papers the catalog does not offer (an inactive set, a second paper with
+  // the same title), so it only stands in until the catalog has loaded, or if it cannot be read.
+  const catalogPractice = useTnpscPracticeTests(group, GROUP_STAGE[group], language);
+  const catalogMock = useTnpscMockTests(group, GROUP_STAGE[group], language);
+  const availableCount = useMemo(() => {
+    const papers =
+      track === 'mock'
+        ? catalogMock.levels.flatMap(l => l.tests ?? [])
+        : catalogPractice.subjects.flatMap(s => s.tests ?? []);
+    return papers.length > 0 ? new Set(papers.map(t => t.test_id)).size : scopedAssessments.length;
+  }, [track, catalogMock.levels, catalogPractice.subjects, scopedAssessments.length]);
 
   const recent = useMemo(() => filteredAttempts.slice(0, 5), [filteredAttempts]);
 
@@ -348,7 +365,7 @@ export default function UserDashboardPage() {
             <StatCard
               icon={<ClipboardList className="w-5 h-5" />}
               tone="indigo"
-              value={scopedAssessments.length}
+              value={availableCount}
               label={`${trackNoun}s Available`}
               delta={null}
             />

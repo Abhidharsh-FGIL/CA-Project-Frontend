@@ -807,6 +807,9 @@ export interface ApiEvalAssessment {
   title: string;
   /** 'practice' | 'mock'  (backend normalises "exam" → "mock") */
   mode: 'practice' | 'mock';
+  /** The exam and stage the paper was made for ("group-4", "group-4-written"). Null on a custom set. */
+  group_id?: string | null;
+  stage_id?: string | null;
   difficulty: string | null;
   question_count: number;
   max_score: number;

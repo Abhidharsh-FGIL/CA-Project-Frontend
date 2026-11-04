@@ -22,8 +22,12 @@ describe('performance view in the address', () => {
     expect(read('/user/performance?range=all').range).toEqual(ALL_TIME);
   });
 
+  it('reads "all" as every test taken', () => {
+    expect(read('/user/performance?track=all')).toEqual({ track: 'all' });
+  });
+
   it('ignores what it does not know, rather than breaking the page', () => {
-    expect(read('/user/performance?group=nope&track=all&range=decade&from=yesterday')).toEqual({});
+    expect(read('/user/performance?group=nope&track=nope&range=decade&from=yesterday')).toEqual({});
     expect(read('/user/performance?range=week&from=junk').range).toEqual({ key: 'week', from: null, to: null });
     expect(read('/user/performance')).toEqual({});
   });

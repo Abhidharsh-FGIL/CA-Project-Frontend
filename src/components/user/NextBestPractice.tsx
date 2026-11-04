@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useRecommendationFeedback, useRecommendations } from '@/hooks/use-recommendations';
 import { useExamLanguage } from '@/hooks/use-exam-language';
+import { textLanguage } from '@/lib/exam-language';
 import { aiCoachShownKey } from '@/lib/ai-coach-session';
 import { bilingual } from '@/lib/bilingual';
 import { unitNameForId } from '@/config/tnpsc';
@@ -333,7 +334,7 @@ function useCoachPicks(exam: string, stage: string) {
   const query = useRecommendations(exam, stage);
   const chosen = useExamLanguage();
   const raw = query.data;
-  const data = useMemo(() => (raw ? recommendationsForLanguage(raw, practisedLanguage(raw) ?? chosen) : raw), [raw, chosen]);
+  const data = useMemo(() => (raw ? recommendationsForLanguage(raw, textLanguage(raw.language_paper) ?? practisedLanguage(raw) ?? chosen) : raw), [raw, chosen]);
   return { data, isLoading: query.isLoading, isError: query.isError };
 }
 

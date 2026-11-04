@@ -424,6 +424,21 @@ export default function TnpscStagePage() {
     });
   }, [stage, trackTests]);
 
+  // Development aid: the practice papers the server lists for this stage that no row on this page shows (they name
+  // no unit or topic this page knows), so the dashboard's "available" total can be told from what is listed here.
+  useEffect(() => {
+    if (!import.meta.env.DEV || tab === 'exam' || practiceTests.length === 0) return;
+    const shown = new Set<string>();
+    sections.forEach(s => s.tests.forEach(t => shown.add(t.test_id)));
+    keyTopicSections.forEach(s => s.groups.forEach(g => g.topics.forEach(r => r.tests.forEach(t => shown.add(t.test_id)))));
+    const hidden = practiceTests.filter(t => !shown.has(t.test_id));
+    // eslint-disable-next-line no-console
+    console.info(
+      `[exams] ${practiceTests.length} practice papers listed, ${shown.size} shown, ${hidden.length} not on any row:`,
+      hidden.map(t => ({ title: t.title, unit_id: t.unit_id, topic_id: t.topic_id, subject_id: t.subject_id, section: t.section_name })),
+    );
+  }, [tab, practiceTests, sections, keyTopicSections]);
+
   if (!groupId || !stageId) return <Navigate to="/user/exams" replace />;
   if (!found || !stage || !group) {
     return (

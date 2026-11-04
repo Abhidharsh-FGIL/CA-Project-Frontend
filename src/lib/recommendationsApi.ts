@@ -88,6 +88,8 @@ export type RecommendationBasis = 'last_15_days' | 'last_15_days_plus' | 'last_5
 
 export interface Recommendations {
   status: RecommendationStatus;
+  /** The language paper the server made the picks for ("General English" / "General Tamil"), when it says. */
+  language_paper?: string | null;
   generated_at: string | null;
   /** Null on a result stored before the backend began sending it. */
   basis?: RecommendationBasis | null;

@@ -5,12 +5,13 @@
  * carry none of them, so "View detailed report" on a Mock-tests view opened Performance on Practice. The link now
  * carries the view, and the page starts on it.
  */
-import { GROUP_STAGE, type ExamGroupKey, type ExamTrackKey } from '@/hooks/use-progress-trend';
+import { GROUP_STAGE, type ExamGroupKey, type TrackKey } from '@/hooks/use-progress-trend';
 import { ALL_TIME, type DateRange, type DateRangeKey } from '@/components/user/DateRangeFilter';
 
 export interface PerformanceView {
   group: ExamGroupKey;
-  track: ExamTrackKey;
+  /** The Performance page also reads "all": every test taken. */
+  track: TrackKey;
   range: DateRange;
 }
 
@@ -44,7 +45,7 @@ export function readPerformanceView(params: URLSearchParams): Partial<Performanc
   if (group && group in GROUP_STAGE) out.group = group as ExamGroupKey;
 
   const track = params.get('track');
-  if (track === 'mock' || track === 'practice') out.track = track;
+  if (track === 'mock' || track === 'practice' || track === 'all') out.track = track;
 
   const key = params.get('range') as DateRangeKey | null;
   if (key && RANGE_KEYS.includes(key)) {

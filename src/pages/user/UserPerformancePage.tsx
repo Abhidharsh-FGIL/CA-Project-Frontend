@@ -27,7 +27,8 @@ import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useReportGate } from '@/hooks/use-report-gate';
 import {
   EXAM_GROUP_OPTIONS,
-  EXAM_TRACK_OPTIONS,
+  TRACK_OPTIONS,
+  type TrackKey,
   GROUP_STAGE,
   formatTrendLabel,
   openGroupKey,
@@ -55,8 +56,14 @@ export default function UserPerformancePage() {
   const fromLink = useMemo(() => readPerformanceView(searchParams), []); // only the view that was opened
   // The same remembered view the dashboard uses, so moving between the two doesn't change what is shown. What the
   // link names wins for this visit and counts as chosen.
-  const { group, track, range, preferred: preferredGroup, chooseGroup, chooseTrack, chooseRange, resetView } = useSavedView(user, fromLink);
-  const setTrack = chooseTrack;
+  const { group, range, preferred: preferredGroup, chooseGroup, chooseRange, resetView: resetSavedView } = useSavedView(user, { group: fromLink.group, range: fromLink.range });
+  // This page opens on every test taken — mock, practice and key topics together — and can narrow to one kind.
+  // The choice is this page's own: the dashboard stays on one test type, so it is not remembered with the exam.
+  const [track, setTrack] = useState<TrackKey>(fromLink.track ?? 'all');
+  const resetView = () => {
+    resetSavedView();
+    setTrack('all');
+  };
   const setRange = chooseRange;
   const [showAllAttempts, setShowAllAttempts] = useState(false);
 
@@ -81,11 +88,11 @@ export default function UserPerformancePage() {
    */
   const rangeNarrowed = range.key !== 'all';
   const groupLabel = EXAM_GROUP_OPTIONS.find(o => o.value === group)!.label;
-  const trackLabel = EXAM_TRACK_OPTIONS.find(o => o.value === track)!.label;
-  const trackNoun = track === 'mock' ? 'Mock Test' : 'Practice Test';
-  const trackHref = `/user/exams/${group}/${GROUP_STAGE[group]}?tab=${track}`;
+  const trackLabel = TRACK_OPTIONS.find(o => o.value === track)!.label;
+  const trackNoun = track === 'mock' ? 'Mock Test' : track === 'practice' ? 'Practice Test' : 'Test';
+  const trackHref = `/user/exams/${group}/${GROUP_STAGE[group]}?tab=${track === 'mock' ? 'mock' : 'practice'}`;
 
-  const isDefaultView = group === preferredGroup && track === 'practice' && !rangeNarrowed;
+  const isDefaultView = group === preferredGroup && track === 'all' && !rangeNarrowed;
   // Reset forgets what was remembered too, so the view goes back to following the profile.
 
   // Subject figures are re-aggregated from the attempts shown, for the "answered N of M" panel — otherwise
@@ -210,7 +217,7 @@ export default function UserPerformancePage() {
         {/* One filter bar for the page — scores, curve and attempts all obey it. */}
         <div className="flex items-center gap-2 flex-wrap">
           <FilterSelect value={group} options={EXAM_GROUP_OPTIONS} onChange={chooseGroup} ariaLabel="Exam group" />
-          <FilterSelect value={track} options={EXAM_TRACK_OPTIONS} onChange={v => setTrack(v)} ariaLabel="Test type" />
+          <FilterSelect value={track} options={TRACK_OPTIONS} onChange={v => setTrack(v)} ariaLabel="Test type" />
           <DateRangeFilter value={range} onChange={setRange} />
           {!isDefaultView && (
             <button
