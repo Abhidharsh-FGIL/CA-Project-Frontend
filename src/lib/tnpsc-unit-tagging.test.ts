@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { TNPSC_GROUPS, findStage, findUnit, stageUnits, subjectForUnit } from '@/config/tnpsc';
-import { EMPTY_TAG, describeTag, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
+import { EMPTY_TAG, describeTag, readTnpscTag, suggestAssessmentTitle, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
 
 const stage = findStage('group-4', 'group-4-written', TNPSC_GROUPS)!.stage;
 
@@ -515,5 +515,41 @@ describe('a key topic the server has no row for', () => {
     } finally {
       (api.api as any).patch = original;
     }
+  });
+});
+
+describe("RRB NTPC level and language in a paper's placement", () => {
+  const base: TnpscTagValue = { ...EMPTY_TAG, group_id: 'rrb-ntpc-cbt-1', stage_id: 'rrb-ntpc-cbt-1-exam', track: 'practice', scope: 'unit', unit_id: 'ntpc-maths-percentage', level: null };
+
+  it('puts the level and language in the title, so the portal can read them', () => {
+    expect(suggestAssessmentTitle({ ...base, ntpc_level: 'graduate', ntpc_language: 'tamil' })).toBe('RRB NTPC CBT-1 (Graduate · Tamil) — Percentage · Mixed');
+    expect(suggestAssessmentTitle({ ...base, ntpc_level: 'undergraduate', ntpc_language: 'english' })).toBe('RRB NTPC CBT-1 (Under-Graduate · English) — Percentage · Mixed');
+    expect(suggestAssessmentTitle({ ...base, ntpc_level: 'graduate', ntpc_language: 'both' })).toBe('RRB NTPC CBT-1 (Graduate) — Percentage · Mixed');
+    expect(suggestAssessmentTitle({ ...base, ntpc_level: 'both', ntpc_language: 'tamil' })).toBe('RRB NTPC CBT-1 (Tamil) — Percentage · Mixed');
+    expect(suggestAssessmentTitle({ ...base, ntpc_level: 'both', ntpc_language: 'both' })).toBe('RRB NTPC CBT-1 — Percentage · Mixed');
+    expect(suggestAssessmentTitle({ ...base, ntpc_level: 'graduate', ntpc_language: 'hindi' })).toBe('RRB NTPC CBT-1 (Graduate · Hindi) — Percentage · Mixed');
+    expect(suggestAssessmentTitle({ ...base, ntpc_level: 'undergraduate', ntpc_language: 'telugu' })).toBe('RRB NTPC CBT-1 (Under-Graduate · Telugu) — Percentage · Mixed');
+  });
+
+  it('asks for both, on an NTPC paper only', () => {
+    const asked = (t: TnpscTagValue) => validateTnpscTag(t).errors.filter(e => /Graduate|language of this paper/.test(e)).length;
+    expect(asked(base)).toBe(2);
+    expect(asked({ ...base, ntpc_level: 'both' })).toBe(1);
+    expect(asked({ ...base, ntpc_level: 'both', ntpc_language: 'both' })).toBe(0);
+    const g4 = { ...EMPTY_TAG, group_id: 'group-4', stage_id: 'group-4-written', track: 'practice' as const, scope: 'unit' as const };
+    expect(asked(g4)).toBe(0);
+  });
+
+  it("reads them back off a saved paper: the server's field, else its title, else both", () => {
+    const row = { stage_id: 'rrb-ntpc-cbt-1-exam', track: 'practice' };
+    const read = (r: object) => {
+      const t = readTnpscTag({ ...row, ...r });
+      return [t.ntpc_level, t.ntpc_language];
+    };
+    expect(read({ title: 'RRB NTPC CBT-1 (Graduate · Tamil) — Percentage · Mixed' })).toEqual(['graduate', 'tamil']);
+    expect(read({ title: 'RRB NTPC CBT-1 (UG · English) — Percentage' })).toEqual(['undergraduate', 'english']);
+    expect(read({ title: 'x', ntpc_level: 'graduate', ntpc_language: 'tamil' })).toEqual(['graduate', 'tamil']);
+    expect(read({ title: 'RRB NTPC CBT-1 — Percentage' })).toEqual(['both', 'both']);
+    expect(readTnpscTag({ stage_id: 'group-4-written', title: 'Graduate Tamil' }).ntpc_level).toBeNull();
   });
 });

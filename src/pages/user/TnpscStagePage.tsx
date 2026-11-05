@@ -1,4 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useUserPortal } from '@/contexts/UserPortalContext';
+import { NtpcLevelChip, NtpcLevelDialog } from '@/components/user/NtpcLevelDialog';
+import { isNtpcGroup, useNtpcPrefs } from '@/lib/ntpc-level';
+import { examLanguageOf } from '@/lib/exam-language';
+import { examLogo } from '@/lib/exam-logo';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { here } from '@/lib/report-origin';
 import { skipsStageList } from '@/lib/exam-listing';
@@ -265,6 +270,16 @@ export default function TnpscStagePage() {
   const { groups } = useTnpscCatalog({ forMyLanguage: true });
   const { groups: allGroups } = useTnpscCatalog();
   const language = useExamLanguage();
+  // RRB NTPC: the level (Graduate / Under-Graduate) the aspirant chose, which decides the papers listed.
+  const { user: me } = useUserPortal();
+  const ntpc = isNtpcGroup(groupId);
+  const { level: chosenLevel, language: chosenLanguage, ready: ntpcReady, save: saveNtpc } = useNtpcPrefs(me?.user_id);
+  const ntpcPrefs = useMemo(() => (ntpc ? { level: chosenLevel, language: chosenLanguage } : null), [ntpc, chosenLevel, chosenLanguage]);
+  const [askingLevel, setAskingLevel] = useState(false);
+  // Arriving with no level chosen (a link, a bookmark) asks once, here.
+  useEffect(() => {
+    if (ntpc && !ntpcReady) setAskingLevel(true);
+  }, [ntpc, ntpcReady]);
 
   const found = findStage(groupId, stageId, groups);
   const offersLanguageChoice = hasLanguageChoice(findStage(groupId, stageId, allGroups)?.stage);
@@ -303,8 +318,9 @@ export default function TnpscStagePage() {
   /** The tabs and what they list: where "Take Mock Exam" brings you to. */
   const pathRef = useRef<HTMLDivElement>(null);
 
-  const mock = useTnpscMockTests(groupId, stageId, language);
-  const practice = useTnpscPracticeTests(groupId, stageId, language);
+  // RRB NTPC papers follow the language chosen for it, not the Group 4 language paper on the profile.
+  const mock = useTnpscMockTests(groupId, stageId, ntpc ? null : language, ntpcPrefs);
+  const practice = useTnpscPracticeTests(groupId, stageId, ntpc ? null : language, ntpcPrefs);
 
   const stage = found?.stage;
   const group = found?.group;
@@ -491,6 +507,14 @@ export default function TnpscStagePage() {
       <StageHero stage={stage} groupName={group.name} accent={group.accent} onTakeMock={takeMock} />
 
       {offersLanguageChoice && <ExamLanguageNote examName={group.name} className="mb-4 sm:mb-5" />}
+
+      {ntpc && (
+        <div className="mb-4 sm:mb-5 flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+          <span>Papers shown for</span>
+          <NtpcLevelChip prefs={{ level: chosenLevel, language: chosenLanguage }} onChange={() => setAskingLevel(true)} />
+          <NtpcLevelDialog open={askingLevel} onOpenChange={setAskingLevel} value={{ level: chosenLevel, language: chosenLanguage }} fallbackLanguage={examLanguageOf(me?.medium)} onSave={p => { saveNtpc(p); setAskingLevel(false); }} examName={group.name} />
+        </div>
+      )}
 
       {/* Syllabus beside the papers, so what's in the exam stays in view while
           picking one — 30% of the width open, a rail when folded. */}
@@ -834,6 +858,7 @@ function ExamTrack({
   pattern?: TnpscStage['pattern'];
 }) {
   const passPercentage = levels[0]?.required_percentage ?? mockPassPercentage();
+  const logo = examLogo(useParams<{ groupId: string }>().groupId);
 
   /**
    * Which level groups to show.
@@ -853,7 +878,7 @@ function ExamTrack({
         <div className="p-4 sm:p-5">
           <div className="flex items-start gap-3.5">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 ring-1 ring-emerald-100 dark:bg-emerald-950/40 dark:ring-emerald-900/60">
-              <img src={`${import.meta.env.BASE_URL}tnpsc-logo.png`} alt="TNPSC" className="h-9 w-9 object-contain" draggable={false} />
+              <img src={logo.src} alt={logo.alt} className="h-9 w-9 object-contain" draggable={false} />
             </span>
             <div className="min-w-0">
               <p className="flex flex-wrap items-center gap-2 text-base font-extrabold text-gray-900 dark:text-gray-100">
@@ -1596,6 +1621,7 @@ const PATH_STEPS: Array<{
 ];
 
 function TrackTabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
+  const logo = examLogo(useParams<{ groupId: string }>().groupId);
   return (
     <div>
       <div role="tablist" aria-label="Test type" className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -1632,7 +1658,7 @@ function TrackTabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) 
                         'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
                       )}
                     >
-                      <img src={`${import.meta.env.BASE_URL}tnpsc-logo.png`} alt="" className="h-3.5 w-3.5 object-contain" draggable={false} />
+                      <img src={logo.src} alt="" className="h-3.5 w-3.5 object-contain" draggable={false} />
                       {it.tag}
                     </span>
                   )}

@@ -5,8 +5,8 @@ import { OPEN_EXAM_IDS, UPCOMING_EXAMS, splitExams } from '@/lib/exam-listing';
 describe('splitExams', () => {
   const { open, soon } = splitExams(TNPSC_GROUPS);
 
-  it('opens Group 4, then Group 2, and nothing else', () => {
-    expect(open.map(g => g.id)).toEqual(['group-4', 'group-2']);
+  it('opens Group 4, then Group 2, then the two RRB NTPC tests, and nothing else', () => {
+    expect(open.map(g => g.id)).toEqual(['group-4', 'group-2', 'rrb-ntpc-cbt-1', 'rrb-ntpc-cbt-2']);
   });
 
   it('leaves every other catalog exam as coming soon, in catalog order', () => {

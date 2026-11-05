@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Layers, Sparkles } from 'lucide-react';
+import { useUserPortal } from '@/contexts/UserPortalContext';
+import { NtpcLevelChip, NtpcLevelDialog } from '@/components/user/NtpcLevelDialog';
+import { isNtpcGroup, useNtpcPrefs, type NtpcPrefs } from '@/lib/ntpc-level';
+import { examLanguageOf } from '@/lib/exam-language';
+import { examLogo } from '@/lib/exam-logo';
 import { cn } from '@/lib/utils';
 import type { TnpscGroup } from '@/config/tnpsc';
 import { UPCOMING_EXAMS, examEntryPath, splitExams, type UpcomingExam } from '@/lib/exam-listing';
@@ -159,7 +164,7 @@ const TONES: Record<'blue' | 'teal' | 'violet' | 'amber' | 'rose' | 'indigo', To
 };
 
 /** The known exams keep their colour wherever they sit in the list; a new one takes the next free hue. */
-const TONE_BY_GROUP: Record<string, keyof typeof TONES> = { 'group-1': 'blue', 'group-2': 'indigo', 'group-4': 'teal', 'gat-b': 'violet' };
+const TONE_BY_GROUP: Record<string, keyof typeof TONES> = { 'group-1': 'blue', 'group-2': 'indigo', 'group-4': 'teal', 'gat-b': 'violet', 'rrb-ntpc-cbt-1': 'amber', 'rrb-ntpc-cbt-2': 'rose' };
 const TONE_ORDER = ['blue', 'teal', 'violet', 'amber', 'rose'] as const;
 
 const toneFor = (groupId: string, index: number): Tone =>
@@ -195,11 +200,14 @@ function CardFrame({
   disabled,
   index,
   children,
+  onOpen,
 }: {
   to?: string;
   disabled: boolean;
   index: number;
   children: React.ReactNode;
+  /** Called before the card is followed; calling `preventDefault` keeps the aspirant on this page. */
+  onOpen?: (e: React.MouseEvent) => void;
 }) {
   // A fixed width, so the row has cards to scroll through: most of a phone's width, a set width from there up.
   const base =
@@ -225,6 +233,7 @@ function CardFrame({
   return (
     <Link
       to={to}
+      onClick={onOpen}
       className={cn(
         base,
         'group border-2 border-teal-400/70 dark:border-teal-500/60 bg-white dark:bg-gray-900 shadow-md dark:shadow-black/40 hover:shadow-lg dark:hover:shadow-black/50 transition-all duration-300 hover-lift',
@@ -238,6 +247,19 @@ function CardFrame({
 
 function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; index: number; comingSoon?: boolean }) {
   const activeStages = group.stages.filter(s => s.status === 'active');
+  // RRB NTPC is sat at two levels: the first time it is opened the aspirant is asked which, and can change it after.
+  const ntpc = isNtpcGroup(group.id) && !comingSoon;
+  const { user } = useUserPortal();
+  const { level, language, ready, save } = useNtpcPrefs(user?.user_id);
+  const navigate = useNavigate();
+  const logo = examLogo(group.id);
+  const [asking, setAsking] = useState<'enter' | 'change' | null>(null);
+  const choose = (prefs: NtpcPrefs) => {
+    save(prefs);
+    const entering = asking === 'enter';
+    setAsking(null);
+    if (entering) navigate(examEntryPath(group));
+  };
   const tone = comingSoon ? MUTED : toneFor(group.id, index);
 
   // Every subject the examination covers, deduped across its stages — Group 4's
@@ -264,7 +286,13 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
   };
 
   return (
-    <CardFrame to={examEntryPath(group)} disabled={comingSoon} index={index}>
+    <>
+    <CardFrame
+      to={examEntryPath(group)}
+      disabled={comingSoon}
+      index={index}
+      onOpen={ntpc && !ready ? e => { e.preventDefault(); setAsking('enter'); } : undefined}
+    >
       <div className={cn(comingSoon ? 'h-[3px]' : 'h-1.5', 'w-full', tone.bar)} />
 
       <div className="p-5 flex-1 flex flex-col">
@@ -296,12 +324,7 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
                 tone.badge,
               )}
             >
-              <img
-                src={`${import.meta.env.BASE_URL}tnpsc-logo.png`}
-                alt="TNPSC"
-                className="w-10 h-10 object-contain"
-                draggable={false}
-              />
+              <img src={logo.src} alt={logo.alt} className="w-10 h-10 object-contain" draggable={false} />
             </span>
           )}
         </div>
@@ -369,6 +392,15 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
           })}
         </div>
 
+        {ntpc && ready && (
+          <div className="mt-3">
+            <NtpcLevelChip
+              prefs={{ level, language }}
+              onChange={() => setAsking('change')}
+            />
+          </div>
+        )}
+
         <div className="mt-4 flex items-center justify-between gap-3">
           <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 font-medium">
             <Layers className="w-3.5 h-3.5 text-gray-400" />
@@ -384,6 +416,8 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
         </div>
       </div>
     </CardFrame>
+    {ntpc && <NtpcLevelDialog open={asking !== null} onOpenChange={o => !o && setAsking(null)} value={{ level, language }} fallbackLanguage={examLanguageOf(user?.medium)} onSave={choose} examName={group.name} />}
+    </>
   );
 }
 

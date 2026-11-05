@@ -18,6 +18,8 @@ export const BOARDS = [
   'TNPSC Group 1',
   'TNPSC Group 4',
   'GAT-B',
+  'RRB NTPC CBT-1',
+  'RRB NTPC CBT-2',
   'UPSC',
   'SSC',
   'IBPS',

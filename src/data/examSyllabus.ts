@@ -28,6 +28,9 @@ export interface SyllabusSubject {
 
 /** Questions per subject in the real paper. Each map sums to that stage's pattern. */
 const STAGE_SECTION_QUESTIONS: Record<string, Record<string, number>> = {
+  // RRB NTPC: both tests carry the same three subjects, in different numbers.
+  'rrb-ntpc-cbt-1-exam': { 'ntpc-general-awareness': 40, 'ntpc-mathematics': 30, 'ntpc-reasoning': 30 },
+  'rrb-ntpc-cbt-2-exam': { 'ntpc-general-awareness': 50, 'ntpc-mathematics': 35, 'ntpc-reasoning': 35 },
   // Group 1 Prelims: General Studies 175 + Aptitude 25
   'group-1-prelims': {
     'general-science': 25,
@@ -98,6 +101,8 @@ export const EXAM_SYLLABUS: Record<string, SyllabusSubject[]> = {
   'TNPSC Group 1': stageSyllabus('group-1-prelims'),
   'TNPSC Group 4': stageSyllabus('group-4-written'),
   'GAT-B': stageSyllabus('gat-b-exam'),
+  'RRB NTPC CBT-1': stageSyllabus('rrb-ntpc-cbt-1-exam'),
+  'RRB NTPC CBT-2': stageSyllabus('rrb-ntpc-cbt-2-exam'),
 
   // IBPS Clerk Prelims — English Language (30) + Numerical Ability (35) +
   // Reasoning Ability (35) = 100 questions, 1 hour (20 min sectional).

@@ -67,6 +67,8 @@ export interface TnpscTest {
    * `paperLanguage` in `exam-language.ts`.
    */
   language?: string | null;
+  /** RRB NTPC: the level the paper is for — "graduate" | "undergraduate" — when the server says; else its title does. */
+  ntpc_level?: string | null;
   subject_id: string | null;
   subject_name: string | null;
   topic_id: string | null;
@@ -619,6 +621,8 @@ const STAGE_KEYWORDS: Record<string, string[]> = {
   'group-2-mains': ['group 2 main', 'group-2-main', 'mains'],
   'group-4-written': ['group 4', 'group-4', 'group4', 'g4', 'vao', 'written'],
   'gat-b-exam': ['gat-b', 'gat b', 'gatb', 'biotechnology aptitude'],
+  'rrb-ntpc-cbt-1-exam': ['rrb ntpc cbt-1', 'rrb ntpc cbt 1', 'ntpc cbt-1', 'ntpc cbt 1'],
+  'rrb-ntpc-cbt-2-exam': ['rrb ntpc cbt-2', 'rrb ntpc cbt 2', 'ntpc cbt-2', 'ntpc cbt 2'],
 };
 
 async function deriveTests(

@@ -45,6 +45,9 @@ import { stageForTitle } from '@/config/tnpsc';
 import { useTnpscCatalog, useTnpscMockTests, useTnpscPracticeTests } from '@/hooks/use-tnpsc';
 import { useExamLanguage } from '@/hooks/use-exam-language';
 import { papersFor } from '@/lib/exam-language';
+import { isNtpcGroup, paperIsForNtpc, useNtpcPrefs } from '@/lib/ntpc-level';
+import { examLanguageOf } from '@/lib/exam-language';
+import { NtpcLevelChip, NtpcLevelDialog } from '@/components/user/NtpcLevelDialog';
 import { FilterSelect } from '@/components/user/FilterSelect';
 import { TestScoreCard } from '@/components/user/TestScoreCard';
 import { useSubjectStrengths } from '@/hooks/use-subject-strengths';
@@ -95,6 +98,11 @@ export default function UserDashboardPage() {
   const [coachOpen, setCoachOpen] = useState(false);
   useAiCoachAutoOpen(group, GROUP_STAGE[group], () => setCoachOpen(true));
   const firstName = user?.name?.split(' ')[0];
+  // RRB NTPC is sat at two levels; the papers counted and offered here are the chosen level's.
+  const { level: chosenLevel, language: chosenLanguage, save: saveNtpc } = useNtpcPrefs(user?.user_id);
+  const isNtpc = isNtpcGroup(group);
+  const ntpcPrefs = useMemo(() => (isNtpc ? { level: chosenLevel, language: chosenLanguage } : null), [isNtpc, chosenLevel, chosenLanguage]);
+  const [askingLevel, setAskingLevel] = useState(false);
 
   const analyticsQuery = useQuery<UserDashboardAnalytics>({
     queryKey: ['user-dashboard-analytics', history.length, assessments.length],
@@ -227,24 +235,26 @@ export default function UserDashboardPage() {
   const scopedAssessments = useMemo(
     () =>
       papersFor(
-        language,
+        // RRB NTPC papers follow the language chosen for it, below, not the Group 4 language paper on the profile.
+        isNtpc ? null : language,
         assessments.filter(x => x.mode === track),
         // GAT-B is not open on the dashboard yet, so its papers are not offered here.
       )
+        .filter(x => paperIsForNtpc(ntpcPrefs, x))
         .filter(x => stageForTitle(x.title)?.group_id !== 'gat-b')
         // A paper the server made for another exam is not this exam's, whatever its title says.
         .filter(x => !x.group_id || x.group_id === group)
         .filter(x => groupMatchLoading || matchesGroup({ test_id: x.assessment_id, test_name: x.title }))
         // The same assessment listed twice is one paper.
         .filter((x, i, all) => all.findIndex(y => y.assessment_id === x.assessment_id) === i),
-    [assessments, track, language, group, groupMatchLoading, matchesGroup],
+    [assessments, track, language, isNtpc, ntpcPrefs, group, groupMatchLoading, matchesGroup],
   );
 
   // "Available" is what the Exams screen lists for this exam and language: the stage's own catalog, each paper once.
   // The assessments list above also holds papers the catalog does not offer (an inactive set, a second paper with
   // the same title), so it only stands in until the catalog has loaded, or if it cannot be read.
-  const catalogPractice = useTnpscPracticeTests(group, GROUP_STAGE[group], language);
-  const catalogMock = useTnpscMockTests(group, GROUP_STAGE[group], language);
+  const catalogPractice = useTnpscPracticeTests(group, GROUP_STAGE[group], isNtpc ? null : language, ntpcPrefs);
+  const catalogMock = useTnpscMockTests(group, GROUP_STAGE[group], isNtpc ? null : language, ntpcPrefs);
   const availableCount = useMemo(() => {
     const papers =
       track === 'mock'
@@ -350,6 +360,12 @@ export default function UserDashboardPage() {
         {/* These two scope every card below, so they lead the page rather than
             sitting inside one card as that card's own filter. */}
         <div className="flex items-center gap-2 flex-wrap">
+          {isNtpcGroup(group) && (
+            <>
+              <NtpcLevelChip prefs={{ level: chosenLevel, language: chosenLanguage }} onChange={() => setAskingLevel(true)} />
+              <NtpcLevelDialog open={askingLevel} onOpenChange={setAskingLevel} value={{ level: chosenLevel, language: chosenLanguage }} fallbackLanguage={examLanguageOf(user?.medium)} onSave={p => { saveNtpc(p); setAskingLevel(false); }} />
+            </>
+          )}
           <FilterSelect value={group} options={EXAM_GROUP_OPTIONS} onChange={chooseGroup} ariaLabel="Exam group" />
           <FilterSelect value={track} options={EXAM_TRACK_OPTIONS} onChange={v => setTrack(v)} ariaLabel="Test type" />
           <DateRangeFilter value={range} onChange={setRange} />

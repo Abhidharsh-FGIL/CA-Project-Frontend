@@ -12,6 +12,7 @@ import {
   type TnpscMockOverview,
   type TnpscPracticeSubject,
 } from '@/lib/tnpscApi';
+import { papersForNtpc, type NtpcPrefs } from '@/lib/ntpc-level';
 import { TNPSC_GROUPS, type TnpscGroup } from '@/config/tnpsc';
 import {
   catalogForLanguage,
@@ -63,13 +64,15 @@ function useAttemptSummaries(): AttemptSummary[] {
  * shouldn't. Locally-known attempts are overlaid first, keeping the view correct
  * even before the server has caught up.
  *
+ * Pass `ntpc` (RRB NTPC: the aspirant's level and language) to list only the papers for them, and the ones that name none.
  * Pass `language` to list only that language paper's mocks (and the ones that name no language).
  * It is applied before the levels are counted, so "2 of 3 cleared" never counts a paper the
  * aspirant is not shown. Left off, every paper is listed — which is what matching an attempt to
  * its exam needs.
  */
-export function useTnpscMockTests(groupId?: string, stageId?: string, language?: ExamLanguage | null) {
+export function useTnpscMockTests(groupId?: string, stageId?: string, language?: ExamLanguage | null, ntpc?: NtpcPrefs | null) {
   const attempts = useAttemptSummaries();
+  const ntpcPrefs = useMemo(() => (ntpc ? { level: ntpc.level, language: ntpc.language } : null), [ntpc?.level, ntpc?.language]);
 
   const query = useQuery<TnpscMockOverview>({
     queryKey: ['tnpsc', 'mock', groupId, stageId],
@@ -86,10 +89,10 @@ export function useTnpscMockTests(groupId?: string, stageId?: string, language?:
     );
     const withHistory = data.levels.map(l => ({
       ...l,
-      tests: applyAttemptHistory(papersFor(language ?? null, l.tests ?? []), attempts, pass),
+      tests: applyAttemptHistory(papersForNtpc(ntpcPrefs, papersFor(language ?? null, l.tests ?? [])), attempts, pass),
     }));
     return normaliseLevelGroups(withHistory, pass);
-  }, [query.data, attempts, language]);
+  }, [query.data, attempts, language, ntpcPrefs]);
 
   return { ...query, levels };
 }
@@ -99,8 +102,9 @@ export function useTnpscMockTests(groupId?: string, stageId?: string, language?:
  *
  * `language` is as for the mock tests: the other language paper's subject and papers are left out.
  */
-export function useTnpscPracticeTests(groupId?: string, stageId?: string, language?: ExamLanguage | null) {
+export function useTnpscPracticeTests(groupId?: string, stageId?: string, language?: ExamLanguage | null, ntpc?: NtpcPrefs | null) {
   const attempts = useAttemptSummaries();
+  const ntpcPrefs = useMemo(() => (ntpc ? { level: ntpc.level, language: ntpc.language } : null), [ntpc?.level, ntpc?.language]);
 
   const query = useQuery<TnpscPracticeSubject[]>({
     queryKey: ['tnpsc', 'practice', groupId, stageId],
@@ -116,8 +120,8 @@ export function useTnpscPracticeTests(groupId?: string, stageId?: string, langua
         const own = subjectLanguage(s.subject_id);
         return !language || !own || own === language;
       })
-      .map(s => ({ ...s, tests: applyAttemptHistory(papersFor(language ?? null, s.tests), attempts) }));
-  }, [query.data, attempts, language]);
+      .map(s => ({ ...s, tests: applyAttemptHistory(papersForNtpc(ntpcPrefs, papersFor(language ?? null, s.tests)), attempts) }));
+  }, [query.data, attempts, language, ntpcPrefs]);
 
   return { ...query, subjects };
 }

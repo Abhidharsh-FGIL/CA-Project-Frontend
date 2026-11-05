@@ -12,6 +12,7 @@
  *   POST  /api/v1/admin/tnpsc/bulk-tag
  *   GET   /api/v1/admin/tnpsc/coverage?stage_id=
  */
+import { NTPC_LANGUAGE_LABEL, NTPC_LEVEL_LABEL, isNtpcGroup, ntpcLevelOf, paperNtpcLanguage, type NtpcLanguage, type NtpcLevel } from '@/lib/ntpc-level';
 import { api } from './api';
 import {
   LEVELS_HIDDEN,
@@ -78,6 +79,14 @@ export interface TnpscTagValue {
    * General English, never both — so a full mock has to say which.
    */
   language: TnpscExamLanguage | null;
+  /**
+   * RRB NTPC is recruited at two levels, and a paper is made for one of them or for both. The level is carried in the
+   * paper's title ("RRB NTPC CBT-1 (Graduate) — …"), which is what the aspirant portal reads it from; `both` names none.
+   * Null on every other exam, and until it is chosen.
+   */
+  ntpc_level?: NtpcLevel | 'both' | null;
+  /** RRB NTPC: the language the paper is in — `both` names none and is shown to everyone. Carried in the title like the level. */
+  ntpc_language?: NtpcLanguage | 'both' | null;
 }
 
 /**
@@ -102,6 +111,8 @@ export const EMPTY_TAG: TnpscTagValue = {
   scope: null,
   section_name: null,
   language: null,
+  ntpc_level: null,
+  ntpc_language: null,
 };
 
 /** Wire shape sent to the backend — `group_id` is derivable from `stage_id`, sent for clarity. */
@@ -206,6 +217,9 @@ export function readTnpscTag(row: any): TnpscTagValue {
   // A unit paper that names a topic is a key-topic paper.
   const scope: TnpscScope | null = rawScope === 'unit' && topic_id ? 'topic' : rawScope;
   const group_id = row.tnpsc_group_id ?? row.group_id ?? groupOfStage(stage_id);
+  // An NTPC paper with no level in it is one for both.
+  const ntpc_level = isNtpcGroup(group_id) ? (ntpcLevelOf(row.ntpc_level) ?? ntpcLevelOf(row.title) ?? 'both') : null;
+  const ntpc_language = isNtpcGroup(group_id) ? (paperNtpcLanguage(row) ?? 'both') : null;
   return {
     group_id,
     stage_id,
@@ -217,6 +231,8 @@ export function readTnpscTag(row: any): TnpscTagValue {
     scope,
     section_name,
     language,
+    ntpc_level,
+    ntpc_language,
   };
 }
 
@@ -308,7 +324,15 @@ export function suggestAssessmentTitle(tag: TnpscTagValue): string | null {
    * Group 1 papers "TNPSC Group 1" today and "TNPSC Group 1 Prelims" the day Mains
    * opens, leaving two naming conventions in one list and no way to sort it.
    */
-  const head = group.stages.length > 1 ? `${group.name} ${stage.short_name}` : group.name;
+  const base = group.stages.length > 1 ? `${group.name} ${stage.short_name}` : group.name;
+  // An RRB NTPC paper made for one level names it, which is how the portal knows whom to show it to.
+  const who = isNtpcGroup(group.id)
+    ? [
+        tag.ntpc_level && tag.ntpc_level !== 'both' ? NTPC_LEVEL_LABEL[tag.ntpc_level] : null,
+        tag.ntpc_language && tag.ntpc_language !== 'both' ? NTPC_LANGUAGE_LABEL[tag.ntpc_language] : null,
+      ].filter(Boolean)
+    : [];
+  const head = who.length ? `${base} (${who.join(' · ')})` : base;
 
   const levelLabel = tag.level ? LEVEL_META[tag.level].label : null;
   const parts: string[] = [];
@@ -391,6 +415,11 @@ export function validateTnpscTag(tag: TnpscTagValue, questionCount?: number): Ta
     // Group 4's paper is sat in one language or the other, so a full mock has to
     // say which — the two have different units and different splits.
     if (!tag.language) errors.push('Choose the language this exam is sat in.');
+  }
+
+  if (isNtpcGroup(tag.group_id ?? groupOfStage(tag.stage_id))) {
+    if (!tag.ntpc_level) errors.push('Choose whether this paper is for Graduate or Under-Graduate aspirants, or for both.');
+    if (!tag.ntpc_language) errors.push('Choose the language of this paper — or Both languages.');
   }
 
   if (tag.track === 'practice') {

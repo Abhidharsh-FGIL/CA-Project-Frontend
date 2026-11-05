@@ -18,7 +18,7 @@ import type { TnpscGroup } from '@/config/tnpsc';
  * Examinations aspirants can open today, in the order the Exams page lists them. Everything else in the
  * catalog is shown as coming soon.
  */
-export const OPEN_EXAM_IDS: ReadonlySet<string> = new Set(['group-4', 'group-2']);
+export const OPEN_EXAM_IDS: ReadonlySet<string> = new Set(['group-4', 'group-2', 'rrb-ntpc-cbt-1', 'rrb-ntpc-cbt-2']);
 
 /** The exam a name, a collection or a view with no stated exam belongs to — the one that was there first. */
 export const PRIMARY_EXAM_ID = 'group-4';

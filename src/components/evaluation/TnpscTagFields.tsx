@@ -28,6 +28,7 @@ import {
   type TnpscScope,
   type TnpscTagValue,
 } from '@/lib/tnpscAdminApi';
+import { NTPC_LANGUAGES, NTPC_LANGUAGE_LABEL, isNtpcGroup } from '@/lib/ntpc-level';
 import { FULL_PAPER_BLEND, blendTargets, describeBlend } from '@/lib/difficulty-blend';
 import { blendTotal } from '@/lib/tnpscAdminApi';
 
@@ -111,6 +112,8 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, cate
       topic_id: null,
       section_name: null,
       language: null,
+      ntpc_level: isNtpcGroup(groupId) ? (value.ntpc_level ?? null) : null,
+      ntpc_language: isNtpcGroup(groupId) ? (value.ntpc_language ?? null) : null,
     });
   };
 
@@ -216,6 +219,58 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, cate
           </Select>
         </div>
       </div>
+
+      {/* ── 1b. RRB NTPC: which level is the paper for? ───────────────── */}
+      {isNtpcGroup(value.group_id) && (
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">
+            Level <span className="text-red-500">*</span>
+          </Label>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <ChoiceCard
+              active={value.ntpc_level === 'graduate'}
+              onClick={() => onChange({ ...value, ntpc_level: 'graduate' })}
+              title="Graduate"
+              detail="Shown to Graduate aspirants"
+            />
+            <ChoiceCard
+              active={value.ntpc_level === 'undergraduate'}
+              onClick={() => onChange({ ...value, ntpc_level: 'undergraduate' })}
+              title="Under-Graduate"
+              detail="Shown to Under-Graduate aspirants"
+            />
+            <ChoiceCard
+              active={value.ntpc_level === 'both'}
+              onClick={() => onChange({ ...value, ntpc_level: 'both' })}
+              title="Both levels"
+              detail="Shown to every aspirant"
+            />
+          </div>
+          <Label className="pt-1 text-xs font-medium">
+            Language <span className="text-red-500">*</span>
+          </Label>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {NTPC_LANGUAGES.map(lang => (
+              <ChoiceCard
+                key={lang}
+                active={value.ntpc_language === lang}
+                onClick={() => onChange({ ...value, ntpc_language: lang })}
+                title={NTPC_LANGUAGE_LABEL[lang]}
+                detail={`Shown to aspirants who chose ${NTPC_LANGUAGE_LABEL[lang]}`}
+              />
+            ))}
+            <ChoiceCard
+              active={value.ntpc_language === 'both'}
+              onClick={() => onChange({ ...value, ntpc_language: 'both' })}
+              title="Both languages"
+              detail="Shown to every aspirant"
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            A paper made for one level or language has it in its title, which is how the portal knows whom to show it to.
+          </p>
+        </div>
+      )}
 
       {/* ── 2. Practice or exam ────────────────────────────────────────── */}
       {!hideTrack && (
