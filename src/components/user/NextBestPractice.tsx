@@ -35,7 +35,8 @@ import { useExamLanguage } from '@/hooks/use-exam-language';
 import { textLanguage } from '@/lib/exam-language';
 import { aiCoachShownKey } from '@/lib/ai-coach-session';
 import { bilingual } from '@/lib/bilingual';
-import { unitNameForId } from '@/config/tnpsc';
+import { findStage, unitNameForId } from '@/config/tnpsc';
+import { useTnpscPracticeTests } from '@/hooks/use-tnpsc';
 import {
   KIND_LABEL,
   TYPE_LABEL,
@@ -48,6 +49,8 @@ import {
   recommendationPlace,
   recommendationTitle,
   recommendationsForLanguage,
+  isLocalPick,
+  starterPicks,
   type Improvement,
   type Recommendation,
   type RecommendationKind,
@@ -336,7 +339,17 @@ function useCoachPicks(exam: string, stage: string) {
   const query = useRecommendations(exam, stage);
   const chosen = useExamLanguage();
   const raw = query.data;
-  const data = useMemo(() => (raw ? recommendationsForLanguage(raw, chosen ?? textLanguage(raw.language_paper) ?? practisedLanguage(raw)) : raw), [raw, chosen]);
+  const language = chosen ?? textLanguage(raw?.language_paper) ?? (raw ? practisedLanguage(raw) : null);
+  const practice = useTnpscPracticeTests(exam, stage, language);
+  const data = useMemo(() => {
+    if (!raw) return raw;
+    const filtered = recommendationsForLanguage(raw, language);
+    if (raw.status === 'computing') return filtered;
+    // Fewer than three left (the server picked from the other paper, or from what was practised): fill from the catalog.
+    const have = visiblePicks(filtered.items, []).length;
+    const extra = starterPicks({ stage: findStage(exam, stage)?.stage, tests: practice.subjects.flatMap(s => s.tests), language, data: filtered, max: 3 - have });
+    return extra.length ? { ...filtered, items: [...filtered.items, ...extra] } : filtered;
+  }, [raw, language, practice.subjects, exam, stage]);
   return { data, isLoading: query.isLoading, isError: query.isError };
 }
 
@@ -396,10 +409,10 @@ export function NextBestPractice({
 
   const dismiss = (r: Recommendation) => {
     setHidden(h => [...h, pickKey(r)]);
-    feedback.mutate({ recId: r.rec_id, action: 'dismissed' });
+    if (!isLocalPick(r)) feedback.mutate({ recId: r.rec_id, action: 'dismissed' });
   };
   const start = (r: Recommendation) => () => {
-    if (!r.target.is_locked) feedback.mutate({ recId: r.rec_id, action: 'started' });
+    if (!r.target.is_locked && !isLocalPick(r)) feedback.mutate({ recId: r.rec_id, action: 'started' });
   };
 
   return (
@@ -1158,7 +1171,7 @@ export function NextUpCard({ exam, stage, justTaken }: { exam: string; stage: st
           </div>
           <Link
             to={recommendationHref(next)}
-            onClick={() => !next.target.is_locked && feedback.mutate({ recId: next.rec_id, action: 'started' })}
+            onClick={() => !next.target.is_locked && !isLocalPick(next) && feedback.mutate({ recId: next.rec_id, action: 'started' })}
             className={cn(
               'inline-flex h-11 w-full flex-shrink-0 items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold transition sm:w-auto',
               next.target.is_locked

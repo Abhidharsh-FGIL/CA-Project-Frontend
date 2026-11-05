@@ -6,7 +6,8 @@
  * recommendations handoff for the maths.
  */
 import { userApi } from './api';
-import { unitNameForId } from '@/config/tnpsc';
+import { stageUnits, unitNameForId, type TnpscStage } from '@/config/tnpsc';
+import type { TnpscTest } from './tnpscApi';
 import { textLanguage, type ExamLanguage } from './exam-language';
 import { bilingualTitle, isTamil, paperName, registerPair, type PaperLang } from './bilingual';
 
@@ -280,4 +281,62 @@ export function recommendationsForLanguage(d: Recommendations, language: ExamLan
 /** Test ids the aspirant is being pointed to — for the "Recommended for you" badge elsewhere. */
 export function recommendedTestIds(data: Recommendations | null | undefined): Set<string> {
   return new Set((data?.items ?? []).filter(r => !r.target.is_locked).map(r => r.target.test_id));
+}
+
+/** A pick the portal made itself, from the catalog; the server knows nothing of it, so it takes no feedback. */
+export const LOCAL_PICK_PREFIX = 'local-';
+export const isLocalPick = (r: Pick<Recommendation, 'rec_id'>) => r.rec_id.startsWith(LOCAL_PICK_PREFIX);
+
+/**
+ * "Start something new" picks from the exam's own catalog, to fill the places the server's picks leave empty.
+ *
+ * The server picks from what the aspirant has practised, so an aspirant who chose General Tamil but has only tried
+ * English papers, or has never opened General Studies or Aptitude, is left with few picks or none. Each pick here is a
+ * unit they have not practised, in their language paper or for everyone, with a real unit paper to start — in the
+ * stage's order. At most `max`.
+ */
+export function starterPicks(args: {
+  stage: TnpscStage | undefined;
+  tests: TnpscTest[];
+  language: ExamLanguage | null;
+  data: Pick<Recommendations, 'items' | 'weak_map'>;
+  max: number;
+}): Recommendation[] {
+  const { stage, tests, language, data, max } = args;
+  if (!stage || max <= 0) return [];
+  const taken = new Set(data.items.map(r => r.unit?.id).filter(Boolean));
+  const practised = new Set(data.weak_map.filter(u => u.mastery != null).map(u => u.unit_id));
+  const out: Recommendation[] = [];
+  for (const { unit } of stageUnits(stage)) {
+    if (out.length >= max) break;
+    if (taken.has(unit.id) || practised.has(unit.id)) continue;
+    const own = unitLanguage(unit.id, unit.name);
+    if (language && own && own !== language) continue;
+    const paper = tests.find(t => t.unit_id === unit.id && !t.topic_id && !t.is_locked);
+    if (!paper) continue;
+    out.push({
+      rec_id: `${LOCAL_PICK_PREFIX}${unit.id}`,
+      type: 'start_new',
+      priority: 100 + out.length,
+      unit: { id: unit.id, name: unit.name, label: unit.label ?? null, name_en: unit.name, name_ta: unit.name_ta ?? null },
+      category: null,
+      subcategory: null,
+      mastery: null,
+      target: {
+        kind: 'unit_practice',
+        test_id: paper.test_id,
+        level: null,
+        question_count: paper.question_count ?? null,
+        est_minutes: paper.time_limit_minutes ?? null,
+        is_locked: false,
+        lock_reason: null,
+        title: paper.title,
+        source: paper.source,
+      },
+      reason: 'You have not practised this unit yet. A short set is a good way to begin.',
+      tip: null,
+      reason_source: 'template',
+    });
+  }
+  return out;
 }

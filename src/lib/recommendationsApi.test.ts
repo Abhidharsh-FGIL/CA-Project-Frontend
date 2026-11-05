@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { findStage } from '@/config/tnpsc';
+import type { TnpscTest } from '@/lib/tnpscApi';
 import {
   KIND_LABEL,
   basisLine,
@@ -13,6 +15,7 @@ import {
   recommendationPlace,
   recommendationTitle,
   recommendedTestIds,
+  starterPicks,
   type Recommendation,
   type Recommendations,
 } from '@/lib/recommendationsApi';
@@ -184,5 +187,28 @@ describe('the language paper', () => {
     expect(d.readiness?.sections.map(s => s.name)).toEqual(['General English', 'General Studies']);
     expect(recommendationsForLanguage(data(), 'tamil').items.map(r => r.rec_id)).toEqual(['ta', 'r1']);
     expect(recommendationsForLanguage(data(), null).items).toHaveLength(4);
+  });
+});
+describe('starterPicks', () => {
+  const stage = findStage('group-4', 'group-4-written')!.stage;
+  const paper = (unit_id: string, over: Partial<TnpscTest> = {}) =>
+    ({ test_id: `t-${unit_id}`, source: 'assessment', title: unit_id, unit_id, topic_id: null, question_count: 20, time_limit_minutes: null, is_locked: false, ...over }) as TnpscTest;
+  const tests = ['g4-ta-grammar', 'g4-en-grammar', 'g4-gs-geography', 'g4-apt-aptitude'].map(u => paper(u));
+  const empty = { items: [] as Recommendation[], weak_map: [] as Recommendations['weak_map'] };
+
+  it('offers unpractised units of the chosen language paper and the shared ones, never the other paper', () => {
+    const picks = starterPicks({ stage, tests, language: 'tamil', data: empty, max: 3 });
+    expect(picks.map(r => r.unit?.id)).toEqual(['g4-ta-grammar', 'g4-gs-geography', 'g4-apt-aptitude']);
+    expect(picks.every(r => r.type === 'start_new' && r.rec_id.startsWith('local-'))).toBe(true);
+  });
+
+  it('skips units already picked or already practised, units without a paper, and honours the limit', () => {
+    const data = {
+      items: [rec({ unit: { id: 'g4-ta-grammar', name: 'Grammar' } })],
+      weak_map: [{ unit_id: 'g4-gs-geography', unit_name: 'Geography', mastery: 40, categories: [] }],
+    };
+    expect(starterPicks({ stage, tests, language: 'tamil', data, max: 3 }).map(r => r.unit?.id)).toEqual(['g4-apt-aptitude']);
+    expect(starterPicks({ stage, tests, language: 'english', data: empty, max: 1 }).map(r => r.unit?.id)).toEqual(['g4-en-grammar']);
+    expect(starterPicks({ stage, tests, language: 'tamil', data: empty, max: 0 })).toEqual([]);
   });
 });
