@@ -327,14 +327,16 @@ function CoachSays({ text, source, wait = 0, children }: { text: string; source?
 
 /**
  * The picks for this aspirant's language paper only. General Tamil and General English are sat one instead of the
- * other, so someone practising General English is never sent to a Tamil grammar topic, nor the other way round. The
- * paper is the one their own tests show; failing that, the one they chose in their profile; failing both, all picks.
+ * other, so someone sitting General Tamil is never sent to an English topic, nor the other way round. The paper is the
+ * one they chose (their profile); only when they have not chosen, the one the server names, then the one their own
+ * tests show; failing all, every pick. Their choice wins even over what they have practised: an aspirant who chose
+ * Tamil but has so far only tried English papers is still sitting Tamil.
  */
 function useCoachPicks(exam: string, stage: string) {
   const query = useRecommendations(exam, stage);
   const chosen = useExamLanguage();
   const raw = query.data;
-  const data = useMemo(() => (raw ? recommendationsForLanguage(raw, textLanguage(raw.language_paper) ?? practisedLanguage(raw) ?? chosen) : raw), [raw, chosen]);
+  const data = useMemo(() => (raw ? recommendationsForLanguage(raw, chosen ?? textLanguage(raw.language_paper) ?? practisedLanguage(raw)) : raw), [raw, chosen]);
   return { data, isLoading: query.isLoading, isError: query.isError };
 }
 
