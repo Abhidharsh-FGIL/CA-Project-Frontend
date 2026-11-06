@@ -8,6 +8,7 @@ import { examLanguageOf } from '@/lib/exam-language';
 import { examLogo } from '@/lib/exam-logo';
 import { cn } from '@/lib/utils';
 import type { TnpscGroup } from '@/config/tnpsc';
+import { useOpenExamIds } from '@/hooks/use-exam-availability';
 import { UPCOMING_EXAMS, examEntryPath, splitExams, type UpcomingExam } from '@/lib/exam-listing';
 
 /** Shown after everything else, whatever the catalog's order. */
@@ -22,7 +23,7 @@ const LAST_EXAM_IDS: ReadonlySet<string> = new Set(['group-1']);
  * no catalog entry at all (see `exam-listing.ts`).
  */
 export function TnpscGroupGrid({ groups }: { groups: TnpscGroup[] }) {
-  const split = splitExams(groups);
+  const split = splitExams(groups, useOpenExamIds());
   const { open } = split;
   // Exams the product has the least to do with yet go at the very end, after the announced ones too.
   const soon = split.soon.filter(g => !LAST_EXAM_IDS.has(g.id));

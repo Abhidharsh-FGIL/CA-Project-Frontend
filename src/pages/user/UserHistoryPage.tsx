@@ -25,6 +25,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isPromotional } from '@/lib/promotional-flag';
 import { FilterSelect, type FilterOption } from '@/components/user/FilterSelect';
 import type { ApiAttempt } from '@/lib/userPortalApi';
 import { ALL_TIME, DateRangeFilter, inRange, isoDay, type DateRange } from '@/components/user/DateRangeFilter';
@@ -467,7 +468,7 @@ function AttemptRow({
     >
       {/* Test name */}
       <div className="col-span-2 md:col-span-1 min-w-0">
-        <p className="text-[13px] font-bold text-gray-900 dark:text-gray-100 line-clamp-2 leading-snug">{name}</p>
+        <p className="text-[13px] font-bold text-gray-900 dark:text-gray-100 line-clamp-2 leading-snug">{name}{isPromotional(a) && <span className="ml-1.5 align-middle rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">Free test</span>}</p>
         {courseName && <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 truncate">{courseName}</p>}
       </div>
 
@@ -648,7 +649,7 @@ function AttemptCard({
       <div className="flex items-center gap-3">
         {ring}
         <div className="min-w-0 flex-1">
-          <p className="text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-2">{name}</p>
+          <p className="text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-2">{name}{isPromotional(a) && <span className="ml-1.5 align-middle rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">Free test</span>}</p>
           <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
             {when.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} · {time}
           </p>

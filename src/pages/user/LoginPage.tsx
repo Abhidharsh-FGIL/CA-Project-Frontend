@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { afterSignIn } from '@/lib/promotionalApi';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -50,7 +51,7 @@ export default function LoginPage() {
   const [failedAttempts, setFailedAttempts] = useState(0);
 
   useEffect(() => {
-    if (isAuthenticated) navigate('/user/dashboard', { replace: true });
+    if (isAuthenticated) navigate(afterSignIn('/user/dashboard'), { replace: true });
   }, [isAuthenticated, navigate]);
 
   const locked = failedAttempts >= 5;
@@ -69,7 +70,7 @@ export default function LoginPage() {
       toast.success(res.created ? 'Account created successfully!' : 'Welcome back!');
       // A new account made in one step has no form to ask about a referral on: ask once it is made, unless a code linked.
       if (res.created && res.referralApplied !== true) askAboutReferral();
-      navigate('/user/dashboard');
+      navigate(afterSignIn('/user/dashboard'));
     } else if (res.needsProfile) {
       toast.info('Almost there — add a few details to create your account.');
       navigate(ROUTES.signup, { state: { google: { credential, ...res.needsProfile } } });
@@ -89,7 +90,7 @@ export default function LoginPage() {
       const res = await login(email, password);
       if (res.ok) {
         toast.success('Welcome back!');
-        navigate('/user/dashboard');
+        navigate(afterSignIn('/user/dashboard'));
       } else {
         setFailedAttempts(n => n + 1);
         toast.error(res.error || 'Login failed');

@@ -14,6 +14,7 @@
  */
 import { userApi, getUserToken, buildUrl } from './api';
 import { withPlanNotice } from './plan-notice-bus';
+import { withoutPromotional } from './promotional-flag';
 
 // ─── Response types ───────────────────────────────────────────────────────────
 
@@ -56,6 +57,8 @@ export interface ApiAttempt {
   mode?: string | null;
   /** Course UUID — populated by history endpoint. */
   course_id: string | null;
+  /** An attempt at a promotional test: free, never counted against the plan — BACKEND_PROMOTIONAL.md. */
+  is_promotional?: boolean;
 }
 
 export interface ApiNotification {
@@ -853,12 +856,14 @@ export function getCourseEvalAssessments(courseId: string): Promise<ApiEvalAsses
  * All assessments available to the student, filtered by their board + grade.
  * Used by the dashboard "Your Assessments" list (no enrolled-courses lookup needed).
  */
-export function getUserAssessments(params?: { board?: string; grade?: number }): Promise<ApiEvalAssessment[]> {
+export async function getUserAssessments(params?: { board?: string; grade?: number }): Promise<ApiEvalAssessment[]> {
   const qs = new URLSearchParams();
   if (params?.board) qs.set('board', params.board);
   if (params?.grade) qs.set('grade', String(params.grade));
   const suffix = qs.toString() ? `?${qs}` : '';
-  return userApi.get<ApiEvalAssessment[]>(`/api/v1/user/eval-assessments${suffix}`);
+  const rows = await userApi.get<ApiEvalAssessment[]>(`/api/v1/user/eval-assessments${suffix}`);
+  // A promotional test is reached by its link, popup and dashboard card — never listed among the exams.
+  return withoutPromotional(rows);
 }
 
 // ─── Free Assessment Taking ───────────────────────────────────────────────────
@@ -955,6 +960,10 @@ export interface AssessmentDetailResponse {
   in_progress_start_time?: string;
   in_progress_responses?: Array<{ question_id: string; answer: any }>;
   in_progress_question_ids?: string[];
+  /** A promotional test: free, open only between `starts_at` and `ends_at` — BACKEND_PROMOTIONAL.md. */
+  is_promotional?: boolean;
+  starts_at?: string | null;
+  ends_at?: string | null;
 }
 
 export function getEvalAssessmentDetail(assessmentId: string): Promise<AssessmentDetailResponse> {

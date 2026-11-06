@@ -7,6 +7,7 @@
  * clocks so the student can see them, and shows the server's own words when it says no.
  */
 import { useEffect, useState } from 'react';
+import { afterSignIn } from '@/lib/promotionalApi';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Mail } from 'lucide-react';
 import { toast } from 'sonner';
@@ -122,7 +123,7 @@ export function LoginOtpForm({
       const res = await loginWithOtp(identifier, otp);
       if (res.ok) {
         toast.success('Welcome back!');
-        navigate('/user/dashboard');
+        navigate(afterSignIn('/user/dashboard'));
         return;
       }
       const message = res.error || 'Login failed';

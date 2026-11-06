@@ -1067,3 +1067,13 @@ body, input, textarea, select, button {
 @media (prefers-reduced-motion: reduce) {
   .mge-bubble { animation: none !important; opacity: 0; }
 }
+
+/* A free test that is live now: the card around it breathes a soft orange ring, so it is the first thing seen. */
+@keyframes mge-live-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.35), 0 10px 28px -14px rgba(249, 115, 22, 0.55); }
+  50% { box-shadow: 0 0 0 7px rgba(249, 115, 22, 0), 0 10px 28px -14px rgba(249, 115, 22, 0.55); }
+}
+.mge-live-glow { animation: mge-live-glow 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .mge-live-glow { animation: none; box-shadow: 0 10px 28px -14px rgba(249, 115, 22, 0.55); }
+}

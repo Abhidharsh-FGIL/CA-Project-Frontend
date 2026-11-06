@@ -82,8 +82,16 @@ describe('buildCollectionTree', () => {
     expect(all.map(p => p.id).sort()).toEqual(['a', 'b', 'c', 'd', 'e', 'manual']);
   });
 
-  it('always shows Group 4 and Group 2, even with no collections', () => {
-    expect(buildCollectionTree([]).groups.map(g => g.id)).toEqual(['group-4', 'group-2']);
+  it('always shows every open exam, even with no collections', () => {
+    expect(buildCollectionTree([]).groups.map(g => g.id)).toEqual(['group-4', 'group-2', 'gat-b', 'rrb-ntpc-cbt-1', 'rrb-ntpc-cbt-2']);
+  });
+
+  it('files a GAT-B collection under its exam and section by name', () => {
+    const tree = buildCollectionTree([{ id: 'x', title: 'GATB_Section_B_Immunology_250' }]);
+    const g = tree.groups.find(x => x.id === 'gat-b')!;
+    expect(tree.unassigned).toHaveLength(0);
+    expect(g.total).toBe(1);
+    expect(g.sections.find(s => s.name.startsWith('Section B'))!.total).toBe(1);
   });
 });
 

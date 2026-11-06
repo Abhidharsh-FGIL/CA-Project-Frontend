@@ -87,11 +87,17 @@ export function skipsStageList(group: TnpscGroup): boolean {
 }
 
 /** The examinations that are open, and those that are not, each in catalog order. */
-export function splitExams(groups: TnpscGroup[]): { open: TnpscGroup[]; soon: TnpscGroup[] } {
+export function splitExams(
+  groups: TnpscGroup[],
+  openIds: ReadonlySet<string> = OPEN_EXAM_IDS,
+): { open: TnpscGroup[]; soon: TnpscGroup[] } {
+  // Open exams keep the built-in order first, then any the admin opened that the built-in list lacks.
+  const rank = (id: string) => {
+    const i = [...OPEN_EXAM_IDS].indexOf(id);
+    return i < 0 ? OPEN_EXAM_IDS.size : i;
+  };
   return {
-    open: groups
-      .filter(g => OPEN_EXAM_IDS.has(g.id))
-      .sort((a, b) => [...OPEN_EXAM_IDS].indexOf(a.id) - [...OPEN_EXAM_IDS].indexOf(b.id)),
-    soon: groups.filter(g => !OPEN_EXAM_IDS.has(g.id)),
+    open: groups.filter(g => openIds.has(g.id)).sort((a, b) => rank(a.id) - rank(b.id)),
+    soon: groups.filter(g => !openIds.has(g.id)),
   };
 }

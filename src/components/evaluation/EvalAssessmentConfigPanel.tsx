@@ -83,6 +83,7 @@ import { getSyllabusChapters, getSyllabusSubjects } from '@/data/examSyllabus';
 import { bankCategoryCounts, officialCategoryOptions } from '@/lib/key-topics';
 import { officialCategories } from '@/lib/taxonomyApi';
 import { useSyllabus } from '@/hooks/use-syllabus';
+import { fromLocalInput, scheduleProblem, whenLabel } from '@/lib/promotionalApi';
 
 interface Props {
   onCreated: (assessmentId: string) => void;
@@ -92,6 +93,11 @@ interface Props {
    * subject and unit). The form opens already placed there.
    */
   initialTag?: Partial<TnpscTagValue>;
+  /**
+   * Make a promotional test: scheduled between a start and an end, free, one attempt, never listed among the
+   * exams — the Schedule step asks for the start and end instead of a due date. See BACKEND_PROMOTIONAL.md.
+   */
+  promotional?: boolean;
 }
 
 const STEPS = [
@@ -183,7 +189,7 @@ function difficultyOf(questions: Array<{ difficulty?: string | null }>, fallback
   return 'mixed';
 }
 
-export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag }: Props) {
+export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promotional = false }: Props) {
   const { profileContext } = useWorkspaceContext();
   const createAssessment = useCreateEvalAssessment();
 
@@ -260,7 +266,11 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag }: Pro
     setNegativeMarking(true);
     // Keyed on the placement, not the objects, so re-renders don't fight the admin's edits.
   }, [perSectionAvailable, examStage?.id]);
-  const [maxAttempts, setMaxAttempts] = useState<number | undefined>();
+  const [maxAttempts, setMaxAttempts] = useState<number | undefined>(promotional ? 1 : undefined);
+  /** A promotional test's window, as `datetime-local` values in the admin's own time. */
+  const [startsAtInput, setStartsAtInput] = useState('');
+  const [endsAtInput, setEndsAtInput] = useState('');
+  const scheduleIssue = promotional ? scheduleProblem(fromLocalInput(startsAtInput), fromLocalInput(endsAtInput), Date.now()) : null;
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [subjectWeights, setSubjectWeights] = useState<Record<string, number>>({});
   // Pricing (mock test only)
@@ -275,7 +285,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag }: Pro
 
   const handleModeChange = (next: string) => {
     setMode(next);
-    if (maxAttempts === undefined) {
+    if (maxAttempts === undefined && !promotional) {
       // TNPSC mocks stay retryable on purpose: with the level gate, a single failed
       // attempt on a one-shot mock would lock the aspirant out of every later level.
       setMaxAttempts(next === 'practice' ? 3 : 3);
@@ -671,11 +681,12 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag }: Pro
         ? paperIds.length > 0 && paperWeightsValid && effectiveCount > 0
         : !!sourceType && selectedSubjects.length > 0 && effectiveCount > 0 && subjectWeightsValid,
     rules: true,
-    schedule: true,
+    schedule: !scheduleIssue,
     review: true,
   };
 
   const canSubmit =
+    !scheduleIssue &&
     !!title.trim() &&
     tnpscValidation.ok &&
     effectiveCount > 0 &&
@@ -946,26 +957,32 @@ Create it anyway?`);
       questions: chosen,
     });
 
+    // A promotional test is placed nowhere: the placement above only chose its questions. Left unplaced, it cannot
+    // turn up in an exam's lists even on a server that does not yet hide promotional tests.
+    const place = !promotional;
     const result = await createAssessment.mutateAsync({
       title,
       testType: testType || undefined,
+      isPromotional: promotional || undefined,
+      startsAt: promotional ? fromLocalInput(startsAtInput) : undefined,
+      endsAt: promotional ? fromLocalInput(endsAtInput) : undefined,
       // TNPSC placement — sent at create; also PATCHed below for backends that
       // don't yet accept the tags inline.
-      tnpscStageId: tnpscTag.stage_id ?? undefined,
-      track: tnpscTag.track ?? undefined,
-      tnpscLevel: tnpscTag.track === 'mock' ? tnpscTag.level ?? undefined : undefined,
-      tnpscSubjectId: tnpscTag.track === 'practice' ? tnpscTag.subject_id ?? undefined : undefined,
+      tnpscStageId: place ? tnpscTag.stage_id ?? undefined : undefined,
+      track: place ? tnpscTag.track ?? undefined : undefined,
+      tnpscLevel: place && tnpscTag.track === 'mock' ? tnpscTag.level ?? undefined : undefined,
+      tnpscSubjectId: place && tnpscTag.track === 'practice' ? tnpscTag.subject_id ?? undefined : undefined,
       // The id within the chosen unit — see 	opicIdForUnit; the bare category name can match another unit's topic.
       tnpscTopicId:
-        tnpscTag.track === 'practice' && tnpscTag.scope === 'topic'
+        place && tnpscTag.track === 'practice' && tnpscTag.scope === 'topic'
           ? topicIdForUnit(tnpscStage, tnpscTag.unit_id, tnpscTag.topic_id) ?? undefined
           : undefined,
       tnpscUnitId:
-        tnpscTag.scope === 'unit' || tnpscTag.scope === 'topic' ? tnpscTag.unit_id ?? undefined : undefined,
+        place && (tnpscTag.scope === 'unit' || tnpscTag.scope === 'topic') ? tnpscTag.unit_id ?? undefined : undefined,
       // A key topic is saved as a unit paper that names its topic (see `TnpscScope`).
-      tnpscScope: (tnpscTag.scope === 'topic' ? 'unit' : tnpscTag.scope) ?? undefined,
-      tnpscSectionName: tnpscTag.scope === 'section' ? tnpscTag.section_name ?? undefined : undefined,
-      tnpscLanguage: tnpscTag.track === 'mock' ? tnpscTag.language ?? undefined : undefined,
+      tnpscScope: place ? (tnpscTag.scope === 'topic' ? 'unit' : tnpscTag.scope) ?? undefined : undefined,
+      tnpscSectionName: place && tnpscTag.scope === 'section' ? tnpscTag.section_name ?? undefined : undefined,
+      tnpscLanguage: place && tnpscTag.track === 'mock' ? tnpscTag.language ?? undefined : undefined,
       paperId: source === 'paper' && paperIds.length === 1 ? paperIds[0] : undefined,
       paperIds: source === 'paper' && paperIds.length > 1 ? paperIds : undefined,
       paperWeights: source === 'paper' && paperIds.length > 1 ? paperWeights : undefined,
@@ -973,7 +990,7 @@ Create it anyway?`);
       questionIds: qIds,
       questionCount: effectiveCount,
       maxScore,
-      dueDate: dueDate?.toISOString(),
+      dueDate: promotional ? fromLocalInput(endsAtInput) : dueDate?.toISOString(),
       mode,
       timeLimitSeconds: mode === 'exam' && timeLimitMinutes ? timeLimitMinutes * 60 : undefined,
       negativeMarking,
@@ -1017,15 +1034,15 @@ Create it anyway?`);
             : subjectWeights,
       unitIds: unitMode && selectedUnits.length > 0 ? selectedUnits.map(u => u.id) : undefined,
       unitWeights: unitMode && selectedUnits.length > 1 ? subjectWeights : undefined,
-      pricingType,
-      price: pricingType === 'paid' ? price : undefined,
-      promoCode: pricingType === 'paid' && promoCode.trim() ? promoCode.trim().toUpperCase() : undefined,
-      promoDiscountPct: pricingType === 'paid' && promoCode.trim() ? promoDiscountPct : undefined,
+      pricingType: promotional ? 'free' : pricingType,
+      price: !promotional && pricingType === 'paid' ? price : undefined,
+      promoCode: !promotional && pricingType === 'paid' && promoCode.trim() ? promoCode.trim().toUpperCase() : undefined,
+      promoDiscountPct: !promotional && pricingType === 'paid' && promoCode.trim() ? promoDiscountPct : undefined,
     });
 
     // Confirm the TNPSC placement. Non-fatal: the assessment exists either way,
-    // but until it is tagged it will not appear under any group/stage.
-    try {
+    // but until it is tagged it will not appear under any group/stage. A promotional test is never placed.
+    if (place) try {
       const { topicInTitleOnly } = await tagAssessmentKeepingTopic(result.id, tnpscTag);
       if (topicInTitleOnly) {
         toast.info(
@@ -1062,10 +1079,10 @@ Create it anyway?`);
       {/* Page title */}
       <div className="mb-6">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-          New Assessment
+          {promotional ? 'New Promotional Assessment' : 'New Assessment'}
         </p>
         <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mt-1">
-          Create a new test
+          {promotional ? 'Create a promotional test' : 'Create a new test'}
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
           Configure the paper, scoring rules, and schedule. Complete each step in order.
@@ -1546,6 +1563,13 @@ Create it anyway?`);
               </Field>
             )}
 
+            {promotional ? (
+              // A promotional test is free and taken once: fixed, so neither is asked.
+              <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-xs text-orange-800 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200">
+                Promotional test: <b>free</b>, <b>one attempt</b> per student, and not counted in anyone&apos;s plan.
+              </div>
+            ) : (
+            <>
             <Field label="Pricing">
               <div className="grid grid-cols-2 gap-3">
                 <ModeCard
@@ -1657,6 +1681,8 @@ Create it anyway?`);
                 />
               </div>
             </Field>
+            </>
+            )}
 
             <Field label="Negative Marking">
               <div className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5">
@@ -1784,7 +1810,39 @@ Create it anyway?`);
           </StepShell>
         )}
 
-        {step === 'schedule' && (
+        {step === 'schedule' && promotional && (
+          <StepShell number={4} title="Schedule" description="The test is open only between these times. Before the start, its link counts down; after the end, it is expired and the ranks are published.">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Opens at" required>
+                <input
+                  type="datetime-local"
+                  value={startsAtInput}
+                  onChange={e => setStartsAtInput(e.target.value)}
+                  className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+                />
+              </Field>
+              <Field label="Closes at" required>
+                <input
+                  type="datetime-local"
+                  value={endsAtInput}
+                  min={startsAtInput || undefined}
+                  onChange={e => setEndsAtInput(e.target.value)}
+                  className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+                />
+              </Field>
+            </div>
+            {scheduleIssue ? (
+              <p className="mt-3 text-xs font-medium text-amber-700 dark:text-amber-300">{scheduleIssue}</p>
+            ) : (
+              <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                Open {whenLabel(fromLocalInput(startsAtInput))} – {whenLabel(fromLocalInput(endsAtInput))}. A student who starts near the
+                close still gets the full time limit.
+              </p>
+            )}
+          </StepShell>
+        )}
+
+        {step === 'schedule' && !promotional && (
           <StepShell number={4} title="Schedule" description="Set an optional due date. Students won't be able to start the test after the deadline.">
             <Field label="Due Date" hint="Leave empty for no deadline.">
               <Popover>
@@ -1848,7 +1906,7 @@ Create it anyway?`);
               negativeMarkValue={negativeMarkDeduction}
               negativeMarkMode={negativeMarkMode}
               negativeMarkGroupSize={negativeMarkWrongs}
-              dueDate={dueDate}
+              dueDate={promotional ? (endsAtInput ? new Date(endsAtInput) : undefined) : dueDate}
               pricingType={pricingType}
               price={price}
               promoCode={promoCode.trim()}
@@ -1880,7 +1938,7 @@ Create it anyway?`);
           ) : (
             <Button size="sm" onClick={handleCreate} disabled={!canSubmit || createAssessment.isPending} className="gap-1.5">
               {createAssessment.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-              Create Assessment
+              {promotional ? 'Create Promotional Test' : 'Create Assessment'}
             </Button>
           )}
         </div>
@@ -1924,7 +1982,7 @@ Create it anyway?`);
             negativeMarkValue={negativeMarkDeduction}
             negativeMarkMode={negativeMarkMode}
             negativeMarkGroupSize={negativeMarkWrongs}
-            dueDate={dueDate}
+            dueDate={promotional ? (endsAtInput ? new Date(endsAtInput) : undefined) : dueDate}
             pricingType={pricingType}
             price={price}
             promoCode={promoCode.trim()}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { afterSignIn } from '@/lib/promotionalApi';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -53,7 +54,7 @@ export default function RegisterPage() {
   // mid-verification: the ref tells it which of the two it is looking at.
   const justSignedUp = useRef(false);
   useEffect(() => {
-    if (isAuthenticated) navigate(justSignedUp.current ? FIRST_LANDING : '/user/dashboard', { replace: true });
+    if (isAuthenticated) navigate(afterSignIn(justSignedUp.current ? FIRST_LANDING : '/user/dashboard'), { replace: true });
   }, [isAuthenticated, navigate]);
 
   const [form, setForm] = useState({
@@ -157,7 +158,7 @@ export default function RegisterPage() {
         toast.success('Account created successfully!');
         reportReferral(made);
         clearSavedReferral();
-        navigate(FIRST_LANDING, { replace: true });
+        navigate(afterSignIn(FIRST_LANDING), { replace: true });
       } else {
         justSignedUp.current = false;
         setRegisterError(made.error || 'Registration failed. Please try again.');
@@ -265,7 +266,7 @@ export default function RegisterPage() {
         // Google made the account in one step, so there was no form to ask on: ask now, unless a code already linked.
         if (res.referralApplied !== true) askAboutReferral();
       }
-      navigate('/user/dashboard', { replace: true });
+      navigate(afterSignIn('/user/dashboard'), { replace: true });
       return;
     }
     if (res.needsProfile) {
@@ -293,7 +294,7 @@ export default function RegisterPage() {
         trackCompleteRegistration(form.email);
         toast.success('Account created successfully!');
         clearSavedReferral();
-        navigate(FIRST_LANDING, { replace: true });
+        navigate(afterSignIn(FIRST_LANDING), { replace: true });
       } else {
         justSignedUp.current = false;
         toast.error(res.error || 'Invalid OTP');

@@ -10,6 +10,7 @@
  */
 import type { SubscriptionPlanInfo } from '@/data/userPortalSampleData';
 import type { ApiAttempt, ApiEvalAssessment } from '@/lib/userPortalApi';
+import { isPromotional } from '@/lib/promotional-flag';
 
 export type AllowanceKind = 'practice' | 'mock';
 
@@ -142,8 +143,12 @@ export function planAllowance(
   since = laterOf(since, purchase ? (v?.valid_from ?? purchase.purchased_at) : null);
   const from = since ? Date.parse(since) : NaN;
   const paperModes = new Map((papers ?? []).map(p => [p.assessment_id, p.mode]));
+  // A promotional test is free: it is never one of the plan's tests (BACKEND_PROMOTIONAL.md).
+  const promotional = new Set((papers ?? []).filter(isPromotional).map(p => p.assessment_id));
   const used = history.filter(
     h =>
+      !isPromotional(h) &&
+      !(h.test_id && promotional.has(h.test_id)) &&
       attemptKind(h, h.test_id ? paperModes.get(h.test_id) : undefined) === kind &&
       (Number.isNaN(from) || Date.parse(h.start_time) >= from),
   ).length;

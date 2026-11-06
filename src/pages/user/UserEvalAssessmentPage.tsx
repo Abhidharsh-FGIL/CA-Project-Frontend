@@ -4,6 +4,8 @@ import { isMobileDevice } from '@/lib/device';
 import { bilingual, bilingualTitle, studentTitle } from '@/lib/bilingual';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { originOf } from '@/lib/report-origin';
+import { isPromotional } from '@/lib/promotionalApi';
+import { promotionalResultPath, promotionalTestPath, type PromotionalLaunchState } from '@/pages/user/PromotionalTestPage';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -772,6 +774,9 @@ export function UserEvalAssessmentPage() {
   const [analysisError, setAnalysisError] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
+  /** Opened from a promotional test's page: start at once, and end on its leaderboard rather than the report. */
+  const launch = (location.state ?? null) as Partial<PromotionalLaunchState> | null;
+  const promotional = !!launch?.promotional || isPromotional(assessment);
 
   // Active-test state
   const [markedForReview, setMarkedForReview] = useState<Set<string>>(new Set());
@@ -1072,9 +1077,12 @@ export function UserEvalAssessmentPage() {
         } catch {
           /* Non-fatal: the report falls back to the history list on its own. */
         }
-        // A plan that does not include this report gets the plan popup over the history list —
-        // where the attempt now is — rather than the report.
-        if (reportIsLocked(user?.subscription_tier, assessment?.mode)) {
+        // A promotional test ends on its leaderboard — where the student sees their rank once the test closes.
+        if (promotional) {
+          navigate(promotionalResultPath(assessmentId), { replace: true });
+        } else if (reportIsLocked(user?.subscription_tier, assessment?.mode)) {
+          // A plan that does not include this report gets the plan popup over the history list —
+          // where the attempt now is — rather than the report.
           showPlanNotice(reportLocked());
           navigate('/user/history', { replace: true });
         } else {
@@ -1087,7 +1095,7 @@ export function UserEvalAssessmentPage() {
         setPageState('active');
       }
     },
-    [assessmentId, attemptId, assessment, user?.subscription_tier, navigate, refreshHistory],
+    [assessmentId, attemptId, assessment, user?.subscription_tier, navigate, refreshHistory, promotional],
   );
 
   // ── Timer expire ───────────────────────────────────────────────────────────
@@ -1166,11 +1174,20 @@ export function UserEvalAssessmentPage() {
   useEffect(() => {
     if (pageState !== 'landing' || !assessment || !attemptsSpent || attemptsNoticeShown.current) return;
     attemptsNoticeShown.current = true;
+    // A promotional test taken once is done: its page is the leaderboard, not the plans.
+    if (promotional && assessmentId) {
+      navigate(promotionalResultPath(assessmentId), { replace: true });
+      return;
+    }
     showPlanNotice(attemptsUsed(assessment.max_attempts));
-  }, [pageState, assessment, attemptsSpent]);
+  }, [pageState, assessment, attemptsSpent, promotional, assessmentId, navigate]);
 
   const handleStart = async () => {
     if (!assessmentId) return;
+    if (assessment && attemptsSpent && promotional) {
+      navigate(promotionalResultPath(assessmentId), { replace: true });
+      return;
+    }
     if (assessment && attemptsSpent) {
       showPlanNotice(attemptsUsed(assessment.max_attempts));
       return;
@@ -1207,6 +1224,10 @@ export function UserEvalAssessmentPage() {
       if (e?.code === 'LEVEL_LOCKED') {
         toast.error(e.message || 'Clear the previous level first.', { duration: 6000 });
         navigate('/user/exams');
+      } else if (e?.code === 'PROMO_NOT_STARTED' || e?.code === 'PROMO_ENDED' || e?.code === 'PROMO_INACTIVE' || e?.code === 'PROMO_ALREADY_TAKEN') {
+        // Outside its window, or already taken: its own page shows the countdown, the expiry or the rank.
+        navigate(promotionalTestPath(assessmentId), { replace: true });
+        return;
       } else if (!e?.handled) {
         // (A plan refusal has already opened the plan popup — no toast on top of it.)
         toast.error(e?.message || 'Failed to start assessment');
@@ -1222,6 +1243,15 @@ export function UserEvalAssessmentPage() {
     if (attemptsSpent || assessment?.in_progress_attempt_id) handleStart();
     else freshNotice.request();
   };
+
+  // A promotional test opened from its page starts as soon as the paper is read — the countdown was the wait.
+  const autostarted = useRef(false);
+  useEffect(() => {
+    if (!launch?.autostart || autostarted.current || pageState !== 'landing' || !assessment) return;
+    autostarted.current = true;
+    handleStart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [launch?.autostart, pageState, assessment]);
 
   const setAnswer = (questionId: string, value: any) => {
     setResponses(prev => ({ ...prev, [questionId]: value }));
@@ -1315,7 +1345,13 @@ export function UserEvalAssessmentPage() {
 
                 <div className="flex-shrink-0 self-start bg-white/15 backdrop-blur border border-white/25 rounded-xl px-3 py-2 text-right">
                   <p className="text-[9px] uppercase tracking-widest opacity-80">Attempts</p>
-                  {totalLeft == null || (!serverUsage && allowance?.limit == null) ? (
+                  {promotional ? (
+                    // Free, and outside the plan: it is not one of the plan's tests.
+                    <>
+                      <p className="text-lg font-bold leading-tight">Free</p>
+                      <p className="text-[10px] opacity-80 leading-tight mt-0.5">Not counted in your plan</p>
+                    </>
+                  ) : totalLeft == null || (!serverUsage && allowance?.limit == null) ? (
                     <p className="text-lg font-bold leading-tight">Unlimited</p>
                   ) : (
                     <>

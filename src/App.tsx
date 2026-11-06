@@ -31,6 +31,7 @@ import AdminAuditPage from "@/pages/org/AdminAuditPage";
 import AdminTaxonomyPage from "@/pages/org/AdminTaxonomyPage";
 import AdminAttemptsReportPage from "@/pages/org/AdminAttemptsReportPage";
 import AdminFeedbackPage from "@/pages/org/AdminFeedbackPage";
+import AdminExamsPage from "@/pages/org/AdminExamsPage";
 import AdminSettingsPage from "@/pages/org/AdminSettingsPage";
 import AdminInstitutesPage from "@/pages/org/AdminInstitutesPage";
 import AdminInstituteDetailPage from "@/pages/org/AdminInstituteDetailPage";
@@ -72,6 +73,12 @@ import UserFeedbackPage from "@/pages/user/UserFeedbackPage";
 import PlanNoticeHost from "@/components/user/PlanNoticeHost";
 import ReferralAskHost from "@/components/user/ReferralAskHost";
 import AppUpdateHost from "@/components/AppUpdateHost";
+import PromotionalNoticeHost from "@/components/user/PromotionalNoticeHost";
+import PromotionalLinkPage from "@/pages/PromotionalLinkPage";
+import PromotionalTestPage from "@/pages/user/PromotionalTestPage";
+import PromotionalResultPage from "@/pages/user/PromotionalResultPage";
+import AdminPromotionalPage from "@/pages/org/AdminPromotionalPage";
+import { setReturnTo } from "@/lib/promotionalApi";
 import SessionExpiredHost from "@/components/SessionExpiredHost";
 import { announcePlanNotice } from "@/lib/plan-notice-bus";
 
@@ -104,6 +111,7 @@ function AdminGuard() {
  */
 function UserGuard() {
   const { isAuthenticated, isLoading } = useUserPortal();
+  const { pathname } = useLocation();
 
   if (isLoading) {
     return (
@@ -116,7 +124,12 @@ function UserGuard() {
     );
   }
 
-  return isAuthenticated ? <Outlet /> : <Navigate to="/user/login" replace />;
+  if (!isAuthenticated) {
+    // A promotional test opened signed out (an expired session, a saved link) is where the sign-in leads back to.
+    if (pathname.startsWith('/user/promotional/')) setReturnTo(pathname);
+    return <Navigate to="/user/login" replace />;
+  }
+  return <Outlet />;
 }
 
 /** The public landing page — but a signed-in aspirant opening the site goes straight to their dashboard. */
@@ -205,6 +218,7 @@ function UserPortalRoutes() {
     <UserPortalProvider>
       <PlanNoticeHost />
       <ReferralAskHost />
+      <PromotionalNoticeHost />
       <Routes>
         {/* Public user routes — accessible without a token */}
         <Route index element={<Navigate to="/user/login" replace />} />
@@ -247,6 +261,9 @@ function UserPortalRoutes() {
           <Route path="about" element={<UserAboutPage />} />
           <Route path="feedback" element={<UserFeedbackPage />} />
           <Route path="assessment/:assessmentId" element={<UserEvalAssessmentPage />} />
+          {/* Promotional tests: the countdown and start, then the leaderboard. Reached by link, popup or dashboard card. */}
+          <Route path="promotional/:id" element={<PromotionalTestPage />} />
+          <Route path="promotional/:id/result" element={<PromotionalResultPage />} />
         </Route>
       </Routes>
     </UserPortalProvider>
@@ -268,6 +285,7 @@ function AppRoutes() {
         <Route path="/org/payments" element={<AdminPaymentsPage />} />
         <Route path="/org/courses" element={<AdminCoursesPage />} />
         <Route path="/org/promos" element={<AdminPromosPage />} />
+        <Route path="/org/promotional" element={<AdminPromotionalPage />} />
         <Route path="/org/plans" element={<AdminPlansPage />} />
         <Route path="/org/users" element={<AdminUsersPage />} />
         <Route path="/org/institutes" element={<AdminInstitutesPage />} />
@@ -278,6 +296,7 @@ function AppRoutes() {
         <Route path="/org/topic-names" element={<AdminTaxonomyPage />} />
         <Route path="/org/reports" element={<AdminAttemptsReportPage />} />
         <Route path="/org/feedback" element={<AdminFeedbackPage />} />
+        <Route path="/org/exams" element={<AdminExamsPage />} />
         <Route path="/org/settings" element={<AdminSettingsPage />} />
         <Route path="/org/evaluation" element={<EvaluationHubPage />} />
         <Route path="/org/evaluation/paper/:paperId" element={<EvalPaperDetailPage />} />
@@ -287,6 +306,8 @@ function AppRoutes() {
       <Route path="/institute/:slug" element={<InstituteLoginPage />} />
       <Route path="/institute/:slug/students" element={<InstitutePortalPage />} />
       <Route path="/take-assessment" element={<TakeAssessmentPage />} />
+      {/* A promotional test's share link: countdown, then sign in or sign up, then the test. */}
+      <Route path="/promotional/:id" element={<PromotionalLinkPage />} />
 
       {/* The share link the backend gives out (`#/signup?ref=CODE` or `#/register?ref=CODE`) lands on the sign-up page, code and all. */}
       <Route path="/signup" element={<SignupLinkRedirect />} />

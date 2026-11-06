@@ -77,6 +77,13 @@ export interface EvalAssessmentConfig {
   tnpscSectionName?: string;
   /** Which language paper a full mock is sat in, where the stage offers a choice. */
   tnpscLanguage?: 'tamil' | 'english';
+  /**
+   * A promotional test: free, open only between `startsAt` and `endsAt` (ISO), reached by its link and never
+   * listed among the exams — BACKEND_PROMOTIONAL.md.
+   */
+  isPromotional?: boolean;
+  startsAt?: string;
+  endsAt?: string;
 }
 
 export function useEvalAssessments(filters?: { status?: string; search?: string }, options?: { enabled?: boolean }) {
@@ -181,6 +188,10 @@ export function useCreateEvalAssessment() {
         tnpsc_scope: config.tnpscScope ?? null,
         tnpsc_section_name: config.tnpscSectionName ?? null,
         tnpsc_language: config.tnpscLanguage ?? null,
+        // Promotional
+        is_promotional: config.isPromotional ?? false,
+        starts_at: config.isPromotional ? config.startsAt ?? null : null,
+        ends_at: config.isPromotional ? config.endsAt ?? null : null,
       };
       return api.post<any>(`/api/v1/evaluation/assessments?org_id=${orgId}`, payload);
     },

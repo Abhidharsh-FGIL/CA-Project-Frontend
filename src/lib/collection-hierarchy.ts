@@ -15,7 +15,7 @@
  */
 import { TNPSC_GROUPS, stageUnits, unitDisplayName, type TnpscGroup, type TnpscStage, type TnpscSyllabusUnit } from '@/config/tnpsc';
 import { parseCollectionTitle } from '@/lib/collection-unit';
-import { PRIMARY_EXAM_ID } from '@/lib/exam-listing';
+import { OPEN_EXAM_IDS, PRIMARY_EXAM_ID } from '@/lib/exam-listing';
 
 type Paper = Record<string, any>;
 
@@ -41,7 +41,11 @@ const stageById = (id: string | null) => STAGES_WITH_UNITS.find(s => s.stage.id 
 
 /** "TNPSC-G2-English-Unit-6" → group-2. Only a group that exists in the catalog. */
 function groupFromName(title: string): string | null {
-  const m = title.toLowerCase().match(/(?:^|[^a-z0-9])g(?:roup)?[\s_-]*(\d)(?![0-9])/);
+  const lower = title.toLowerCase();
+  if (/(?:^|[^a-z0-9])gat[\s_-]*b(?![a-z])/.test(lower)) return 'gat-b';
+  const rrb = lower.match(/(?:rrb|ntpc)[^]*?cbt[\s_-]*([12])/);
+  if (rrb) return `rrb-ntpc-cbt-${rrb[1]}`;
+  const m = lower.match(/(?:^|[^a-z0-9])g(?:roup)?[\s_-]*(\d)(?![0-9])/);
   if (!m) return null;
   const id = `group-${m[1]}`;
   return TNPSC_GROUPS.some(g => g.id === id) ? id : null;
@@ -91,6 +95,18 @@ export function placeCollection(paper: Paper): CollectionPlace {
       return { groupId: s.group.id, stageId: s.stage.id, section: hit.sectionName, unitId, via: 'name' };
     }
   }
+
+  // 3. An exam with no units to file under (GAT-B): the name settles the exam, and "Section_B" the subject.
+  if (title) {
+    const id = groupFromName(title);
+    const group = id ? TNPSC_GROUPS.find(g => g.id === id) : undefined;
+    const stage = group?.stages.find(s => s.status === 'active');
+    if (group && stage && !stageUnits(stage).length) {
+      const letter = title.toLowerCase().match(/section[\s_-]*([a-z])(?![a-z])/)?.[1];
+      const section = letter ? (stage.pattern?.sections ?? []).find(s => s.name.toLowerCase().startsWith(`section ${letter}`))?.name ?? null : null;
+      return { groupId: group.id, stageId: stage.id, section, unitId: null, via: 'name' };
+    }
+  }
   return NOWHERE;
 }
 
@@ -132,7 +148,7 @@ export function buildCollectionTree(papers: Paper[], isCustom: (p: Paper) => boo
     let g = groups.get(groupId);
     if (!g) {
       const group = TNPSC_GROUPS.find(x => x.id === groupId)!;
-      const stage = STAGES_WITH_UNITS.find(s => s.group.id === groupId)?.stage;
+      const stage = STAGES_WITH_UNITS.find(s => s.group.id === groupId)?.stage ?? group.stages.find(s => s.status === 'active');
       // Every subject and unit the stage publishes is shown, empty or not: an admin looks here to see what is missing.
       const sections: TreeSection[] = (stage?.pattern?.sections ?? []).map(sec => ({
         name: sec.name,
@@ -179,6 +195,8 @@ export function buildCollectionTree(papers: Paper[], isCustom: (p: Paper) => boo
   // Group 4 is always shown, even before its first collection, so the structure is there to fill.
   groupFor('group-4');
   groupFor('group-2');
+  // So is every other exam that is open (GAT-B, RRB NTPC…), so its collections have a tab to land in.
+  for (const g of TNPSC_GROUPS) if ((OPEN_EXAM_IDS.has(g.id) || g.id === 'gat-b') && g.stages.some(s => s.status === 'active')) groupFor(g.id);
   return {
     groups: [...groups.values()].sort((a, b) => order(a.id) - order(b.id)),
     unassigned,
