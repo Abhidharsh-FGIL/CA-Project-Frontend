@@ -172,3 +172,98 @@ export const RRB_NTPC_STAGE: Record<string, string> = {
   'rrb-ntpc-cbt-1': 'rrb-ntpc-cbt-1-exam',
   'rrb-ntpc-cbt-2': 'rrb-ntpc-cbt-2-exam',
 };
+
+// ─── Wire codes ──────────────────────────────────────────────────────────────
+// The backend's stage codes carry no `-exam` suffix and its units are coarser than the portal's printed areas
+// (19 per stage, `n1-…` for CBT-1 and `n2-…` for CBT-2). Everything sent to it goes through these, and what comes
+// back goes through `fromWireStage` / `fromWireUnit`. See RRB_NTPC_BACKEND.md.
+
+const WIRE_UNIT: Record<string, string> = {
+  'ga-current-events': 'ga-current-affairs',
+  'ga-games-and-sports': 'ga-current-affairs',
+  'ga-famous-personalities': 'ga-current-affairs',
+  'ga-government-programmes': 'ga-current-affairs',
+  'ga-art-and-culture': 'ga-art-and-culture',
+  'ga-indian-literature': 'ga-art-and-culture',
+  'ga-monuments-and-places': 'ga-art-and-culture',
+  'ga-history-of-india': 'ga-history',
+  'ga-indian-freedom-struggle': 'ga-history',
+  'ga-geography-of-india-and-the-world': 'ga-geography',
+  'ga-environment': 'ga-geography',
+  'ga-flora-and-fauna': 'ga-geography',
+  'ga-indian-polity-and-governance': 'ga-polity',
+  'ga-united-nations-and-world-organisations': 'ga-polity',
+  'ga-government-and-public-sector-organisations': 'ga-polity',
+  'ga-indian-economy': 'ga-economy',
+  'ga-transport-systems-in-india': 'ga-economy',
+  'ga-general-science': 'ga-general-science',
+  'ga-life-science': 'ga-general-science',
+  'ga-science-and-technology': 'ga-science-and-technology',
+  'ga-basics-of-computers': 'ga-computers',
+  'ga-common-abbreviations': 'ga-computers',
+  'maths-number-system': 'ma-number-system',
+  'maths-decimals-and-fractions': 'ma-number-system',
+  'maths-lcm-and-hcf': 'ma-number-system',
+  'maths-ratio-and-proportion': 'ma-arithmetic',
+  'maths-percentage': 'ma-arithmetic',
+  'maths-profit-and-loss': 'ma-arithmetic',
+  'maths-simple-and-compound-interest': 'ma-arithmetic',
+  'maths-time-and-work': 'ma-time-and-work',
+  'maths-time-and-distance': 'ma-time-and-work',
+  'maths-elementary-algebra': 'ma-algebra',
+  'maths-mensuration': 'ma-geometry-and-mensuration',
+  'maths-geometry-and-trigonometry': 'ma-geometry-and-mensuration',
+  'maths-elementary-statistics': 'ma-statistics',
+  'reasoning-analogies': 'gi-verbal-reasoning',
+  'reasoning-coding-and-decoding': 'gi-verbal-reasoning',
+  'reasoning-similarities-and-differences': 'gi-verbal-reasoning',
+  'reasoning-relationships': 'gi-verbal-reasoning',
+  'reasoning-jumbling': 'gi-verbal-reasoning',
+  'reasoning-number-series': 'gi-series-and-operations',
+  'reasoning-alphabetical-series': 'gi-series-and-operations',
+  'reasoning-mathematical-operations': 'gi-series-and-operations',
+  'reasoning-syllogism': 'gi-logical-reasoning',
+  'reasoning-venn-diagrams': 'gi-logical-reasoning',
+  'reasoning-statement-and-conclusion': 'gi-logical-reasoning',
+  'reasoning-statement-and-courses-of-action': 'gi-logical-reasoning',
+  'reasoning-decision-making': 'gi-logical-reasoning',
+  'reasoning-data-sufficiency': 'gi-logical-reasoning',
+  'reasoning-analytical-reasoning': 'gi-analytical-reasoning',
+  'reasoning-puzzles': 'gi-analytical-reasoning',
+  'reasoning-maps-and-graph-interpretation': 'gi-analytical-reasoning',
+};
+
+const NTPC_STAGE = /^rrb-ntpc-cbt-([12])(?:-exam)?$/;
+
+/** The stage code the backend knows: `rrb-ntpc-cbt-1-exam` → `rrb-ntpc-cbt-1`. Any other stage is unchanged. */
+export const toWireStage = (stageId: string): string => stageId.replace(/^(rrb-ntpc-cbt-[12])-exam$/, '$1');
+
+/** The backend files both CBTs under one exam: `rrb-ntpc-cbt-1` → `rrb-ntpc`. Any other group is unchanged. */
+export const toWireGroup = (groupId: string): string => groupId.replace(/^rrb-ntpc-cbt-[12]$/, 'rrb-ntpc');
+
+/** The portal's stage id for a code the backend sent. */
+export const fromWireStage = (stageId: string): string => (NTPC_STAGE.test(stageId) ? `${toWireStage(stageId)}-exam` : stageId);
+
+/** The backend unit for a portal unit of an NTPC stage; any other unit is unchanged. */
+export function toWireUnit(stageId: string, unitId: string | null): string | null {
+  const n = stageId.match(NTPC_STAGE)?.[1];
+  if (!n || !unitId) return unitId;
+  const coarse = WIRE_UNIT[unitId.replace(/^ntpc-/, '')];
+  return coarse ? `n${n}-${coarse}` : unitId;
+}
+
+/** A portal unit for a backend unit — the first one that maps to it, since the backend's are coarser. */
+export function fromWireUnit(unitId: string | null): string | null {
+  const m = unitId?.match(/^n[12]-(.+)$/);
+  if (!m) return unitId;
+  const hit = Object.entries(WIRE_UNIT).find(([, v]) => v === m[1]);
+  return hit ? `ntpc-${hit[0]}` : unitId;
+}
+
+/** The backend's subject code for a portal NTPC subject (`ntpc-reasoning` → `general-intelligence-and-reasoning`). */
+export function toWireSubject(subjectId: string): string;
+export function toWireSubject(subjectId: string | null | undefined): string | null | undefined;
+export function toWireSubject(subjectId: string | null | undefined): string | null | undefined {
+  if (!subjectId?.startsWith('ntpc-')) return subjectId;
+  return subjectId === 'ntpc-reasoning' ? 'general-intelligence-and-reasoning' : subjectId.slice('ntpc-'.length);
+}

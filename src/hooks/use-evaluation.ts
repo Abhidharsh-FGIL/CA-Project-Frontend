@@ -1,3 +1,4 @@
+import { toWireGroup, toWireStage, toWireUnit } from '@/config/rrb-ntpc';
 import { useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -327,7 +328,19 @@ export function useSaveEvalPaper() {
     }) =>
       api.post<any>('/api/v1/evaluation/papers/save', {
         org_id: orgId,
-        config,
+        config: config.placement
+          ? {
+              ...config,
+              placement: {
+                ...config.placement,
+                groupId: config.placement.groupId ? toWireGroup(config.placement.groupId) : config.placement.groupId,
+                stageId: toWireStage(config.placement.stageId),
+                unitId: toWireUnit(config.placement.stageId, config.placement.unitId),
+                // The backend's topics are its own; one it has not printed is refused.
+                topicId: /^rrb-ntpc-cbt-/.test(config.placement.stageId) ? null : config.placement.topicId,
+              },
+            }
+          : config,
         questions,
         answer_key: answerKey,
       }),

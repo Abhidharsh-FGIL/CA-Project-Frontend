@@ -7,6 +7,7 @@
  *   - `syllabusApi.get`  — public: a stage's official units > categories > sub-categories, in syllabus order.
  *   - `taxonomyApi.*`    — admin: every name in use (official or not), preview / apply / undo, and the log.
  */
+import { toWireGroup, toWireStage } from '@/config/rrb-ntpc';
 import { api, publicApi } from './api';
 import { registerServerNames, syllabusNamePairs } from './bilingual';
 import type { PaginatedResponse } from './adminApi';
@@ -48,7 +49,7 @@ export interface Syllabus {
 
 export const syllabusApi = {
   get: async (exam: string, stage: string) => {
-    const syllabus = await publicApi.get<Syllabus>(`/api/v1/syllabus/${encodeURIComponent(exam)}/${encodeURIComponent(stage)}`);
+    const syllabus = await publicApi.get<Syllabus>(`/api/v1/syllabus/${encodeURIComponent(toWireGroup(exam))}/${encodeURIComponent(toWireStage(stage))}`);
     // The names the sheets gave, in both languages, now read by every screen that shows a name.
     registerServerNames(syllabusNamePairs(syllabus));
     return syllabus;

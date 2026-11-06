@@ -30,6 +30,7 @@ import {
   type TnpscStage,
   type TnpscTestType,
 } from '@/config/tnpsc';
+import { toWireStage } from '@/config/rrb-ntpc';
 import { withTitlePlacement } from '@/lib/tnpsc-title-placement';
 import { mockPassPercentage, parsePassMarks, type PassMarkTable } from '@/config/pass-marks';
 
@@ -370,7 +371,7 @@ export async function getTnpscMockOverview(
 ): Promise<TnpscMockOverview> {
   try {
     const res = await userApi.get<{ levels: TnpscLevelGroup[]; pass_percentage?: number }>(
-      `/api/v1/user/tnpsc/stages/${stageId}/mock-tests`,
+      `/api/v1/user/tnpsc/stages/${toWireStage(stageId)}/mock-tests`,
     );
     if (res && Array.isArray(res.levels)) {
       res.levels.forEach(l => registerTestNames(l.tests));
@@ -543,7 +544,7 @@ export async function getTnpscPracticeSubjects(
   let tests: TnpscTest[] = [];
   try {
     const res = await userApi.get<{ subjects?: TnpscPracticeSubject[]; tests?: TnpscTest[] }>(
-      `/api/v1/user/tnpsc/stages/${stageId}/practice-tests`,
+      `/api/v1/user/tnpsc/stages/${toWireStage(stageId)}/practice-tests`,
     );
     // The stage's own units are the only thing a title can be read against.
     const stage = findStage(groupId, stageId)?.stage;

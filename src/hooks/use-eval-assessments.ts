@@ -1,3 +1,4 @@
+import { toWireStage, toWireSubject, toWireUnit } from '@/config/rrb-ntpc';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { stageUnitId, stageUnitIds, stageUnitWeights } from '@/lib/assessment-pool';
 import { api } from '@/lib/api';
@@ -137,7 +138,17 @@ export function useCreateEvalAssessment() {
     mutationFn: async (config: EvalAssessmentConfig) => {
       // The stage's own unit ids, from the server — what it checks every unit id against.
       const stageIds = await stageUnitIdsFromServer(qc, config.tnpscStageId);
-      const unitId = (id: string | undefined) => (id ? stageUnitId(id, stageIds) : id);
+      const stageCode = config.tnpscStageId ?? '';
+      // RRB NTPC's units are coarser on the server than in the portal: ids are converted before being matched.
+      const wireUnit = (id: string) => toWireUnit(stageCode, id) ?? id;
+      const wireIds = <T extends string[] | null | undefined>(ids: T): T => (ids ? ([...new Set(ids.map(wireUnit))] as T) : ids);
+      const wireWeights = <T extends Record<string, number> | undefined>(w: T): T => {
+        if (!w) return w;
+        const out: Record<string, number> = {};
+        for (const [id, n] of Object.entries(w)) out[wireUnit(id)] = (out[wireUnit(id)] ?? 0) + n;
+        return out as T;
+      };
+      const unitId = (id: string | undefined) => (id ? stageUnitId(wireUnit(id), stageIds) : id);
       const payload = {
         title: config.title,
         course_id: config.courseId || null,
@@ -156,7 +167,7 @@ export function useCreateEvalAssessment() {
         negative_mark_group_size: config.negativeMarkGroupSize,
         negative_mark_sections: config.negativeMarkSections?.map(sec => ({
           name: sec.name,
-          subject_ids: sec.subjectIds,
+          subject_ids: sec.subjectIds?.map(id => toWireSubject(id)),
           negative_mark_value: sec.negativeMarkValue,
           marks_per_question: sec.marksPerQuestion,
           questions: sec.questions,
@@ -164,14 +175,14 @@ export function useCreateEvalAssessment() {
         })),
         max_attempts: config.maxAttempts || null,
         shuffle_questions: config.shuffleQuestions ?? true,
-        subject_weights: config.subjectWeights,
-        unit_ids: stageUnitIds(config.unitIds, stageIds),
-        unit_weights: stageUnitWeights(config.unitWeights, stageIds),
+        subject_weights: config.subjectWeights && Object.fromEntries(Object.entries(config.subjectWeights).map(([id, w]) => [toWireSubject(id), w])),
+        unit_ids: stageUnitIds(wireIds(config.unitIds), stageIds),
+        unit_weights: stageUnitWeights(wireWeights(config.unitWeights), stageIds),
         paper_ids: config.paperIds,
         paper_weights: config.paperWeights,
         pool_mode: config.poolMode ?? 'fixed',
         pool_filter: config.poolFilter
-          ? { ...config.poolFilter, unit_ids: stageUnitIds(config.poolFilter.unit_ids, stageIds) }
+          ? { ...config.poolFilter, unit_ids: stageUnitIds(wireIds(config.poolFilter.unit_ids), stageIds), stage_id: config.poolFilter.stage_id ? toWireStage(config.poolFilter.stage_id) : config.poolFilter.stage_id }
           : null,
         difficulty_blend: config.difficultyBlend ?? null,
         pricing_type: config.pricingType,
@@ -179,11 +190,12 @@ export function useCreateEvalAssessment() {
         promo_code: config.promoCode || null,
         promo_discount_pct: config.promoDiscountPct,
         // TNPSC placement
-        tnpsc_stage_id: config.tnpscStageId ?? null,
+        tnpsc_stage_id: config.tnpscStageId ? toWireStage(config.tnpscStageId) : null,
         track: config.track ?? null,
         tnpsc_level: config.tnpscLevel ?? null,
-        tnpsc_subject_id: config.tnpscSubjectId ?? null,
-        tnpsc_topic_id: config.tnpscTopicId ?? null,
+        tnpsc_subject_id: toWireSubject(config.tnpscSubjectId) ?? null,
+        // The backend's topics are its own; one it has not printed is refused.
+        tnpsc_topic_id: /^rrb-ntpc-cbt-/.test(stageCode) ? null : config.tnpscTopicId ?? null,
         tnpsc_unit_id: unitId(config.tnpscUnitId) ?? null,
         tnpsc_scope: config.tnpscScope ?? null,
         tnpsc_section_name: config.tnpscSectionName ?? null,

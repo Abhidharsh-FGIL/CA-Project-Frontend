@@ -1,3 +1,4 @@
+import { toWireGroup, toWireStage, toWireSubject, toWireUnit } from '@/config/rrb-ntpc';
 /**
  * Admin-side TNPSC helpers — tagging papers into the group → stage → track → level
  * hierarchy so they surface in the aspirant portal.
@@ -170,7 +171,7 @@ function toPayload(tag: TnpscTagValue): TnpscTagPayload {
     tag.subject_id ?? subjectForUnit(stage, findUnit(stage, tag.unit_id)) ?? null;
 
   return {
-    stage_id: tag.stage_id,
+    stage_id: tag.stage_id ? toWireStage(tag.stage_id) : tag.stage_id,
     track: tag.track,
     // Both tracks carry a level now. A mock's level gates progression; a
     // practice paper's decides which of a unit's difficulty buttons it sits
@@ -181,8 +182,8 @@ function toPayload(tag: TnpscTagValue): TnpscTagPayload {
     // level — is filed under the lowest, which is the group that is shown.
     level: tag.track === 'mock' ? (tag.level ?? 'simple') : tag.level,
     // A unit belongs to a unit- or topic-scoped practice paper and nothing else.
-    unit_id: tag.track === 'practice' && (tag.scope === 'unit' || tag.scope === 'topic') ? tag.unit_id : null,
-    subject_id: tag.track === 'practice' ? derivedSubject : null,
+    unit_id: tag.track === 'practice' && (tag.scope === 'unit' || tag.scope === 'topic') ? toWireUnit(tag.stage_id ?? '', tag.unit_id) : null,
+    subject_id: tag.track === 'practice' ? toWireSubject(derivedSubject) : null,
     // A whole-unit paper has no topic; the topic is what makes a paper a key-topic paper.
     topic_id: tag.track === 'practice' && tag.scope === 'topic' ? topicIdForUnit(stage, tag.unit_id, tag.topic_id) : null,
     // A key-topic paper is saved as a unit paper that names its topic.
@@ -620,9 +621,9 @@ export function setPaperPlacement(
   placement: { groupId: string; stageId: string; unitId: string | null; sectionName: string | null },
 ): Promise<any> {
   return api.patch(`/api/v1/evaluation/papers/${paperId}`, {
-    group_id: placement.groupId,
-    stage_id: placement.stageId,
-    unit_id: placement.unitId,
+    group_id: toWireGroup(placement.groupId),
+    stage_id: toWireStage(placement.stageId),
+    unit_id: toWireUnit(placement.stageId, placement.unitId),
     section_name: placement.sectionName,
   });
 }

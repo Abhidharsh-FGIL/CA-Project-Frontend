@@ -1,3 +1,4 @@
+import { fromWireStage, fromWireUnit } from '@/config/rrb-ntpc';
 /**
  * The Collections tab as the syllabus:
  *
@@ -30,6 +31,8 @@ export interface CollectionPlace {
 
 const NOWHERE: CollectionPlace = { groupId: null, stageId: null, section: null, unitId: null, via: null };
 
+const fromWire = (v: string | null, f: (x: string) => string | null) => (v ? f(v) : v);
+
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
 /** The stages that publish units — the only ones a collection can be filed under. */
@@ -56,8 +59,8 @@ export function storedPlacement(paper: Paper): { stageId: string | null; unitId:
   const nested = paper?.placement ?? {};
   return {
     groupId: str(paper?.group_id) ?? str(paper?.tnpsc_group_id) ?? str(nested.groupId) ?? str(nested.group_id),
-    stageId: str(paper?.stage_id) ?? str(paper?.tnpsc_stage_id) ?? str(nested.stageId) ?? str(nested.stage_id),
-    unitId: str(paper?.unit_id) ?? str(paper?.tnpsc_unit_id) ?? str(nested.unitId) ?? str(nested.unit_id),
+    stageId: fromWire(str(paper?.stage_id) ?? str(paper?.tnpsc_stage_id) ?? str(nested.stageId) ?? str(nested.stage_id), fromWireStage),
+    unitId: fromWire(str(paper?.unit_id) ?? str(paper?.tnpsc_unit_id) ?? str(nested.unitId) ?? str(nested.unit_id), fromWireUnit),
     section: str(paper?.section_name) ?? str(paper?.tnpsc_section_name) ?? str(paper?.section),
   };
 }

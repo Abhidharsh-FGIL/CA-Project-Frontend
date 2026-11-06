@@ -36,6 +36,7 @@ import {
   type TnpscSyllabusUnit,
 } from '@/config/tnpsc';
 import { G4_SUBJECT_ALIASES, G4_UNIT_HINTS, splitTag } from '@/config/g4-tag-aliases';
+import { toWireUnit } from '@/config/rrb-ntpc';
 import { parseCollectionTitle, unitFromCollectionTitle } from '@/lib/collection-unit';
 
 /** Compare topic names the way a reader would: case, punctuation and "&" are noise. */
@@ -332,7 +333,11 @@ function placeQuestion(stage: TnpscStage, c: Compiled, q: any): { units: Compile
   if (explicit) {
     // A question filed under another exam's copy of a shared unit still belongs to this exam's copy.
     const cu = c.byId.get(explicit) ?? c.byFamily.get(unitFamily(explicit));
-    return cu ? { units: [cu], via: 'unit_id' } : { units: [], via: null };
+    if (cu) return { units: [cu], via: 'unit_id' };
+    // RRB NTPC: the server's units (`n1-ga-history`) are coarser than the portal's, so one covers several of them.
+    const coarse = explicit.match(/^n[12]-(.+)$/)?.[1];
+    const wired = coarse ? c.units.filter(u => toWireUnit(stage.id, u.unit.id)?.replace(/^n[12]-/, '') === coarse) : [];
+    return wired.length > 0 ? { units: wired, via: 'unit_id' } : { units: [], via: null };
   }
 
   const tagged = unitsFromTags(stage, c, q);

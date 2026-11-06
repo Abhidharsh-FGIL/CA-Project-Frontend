@@ -39,9 +39,9 @@ const FREE: PlanCopy = {
     ['{mock} Full-Length Mock Test{mock_s}', 'Experience an exam-style test and get familiar with the question format.'],
     ['{practice} Subject-wise Practice Test{practice_s}', 'Practice individual subjects and assess your understanding of important concepts.'],
     ['Easy-to-use test interface', 'Get comfortable with the online examination experience.'],
-    ['Practice test reports', 'Review your practice performance.'],
+    ['Test reports', 'Review your performance in the mock and practice tests you take.'],
   ],
-  excluded: ['Detailed mock test report — paid plans only', 'Top-ups not available on Free'],
+  excluded: ['Top-ups not available on Free'],
   bestFor: 'Students who want to explore MyGovExams before purchasing a subscription.',
   cta: 'Get Started for Free',
 };

@@ -429,13 +429,10 @@ describe('composePlanNotice — a report the plan does not include', () => {
 });
 
 describe('reportIsLocked', () => {
-  it('locks the mock report on Free, and nothing else', () => {
-    expect(reportIsLocked('free', 'mock')).toBe(true);
-    expect(reportIsLocked('free', ' Mock ')).toBe(true);
+  it('locks no report, on any plan', () => {
+    expect(reportIsLocked('free', 'mock')).toBe(false);
     expect(reportIsLocked('free', 'practice')).toBe(false);
-    expect(reportIsLocked('free', null)).toBe(false);
     expect(reportIsLocked('standard', 'mock')).toBe(false);
-    expect(reportIsLocked('ultimate', 'mock')).toBe(false);
     expect(reportIsLocked(undefined, 'mock')).toBe(false);
   });
 });

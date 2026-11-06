@@ -1,14 +1,12 @@
 /**
  * Which plans get which reports.
  *
- * The Free plan includes the practice test report and not the detailed mock test report — "Upgrade to
- * see mock test reports" is one of its listed points. The backend does not enforce that for the
- * report itself (only the AI insights are gated server-side, see PLANS.md), so the app keeps the
- * report back and shows the plan popup in its place.
+ * Every plan, Free included, now sees the report of a test it has taken — practice or mock. The
+ * AI insights are still gated server-side (see PLANS.md); that is separate from this.
  *
- * Keyed on the tier rather than a plan feature because the plan data has no field for it. To lock
- * practice reports too, or to open mock reports to Free, this is the one place to change.
+ * Kept as one function so a lock can be put back in one place: for Free and mock reports it was
+ * `tier === 'free' && testMode === 'mock'`.
  */
-export function reportIsLocked(tier: string | null | undefined, testMode: string | null | undefined): boolean {
-  return tier === 'free' && (testMode ?? '').trim().toLowerCase() === 'mock';
+export function reportIsLocked(_tier: string | null | undefined, _testMode: string | null | undefined): boolean {
+  return false;
 }
