@@ -19,6 +19,7 @@ import {
   type TnpscStage,
   type TnpscSyllabusUnit,
 } from '@/config/tnpsc';
+import { OPEN_EXAM_IDS } from '@/lib/exam-listing';
 import { displayTitle } from '@/lib/display-title';
 import { groupOfStage, isTagged, readTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
 
@@ -168,6 +169,8 @@ export function buildAssessmentTree(assessments: Row[]): AssessmentTree {
   // Group 4 is always there, so the structure is on screen before its first assessment.
   groupFor('group-4');
   groupFor('group-2');
+  // So is every other open exam, so its assessments have a tab to land in.
+  for (const g of TNPSC_GROUPS) if ((OPEN_EXAM_IDS.has(g.id) || g.id === 'gat-b') && g.stages.some(s => s.status === 'active')) groupFor(g.id);
   const order = (id: string) => (id === 'group-4' ? -1 : TNPSC_GROUPS.findIndex(g => g.id === id));
   return { groups: [...groups.values()].sort((a, b) => order(a.id) - order(b.id)), unplaced };
 }

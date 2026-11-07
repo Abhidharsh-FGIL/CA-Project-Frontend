@@ -24,6 +24,7 @@ describe('describePool — a paper that draws a fresh sample from a pool is live
         difficulty: 'medium',
         question_types: null,
         source_type: 'online',
+        language: null,
       },
     });
   });

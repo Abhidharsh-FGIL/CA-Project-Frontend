@@ -30,7 +30,7 @@ import {
   type TnpscStage,
   type TnpscTestType,
 } from '@/config/tnpsc';
-import { toWireStage } from '@/config/rrb-ntpc';
+import { fromWireRow, fromWireSubject, toWireStage } from '@/config/rrb-ntpc';
 import { withTitlePlacement } from '@/lib/tnpsc-title-placement';
 import { mockPassPercentage, parsePassMarks, type PassMarkTable } from '@/config/pass-marks';
 
@@ -77,8 +77,11 @@ export interface TnpscTest {
   /** The topic's name in the other language, as the uploaded sheets gave it. */
   topic_name_en?: string | null;
   topic_name_ta?: string | null;
+  topic_name_hi?: string | null;
   /** The unit's Tamil name, beside `unit_id`. */
   unit_name_ta?: string | null;
+  unit_name_hi?: string | null;
+  subject_name_hi?: string | null;
   question_count: number;
   max_marks: number;
   time_limit_minutes: number | null;
@@ -362,7 +365,10 @@ function mergeSections(
 
 /** Every topic name the server paired with its other language, so the stage page shows both. */
 function registerTestNames(tests: TnpscTest[] | undefined): void {
-  (tests ?? []).forEach(t => registerPair(t.topic_name, t.topic_name_en, t.topic_name_ta));
+  (tests ?? []).forEach(t => {
+    registerPair(t.topic_name, t.topic_name_en, t.topic_name_ta, t.topic_name_hi);
+    registerPair(t.subject_name, null, null, t.subject_name_hi);
+  });
 }
 
 export async function getTnpscMockOverview(
@@ -377,7 +383,7 @@ export async function getTnpscMockOverview(
       res.levels.forEach(l => registerTestNames(l.tests));
       return {
         stage_id: stageId,
-        levels: res.levels,
+        levels: res.levels.map(l => ({ ...l, tests: (l.tests ?? []).map(fromWireRow) })),
         pass_percentage: res.pass_percentage,
         server_computed: true,
       };
@@ -552,12 +558,13 @@ export async function getTnpscPracticeSubjects(
       res.subjects.forEach(s => registerTestNames(s.tests));
       return res.subjects.map(s => ({
         ...s,
-        tests: withTitlePlacement(stage, withSectionTag(s.tests ?? [])),
+        subject_id: fromWireSubject(s.subject_id),
+        tests: withTitlePlacement(stage, withSectionTag((s.tests ?? []).map(fromWireRow))),
       }));
     }
     if (res && Array.isArray(res.tests)) {
       registerTestNames(res.tests);
-      tests = res.tests;
+      tests = res.tests.map(fromWireRow);
     } else throw new Error('unexpected payload');
   } catch {
     tests = await deriveTests(groupId, stageId, 'practice');

@@ -126,13 +126,13 @@ export const recommendationsApi = {
 /** Every unit, category and sub-category name the server paired with its other language. */
 function registerRecommendationNames(res: Recommendations | null | undefined): void {
   for (const r of res?.items ?? []) {
-    if (r.unit) registerPair(r.unit.name, r.unit.name_en, r.unit.name_ta);
-    if (r.category) registerPair(r.category.name, r.category.name_en, r.category.name_ta);
-    if (r.subcategory) registerPair(r.subcategory.name, r.subcategory.name_en, r.subcategory.name_ta);
+    if (r.unit) registerPair(r.unit.name, r.unit.name_en, r.unit.name_ta, (r.unit as any).name_hi);
+    if (r.category) registerPair(r.category.name, r.category.name_en, r.category.name_ta, (r.category as any).name_hi);
+    if (r.subcategory) registerPair(r.subcategory.name, r.subcategory.name_en, r.subcategory.name_ta, (r.subcategory as any).name_hi);
   }
   for (const u of res?.weak_map ?? []) {
-    registerPair(u.unit_name, u.name_en, u.name_ta);
-    for (const c of u.categories ?? []) registerPair(c.name, c.name_en, c.name_ta);
+    registerPair(u.unit_name, u.name_en, u.name_ta, (u as any).unit_name_hi ?? (u as any).name_hi);
+    for (const c of u.categories ?? []) registerPair(c.name, c.name_en, c.name_ta, (c as any).name_hi);
   }
 }
 

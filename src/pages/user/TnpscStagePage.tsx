@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { NtpcLevelChip, NtpcLevelDialog } from '@/components/user/NtpcLevelDialog';
+import { ntpcLabel, type NtpcNameLanguage } from '@/config/rrb-ntpc';
 import { isNtpcGroup, useNtpcPrefs } from '@/lib/ntpc-level';
 import { examLanguageOf } from '@/lib/exam-language';
 import { examLogo } from '@/lib/exam-logo';
@@ -142,6 +143,18 @@ function unitIcon(name: string) {
 }
 
 // ─── Unit model ───────────────────────────────────────────────────────────────
+
+/**
+ * The language an RRB NTPC aspirant chose, or null on any other exam. Names are then shown in that language alone —
+ * no English beside the Tamil, no Tamil beside the Hindi — from the backend's sheet (`rrb-ntpc.ts`).
+ */
+const NtpcLangContext = createContext<NtpcNameLanguage | null>(null);
+
+/** A section's title: in the NTPC aspirant's language alone, else as the exam's own languages show it. */
+function SecName({ name, lang }: { name: string; lang: PaperLang }) {
+  const single = useContext(NtpcLangContext);
+  return <>{single ? ntpcLabel(name, single) : paperName(name, lang)}</>;
+}
 
 interface UnitRowModel {
   key: string;
@@ -410,7 +423,7 @@ export default function TnpscStagePage() {
       // A section whose only subject is the section itself would describe itself: list its units instead,
       // so every row says what is inside it in the same short form.
       if (names.length <= 1 && names.every(x => norm(x) === norm(section.name))) {
-        names = units.map(u => bilingual(u.name, u.nameTa)).filter(Boolean);
+        names = units.map(u => (ntpc ? ntpcLabel(u.name, chosenLanguage ?? 'english') : bilingual(u.name, u.nameTa))).filter(Boolean);
       }
       const blurb =
         names.length > 3 ? `${names.slice(0, 3).join(', ')} and more…` : names.join(', ');
@@ -438,7 +451,7 @@ export default function TnpscStagePage() {
         lang: paperLangOf(section.name),
       };
     });
-  }, [stage, trackTests]);
+  }, [stage, trackTests, ntpc, chosenLanguage]);
 
   // Development aid: the practice papers the server lists for this stage that no row on this page shows (they name
   // no unit or topic this page knows), so the dashboard's "available" total can be told from what is listed here.
@@ -494,6 +507,7 @@ export default function TnpscStagePage() {
   };
 
   return (
+    <NtpcLangContext.Provider value={ntpc ? (chosenLanguage ?? 'english') : null}>
     <UserShell>
       {/* An exam with a single open stage has no stage list to go back to, so Back goes to all the examinations. */}
       <Link
@@ -611,6 +625,7 @@ export default function TnpscStagePage() {
         </div>
       </div>
     </UserShell>
+    </NtpcLangContext.Provider>
   );
 }
 
@@ -1219,7 +1234,7 @@ function DrillHeader({
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-            {paperName(section.name, section.lang)} — unit-wise {verb.toLowerCase()}
+            <SecName name={section.name} lang={section.lang} /> — unit-wise {verb.toLowerCase()}
           </p>
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 leading-relaxed">
             Pick a unit, then a difficulty. Each button opens that paper straight away.
@@ -1251,6 +1266,7 @@ function UnitFilterPills({
   /** General Tamil names its units in Tamil only, General English in English only; the rest in both. */
   lang: PaperLang;
 }) {
+  const single = useContext(NtpcLangContext);
   return (
     <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-1">
       <button
@@ -1282,7 +1298,7 @@ function UnitFilterPills({
             )}
           >
             <span className={cn('w-1.5 h-1.5 rounded-full', accentFor(i).dot)} />
-            {unitChipLabel(u, lang)}
+            {single ? ntpcLabel(u.name, single) : unitChipLabel(u, lang)}
           </button>
         );
       })}
@@ -1322,7 +1338,7 @@ function SectionRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-[15px] sm:text-base font-bold text-gray-900 dark:text-gray-100">
-              {paperName(section.name, section.lang)}
+              <SecName name={section.name} lang={section.lang} />
             </h3>
             <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-bold', a.soft, a.text)}>
               {section.units.length} Unit{section.units.length === 1 ? '' : 's'}
@@ -1743,6 +1759,7 @@ function UnitListRow({
   /** General Tamil shows its units in Tamil only, General English in English only. */
   lang: PaperLang;
 }) {
+  const single = useContext(NtpcLangContext);
   const a = accentFor(index);
   const levels = levelStats(unit.tests);
   const anyPaper = unit.tests.length > 0;
@@ -1769,9 +1786,9 @@ function UnitListRow({
               the two scripts ran together once a title wrapped, and the longer
               General Studies units wrap on every screen width. */}
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-snug">
-            {lang ? inLanguage(unit.name, lang, unit.nameTa) : unit.nameTa ? unit.name : bilingual(unit.name)}
+            {single ? ntpcLabel(unit.name, single) : lang ? inLanguage(unit.name, lang, unit.nameTa) : unit.nameTa ? unit.name : bilingual(unit.name)}
           </p>
-          {!lang && unit.nameTa && unit.nameTa !== unit.name && (
+          {!single && !lang && unit.nameTa && unit.nameTa !== unit.name && (
             <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 leading-snug mt-0.5">
               {unit.nameTa}
             </p>
@@ -1899,7 +1916,7 @@ function FullSetBar({ section, verb }: { section: SectionModel; verb: string }) 
           {test.is_locked ? <Lock className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
         </span>
         <span className="text-left">
-          <span className="block text-xs font-bold leading-tight">{paperName(section.name, section.lang)}</span>
+          <span className="block text-xs font-bold leading-tight"><SecName name={section.name} lang={section.lang} /></span>
           <span className="block text-[10px] opacity-80">All units</span>
         </span>
         <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-80" />
@@ -2264,7 +2281,7 @@ function SyllabusPanel({
                 <SectionGlyph name={sec.name} badge={cn(a.badge, 'w-10 h-10 rounded-xl')} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[13px] font-bold text-gray-900 dark:text-gray-100 leading-snug">
-                    {paperName(sec.name, sec.lang)}
+                    <SecName name={sec.name} lang={sec.lang} />
                   </span>
                   <span className="block text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
                     {sec.units.length} Unit{sec.units.length === 1 ? '' : 's'}
@@ -2331,6 +2348,7 @@ function SyllabusRow({
   lang?: PaperLang;
 }) {
   const [open, setOpen] = useState(index === 0);
+  const single = useContext(NtpcLangContext);
   // "+ N more topics" opens the rest of the list in place.
   const [showAll, setShowAll] = useState(false);
   const expandable = topics.length > 0;
@@ -2361,9 +2379,9 @@ function SyllabusRow({
 
         <span className="min-w-0 flex-1">
           <span className="block text-xs font-bold text-gray-800 dark:text-gray-100 leading-snug">
-            {lang ? inLanguage(name, lang, nameTa) : nameTa ? name : bilingual(name)}
+            {single ? ntpcLabel(name, single) : lang ? inLanguage(name, lang, nameTa) : nameTa ? name : bilingual(name)}
           </span>
-          {!lang && nameTa && nameTa !== name && (
+          {!single && !lang && nameTa && nameTa !== name && (
             <span className="block text-[10px] text-gray-500 dark:text-gray-400 leading-snug">
               {nameTa}
             </span>
@@ -2388,7 +2406,7 @@ function SyllabusRow({
               className="text-[11px] text-gray-600 dark:text-gray-300 leading-snug flex items-start gap-1.5"
             >
               <span className={cn('w-1 h-1 rounded-full mt-1.5 flex-shrink-0', a.dot)} />
-              {paperName(t.name, lang ?? null)}
+              {single ? ntpcLabel(t.name, single) : paperName(t.name, lang ?? null)}
             </li>
           ))}
           {topics.length > PREVIEW && (

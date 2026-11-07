@@ -10,6 +10,7 @@
  */
 import { TNPSC_GROUPS, stageUnits, unitTopics } from '@/config/tnpsc';
 import { displayTitle } from '@/lib/display-title';
+import { registerHindi } from '@/lib/hindi-names';
 
 export const BILINGUAL_SEPARATOR = ' / ';
 
@@ -384,12 +385,15 @@ export interface NamePair {
   name: string;
   name_ta?: string | null;
   name_en?: string | null;
+  name_hi?: string | null;
 }
 
 export function registerServerNames(pairs: NamePair[]): void {
   for (const p of pairs) {
     const name = (p.name ?? '').trim();
     if (!name) continue;
+    // The Hindi pairs with the English name, whether or not a Tamil one came too.
+    if (p.name_hi) registerHindi((p.name_en ?? '').trim() || (!isTamil(name) ? name : ''), p.name_hi);
     // Whichever side is Tamil: `name` may itself be the Tamil one, with `name_en` the English.
     const ta = (p.name_ta ?? '').trim() || (isTamil(name) ? name : '');
     const en = (p.name_en ?? '').trim() || (!isTamil(name) ? name : '');
@@ -402,10 +406,10 @@ export function registerServerNames(pairs: NamePair[]): void {
 }
 
 /** One name with the pair the server sent beside it, under the field names that response uses. */
-export function registerPair(name: unknown, en: unknown, ta: unknown): void {
+export function registerPair(name: unknown, en: unknown, ta: unknown, hi?: unknown): void {
   const str = (v: unknown) => (typeof v === 'string' ? v : null);
   const n = str(name);
-  if (n) registerServerNames([{ name: n, name_en: str(en), name_ta: str(ta) }]);
+  if (n) registerServerNames([{ name: n, name_en: str(en), name_ta: str(ta), name_hi: str(hi) }]);
 }
 
 /** Every unit, category and sub-category of a syllabus response, as pairs. */

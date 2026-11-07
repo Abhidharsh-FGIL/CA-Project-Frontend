@@ -1011,8 +1011,10 @@ export function UserEvalAssessmentPage() {
         setAssessment(data);
         setPageState('landing');
       })
-      .catch(() => {
-        setError('Assessment not found or unavailable.');
+      .catch((e: unknown) => {
+        console.error('Assessment detail failed', assessmentId, e);
+        const why = e instanceof Error && e.message ? ` (${e.message})` : '';
+        setError(`Assessment not found or unavailable.${why}`);
         setPageState('landing');
       });
   }, [assessmentId]);

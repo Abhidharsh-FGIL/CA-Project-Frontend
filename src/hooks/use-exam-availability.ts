@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUserPortal } from '@/contexts/UserPortalContext';
-import { examAvailabilityApi } from '@/lib/examAvailabilityApi';
+import { examAvailabilityApi, portalExamIds } from '@/lib/examAvailabilityApi';
 import { OPEN_EXAM_IDS } from '@/lib/exam-listing';
 
 /** The exams open to this student: the admin's setting, or the built-in list until the server answers. */
@@ -13,7 +13,7 @@ export function useOpenExamIds(): ReadonlySet<string> {
     staleTime: 60 * 1000,
     retry: false,
   });
-  return q.data ? new Set(q.data.open_exam_ids) : OPEN_EXAM_IDS;
+  return q.data ? new Set(q.data.open_exam_ids.flatMap(portalExamIds)) : OPEN_EXAM_IDS;
 }
 
 export function useAdminExams() {

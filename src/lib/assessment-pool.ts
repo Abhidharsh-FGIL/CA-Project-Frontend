@@ -72,6 +72,8 @@ export interface PoolFilter {
   question_types: string[] | null;
   /** The bank's source filter (`online` | `text` | `file`); null for any source. */
   source_type: string | null;
+  /** The language the paper is sat in (RRB NTPC: tamil | english | hindi); null for any. A live pool draws only from it. */
+  language: string | null;
 }
 
 export interface PoolInput {
@@ -87,6 +89,8 @@ export interface PoolInput {
   difficulty?: QuestionDifficulty | null;
   questionTypes?: string[];
   sourceType?: string | null;
+  /** The language an RRB NTPC paper is sat in; null for any. */
+  language?: string | null;
   /** The questions the paper holds — read for the subjects and topics they carry. */
   questions?: Array<{ subject?: string | null; chapter?: string | null }>;
 }
@@ -129,6 +133,7 @@ export function describePool(input: PoolInput): { mode: PoolMode; filter: PoolFi
     difficulty: fromBank ? (input.difficulty ?? null) : null,
     question_types: fromBank ? orNull(input.questionTypes) : null,
     source_type: fromBank ? (input.sourceType ?? null) : null,
+    language: input.language ?? null,
   };
 
   const ruled = filter.unit_ids || filter.paper_ids || (filter.subjects && filter.chapters);

@@ -67,8 +67,8 @@ describe('buildAssessmentTree', () => {
     expect(g4.total + tree.unplaced.length).toBe(rows.length);
   });
 
-  it('always has Group 4, and Group 2 beside it, so both are there before their first assessment', () => {
-    expect(buildAssessmentTree([]).groups.map(g => g.id)).toEqual(['group-4', 'group-2']);
+  it('always has every open exam, so each is there before their first assessment', () => {
+    expect(buildAssessmentTree([]).groups.map(g => g.id)).toEqual(['group-4', 'group-2', 'gat-b', 'rrb-ntpc-cbt-1', 'rrb-ntpc-cbt-2']);
   });
 });
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ntpcLabel } from './rrb-ntpc';
 import { TNPSC_GROUPS, findStage, negativeMarkingLabel, stageForTitle, stageUnits } from './tnpsc';
 import { OPEN_EXAM_IDS, splitExams, examEntryPath } from '@/lib/exam-listing';
 import { GROUP_STAGE, EXAM_GROUP_OPTIONS } from '@/hooks/use-progress-trend';
@@ -39,5 +40,13 @@ describe('RRB NTPC', () => {
   it('tells the two tests apart by a paper\'s title', () => {
     expect(stageForTitle('RRB NTPC CBT-1 — Mathematics: Percentage · Mixed')?.id).toBe('rrb-ntpc-cbt-1-exam');
     expect(stageForTitle('RRB NTPC CBT-2 — Syllogism · Mixed')?.id).toBe('rrb-ntpc-cbt-2-exam');
+  });
+  it('names a unit, topic or subject in the chosen language alone, English where there is no translation', () => {
+    expect(ntpcLabel('Games and Sports', 'english')).toBe('Games and Sports');
+    expect(ntpcLabel('Games and Sports', 'tamil')).toBe('விளையாட்டுகள்');
+    expect(ntpcLabel('Games and Sports', 'hindi')).toBe('खेलकूद');
+    expect(ntpcLabel('General Awareness', 'hindi')).toBe('सामान्य जागरूकता');
+    expect(ntpcLabel('Current Events', 'hindi')).not.toMatch(/[A-Za-z]/);
+    expect(ntpcLabel('Not an NTPC name', 'hindi')).toBe('Not an NTPC name');
   });
 });

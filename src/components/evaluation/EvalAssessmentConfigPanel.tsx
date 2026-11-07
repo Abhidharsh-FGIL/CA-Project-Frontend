@@ -55,6 +55,7 @@ import { difficultyLabel, toStored } from '@/lib/eval-difficulty';
 import { format } from 'date-fns';
 import { api } from '@/lib/api';
 import { TnpscTagFields } from '@/components/evaluation/TnpscTagFields';
+import { isNtpcGroup, isNtpcLanguage, languageOfNtpcCode, questionNtpcLanguage } from '@/lib/ntpc-level';
 import { UnitPoolDiagnosis, UnitPoolPicker } from '@/components/evaluation/UnitPoolPicker';
 import { UnitMappingDialog } from '@/components/evaluation/UnitMappingDialog';
 import { EMPTY_TAG, describeTag, describeTagError, examTypeLabel, suggestAssessmentTitle, tagAssessmentKeepingTopic, topicIdForUnit, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
@@ -450,11 +451,23 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
    */
   const bankQuestions = useMemo(() => {
     const titleById = new Map<string, string>((papers as any[]).map(p => [p.id, p.title]));
-    return (rawBankQuestions as any[]).map(q => {
-      const title = q?.paper_id ? titleById.get(q.paper_id) : undefined;
-      return title ? { ...q, paper_title: title } : q;
-    });
-  }, [rawBankQuestions, papers]);
+    // An RRB NTPC paper is sat in one language, so its pool holds that language's questions only. A question whose
+    // language cannot be told is kept.
+    const only = isNtpcGroup(tnpscTag.group_id) && isNtpcLanguage(tnpscTag.ntpc_language) ? tnpscTag.ntpc_language : null;
+    return (rawBankQuestions as any[])
+      .filter(q => {
+        if (!only) return true;
+        // The server lists every language a question is available in; one that carries this language is eligible.
+        const offered: unknown[] = Array.isArray(q?.languages) ? q.languages : [];
+        if (offered.some(l => typeof l === 'string' && languageOfNtpcCode(l) === only)) return true;
+        const lang = questionNtpcLanguage(q);
+        return !lang || lang === only;
+      })
+      .map(q => {
+        const title = q?.paper_id ? titleById.get(q.paper_id) : undefined;
+        return title ? { ...q, paper_title: title } : q;
+      });
+  }, [rawBankQuestions, papers, tnpscTag.group_id, tnpscTag.ntpc_language]);
 
   /** What the bank can supply to each unit, shown beside the unit's published count. */
   const unitCounts = useMemo(
@@ -947,6 +960,7 @@ Create it anyway?`);
       shuffle: shuffleQuestions,
       composed: wantsBlend,
       stageId: tnpscTag.stage_id,
+      language: isNtpcGroup(tnpscTag.group_id) && isNtpcLanguage(tnpscTag.ntpc_language) ? tnpscTag.ntpc_language : null,
       unitIds: unitMode ? selectedUnits.map(u => u.id) : undefined,
       paperIds,
       difficulty: wantedDifficulty,

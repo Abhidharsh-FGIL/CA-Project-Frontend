@@ -842,9 +842,9 @@ export function normalizeAttemptDetail(detail: AttemptDetailResponse): AttemptDe
 
   // The category, sub-category and unit names the server paired with their other language, for every screen.
   for (const q of raw.questions ?? []) {
-    registerPair(q.category, q.category_en, q.category_ta);
-    registerPair(q.subtopic ?? q.sub_topic ?? q.subtopic_name, q.subtopic_en, q.subtopic_ta);
-    registerPair(q.unit_name, null, q.unit_name_ta);
+    registerPair(q.category, q.category_en, q.category_ta, q.category_hi);
+    registerPair(q.subtopic ?? q.sub_topic ?? q.subtopic_name, q.subtopic_en, q.subtopic_ta, q.subtopic_hi);
+    registerPair(q.unit_name, null, q.unit_name_ta, q.unit_name_hi);
   }
 
   const questions: QuestionReviewItem[] = (raw.questions ?? []).map((q: any, i: number) => ({

@@ -1,4 +1,4 @@
-import { toWireGroup, toWireStage, toWireSubject, toWireUnit } from '@/config/rrb-ntpc';
+import { fromWireRow, toWireGroup, toWireStage, toWireSubject, toWireUnit } from '@/config/rrb-ntpc';
 /**
  * Admin-side TNPSC helpers — tagging papers into the group → stage → track → level
  * hierarchy so they surface in the aspirant portal.
@@ -200,8 +200,9 @@ function toPayload(tag: TnpscTagValue): TnpscTagPayload {
  * `tnpsc_*` prefixed column names and the bare names, since the two backends
  * (evaluation hub vs admin tests) may not converge on one spelling.
  */
-export function readTnpscTag(row: any): TnpscTagValue {
-  if (!row) return { ...EMPTY_TAG };
+export function readTnpscTag(raw: any): TnpscTagValue {
+  if (!raw) return { ...EMPTY_TAG };
+  const row = fromWireRow(raw);
   const stage_id = row.tnpsc_stage_id ?? row.stage_id ?? null;
   const track = (row.track ?? row.test_track ?? null) as TnpscTestType | null;
   const level = (row.tnpsc_level ?? row.level ?? null) as TnpscLevel | null;

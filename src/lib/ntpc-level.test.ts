@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isNtpcGroup, ntpcLevelOf, paperIsForLevel, paperNtpcLanguage, paperNtpcLevel, papersForLevel, papersForNtpc } from './ntpc-level';
+import { isNtpcGroup, ntpcLevelOf, paperIsForLevel, paperNtpcLanguage, paperNtpcLevel, papersForLevel, papersForNtpc, questionNtpcLanguage } from './ntpc-level';
 
 describe('ntpcLevelOf', () => {
   it('reads Under-Graduate before Graduate, whichever way it is written', () => {
@@ -63,21 +63,29 @@ describe('language of an NTPC paper', () => {
   });
 });
 
-describe('Hindi and Telugu', () => {
+describe('Hindi', () => {
   it('are read from a title head or a code, and only when exactly one is named', () => {
     expect(paperNtpcLanguage({ title: 'RRB NTPC CBT-2 (Graduate · Hindi) — Percentage' })).toBe('hindi');
-    expect(paperNtpcLanguage({ title: 'RRB NTPC CBT-2 (Telugu) — Percentage' })).toBe('telugu');
-    expect(paperNtpcLanguage({ title: 'x', language: 'te' })).toBe('telugu');
     expect(paperNtpcLanguage({ title: 'x', ntpc_language: 'hi' })).toBe('hindi');
-    expect(paperNtpcLanguage({ title: 'RRB NTPC CBT-2 (Hindi · Telugu) — Percentage' })).toBeNull();
+    expect(paperNtpcLanguage({ title: 'RRB NTPC CBT-2 (Hindi · Tamil) — Percentage' })).toBeNull();
   });
 
   it('keep a Hindi aspirant to Hindi papers and the ones that name no language', () => {
     const hi = { title: 'RRB NTPC CBT-1 (Hindi) — A' };
-    const te = { title: 'RRB NTPC CBT-1 (Telugu) — A' };
     const en = { title: 'RRB NTPC CBT-1 (English) — A' };
     const any = { title: 'RRB NTPC CBT-1 — A' };
-    expect(papersForNtpc({ level: null, language: 'hindi' }, [hi, te, en, any])).toEqual([hi, any]);
-    expect(papersForNtpc({ level: null, language: 'telugu' }, [hi, te, en, any])).toEqual([te, any]);
+    expect(papersForNtpc({ level: null, language: 'hindi' }, [hi, en, any])).toEqual([hi, any]);
+  });
+});
+
+describe('questionNtpcLanguage', () => {
+  it('reads the language from the letters, and falls back to the stored one', () => {
+    expect(questionNtpcLanguage({ text: 'दूध में मुख्य रूप से कौन-सा खनिज हड्डियों के लिए उपयोगी होता है?' })).toBe('hindi');
+    expect(questionNtpcLanguage({ text: 'Which vitamin is found in citrus fruits like lemon and orange?' })).toBe('english');
+    expect(questionNtpcLanguage({ text: 'எலுமிச்சை மற்றும் ஆரஞ்சு பழங்களில் எந்த வைட்டமின் உள்ளது?' })).toBe('tamil');
+    // The stored language is wrong for this one; what the reader sees wins.
+    expect(questionNtpcLanguage({ language: 'en', text: 'कौन-सा विटामिन खट्टे फलों जैसे नींबू और संतरे में अधिक पाया जाता है?' })).toBe('hindi');
+    expect(questionNtpcLanguage({ language: 'hi', text: 'Q1' })).toBe('hindi');
+    expect(questionNtpcLanguage({ text: 'Q1' })).toBeNull();
   });
 });

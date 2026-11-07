@@ -3,7 +3,7 @@
  * The aspirant says which they are when they open the exam, can change it whenever they like, and is then shown the
  * papers for that level (and the ones that name no level, which are for everyone).
  *
- * The paper is also in one language — Tamil, English, Hindi or Telugu — which the aspirant chooses in the same place. A paper says
+ * The paper is also in one language — Tamil, English or Hindi — which the aspirant chooses in the same place. A paper says
  * its level and language the way a Group 4 paper says its language: the server's own `ntpc_level` / `language` when it
  * sends one, else the head of the paper's title ("RRB NTPC CBT-1 (Graduate · Tamil) — Mathematics: Percentage ·
  * Mixed"). A paper that says neither is shown to everyone.
@@ -58,23 +58,22 @@ export function papersForLevel<T extends NtpcLevelSource>(level: NtpcLevel | nul
  * The languages an NTPC paper can be in. RRB NTPC is set in many languages; these are the ones the portal offers.
  * (Group 4's language paper is only ever Tamil or English — `ExamLanguage` — and is a different choice.)
  */
-export type NtpcLanguage = 'tamil' | 'english' | 'hindi' | 'telugu';
+export type NtpcLanguage = 'tamil' | 'english' | 'hindi';
 
-export const NTPC_LANGUAGES: NtpcLanguage[] = ['tamil', 'english', 'hindi', 'telugu'];
+export const NTPC_LANGUAGES: NtpcLanguage[] = ['tamil', 'english', 'hindi'];
 
-export const NTPC_LANGUAGE_LABEL: Record<NtpcLanguage, string> = { tamil: 'Tamil', english: 'English', hindi: 'Hindi', telugu: 'Telugu' };
+export const NTPC_LANGUAGE_LABEL: Record<NtpcLanguage, string> = { tamil: 'Tamil', english: 'English', hindi: 'Hindi' };
 
 /** The language written in its own script, for the aspirant's choice. */
-export const NTPC_LANGUAGE_NATIVE: Record<NtpcLanguage, string> = { tamil: 'தமிழ்', english: 'English', hindi: 'हिन्दी', telugu: 'తెలుగు' };
+export const NTPC_LANGUAGE_NATIVE: Record<NtpcLanguage, string> = { tamil: 'தமிழ்', english: 'English', hindi: 'हिन्दी' };
 
 /** The words and codes that name each language in a title or a server field. */
 const NTPC_LANGUAGE_WORDS: Record<NtpcLanguage, RegExp> = {
   tamil: /\btamil\b/i,
   english: /\benglish\b/i,
   hindi: /\bhindi\b/i,
-  telugu: /\btelugu\b/i,
 };
-const NTPC_LANGUAGE_CODES: Record<string, NtpcLanguage> = { tamil: 'tamil', ta: 'tamil', english: 'english', en: 'english', hindi: 'hindi', hi: 'hindi', telugu: 'telugu', te: 'telugu' };
+const NTPC_LANGUAGE_CODES: Record<string, NtpcLanguage> = { tamil: 'tamil', ta: 'tamil', english: 'english', en: 'english', hindi: 'hindi', hi: 'hindi' };
 
 export const isNtpcLanguage = (v: unknown): v is NtpcLanguage => typeof v === 'string' && (NTPC_LANGUAGES as string[]).includes(v);
 
@@ -91,6 +90,9 @@ export function ntpcLanguageOfTitle(title?: string | null): NtpcLanguage | null 
 function languageOfCode(code?: string | null): NtpcLanguage | null {
   return NTPC_LANGUAGE_CODES[(code ?? '').trim().toLowerCase()] ?? null;
 }
+
+/** A language code or name ("hi", "Hindi") as an NTPC language, or null. */
+export const languageOfNtpcCode = languageOfCode;
 
 export interface NtpcPaperSource extends NtpcLevelSource {
   /** The language the server says the paper is in ("tamil" | "english"). */
@@ -190,4 +192,30 @@ export function useNtpcPrefs(userId?: string | null): NtpcPrefs & { ready: boole
   );
   const save = useCallback((next: NtpcPrefs) => writeRaw(userId, JSON.stringify(next)), [userId]);
   return { ...prefs, ready: !!prefs.level && !!prefs.language, save };
+}
+
+/**
+ * The language a bank question is written in: read from its letters (Tamil, Devanagari or Latin script), which is what a
+ * reader sees, and the language it is stored under when the letters cannot say. Null when neither can — such a question is
+ * kept rather than guessed at.
+ */
+export function questionNtpcLanguage(q: { language?: unknown; text?: unknown; question_text?: unknown; body?: unknown } | null | undefined): NtpcLanguage | null {
+  const stored = languageOfCode(typeof q?.language === 'string' ? q.language : null);
+  const text = [q?.text, q?.question_text, q?.body].find(t => typeof t === 'string' && t.trim()) as string | undefined;
+  if (!text) return stored;
+  let tamil = 0;
+  let hindi = 0;
+  let latin = 0;
+  for (const ch of text) {
+    if (ch >= '\u0B80' && ch <= '\u0BFF') tamil += 1;
+    else if (ch >= '\u0900' && ch <= '\u097F') hindi += 1;
+    else if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')) latin += 1;
+  }
+  const total = tamil + hindi + latin;
+  if (total < 8) return stored;
+  // A question in one script carries a few words of another ("'Accountant' என்பதன்…"), so a clear majority is trusted.
+  if (tamil / total >= 0.4) return 'tamil';
+  if (hindi / total >= 0.4) return 'hindi';
+  if (latin / total >= 0.9) return 'english';
+  return stored;
 }
