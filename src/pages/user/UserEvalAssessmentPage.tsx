@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useHoldUpdates } from '@/lib/app-version';
 import { isMobileDevice } from '@/lib/device';
-import { bilingual, bilingualTitle, studentTitle } from '@/lib/bilingual';
+import { bilingual, bilingualTitle, ntpcNodeName, studentTitle } from '@/lib/bilingual';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { originOf } from '@/lib/report-origin';
 import { isPromotional } from '@/lib/promotionalApi';
@@ -40,10 +40,12 @@ import {
 } from 'lucide-react';
 import { UserShell } from '@/components/user/UserShell';
 import { useFreshQuestionsNotice } from '@/components/user/FreshQuestionsNotice';
+import { instructionCopy, instructionLang } from '@/lib/instructions-copy';
 import {
   isBilingualQuestion,
   langModeOptions,
   paperTranslationLang as resolvePaperTranslationLang,
+  translationLang,
   translationOf,
   type LangMode,
 } from '@/lib/question-language';
@@ -77,6 +79,7 @@ import {
   type SubmitAttemptResponse,
 } from '@/lib/userPortalApi';
 import { toast } from 'sonner';
+import { defaultQuestionLanguage, questionsForPaperLanguage } from '@/lib/ntpc-level';
 import { normaliseLineBreaks, normaliseOption, parseOptionRepr, stripInlineOptions } from '@/lib/question-text';
 
 // ─── Option helpers (support text and image options) ────────────────────────────
@@ -260,6 +263,7 @@ function ActiveQuestionCard({
   negative_marking,
   negative_mark_value,
   langMode = 'both',
+  paperTitle,
 }: {
   question: EvalAttemptQuestion;
   index: number;
@@ -269,12 +273,18 @@ function ActiveQuestionCard({
   /** Already resolved for this question's section by the caller. */
   negative_mark_value: number | null;
   langMode?: LangMode;
+  paperTitle?: string | null;
 }) {
   const type = question.type;
 
   const showPrimary = langMode !== 'translation';
   const showTr = langMode !== 'primary';
   const tr = translationOf(question, showTr);
+  const trLang = translationLang(question);
+  const chapterShown =
+    question.chapter && !showPrimary && (trLang === 'ta' || trLang === 'hi') && /^RRB NTPC/i.test(paperTitle ?? '')
+      ? ntpcNodeName(question.chapter, null, trLang === 'ta' ? 'tamil' : 'hindi')
+      : question.chapter;
   const options = displayOptions(question.options, tr?.options);
   // Defensive: papers saved before the generator fix may still carry the choices
   // inside the stem. Display-only — the stored answer still comes from `options`.
@@ -336,7 +346,8 @@ function ActiveQuestionCard({
             {/* The chapter the question belongs to, e.g. சொல்லிலக்கணம். */}
             {question.chapter && (
               <span className="text-[11px] bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded font-medium">
-                {question.chapter}
+                {/* Read in the translation, the name is in that language too (RRB NTPC). */}
+                {chapterShown}
               </span>
             )}
             {/*
@@ -1206,7 +1217,8 @@ export function UserEvalAssessmentPage() {
           `[start] ${data.questions.length} questions dealt · pool_size = ${data.pool_size ?? '?'} · skipped_deleted = ${data.skipped_deleted ?? 'not reported by this server'}`,
         );
       }
-      setRawQuestions(data.questions);
+      setRawQuestions(questionsForPaperLanguage(data.questions, assessment?.title, (assessment as any)?.language));
+      setLangMode(defaultQuestionLanguage(assessment?.title, (assessment as any)?.language));
       setAttemptId(data.attempt_id);
       setStartTimeIso(data.start_time);
       const restored: Responses = {};
@@ -1298,6 +1310,7 @@ export function UserEvalAssessmentPage() {
     const topUpLeft = serverUsage ? serverUsage.topUpLeft : topUp ? (isMock ? topUp.mock : topUp.practice) : 0;
     const totalLeft = serverUsage ? serverUsage.left : allowance?.left == null ? null : allowance.left + topUpLeft;
     // The paper's own difficulty decides a practice set's pass mark; a mock has one of its own.
+    const copy = instructionCopy(instructionLang(assessment.title));
     const passMark = passMarkFor({ kind: isMock ? 'mock' : 'practice', level: levelFromTitle(assessment.title) ?? assessment.difficulty });
     const passMarksOut = passMarks(passMark, assessment.max_score);
 
@@ -1414,30 +1427,24 @@ export function UserEvalAssessmentPage() {
 
               <div className="mt-6 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
                 <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" /> Instructions
+                  <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" /> {copy.heading}
                 </p>
                 <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-1.5 list-disc pl-5">
-                  <li>Read each question carefully before answering.</li>
-                  <li>You can navigate between questions freely.</li>
-                  {isMock && (
-                    <li>The timer cannot be paused. The test will auto-submit when time expires.</li>
-                  )}
-                  <li>Your progress is auto-saved every 30 seconds.</li>
-                  <li>Do not close or refresh this page during the assessment.</li>
+                  <li>{copy.readCarefully}</li>
+                  <li>{copy.navigateFreely}</li>
+                  {isMock && <li>{copy.timerCannotPause}</li>}
+                  <li>{copy.autoSaved}</li>
+                  <li>{copy.doNotClose}</li>
                   {sectionNegatives.length > 1 ? (
                     <li className="text-red-700 dark:text-red-300">
-                      <strong>Negative marking is enabled</strong>, and differs by section:{' '}
-                      {sectionNegatives
-                        .map(n => `${n.section} deducts ${n.value} mark${n.value === 1 ? '' : 's'}`)
-                        .join('; ')}
-                      {' '}per wrong answer.
+                      <strong>{copy.negativeEnabled}</strong>
+                      {copy.negativeBySection(sectionNegatives)}
                     </li>
                   ) : (
                     assessment.negative_marking &&
                     assessment.negative_mark_value != null && (
                       <li className="text-red-700 dark:text-red-300">
-                        <strong>Negative marking is enabled.</strong> Each wrong answer deducts{' '}
-                        {assessment.negative_mark_value} marks.
+                        <strong>{copy.negativeEnabled}.</strong> {copy.negativeFlat(assessment.negative_mark_value)}
                       </li>
                     )
                   )}
@@ -1465,7 +1472,7 @@ export function UserEvalAssessmentPage() {
                     className="mt-0.5 w-4 h-4 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-blue-600 focus:ring-brand-500 dark:focus:ring-blue-400"
                   />
                   <span className="text-xs text-gray-700 dark:text-gray-300">
-                    I have read and understood the instructions. I agree to abide by the assessment rules.
+                    {copy.agree}
                   </span>
                 </label>
               )}
@@ -1831,7 +1838,10 @@ export function UserEvalAssessmentPage() {
               <option value="all">All units</option>
               {subjectOptions.map(([key, { label, count }]) => (
                 <option key={key} value={key}>
-                  {bilingual(label)} ({count})
+                  {langMode === 'translation' && (paperTranslationLang === 'ta' || paperTranslationLang === 'hi') && /^RRB NTPC/i.test(assessment?.title ?? '')
+                    ? ntpcNodeName(label, null, paperTranslationLang === 'ta' ? 'tamil' : 'hindi')
+                    : bilingual(label)}{' '}
+                  ({count})
                 </option>
               ))}
             </select>
@@ -1985,6 +1995,7 @@ export function UserEvalAssessmentPage() {
                   null
                 }
                 langMode={langMode}
+                paperTitle={assessment?.title}
               />
 
               {/* Navigation */}

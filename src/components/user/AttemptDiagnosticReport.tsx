@@ -74,7 +74,7 @@ import {
   type ReportLanguage,
   type StatusTone,
 } from '@/components/user/report-ui';
-import { bilingual, bilingualTitle, nodeName, unitIdLang } from '@/lib/bilingual';
+import { bilingualTitle, nodeName, reportName, unitIdLang } from '@/lib/bilingual';
 import {
   DEFAULT_REPORT_CONFIG,
   ISSUE_LABEL,
@@ -1345,7 +1345,7 @@ export function SubjectPerformance({
                         <td className="px-3 py-3 font-bold text-[#122447] dark:text-gray-100">
                           <span className="inline-flex items-center gap-2">
                             <ChevronRight className={cn('w-4 h-4 text-gray-400 transition-transform', open && 'rotate-90')} />
-                            {group.subject ? bilingual(group.subject) : 'Other units'}
+                            {group.subject ? reportName(group.subject) : 'Other units'}
                             <span className="text-[10px] font-medium text-gray-400">
                               {group.items.length} unit{group.items.length === 1 ? '' : 's'}
                             </span>
@@ -2397,7 +2397,7 @@ export function CoverageAnalysis({ model }: { model: AttemptReportModel }) {
                             key={t}
                             className="text-[10px] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded"
                           >
-                            {bilingual(t)}
+                            {reportName(t)}
                           </span>
                         ))}
                       </div>

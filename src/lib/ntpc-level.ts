@@ -129,6 +129,8 @@ const KEY = 'mge.ntpc-prefs';
 const listeners = new Set<() => void>();
 const memory = new Map<string, string>();
 const NONE: NtpcPrefs = { level: null, language: null };
+/** The signed-in aspirant whose choice a plain function (a title) may read; set by the last `useNtpcPrefs`. */
+let lastUserId: string | null | undefined;
 
 const storageKey = (userId?: string | null) => `${KEY}.${userId ?? 'guest'}`;
 
@@ -185,6 +187,7 @@ function subscribe(cb: () => void) {
  * `ready` is true once both are chosen.
  */
 export function useNtpcPrefs(userId?: string | null): NtpcPrefs & { ready: boolean; save: (next: NtpcPrefs) => void } {
+  lastUserId = userId;
   const prefs = useSyncExternalStore(
     subscribe,
     () => current(userId),
@@ -218,4 +221,48 @@ export function questionNtpcLanguage(q: { language?: unknown; text?: unknown; qu
   if (hindi / total >= 0.4) return 'hindi';
   if (latin / total >= 0.9) return 'english';
   return stored;
+}
+
+const TRANSLATION_CODE: Record<NtpcLanguage, string> = { tamil: 'ta', english: 'en', hindi: 'hi' };
+
+/**
+ * A question list as an NTPC paper in its own language should show it: the server's language code, else the head of the title, which names it
+ * ("RRB NTPC CBT-1 (Under-Graduate · Tamil)"); the second language beside the English is that one only, so a Tamil
+ * paper never offers Hindi. A question that carries no copy in that language keeps its English alone rather than
+ * showing another language. Papers that name no NTPC language, or are English, are returned as they are.
+ */
+export function questionsForPaperLanguage<T extends { translations?: unknown }>(questions: T[], title?: string | null, paperCode?: string | null): T[] {
+  // Only RRB NTPC papers: another exam's title may name a language that is a subject ("General Tamil"), not the paper's.
+  if (!/^RRB NTPC/i.test((title ?? '').trim())) return questions;
+  const language = languageOfCode(paperCode) ?? ntpcLanguageOfTitle(title);
+  if (!language || language === 'english') return questions;
+  const code = TRANSLATION_CODE[language];
+  return questions.map(q => {
+    const all = q?.translations;
+    if (!all || typeof all !== 'object') return q;
+    const kept = Object.fromEntries(Object.entries(all as Record<string, unknown>).filter(([k]) => k === code));
+    return Object.keys(kept).length === Object.keys(all as object).length ? q : { ...q, translations: kept };
+  });
+}
+
+/** The language the signed-in aspirant chose for RRB NTPC, for code that is not a component. Null until they choose. */
+export function activeNtpcLanguage(): NtpcLanguage | null {
+  if (lastUserId !== undefined) return current(lastUserId).language;
+  // No screen has read it yet (a page opened directly): the choice stored in this browser, when there is exactly one.
+  try {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith(`${KEY}.`));
+    return keys.length === 1 ? current(keys[0].slice(KEY.length + 1)).language : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What an RRB NTPC paper opens showing: the language it was taken in — its own for English, the translation for Tamil or
+ * Hindi. "both" for any other paper, as before. The reader can still switch.
+ */
+export function defaultQuestionLanguage(title?: string | null, paperCode?: string | null): 'both' | 'primary' | 'translation' {
+  if (!/^RRB NTPC/i.test((title ?? '').trim())) return 'both';
+  const language = languageOfCode(paperCode) ?? ntpcLanguageOfTitle(title);
+  return !language ? 'both' : language === 'english' ? 'primary' : 'translation';
 }

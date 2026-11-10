@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isNtpcGroup, ntpcLevelOf, paperIsForLevel, paperNtpcLanguage, paperNtpcLevel, papersForLevel, papersForNtpc, questionNtpcLanguage } from './ntpc-level';
+import { isNtpcGroup, ntpcLevelOf, paperIsForLevel, paperNtpcLanguage, paperNtpcLevel, papersForLevel, papersForNtpc, questionNtpcLanguage, questionsForPaperLanguage, defaultQuestionLanguage } from './ntpc-level';
 
 describe('ntpcLevelOf', () => {
   it('reads Under-Graduate before Graduate, whichever way it is written', () => {
@@ -87,5 +87,46 @@ describe('questionNtpcLanguage', () => {
     expect(questionNtpcLanguage({ language: 'en', text: 'कौन-सा विटामिन खट्टे फलों जैसे नींबू और संतरे में अधिक पाया जाता है?' })).toBe('hindi');
     expect(questionNtpcLanguage({ language: 'hi', text: 'Q1' })).toBe('hindi');
     expect(questionNtpcLanguage({ text: 'Q1' })).toBeNull();
+  });
+});
+
+describe('questionsForPaperLanguage', () => {
+  const qs = [
+    { id: 1, translations: { hi: { text: 'x' }, ta: { text: 'y' } } },
+    { id: 2, translations: { hi: { text: 'x' } } },
+    { id: 3 },
+  ];
+  it('keeps only the paper language beside the English', () => {
+    const out = questionsForPaperLanguage(qs, 'RRB NTPC CBT-1 (Under-Graduate · Tamil) — Current Events');
+    expect(Object.keys(out[0].translations!)).toEqual(['ta']);
+    expect(out[1].translations).toEqual({});
+    expect(out[2]).toBe(qs[2]);
+  });
+  it('leaves English and untagged papers alone', () => {
+    expect(questionsForPaperLanguage(qs, 'RRB NTPC CBT-1 (Graduate · English) — A')).toBe(qs);
+    expect(questionsForPaperLanguage(qs, 'TNPSC Group 4 — A')).toBe(qs);
+  });
+});
+
+describe('questionsForPaperLanguage — other exams and codes', () => {
+  const qs = [{ translations: { hi: { text: 'x' } } }];
+  it('leaves a non-NTPC paper alone even if its title names a language', () => {
+    expect(questionsForPaperLanguage(qs, 'TNPSC Group 4 — General Tamil: Grammar')).toBe(qs);
+  });
+  it('reads the server code before the title', () => {
+    const out = questionsForPaperLanguage(qs, 'RRB NTPC CBT-1 (Graduate · English) — A', 'hi');
+    expect(out).toEqual(qs);
+    expect(questionsForPaperLanguage(qs, 'RRB NTPC CBT-1 (Graduate · English) — A', 'ta')[0].translations).toEqual({});
+  });
+});
+
+describe('defaultQuestionLanguage', () => {
+  it('opens an NTPC paper in the language it was taken in', () => {
+    expect(defaultQuestionLanguage('RRB NTPC CBT-1 (Graduate · Tamil) — A')).toBe('translation');
+    expect(defaultQuestionLanguage('RRB NTPC CBT-1 (Graduate · Hindi) — A')).toBe('translation');
+    expect(defaultQuestionLanguage('RRB NTPC CBT-1 (Graduate · English) — A')).toBe('primary');
+    expect(defaultQuestionLanguage('RRB NTPC CBT-1 (Graduate · English) — A', 'hi')).toBe('translation');
+    expect(defaultQuestionLanguage('RRB NTPC CBT-1 — A')).toBe('both');
+    expect(defaultQuestionLanguage('TNPSC Group 4 — General Tamil')).toBe('both');
   });
 });

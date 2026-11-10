@@ -63,7 +63,7 @@ export interface TnpscTest {
    */
   section_name?: string | null;
   /**
-   * Which language paper this is in — "tamil" | "english" — when the placement says (`tnpsc_language`).
+   * Which language paper this is in — "tamil" | "english", or the code "en" | "ta" | "hi" — when the placement says (`tnpsc_language`).
    * Absent on a server that does not send it, and the portal then reads the paper's title; see
    * `paperLanguage` in `exam-language.ts`.
    */

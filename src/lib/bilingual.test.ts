@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { bilingual, bilingualTitle, otherName, studentTitle } from './bilingual';
+import { describe, expect, it, vi } from 'vitest';
+import { bilingual, bilingualTitle, nodeName, ntpcNodeName, otherName, setReportNtpcLanguage, studentTitle } from './bilingual';
 
 describe('bilingual', () => {
   it('names a unit in both languages, English first, whichever language it arrives in', () => {
@@ -70,5 +70,75 @@ describe('paper language', () => {
     expect(paperName('பிழை திருத்தம்', 'ta')).toBe('பிழை திருத்தம்');
     expect(paperName('Chemistry', null)).toBe('Chemistry / வேதியியல்');
     expect(paperTitle('Grammar: Orthography · Mixed', 'ta')).toBe('இலக்கணம்: எழுத்திலக்கணம் · Mixed');
+  });
+});
+
+describe('RRB NTPC titles follow the paper language', () => {
+  it('drops the Tamil pair from an English paper and puts Hindi beside a Hindi one', () => {
+    expect(bilingualTitle('RRB NTPC CBT-1 (Under-Graduate · English) — Current Events / நடப்பு நிகழ்வுகள் · Simple')).toBe('RRB NTPC CBT-1 (Under-Graduate · English) — Current Events · Simple');
+    const hi = bilingualTitle('RRB NTPC CBT-1 (Graduate · Hindi) — Current Events / நடப்பு நிகழ்வுகள் · Simple');
+    expect(hi).not.toMatch(/[஀-௿]/);
+    expect(hi.startsWith('RRB NTPC CBT-1 (Graduate · Hindi) — ')).toBe(true);
+    expect(hi.endsWith(' · Simple')).toBe(true);
+  });
+  it('leaves a Tamil paper bilingual as before', () => {
+    expect(bilingualTitle('RRB NTPC CBT-1 (Graduate · Tamil) — Current Events / நடப்பு நிகழ்வுகள் · Simple')).toContain('நடப்பு நிகழ்வுகள்');
+  });
+});
+
+describe('RRB NTPC titles follow the paper language first', () => {
+  const stub = (language: string) => {
+    const store: Record<string, string> = { 'mge.ntpc-prefs.u1': JSON.stringify({ level: 'graduate', language }) };
+    vi.stubGlobal(
+      'localStorage',
+      new Proxy(store, { get: (t, k) => (k === 'getItem' ? (x: string) => t[x] ?? null : k === 'setItem' ? (x: string, v: string) => void (t[x] = v) : (t as any)[k]) }),
+    );
+  };
+  it('a Tamil paper reads in Tamil whatever the aspirant chose', () => {
+    stub('hindi');
+    try {
+      const t = bilingualTitle('RRB NTPC CBT-1 (Under-Graduate · Tamil) — Current Events / நடப்பு நிகழ்வுகள் · Simple');
+      expect(t).toMatch(/[஀-௿]/);
+      expect(t).not.toMatch(/[ऀ-ॿ]/);
+      expect(t).not.toContain('Current Events');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+  it('the aspirant choice stands in for a paper that names no language', () => {
+    stub('hindi');
+    try {
+      const t = bilingualTitle('RRB NTPC CBT-1 — Percentage / சதவீதம் · Simple');
+      expect(t).not.toMatch(/[஀-௿]/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('RRB NTPC report names', () => {
+  it('are in the chosen language only, and plain otherwise', () => {
+    setReportNtpcLanguage('RRB NTPC CBT-1 (Graduate · English) — Percentage · Simple');
+    try {
+      expect(nodeName({ name: 'Percentage', nameLocal: 'சதவீதம்' })).toBe('Percentage');
+      expect(nodeName({ name: 'சதவீதம்' })).toBe('Percentage');
+      setReportNtpcLanguage('RRB NTPC CBT-1 (Graduate · Hindi) — Percentage · Simple');
+      expect(nodeName({ name: 'Percentage', nameLocal: 'சதவீதம்' })).not.toMatch(/[஀-௿]/);
+      setReportNtpcLanguage('RRB NTPC CBT-1 (Graduate · Tamil) — Percentage · Simple');
+      expect(nodeName({ name: 'Percentage' })).toBe('சதவீதம்');
+      setReportNtpcLanguage('RRB NTPC CBT-1 (Graduate · Hindi) — Percentage', 'ta');
+      expect(nodeName({ name: 'Percentage' })).toBe('சதவீதம்');
+      setReportNtpcLanguage('TNPSC Group 4 — Aptitude');
+      expect(nodeName({ name: 'Percentage' })).toContain(' / ');
+    } finally {
+      setReportNtpcLanguage(null);
+    }
+  });
+});
+
+describe('ntpcNodeName', () => {
+  it('names a unit in Tamil from the sheet when nothing else is registered', () => {
+    expect(ntpcNodeName('Current Events', null, 'tamil')).toMatch(/[஀-௿]/);
+    expect(ntpcNodeName('Current Events', null, 'english')).toBe('Current Events');
   });
 });

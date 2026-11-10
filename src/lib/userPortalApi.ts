@@ -604,6 +604,8 @@ export interface AttemptDetailResponse {
     test_name: string | null;
     /** The assessment's own title, as the admin named it — what a report is headed with. */
     assessment_title?: string | null;
+    /** The paper's language as a code ("en" | "ta" | "hi"), null when unknown. */
+    language?: string | null;
     test_mode: string | null;
     course_id: string | null;
     subject: string | null;

@@ -23,6 +23,7 @@ import { LogoMark, LogoTile, Wordmark } from '@/components/brand/Brand';
 import { SHOW_STUDY_PLAN } from '@/config/features';
 import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_LINK } from '@/config/support';
 import { useUserPortal } from '@/contexts/UserPortalContext';
+import { useNtpcPrefs } from '@/lib/ntpc-level';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
 import { GROUP_STAGE } from '@/hooks/use-progress-trend';
@@ -133,6 +134,7 @@ function HeaderAiCoach() {
 
 export function UserShell({ children, headerAction }: UserShellProps) {
   const { user, isAuthenticated, logout } = useUserPortal();
+  useNtpcPrefs(user?.user_id); // keeps NTPC titles in the aspirant's chosen language
   const { theme, toggleMode } = useTheme();
   const { pathname } = useLocation();
   const navigate = useNavigate();

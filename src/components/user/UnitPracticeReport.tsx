@@ -13,7 +13,8 @@
  * to do.
  */
 import { displayTitle } from '@/lib/display-title';
-import { bilingual, bilingualTitle } from '@/lib/bilingual';
+import { bilingualTitle, reportName } from '@/lib/bilingual';
+import { defaultQuestionLanguage } from '@/lib/ntpc-level';
 import { useMemo, useState } from 'react';
 import { Award, ChevronDown, CheckCircle2, Circle, Clock, MinusCircle, Trophy, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -177,7 +178,7 @@ export function UnitPracticeReport({
           {examName ? `${examName} · Practice set` : 'Practice set'}
         </p>
         <h2 className="mt-0.5 text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
-          {bilingualTitle(model.meta.testName) || bilingual(subject?.name) || 'Practice'}
+          {bilingualTitle(model.meta.testName) || reportName(subject?.name) || 'Practice'}
         </h2>
         <div className="mt-1.5 flex items-center gap-2 flex-wrap">
           {level && (
@@ -357,7 +358,7 @@ function CategoryBreakdown({
                 )}
               >
                 <span className={cn('h-2 w-2 flex-shrink-0 rounded-full', isPicked ? 'bg-white' : TONE[toneOf(acc)].dot)} />
-                <span className="min-w-0 flex-1 whitespace-nowrap md:whitespace-normal">{bilingual(c.name)}</span>
+                <span className="min-w-0 flex-1 whitespace-nowrap md:whitespace-normal">{reportName(c.name)}</span>
                 <span className={cn('tabular-nums', isPicked ? 'text-white/90' : 'text-gray-500 dark:text-gray-400')}>
                   {acc == null ? '—' : `${Math.round(acc)}%`}
                 </span>
@@ -390,7 +391,7 @@ function CategoryBreakdown({
               </div>
             </div>
             <div className="min-w-0">
-              <p className="text-base font-extrabold leading-snug text-gray-900 dark:text-gray-100">{bilingual(picked.name)}</p>
+              <p className="text-base font-extrabold leading-snug text-gray-900 dark:text-gray-100">{reportName(picked.name)}</p>
               <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
                 <b className="text-emerald-600 dark:text-emerald-400">{picked.correct}</b> right ·{' '}
                 <b className="text-rose-600 dark:text-rose-400">{wrong}</b> wrong or skipped · {picked.questions} question
@@ -415,7 +416,7 @@ function CategoryBreakdown({
                   const acc = pctOf(sub) ?? 0;
                   return (
                     <li key={sub.name} className="flex items-center gap-3">
-                      <span className="min-w-0 flex-1 text-xs font-medium text-gray-800 dark:text-gray-200">{bilingual(sub.name)}</span>
+                      <span className="min-w-0 flex-1 text-xs font-medium text-gray-800 dark:text-gray-200">{reportName(sub.name)}</span>
                       <div className="h-1.5 w-20 flex-shrink-0 overflow-hidden rounded-full bg-gray-100 sm:w-32 dark:bg-gray-800">
                         <div className={cn('h-full rounded-full', TONE[toneOf(acc)].stripe)} style={{ width: `${acc}%` }} />
                       </div>
@@ -453,7 +454,10 @@ function QuestionRecap({ model }: { model: AttemptReportModel }) {
     () => paperTranslationLang(model.questions, q => q.body),
     [model.questions],
   );
-  const [lang, setLang] = useState<Exclude<LangMode, 'both'>>('primary');
+  const [lang, setLang] = useState<Exclude<LangMode, 'both'>>(() => {
+    const d = defaultQuestionLanguage(model.meta.testName, model.meta.language);
+    return d === 'both' ? 'primary' : d;
+  });
 
   /** correct · wrong · skipped — the only three states a reviewed answer has. */
   const stateOf = (q: QuestionReviewItem): 'correct' | 'incorrect' | 'skipped' =>
@@ -532,12 +536,12 @@ function QuestionRecap({ model }: { model: AttemptReportModel }) {
                       {/* The category, then the subtopic under it — e.g. அணியிலக்கணம் · உவமை அணி. */}
                       {q.category && (
                         <span className="rounded bg-gray-50 px-1.5 py-0.5 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                          {bilingual(q.category)}
+                          {reportName(q.category)}
                         </span>
                       )}
                       {(q.subtopic ?? q.subtopic_name) && (
                         <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
-                          {bilingual(q.subtopic ?? q.subtopic_name)}
+                          {reportName(q.subtopic ?? q.subtopic_name)}
                         </span>
                       )}
                       {q.difficulty && (

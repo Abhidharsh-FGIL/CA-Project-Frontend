@@ -8,6 +8,7 @@ import {
   fromLocalInput,
   isEditable,
   isPromotional,
+  onDashboard,
   istDay,
   promotionalPhase,
   returnTo,
@@ -156,5 +157,22 @@ describe('toLeaderboard — tolerant of how the server words it', () => {
   it('never leaves the rows undefined', () => {
     expect(toLeaderboard({}, 'x')).toMatchObject({ top: [], total_participants: 0, published: true, assessment_id: 'x' });
     expect(toLeaderboard(null, 'x').top).toEqual([]);
+  });
+});
+
+describe('onDashboard — a closed test the student took stays for six hours', () => {
+  const taken = { ...promo, attempted: true };
+  it('lists a live or upcoming test', () => {
+    expect(onDashboard({ ...promo, attempted: false }, T('2026-11-10T11:00:00Z'))).toBe(true);
+    expect(onDashboard({ ...promo, attempted: false }, T('2026-11-10T13:00:00Z'))).toBe(true);
+  });
+  it('keeps a test the student took until six hours after it closed', () => {
+    expect(onDashboard(taken, T('2026-11-10T14:30:00Z'))).toBe(true);
+    expect(onDashboard(taken, T('2026-11-10T19:59:00Z'))).toBe(true);
+    expect(onDashboard(taken, T('2026-11-10T20:00:00Z'))).toBe(false);
+    expect(onDashboard(taken, T('2026-11-12T09:00:00Z'))).toBe(false);
+  });
+  it('drops a closed test the student did not take at once', () => {
+    expect(onDashboard({ ...promo, attempted: false }, T('2026-11-10T14:01:00Z'))).toBe(false);
   });
 });

@@ -38,6 +38,7 @@ import { resolveExamContext, type ExamContext } from '@/lib/exam-report-config';
 import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { resolveLanguage, translationOf, type LangMode } from '@/lib/question-language';
+import { defaultQuestionLanguage } from '@/lib/ntpc-level';
 import { downloadQuestionCsv } from '@/lib/question-export';
 import { downloadReportPdf } from '@/lib/print-report';
 import { readProctoringRecord } from '@/lib/proctoring-record';
@@ -45,7 +46,7 @@ import { canDownloadQuestions } from '@/lib/download-access';
 import { ReportLanguageProvider, type ReportLanguage } from '@/components/user/report-ui';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { bilingual } from '@/lib/bilingual';
+import { reportName } from '@/lib/bilingual';
 import { buildAttemptReport, factsFromModel } from '@/lib/attempt-report';
 import { DEPTH_NOTE, reportDepth, showsPanel } from '@/lib/report-depth';
 import { UnitPracticeReport } from '@/components/user/UnitPracticeReport';
@@ -269,18 +270,18 @@ function QuestionCard({
             {/* The category and the subtopic under it. The subject only where a question has no category. */}
             {q.category ? (
               <span className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded font-medium">
-                {bilingual(q.category)}
+                {reportName(q.category)}
               </span>
             ) : (
               q.subject && (
                 <span className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded font-medium">
-                  {bilingual(q.subject)}
+                  {reportName(q.subject)}
                 </span>
               )
             )}
             {(q.subtopic ?? q.subtopic_name) && (
               <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.5 rounded font-medium">
-                {bilingual(q.subtopic ?? q.subtopic_name)}
+                {reportName(q.subtopic ?? q.subtopic_name)}
               </span>
             )}
             {q.time_spent_seconds > 0 && (
@@ -696,6 +697,15 @@ export function AttemptReport({
      */
     return buildAttemptReport(detail, {}, { ...examContext, totalQuestions: null, durationSec: null });
   }, [detail, examContext, placement]);
+
+  // An RRB NTPC paper's questions open in the language it was taken in.
+  const attemptKey = model?.meta.attemptId;
+  useEffect(() => {
+    if (!model) return;
+    const d = defaultQuestionLanguage(model.meta.testName, model.meta.language);
+    setQuestionLang(d === 'both' ? 'primary' : d);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attemptKey]);
 
   /**
    * The report the user sees right now is already complete — every section

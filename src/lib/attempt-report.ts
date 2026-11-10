@@ -28,7 +28,8 @@ import type {
 } from './userPortalApi';
 import { negativeMarkLoss, type ExamContext, type ExamTaxonomyNode } from './exam-report-config';
 import { difficultyLabel } from '@/lib/eval-difficulty';
-import { bilingual, isTamil, nodeName, registerPair } from '@/lib/bilingual';
+import { bilingual, isTamil, nodeName, registerPair, setReportNtpcLanguage } from '@/lib/bilingual';
+import { questionsForPaperLanguage } from '@/lib/ntpc-level';
 import { findStage, resolveSubjectId, unitNameForId } from '@/config/tnpsc';
 import { subjectIdForQuestion } from '@/lib/unit-pool';
 
@@ -320,6 +321,8 @@ export interface AttemptReportModel {
   meta: {
     attemptId: string;
     testName: string;
+    /** The paper's language as the server's code ("en" | "ta" | "hi"), null when unknown. */
+    language?: string | null;
     examName: string | null;
     mode: string | null;
     date: string | null;
@@ -826,6 +829,7 @@ export function normalizeAttemptDetail(detail: AttemptDetailResponse): AttemptDe
   const attempt = raw.attempt ?? {
     attempt_id: raw.attempt_id ?? '',
     test_name: raw.assessment_title ?? raw.test_name ?? null,
+    language: raw.language ?? null,
     test_mode: raw.test_mode ?? raw.mode ?? null,
     course_id: raw.course_id ?? null,
     subject: raw.subject ?? null,
@@ -845,9 +849,11 @@ export function normalizeAttemptDetail(detail: AttemptDetailResponse): AttemptDe
     registerPair(q.category, q.category_en, q.category_ta, q.category_hi);
     registerPair(q.subtopic ?? q.sub_topic ?? q.subtopic_name, q.subtopic_en, q.subtopic_ta, q.subtopic_hi);
     registerPair(q.unit_name, null, q.unit_name_ta, q.unit_name_hi);
+    registerPair(q.subject_name, null, q.subject_name_ta, q.subject_name_hi);
+    registerPair(q.topic ?? q.chapter ?? q.topic_name, q.topic_name_en, q.topic_name_ta, q.topic_name_hi);
   }
 
-  const questions: QuestionReviewItem[] = (raw.questions ?? []).map((q: any, i: number) => ({
+  const questions: QuestionReviewItem[] = questionsForPaperLanguage(raw.questions ?? [], attempt.assessment_title ?? attempt.test_name, attempt.language ?? raw.language).map((q: any, i: number) => ({
     ...q,
     question_id: q.question_id ?? q.id ?? `q${i + 1}`,
     number: q.number ?? i + 1,
@@ -918,6 +924,8 @@ export function buildAttemptReport(
   const cfg = { ...DEFAULT_REPORT_CONFIG, ...config };
   // Accept either payload shape before anything reads a field off it.
   const normalized = normalizeAttemptDetail(detail);
+  // An RRB NTPC report names its units, categories and sub-categories in the aspirant's language.
+  setReportNtpcLanguage(detail.attempt?.assessment_title ?? detail.attempt?.test_name, detail.attempt?.language ?? (detail as any).language);
   detail = normalized;
   const questions = normalized.questions ?? [];
   const breakdown = detail.performance_breakdown ?? null;
@@ -1447,6 +1455,7 @@ export function buildAttemptReport(
     meta: {
       attemptId: detail.attempt?.attempt_id ?? '',
       testName: displayTitle(detail.attempt?.assessment_title ?? detail.attempt?.test_name) || 'Test attempt',
+      language: detail.attempt?.language ?? (detail as any).language ?? null,
       examName: detail.attempt?.subject ?? null,
       mode: detail.attempt?.test_mode ?? null,
       date: detail.attempt?.start_time ?? null,

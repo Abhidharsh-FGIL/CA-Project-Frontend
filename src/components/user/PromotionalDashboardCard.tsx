@@ -2,19 +2,19 @@ import { Link } from 'react-router-dom';
 import { CalendarClock, Gift } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMyPromotional } from '@/hooks/use-my-promotional';
-import { promotionalPhase, whenLabel, type PromotionalAssessment } from '@/lib/promotionalApi';
+import { onDashboard, promotionalPhase, whenLabel, type PromotionalAssessment } from '@/lib/promotionalApi';
 import { promotionalResultPath, promotionalTestPath } from '@/pages/user/PromotionalTestPage';
 import { shortCountdown, useNow } from '@/components/promotional/Countdown';
 
 /**
  * The student's free promotional tests on the dashboard: upcoming ones with a countdown, live ones to start, and
- * recently closed ones they took, to see their result — only while there is nothing newer. Nothing at all when there are none.
+ * closed ones they took, to see their result, for six hours after they close — and only while there is nothing newer. Nothing at all when there are none.
  */
 export function PromotionalDashboardCard() {
   const { data } = useMyPromotional();
   const now = useNow(0, 1000);
   const all = (data ?? [])
-    .filter(p => promotionalPhase(p, now) !== 'ended' || p.attempted)
+    .filter(p => onDashboard(p, now))
     .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at));
   // Once there is a test to take (live) or to wait for (upcoming), the closed ones step aside; they show again only
   // when nothing newer is on.

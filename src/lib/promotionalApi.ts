@@ -87,6 +87,24 @@ export function promotionalPhase(p: Pick<PromotionalAssessment, 'starts_at' | 'e
   return 'live';
 }
 
+/** How long a test the student took stays on the dashboard after it closes, so they can open their result. */
+export const DASHBOARD_RESULT_LINGER_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Whether the dashboard still lists a test: one open or to come, or one the student took that closed less than six
+ * hours ago. A closed test they did not take, or took and closed longer ago, is gone from it (the result stays on
+ * their History).
+ */
+export function onDashboard(
+  p: Pick<PromotionalAssessment, 'starts_at' | 'ends_at' | 'is_active' | 'attempted'>,
+  now: number,
+): boolean {
+  if (promotionalPhase(p, now) !== 'ended') return true;
+  if (!p.attempted) return false;
+  const end = Date.parse(p.ends_at);
+  return !Number.isFinite(end) || now < end + DASHBOARD_RESULT_LINGER_MS;
+}
+
 /** When the ranks come out. */
 export const resultsAt = (p: Pick<PromotionalAssessment, 'ends_at' | 'results_at'>): string => p.results_at || p.ends_at;
 

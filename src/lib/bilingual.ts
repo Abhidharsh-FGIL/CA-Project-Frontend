@@ -11,6 +11,8 @@
 import { TNPSC_GROUPS, stageUnits, unitTopics } from '@/config/tnpsc';
 import { displayTitle } from '@/lib/display-title';
 import { registerHindi } from '@/lib/hindi-names';
+import { activeNtpcLanguage, languageOfNtpcCode, ntpcLanguageOfTitle, type NtpcLanguage } from '@/lib/ntpc-level';
+import { ntpcLabel } from '@/config/rrb-ntpc';
 
 export const BILINGUAL_SEPARATOR = ' / ';
 
@@ -466,6 +468,24 @@ const NOT_A_NAME = /^(mixed|simple|medium|complex|full set|full mock|set \d+|par
  */
 export function bilingualTitle(title: string | null | undefined): string {
   const t = (title ?? '').trim();
+  // An RRB NTPC paper's names follow its own language, not Tamil: the title may already carry a Tamil pair
+  // ("Current Events / நடப்பு நிகழ்வுகள்"), which a Hindi or English paper drops. The language is the one the paper
+  // was taken in (the head of its title), else the aspirant's choice; Hindi names are the ones the Exams screen shows.
+  const ntpc = /^RRB NTPC/i.test(t) ? ntpcLanguageOfTitle(t) ?? activeNtpcLanguage() : null;
+  if (ntpc) {
+    const at = t.indexOf(' — ');
+    if (at < 0) return t;
+    const rest = t
+      .slice(at + 3)
+      .split(/(\s*[:·|]\s*)/)
+      .map(part => {
+        if (/^\s*[:·|]\s*$/.test(part) || NOT_A_NAME.test(part.trim())) return part;
+        const en = part.split(BILINGUAL_SEPARATOR).map(x => x.trim()).find(x => x && !isTamil(x)) ?? part.trim();
+        return ntpcNodeName(en, null, ntpc);
+      })
+      .join('');
+    return `${t.slice(0, at)} — ${rest}`;
+  }
   if (!t || t.includes(BILINGUAL_SEPARATOR)) return t;
   return t
     .split(/(\s*[:·|]\s*|\s+[—–-]\s+)/)
@@ -510,12 +530,47 @@ export function unitIdLang(id: string | null | undefined): PaperLang {
 }
 
 /**
+ * The language an RRB NTPC report is read in — the language the paper was taken in — set by the report builder for the
+ * attempt it is building (null for every other exam). The aspirant's own choice stands in only for a paper that names none. While it is set, every unit, category and sub-category name the report shows is in that language only.
+ */
+let reportNtpcLanguage: NtpcLanguage | null = null;
+
+/** Called with the attempt's test title when a report is built: NTPC reports follow the aspirant's chosen language. */
+export function setReportNtpcLanguage(testTitle: string | null | undefined, paperLanguage?: string | null): void {
+  const t = (testTitle ?? '').trim();
+  // The paper's own language is the server's code where it sent one, else the title's.
+  reportNtpcLanguage = /^RRB NTPC/i.test(t) ? languageOfNtpcCode(paperLanguage) ?? ntpcLanguageOfTitle(t) ?? activeNtpcLanguage() : null;
+}
+
+/**
+ * A unit, category or sub-category name as a report shows it: in the one language an NTPC report is read in, and in both
+ * languages ("English / தமிழ்") for every other exam.
+ */
+export function reportName(name: string | null | undefined): string {
+  const n = (name ?? '').trim();
+  return reportNtpcLanguage && n ? ntpcNodeName(n, null, reportNtpcLanguage) : bilingual(n);
+}
+
+/**
+ * One name in a single NTPC language. The paper may word it in Tamil, so the English is found first; then the server's
+ * pair for the chosen language (`name_hi`, `name_ta` on the category, sub-category and unit) or the sheet's, else the English.
+ */
+export function ntpcNodeName(name: string, other: string | null, language: NtpcLanguage): string {
+  const en = isTamil(name) ? otherName(name) ?? name : name;
+  if (language === 'english') return en;
+  if (language === 'hindi') return ntpcLabel(en, 'hindi');
+  const ta = isTamil(name) ? name : other ?? otherName(en) ?? ntpcLabel(en, 'tamil');
+  return ta && isTamil(ta) ? ta : en;
+}
+
+/**
  * A report node's name as its paper shows it: a unit of General Tamil or General English in that paper's language,
  * every other node in both, using the node's own other-language name when it carries one.
  */
 export function nodeName(node: { name: string; nameLocal?: string | null; subjectId?: string | null; lang?: PaperLang }): string {
   const local = node.nameLocal?.trim();
   const other = local && isTamil(local) !== isTamil(node.name) ? local : null;
+  if (reportNtpcLanguage) return ntpcNodeName(node.name, other, reportNtpcLanguage);
   const lang = node.lang ?? unitIdLang(node.subjectId);
   return lang ? inLanguage(node.name, lang, other) : bilingual(node.name, other);
 }
