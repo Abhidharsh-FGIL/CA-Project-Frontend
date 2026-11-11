@@ -110,11 +110,18 @@ function Listing({ rows, loading, error, onNew, onOpen }: {
   // The switch turns a test on or off at any time; off, students cannot open it whatever the times say.
   const toggle = useMutation({
     mutationFn: (v: { id: string; on: boolean }) => updatePromotional(v.id, { is_active: v.on }),
-    onSuccess: (saved, v) => {
-      qc.invalidateQueries({ queryKey: ['promotional'] });
-      // The server must hand back what it kept. A reply without `is_active` means it ignored the switch, so say so
-      // instead of announcing a change that a refresh would undo.
-      if (saved?.is_active !== v.on) {
+    onSuccess: async (saved, v) => {
+      // The reply may be a bare acknowledgement with no `is_active` in it. Then read what the server kept from the list
+      // it holds now — only a list that still disagrees means the switch was ignored.
+      let kept = saved?.is_active;
+      await qc.refetchQueries({ queryKey: ['promotional'] });
+      if (kept === undefined) {
+        for (const [, rows] of qc.getQueriesData<PromotionalAssessment[]>({ queryKey: ['promotional'] })) {
+          const row = Array.isArray(rows) ? rows.find(r => r?.id === v.id) : undefined;
+          if (row) kept = row.is_active ?? true;
+        }
+      }
+      if (kept !== v.on) {
         toast.error('The server did not save the switch. It needs the is_active field (see BACKEND_PROMOTIONAL.md §4).');
         return;
       }
@@ -231,6 +238,11 @@ function EditDialog({ promo, onClose }: { promo: PromotionalAssessment; onClose:
       qc.invalidateQueries({ queryKey: ['promotional'] });
       toast.success('Promotional test updated');
       onClose();
+    },
+    // A test that has opened is locked (409 PROMO_LOCKED); say so instead of leaving Save doing nothing.
+    onError: (e: unknown) => {
+      qc.invalidateQueries({ queryKey: ['promotional'] });
+      toast.error(e instanceof Error && e.message ? e.message : 'Could not save. A test cannot be changed once it has opened.');
     },
   });
 

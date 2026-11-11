@@ -299,9 +299,11 @@ export default function TnpscStagePage() {
   // Key Topics leads, then Practice, then Exam — the order the tabs are shown in. Opening the page with no tab
   // named lands on the first of them; the other two are named in the address.
   const tabParam = searchParams.get('tab');
-  const tab: Tab = tabParam === 'exam' || tabParam === 'mock' ? 'exam' : tabParam === 'practice' ? 'practice' : 'topics';
+  // RRB NTPC has no Key Topics: it opens on Practice by Unit, and the tab is not offered.
+  const defaultTab: Tab = ntpc ? 'practice' : 'topics';
+  const tab: Tab = tabParam === 'exam' || tabParam === 'mock' ? 'exam' : tabParam === 'practice' ? 'practice' : defaultTab;
   const setTab = (t: Tab) => {
-    setSearchParams(t === 'topics' ? {} : { tab: t }, { replace: true });
+    setSearchParams(t === defaultTab ? {} : { tab: t }, { replace: true });
     // The drill belongs to the Practice track; carrying it into Exam would leave
     // the syllabus panel describing a section the pane is no longer showing.
     setDrillKey(null);
@@ -550,7 +552,7 @@ export default function TnpscStagePage() {
 
         <div className="min-w-0 space-y-4">
           <div ref={pathRef} className="scroll-mt-4">
-            <TrackTabs tab={tab} onChange={setTab} />
+            <TrackTabs tab={tab} onChange={setTab} hideTopics={ntpc} />
           </div>
 
           {isLoading ? (
@@ -1636,12 +1638,13 @@ const PATH_STEPS: Array<{
   },
 ];
 
-function TrackTabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
+function TrackTabs({ tab, onChange, hideTopics }: { tab: Tab; onChange: (t: Tab) => void; hideTopics?: boolean }) {
   const logo = examLogo(useParams<{ groupId: string }>().groupId);
+  const steps = hideTopics ? PATH_STEPS.filter(it => it.key !== 'topics') : PATH_STEPS;
   return (
     <div>
-      <div role="tablist" aria-label="Test type" className="grid grid-cols-3 gap-2 sm:gap-3">
-        {PATH_STEPS.map(it => {
+      <div role="tablist" aria-label="Test type" className={cn('grid gap-2 sm:gap-3', steps.length === 2 ? 'grid-cols-2' : 'grid-cols-3')}>
+        {steps.map(it => {
           const active = it.key === tab;
           return (
             <button
