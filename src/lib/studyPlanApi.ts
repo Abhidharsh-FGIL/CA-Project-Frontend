@@ -23,6 +23,7 @@
  *   POST  study-plans/{id}/revise                         → CreatePlanResponse
  */
 import { userApi } from './api';
+import { fromWireRow, toWireGroup, toWireStage } from '@/config/rrb-ntpc';
 
 // ─── Intake ───────────────────────────────────────────────────────────────────
 
@@ -373,20 +374,39 @@ export function isFeatureAbsent(err: unknown): boolean {
 
 const BASE = '/api/v1/user';
 
+// ─── Wire codes ───────────────────────────────────────────────────────────────
+// The portal's exam and stage ids are not always the backend's: RRB NTPC is `rrb-ntpc-cbt-1` / `rrb-ntpc-cbt-1-exam`
+// here and `rrb-ntpc` / `rrb-ntpc-cbt-1` there. Ids go out in the backend's codes and come back in the portal's.
+
+/** An intake (or part of one) with its exam and stage in the backend's codes. */
+function toWireIntake<T extends Partial<StudyPlanIntake>>(intake: T): T {
+  return {
+    ...intake,
+    ...(intake.group_id ? { group_id: toWireGroup(intake.group_id) } : {}),
+    ...(intake.stage_id ? { stage_id: toWireStage(intake.stage_id) } : {}),
+  };
+}
+
+/** A plan the backend sent, with its own exam and stage and its intake's back in the portal's codes. */
+function fromWirePlan(plan: StudyPlan): StudyPlan {
+  if (!plan) return plan;
+  return fromWireRow({ ...plan, intake: plan.intake && fromWireRow(plan.intake) });
+}
+
 // ─── Calls ────────────────────────────────────────────────────────────────────
 
 export function getIntakeOptions(groupId: string, stageId: string): Promise<IntakeOptions> {
-  const q = new URLSearchParams({ group_id: groupId, stage_id: stageId });
-  return userApi.get<IntakeOptions>(`${BASE}/study-plan/intake-options?${q}`);
+  const q = new URLSearchParams({ group_id: toWireGroup(groupId), stage_id: toWireStage(stageId) });
+  return userApi.get<IntakeOptions>(`${BASE}/study-plan/intake-options?${q}`).then(fromWireRow);
 }
 
 /** Dry run — writes nothing. Safe to call on every wizard keystroke (debounced). */
 export function checkFeasibility(intake: StudyPlanIntake): Promise<Feasibility> {
-  return userApi.post<Feasibility>(`${BASE}/study-plan/feasibility`, intake);
+  return userApi.post<Feasibility>(`${BASE}/study-plan/feasibility`, toWireIntake(intake));
 }
 
 export function createStudyPlan(intake: StudyPlanIntake): Promise<CreatePlanResponse> {
-  return userApi.post<CreatePlanResponse>(`${BASE}/study-plans`, intake);
+  return userApi.post<CreatePlanResponse>(`${BASE}/study-plans`, toWireIntake(intake));
 }
 
 export function getPlanStatus(planId: string): Promise<PlanJobStatus> {
@@ -396,15 +416,17 @@ export function getPlanStatus(planId: string): Promise<PlanJobStatus> {
 /** 204 → null. No active plan is a normal state, not an error. */
 export async function getActivePlan(): Promise<ActivePlanResponse | null> {
   const res = await userApi.get<ActivePlanResponse | undefined>(`${BASE}/study-plans/active`);
-  return res ?? null;
+  return res ? { ...res, plan: fromWirePlan(res.plan) } : null;
 }
 
 export function listStudyPlans(): Promise<{ items: StudyPlan[]; total: number }> {
-  return userApi.get<{ items: StudyPlan[]; total: number }>(`${BASE}/study-plans`);
+  return userApi
+    .get<{ items: StudyPlan[]; total: number }>(`${BASE}/study-plans`)
+    .then(res => ({ ...res, items: (res.items ?? []).map(fromWirePlan) }));
 }
 
 export function getStudyPlan(planId: string): Promise<StudyPlan> {
-  return userApi.get<StudyPlan>(`${BASE}/study-plans/${planId}`);
+  return userApi.get<StudyPlan>(`${BASE}/study-plans/${planId}`).then(fromWirePlan);
 }
 
 /** Range is inclusive and capped at 62 days server-side (RANGE_TOO_LARGE beyond). */
@@ -434,14 +456,16 @@ export function updateStudyPlan(
   planId: string,
   patch: { status?: PlanStatus; intake?: Partial<StudyPlanIntake> },
 ): Promise<StudyPlan> {
-  return userApi.patch<StudyPlan>(`${BASE}/study-plans/${planId}`, patch);
+  return userApi
+    .patch<StudyPlan>(`${BASE}/study-plans/${planId}`, patch.intake ? { ...patch, intake: toWireIntake(patch.intake) } : patch)
+    .then(fromWirePlan);
 }
 
 export function reschedulePlan(
   planId: string,
   body: { from: string; strategy: 'compress' | 'shift' },
 ): Promise<StudyPlan> {
-  return userApi.post<StudyPlan>(`${BASE}/study-plans/${planId}/reschedule`, body);
+  return userApi.post<StudyPlan>(`${BASE}/study-plans/${planId}/reschedule`, body).then(fromWirePlan);
 }
 
 /** Regenerate forward from a newer attempt. Versions the plan; never overwrites. */

@@ -57,6 +57,7 @@ import {
   type Recommendations,
   type RecommendationType,
   type WeakMapUnit,
+  pickName,
 } from '@/lib/recommendationsApi';
 
 /**
@@ -67,13 +68,15 @@ import {
 function reasonText(r: Recommendation, text: string | null | undefined): string {
   const t = text ?? '';
   if (!t) return t;
+  // Each name as the pick shows it — an RRB NTPC pick's in the aspirant's paper language, any other in both.
+  const shown = (n: string) => pickName(r, n);
   const names = [r.category?.name, r.subcategory?.name, r.unit?.name, r.unit ? unitNameForId(r.unit.id) : null]
     .map(n => (n ?? '').trim())
-    .filter(n => n && bilingual(n) !== n && !t.includes(bilingual(n)));
+    .filter(n => n && shown(n) !== n && !t.includes(shown(n)));
   const list = [...new Set(names)].sort((a, b) => b.length - a.length);
   if (list.length === 0) return t;
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return t.replace(new RegExp(list.map(esc).join('|'), 'g'), m => bilingual(m));
+  return t.replace(new RegExp(list.map(esc).join('|'), 'g'), m => shown(m));
 }
 
 // ─── Look ────────────────────────────────────────────────────────────────────

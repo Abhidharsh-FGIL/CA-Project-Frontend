@@ -6,10 +6,12 @@
  * recommendations handoff for the maths.
  */
 import { userApi } from './api';
+import { toWireGroup, toWireStage } from '@/config/rrb-ntpc';
 import { stageUnits, unitNameForId, type TnpscStage } from '@/config/tnpsc';
 import type { TnpscTest } from './tnpscApi';
 import { textLanguage, type ExamLanguage } from './exam-language';
-import { bilingualTitle, isTamil, paperName, registerPair, type PaperLang } from './bilingual';
+import { bilingual, bilingualTitle, isTamil, ntpcNodeName, paperName, registerPair, type PaperLang } from './bilingual';
+import { activeNtpcLanguage } from './ntpc-level';
 
 export type RecommendationType = 'fix_weak' | 'start_new' | 'revise' | 'level_up' | 'full_mock';
 export type RecommendationStatus = 'ready' | 'computing' | 'not_enough_data';
@@ -107,18 +109,23 @@ export interface Recommendations {
   improved: Improvement[];
 }
 
+/**
+ * The exam and stage as the backend names them. The portal's RRB NTPC ids are its own (`rrb-ntpc-cbt-1`,
+ * `rrb-ntpc-cbt-1-exam`); the backend's are `rrb-ntpc` and `rrb-ntpc-cbt-1`, and it refuses any other.
+ */
+export const recommendationsQuery = (exam: string, stage: string) =>
+  `exam=${encodeURIComponent(toWireGroup(exam))}&stage=${encodeURIComponent(toWireStage(stage))}`;
+
 export const recommendationsApi = {
   get: async (exam: string, stage: string) => {
-    const res = await userApi.get<Recommendations>(
-      `/api/v1/user/recommendations?exam=${encodeURIComponent(exam)}&stage=${encodeURIComponent(stage)}`,
-    );
+    const res = await userApi.get<Recommendations>(`/api/v1/user/recommendations?${recommendationsQuery(exam, stage)}`);
     registerRecommendationNames(res);
     return res;
   },
   /** Answers with the refreshed picks (`recommendations`), the dismissed one replaced by the next. */
   feedback: (exam: string, stage: string, recId: string, action: RecommendationFeedback) =>
     userApi.post<{ ok: boolean; recommendations?: Recommendations }>(
-      `/api/v1/user/recommendations/${encodeURIComponent(recId)}/feedback?exam=${encodeURIComponent(exam)}&stage=${encodeURIComponent(stage)}`,
+      `/api/v1/user/recommendations/${encodeURIComponent(recId)}/feedback?${recommendationsQuery(exam, stage)}`,
       { action },
     ),
 };
@@ -182,8 +189,28 @@ export function masteryBand(score: number | null | undefined): 'none' | 'weak' |
  */
 export function displayUnitName(id: string | null | undefined, fallback: string): string {
   const name = unitNameForId(id) ?? fallback;
+  if (isNtpcUnit(id)) return ntpcPickName(name);
   const other = fallback && isTamil(fallback) !== isTamil(name) ? fallback : null;
   return paperName(name, unitPaperLang(id), other) || name;
+}
+
+/** An RRB NTPC unit ("n1-current-events", "n2-…"). */
+const isNtpcUnit = (id: string | null | undefined) => /^(?:unit:)?n[12]-/.test(id ?? '');
+
+/**
+ * A name in an RRB NTPC pick, in the one language the aspirant sits the paper in: English alone for English, Tamil or
+ * Hindi for those — never the Tamil pair beside an English paper's name. English when they have not chosen.
+ */
+function ntpcPickName(name: string): string {
+  return ntpcNodeName(name, null, activeNtpcLanguage() ?? 'english');
+}
+
+/**
+ * Any name in a pick (its category, sub-category or unit) as the pick shows it: an RRB NTPC pick's in the aspirant's
+ * paper language, every other one in both languages.
+ */
+export function pickName(r: Pick<Recommendation, 'unit'>, name: string): string {
+  return isNtpcUnit(r.unit?.id) ? ntpcPickName(name) : bilingual(name);
 }
 
 /** The language paper a unit id belongs to: 'g4-ta-…' is General Tamil (Tamil only), 'g4-en-…' General English (English only). */
@@ -207,6 +234,7 @@ export function recommendationPlace(r: Recommendation): string {
 /** The heading of a pick: the category its test covers, else the unit. The sub-category is shown as its focus. */
 export function recommendationTitle(r: Recommendation): string {
   if (r.type === 'full_mock') return 'Full mock test';
+  if (r.category?.name && isNtpcUnit(r.unit?.id)) return ntpcPickName(r.category.name);
   return r.category?.name ? paperName(r.category.name, unitPaperLang(r.unit?.id)) : r.unit ? displayUnitName(r.unit.id, r.unit.name) : 'Practice';
 }
 

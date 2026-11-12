@@ -46,6 +46,7 @@ import { canDownloadQuestions } from '@/lib/download-access';
 import { ReportLanguageProvider, type ReportLanguage } from '@/components/user/report-ui';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { announcePlanNotice } from '@/lib/plan-notice-bus';
 import { reportName } from '@/lib/bilingual';
 import { buildAttemptReport, factsFromModel } from '@/lib/attempt-report';
 import { DEPTH_NOTE, reportDepth, showsPanel } from '@/lib/report-depth';
@@ -493,16 +494,28 @@ export function ReportBody({ attempt, canDownloadPDF }: ReportBodyProps) {
   const { groups } = useTnpscCatalog();
   const [detail, setDetail] = useState<AttemptDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(false);
+  /** Why the attempt could not be read — its status and the server's words — so the screen can say which failure it was. */
+  const [fetchError, setFetchError] = useState<{ status: number | null; message: string } | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     setLoading(true);
-    setFetchError(false);
+    setFetchError(null);
     getAttemptDetail(attempt.attempt_id)
       .then(setDetail)
-      .catch(() => setFetchError(true))
+      .catch((err: unknown) => {
+        const e = err as { status?: unknown; message?: unknown; handled?: boolean } | null;
+        // A plan that does not include this report opens the plans popup, as every other refusal does.
+        if (!e?.handled) announcePlanNotice(err);
+        // eslint-disable-next-line no-console
+        console.error(`[report] GET /api/v1/user/history/${attempt.attempt_id} failed`, err);
+        setFetchError({
+          status: typeof e?.status === 'number' ? e.status : null,
+          message: typeof e?.message === 'string' ? e.message : '',
+        });
+      })
       .finally(() => setLoading(false));
-  }, [attempt.attempt_id]);
+  }, [attempt.attempt_id, reloadKey]);
 
   const courseName = attempt.course_id
     ? (courses.find((c: any) => c.course_id === attempt.course_id)?.name ?? null)
@@ -556,6 +569,7 @@ export function ReportBody({ attempt, canDownloadPDF }: ReportBodyProps) {
       canDownloadPDF={canDownloadPDF}
       loading={loading}
       fetchError={fetchError}
+      onRetry={() => setReloadKey(k => k + 1)}
       examContext={examContext}
       studentName={user?.name ?? 'Student'}
       progressView={
@@ -582,6 +596,7 @@ export function AttemptReport({
   canDownloadPDF,
   loading = false,
   fetchError = false,
+  onRetry,
   progressView,
   examContext = null,
   studentName = 'Student',
@@ -592,7 +607,10 @@ export function AttemptReport({
   courseName: string | null;
   canDownloadPDF: boolean;
   loading?: boolean;
-  fetchError?: boolean;
+  /** True, or why the attempt could not be read (its status and the server's words) when the caller knows. */
+  fetchError?: boolean | { status: number | null; message: string } | null;
+  /** Offered beside the error, when the caller can fetch again. */
+  onRetry?: () => void;
   /**
    * The rebuilt multi-attempt Progress Report. Supplied by the student portal,
    * which has the attempt history; the admin view leaves it undefined and falls
@@ -791,6 +809,16 @@ export function AttemptReport({
       return true;
     });
   }, [model, questionSubject, resultFilter]);
+  // The table's rows in the language chosen for the cards: the preview and both answers read off the translated stem
+  // and options, the way the opened card does. Grading is by position, so the answers still point at the same option.
+  const tableQuestions = useMemo(
+    () =>
+      visibleQuestions.map(q => {
+        const shown = resolveLanguage<string>(q, questionLang, { text: q.body, options: q.options, explanation: null });
+        return { ...q, body: shown.text, options: (shown.options as string[] | null) ?? q.options };
+      }),
+    [visibleQuestions, questionLang],
+  );
   const dateStr = attempt.start_time
     ? new Date(attempt.start_time).toLocaleDateString('en-IN', {
         day: '2-digit',
@@ -868,10 +896,38 @@ export function AttemptReport({
   }
 
   if (fetchError) {
+    // Which failure it was, in the reader's words; the server's own sentence and the status follow in small type,
+    // so a screenshot of this screen is enough to tell what went wrong.
+    const { status, message } = typeof fetchError === 'object' ? fetchError : { status: null, message: '' };
+    const reason =
+      status === 404
+        ? 'This report could not be found. It may have been removed.'
+        : status === 401
+          ? 'Your session has ended. Please log in again to see this report.'
+          : status === 403
+            ? 'This report is not available on your current plan.'
+            : status != null && status >= 500
+              ? 'The server could not prepare this report just now. Please try again in a moment.'
+              : 'Could not load report details. Please check your connection and try again.';
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3">
+      <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
         <AlertTriangle className="w-8 h-8 text-amber-500" />
-        <p className="text-sm text-gray-600 dark:text-gray-400">Could not load report details. Please try again.</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">{reason}</p>
+        {(status != null || message) && (
+          <p className="max-w-md text-[11px] text-gray-400 dark:text-gray-500">
+            {status != null ? `Error ${status}` : 'Error'}
+            {message ? ` · ${message}` : ''}
+          </p>
+        )}
+        {onRetry && status !== 404 && status !== 401 && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="mt-1 rounded-lg border border-gray-200 px-4 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+          >
+            Try again
+          </button>
+        )}
       </div>
     );
   }
@@ -1107,7 +1163,7 @@ export function AttemptReport({
             </div>
           ) : (
             <QuestionInsightsTable
-              questions={visibleQuestions as any}
+              questions={tableQuestions as any}
               page={questionPage}
               pageSize={QUESTIONS_PER_PAGE}
               onPage={setQuestionPage}

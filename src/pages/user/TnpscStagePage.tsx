@@ -87,7 +87,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { bilingual, bilingualTitle, inLanguage, paperLangOf, paperName, paperTitle, type PaperLang } from '@/lib/bilingual';
+import { bilingual, bilingualTitle, inLanguage, paperLangOf, paperName, paperTitle, unitIdLang, type PaperLang } from '@/lib/bilingual';
 
 /**
  * /user/exams/:groupId/:stageId
@@ -423,9 +423,14 @@ export default function TnpscStagePage() {
       const tamilOnlySection = isTamilOnlySection(section);
       let names = (subjects.length ? subjects.map(x => x.name) : units.map(u => u.name)).filter(Boolean);
       // A section whose only subject is the section itself would describe itself: list its units instead,
-      // so every row says what is inside it in the same short form.
-      if (names.length <= 1 && names.every(x => norm(x) === norm(section.name))) {
-        names = units.map(u => (ntpc ? ntpcLabel(u.name, chosenLanguage ?? 'english') : bilingual(u.name, u.nameTa))).filter(Boolean);
+      // so every row says what is inside it in the same short form. "&" and "and" are the same name: RRB NTPC's
+      // "General Intelligence & Reasoning" section holds the subject "General Intelligence and Reasoning".
+      const sameName = (a: string, b: string) => norm(a.replace(/&/g, ' and ')) === norm(b.replace(/&/g, ' and '));
+      if (names.length <= 1 && names.every(x => sameName(x, section.name))) {
+        // A language paper's unit reads in its paper's language, known from its id ("g2-en-grammar") — not by its name, which both papers share.
+        names = units
+          .map(u => (ntpc ? ntpcLabel(u.name, chosenLanguage ?? 'english') : paperName(u.name, unitIdLang(u.key) ?? paperLangOf(section.name), u.nameTa)))
+          .filter(Boolean);
       }
       const blurb =
         names.length > 3 ? `${names.slice(0, 3).join(', ')} and more…` : names.join(', ');
@@ -601,7 +606,7 @@ export default function TnpscStagePage() {
                       order={i}
                       verb={verb}
                       passPercentage={mock.levels[0]?.required_percentage ?? mockPassPercentage()}
-                      lang={drill.lang}
+                      lang={unitIdLang(u.key) ?? drill.lang}
                     />
                   ),
                 )}
@@ -1064,7 +1069,7 @@ function MockCard({ test, index, passPercentage }: { test: TnpscTest; index: num
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="line-clamp-2 text-[15px] font-extrabold leading-snug text-gray-900 dark:text-gray-100">{bilingualTitle(test.title)}</p>
+            <p className="line-clamp-2 text-[15px] font-extrabold leading-snug text-gray-900 dark:text-gray-100">{paperTitle(test.title, unitIdLang(test.unit_id))}</p>
             {status}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -1879,7 +1884,7 @@ function LevelButton({ stat }: { stat: LevelStat }) {
     <Link
       to={locked ? '/user/subscription' : testHref(test)}
       state={{ from: here() }}
-      title={locked ? (test.lock_reason ?? 'Upgrade to unlock') : bilingualTitle(test.title)}
+      title={locked ? (test.lock_reason ?? 'Upgrade to unlock') : paperTitle(test.title, unitIdLang(test.unit_id))}
       className={className}
     >
       {body}
@@ -1967,7 +1972,7 @@ function PaperRow({
           compact ? 'text-[13px] leading-snug min-h-[2.1rem]' : 'text-[15px]',
         )}
       >
-        {label ?? bilingualTitle(test.title)}
+        {label ?? paperTitle(test.title, unitIdLang(test.unit_id))}
       </p>
       {test.is_completed && (
         <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full flex-shrink-0">
@@ -2215,7 +2220,7 @@ function SyllabusPanel({
               nameTa={u.nameTa}
               count={u.questions != null ? undefined : `${u.topics.length} topics`}
               topics={u.topics}
-              lang={drill.lang}
+              lang={unitIdLang(u.key) ?? drill.lang}
             />
           ))}
         </ul>
@@ -2304,7 +2309,7 @@ function SyllabusPanel({
                       nameTa={u.nameTa}
                       count={u.questions != null ? undefined : `${u.topics.length} topics`}
                       topics={u.topics}
-                      lang={sec.lang}
+                      lang={unitIdLang(u.key) ?? sec.lang}
                     />
                   ))}
                 </ul>

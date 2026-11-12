@@ -331,7 +331,8 @@ function maps() {
 /**
  * Names that belong to one of the two language papers, by key. A name shown with no paper beside it — a dashboard row,
  * a report line — is read in that paper's language: General Tamil's in Tamil only, General English's in English only.
- * A name both papers carry ("Grammar") reads as the Tamil paper's, the one a Tamil-speaking candidate sits. Generic
+ * A name both papers carry is read by its script: "Grammar" is General English's, "இலக்கணம்" General Tamil's — the
+ * server names the Tamil paper's units in Tamil and the English paper's in English, so the script says which. Generic
  * words the Tamil glossary also pairs ("Law", "Antonyms") are left out, so they stay bilingual elsewhere.
  */
 const GENERIC = new Set(['medicine', 'management', 'law', 'technology', 'media', 'informationtechnology', 'punctuation', 'essays', 'antonyms', 'synonyms'].map(key));
@@ -361,8 +362,8 @@ function languagePapers() {
   });
   put(ta, 'General Tamil', 'பொதுத் தமிழ்');
   put(en, 'General English', 'பொது ஆங்கிலம்');
-  // Names shared by both papers read as the Tamil paper's.
-  ta.forEach(k => en.delete(k));
+  // Names shared by both papers go by their script: an English one ("grammar") is the English paper's, a Tamil one the Tamil paper's.
+  [...ta].filter(k => en.has(k)).forEach(k => (isTamil(k) ? en : ta).delete(k));
   paperNames = { ta, en };
   return paperNames;
 }
@@ -498,6 +499,8 @@ export type PaperLang = 'ta' | 'en' | null;
 
 export function paperLangOf(paperName: string | null | undefined): PaperLang {
   const n = (paperName ?? '').trim();
+  // "General Tamil / General English" — both papers in one section — is neither language.
+  if (/\bgeneral english\b/i.test(n) && /\bgeneral tamil\b/i.test(n)) return null;
   if (/^general tamil\b/i.test(n) || n.startsWith('பொதுத் தமிழ்')) return 'ta';
   if (/^general english\b/i.test(n) || n.startsWith('பொது ஆங்கிலம்')) return 'en';
   return null;

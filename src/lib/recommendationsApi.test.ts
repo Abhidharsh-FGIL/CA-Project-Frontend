@@ -15,6 +15,8 @@ import {
   recommendationPlace,
   recommendationTitle,
   recommendedTestIds,
+  recommendationsQuery,
+  pickName,
   starterPicks,
   type Recommendation,
   type Recommendations,
@@ -33,6 +35,30 @@ const rec = (over: Partial<Recommendation> = {}): Recommendation => ({
   tip: null,
   reason_source: 'ai',
   ...over,
+});
+
+describe('an RRB NTPC pick', () => {
+  it('is named in English alone for an aspirant sitting it in English, with no Tamil beside it', () => {
+    const r = rec({ unit: { id: 'n1-current-events', name: 'Current Events', label: 'I' }, category: null });
+    expect(recommendationTitle(r)).toBe('Current Events');
+    expect(pickName(r, 'Current Events')).toBe('Current Events');
+  });
+
+  it('leaves a TNPSC pick in both languages', () => {
+    expect(pickName(rec({ unit: { id: 'g4-gs-polity', name: 'Indian Polity' } }), 'Indian Polity')).toBe('Indian Polity / இந்திய அரசியலமைப்பு');
+  });
+});
+
+describe('recommendationsQuery', () => {
+  it('names an RRB NTPC exam and stage in the backend codes', () => {
+    expect(recommendationsQuery('rrb-ntpc-cbt-1', 'rrb-ntpc-cbt-1-exam')).toBe('exam=rrb-ntpc&stage=rrb-ntpc-cbt-1');
+    expect(recommendationsQuery('rrb-ntpc-cbt-2', 'rrb-ntpc-cbt-2-exam')).toBe('exam=rrb-ntpc&stage=rrb-ntpc-cbt-2');
+  });
+
+  it('leaves the other exams as they are', () => {
+    expect(recommendationsQuery('group-2', 'group-2-prelims')).toBe('exam=group-2&stage=group-2-prelims');
+    expect(recommendationsQuery('gat-b', 'gat-b-exam')).toBe('exam=gat-b&stage=gat-b-exam');
+  });
 });
 
 describe('recommendationHref', () => {

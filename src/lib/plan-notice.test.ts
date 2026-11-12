@@ -113,6 +113,42 @@ describe('composePlanNotice — the limit', () => {
       expect(n.body[1]).toContain('**1 Subject-wise Practice Test**');
     });
 
+    it("reads the start endpoint's refusal as it is sent, and shows the server's running count", () => {
+      // POST /api/v1/user/eval-assessments/{id}/start → 403, as the live server answered.
+      const usage = {
+        tier: 'ultimate', billing_cycle: 'monthly', counted_from: '2026-11-04', resets_on: '2026-12-04', can_use_topup: true,
+        topup_mock_left: 0, topup_practice_left: 0, topup_tests_left: 0,
+        mock_limit: 5, free_mock_carried: 0, previous_mock_carried: 0, mock_used: 5, mock_plan_left: 0, mock_left: 0,
+        mock_used_all_time: 6, mock_overall: 6,
+        practice_limit: 50, free_practice_carried: 0, previous_practice_carried: 0, practice_used: 1, practice_plan_left: 49,
+        practice_left: 49, practice_used_all_time: 5, practice_overall: 54,
+      };
+      const message =
+        'Your Ultimate plan includes 5 mock tests, and you have used 5. Buy a top-up pack, wait till it renews on 04 Dec 2026, or upgrade your plan.';
+      const details = { kind: 'mock', limit: 5, used: 5, tier: 'ultimate', resets_on: '2026-12-04', topup_available: true, used_all_time: 6, overall: 6, usage };
+      const body = { success: false, error_code: 'PLAN_LIMIT_REACHED', message, details, detail: { code: 'PLAN_LIMIT_REACHED', message, details } };
+
+      const facts = planErrorFacts(toRequestError(body, 403))!;
+      expect(facts).toMatchObject({ code: 'PLAN_LIMIT_REACHED', kind: 'mock', limit: 5, used: 5 });
+      expect(facts.usage).toEqual({ mock: { overall: 6, used: 6, left: 0 }, practice: { overall: 54, used: 5, left: 49 } });
+
+      // The page's own count of practice left (29) gives way to the server's 49.
+      const n = composePlanNotice(facts, { current: ultimate, plans, left: { mock: 0, practice: 29 } });
+      expect(n.body[0]).toBe("You've completed all 5 mock tests included in your current plan.");
+      expect(n.usage).toEqual([
+        { label: 'Mock Tests', value: '6/6 Used', tone: 'used' },
+        { label: 'Practice Tests', value: '49 Remaining', tone: 'left' },
+      ]);
+    });
+
+    it('never shows more used than the total when only limit / used are sent', () => {
+      const n = composePlanNotice(
+        planErrorFacts(refusal({ code: 'PLAN_LIMIT_REACHED', message: 'm', kind: 'mock', limit: 5, used: 8 }))!,
+        { current: ultimate, plans, left: { mock: 0, practice: 3 } },
+      );
+      expect(n.usage[0].value).toBe('5/5 Used');
+    });
+
     it('counts the mock tests when the plan has several', () => {
       const n = composePlanNotice(limit('mock', 5), { current: ultimate, plans, left: { mock: 0, practice: 10 } });
       expect(n.body[0]).toBe("You've completed all 5 mock tests included in your current plan.");

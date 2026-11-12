@@ -71,6 +71,24 @@ describe('paper language', () => {
     expect(paperName('Chemistry', null)).toBe('Chemistry / வேதியியல்');
     expect(paperTitle('Grammar: Orthography · Mixed', 'ta')).toBe('இலக்கணம்: எழுத்திலக்கணம் · Mixed');
   });
+
+  it('reads a name both language papers carry by its script, not as the Tamil paper', async () => {
+    const { paperLangOf, paperTitle, unitIdLang } = await import('./bilingual');
+    // The General English units (g2-en-grammar …) arrive in English with no Tamil name.
+    expect(bilingual('Grammar')).toBe('Grammar');
+    expect(bilingual('Vocabulary')).toBe('Vocabulary');
+    expect(bilingual('Writing Skills')).toBe('Writing Skills');
+    expect(bilingualTitle('Grammar · Mixed')).toBe('Grammar · Mixed');
+    expect(studentTitle('Grammar · Mixed')).toBe('Grammar · Mixed');
+    // The General Tamil ones arrive in Tamil and stay Tamil.
+    expect(bilingual('இலக்கணம்')).toBe('இலக்கணம்');
+    expect(bilingual('சொல்லகராதி')).toBe('சொல்லகராதி');
+    // With the unit id, each paper reads in its own language whatever the title says.
+    expect(paperTitle('Grammar · Mixed', unitIdLang('g2-en-grammar'))).toBe('Grammar · Mixed');
+    expect(paperTitle('Grammar · Mixed', unitIdLang('g2-ta-grammar'))).toBe('இலக்கணம் · Mixed');
+    // A section holding both papers is neither language.
+    expect(paperLangOf('General Tamil / General English')).toBeNull();
+  });
 });
 
 describe('RRB NTPC titles follow the paper language', () => {

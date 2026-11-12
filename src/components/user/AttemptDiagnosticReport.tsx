@@ -52,6 +52,8 @@ import {
 } from 'lucide-react';
 import { LogoMark, Wordmark } from '@/components/brand/Brand';
 import { cn } from '@/lib/utils';
+import { MathText } from '@/components/ui/MathText';
+import { normalizeLatex } from '@/lib/latex-utils';
 import {
   ACCENT,
   InsightLine,
@@ -94,6 +96,7 @@ import {
 } from '@/lib/question-language';
 import type { ExamContext } from '@/lib/exam-report-config';
 import { groupUnitsBySubject } from '@/lib/unit-hierarchy';
+import { MAX_RADAR_AXES, radarSections, type RadarRow } from '@/lib/radar-axes';
 
 const fmtPct = (v: number | null) => (v == null ? '—' : `${v}%`);
 const fmtSec = (v: number | null) => (v == null ? '—' : `${Math.round(v)}s`);
@@ -742,20 +745,30 @@ export function PerformanceSnapshot({
   model: AttemptReportModel;
   onSelectSubject?: (subjectId: string) => void;
 }) {
-  const plotted = model.radar.filter(r => r.value != null);
+  const radar = model.radar;
+  const plotted = radar.filter(r => r.value != null);
   const target = model.config.targetAccuracy;
   const takeaways = useMemo(() => buildTakeaways(model), [model]);
+  // From 18 spokes the names collide (an RRB NTPC paper has 52 units), so every unit is drawn as a bar instead,
+  // under its section, and the card takes the full width.
+  const many = radar.length > MAX_RADAR_AXES;
+  const noun = model.groupedBy === 'unit' ? 'Unit' : 'Subject';
 
   return (
-    <div className="grid lg:grid-cols-[1.35fr_1fr] gap-3 sm:gap-4 items-start">
+    <div className={cn('grid gap-3 sm:gap-4 items-start', !many && 'lg:grid-cols-[1.35fr_1fr]')}>
       <ReportCard>
         <SectionHeader
           icon={<Target className="w-4 h-4" />}
-          title={model.groupedBy === 'unit' ? 'Unit Proficiency Radar' : 'Subject Proficiency Radar'}
+          title={many ? `${noun} Proficiency` : `${noun} Proficiency Radar`}
           subtitle="Questions answered correctly out of all questions, against target"
         />
         {plotted.length === 0 ? (
           <NotAvailable reason={`No ${model.groupedBy === 'unit' ? 'unit' : 'subject'} was attempted, so there is nothing to plot yet.`} />
+        ) : many ? (
+          <>
+            <ProficiencyBars rows={radar} target={target} onSelect={onSelectSubject} />
+            <WhatThisMeans>{radarExplanation(model, target, true)}</WhatThisMeans>
+          </>
         ) : plotted.length < 3 ? (
           <>
             {/* A shape needs three spokes. With one or two, bars against the target say the same thing plainly. */}
@@ -803,7 +816,7 @@ export function PerformanceSnapshot({
             <div className="h-[340px] sm:h-[380px]">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart
-                  data={model.radar.map(r => ({
+                  data={radar.map(r => ({
                     // Long syllabus names ran off the plot and collided with each
                     // other; the tooltip carries the full name.
                     subject: nodeName({ name: r.label, subjectId: r.subjectId }),
@@ -819,12 +832,12 @@ export function PerformanceSnapshot({
                       without hunting back to the table. */}
                   <PolarAngleAxis
                     dataKey="subject"
-                    tick={<RadarAxisTick rows={model.radar} />}
-                    onClick={(e: any) => onSelectSubject?.(model.radar[e?.index ?? -1]?.subjectId)}
+                    tick={<RadarAxisTick rows={radar} />}
+                    onClick={(e: any) => onSelectSubject?.(radar[e?.index ?? -1]?.subjectId)}
                     className="cursor-pointer"
                   />
                   <PolarRadiusAxis domain={[0, 100]} tickCount={5} angle={90} tick={false} axisLine={false} />
-                  <Tooltip content={<RadarTooltip rows={model.radar} target={target} />} />
+                  <Tooltip content={<RadarTooltip rows={radar} target={target} />} />
                   <Radar
                     name="Target"
                     dataKey="target"
@@ -870,6 +883,96 @@ export function PerformanceSnapshot({
         </ul>
       </ReportCard>
     </div>
+  );
+}
+
+/**
+ * Every unit as a bar against the target, under the section of the paper it sits in — what the radar shows, for a paper
+ * with too many units for one (an RRB NTPC paper has 52). A unit nobody reached is marked so, not drawn as 0%.
+ */
+function ProficiencyBars({ rows, target, onSelect }: { rows: RadarRow[]; target: number; onSelect?: (subjectId: string) => void }) {
+  const sections = useMemo(() => radarSections(rows), [rows]);
+  return (
+    <>
+      <div className="space-y-5 py-1">
+        {sections.map(sec => (
+          <section key={sec.name ?? '-'}>
+            {(sec.name || sections.length > 1) && (
+              <div className="mb-2 flex items-baseline justify-between gap-3 border-b border-gray-100 pb-1.5 dark:border-gray-800">
+                <h4 className="text-[11px] font-bold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                  {sec.name ? nodeName({ name: sec.name }) : 'Other units'}
+                </h4>
+                <span className="flex-shrink-0 text-[11px] tabular-nums text-gray-500 dark:text-gray-400">
+                  {sec.correct} of {sec.questions} correct · {sec.rows.length} unit{sec.rows.length === 1 ? '' : 's'}
+                </span>
+              </div>
+            )}
+            <ul className="grid gap-x-6 gap-y-0.5 sm:grid-cols-2 xl:grid-cols-3">
+              {sec.rows.map(r => (
+                <li key={r.subjectId}>
+                  <ProficiencyBar row={r} target={target} onSelect={onSelect} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-[10px] text-gray-500 dark:text-gray-400">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: ACCENT.violet.hex }} /> Below target
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> At or above target
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-3 w-0.5 rounded bg-slate-400" /> Target {target}%
+        </span>
+      </div>
+    </>
+  );
+}
+
+function ProficiencyBar({ row, target, onSelect }: { row: RadarRow; target: number; onSelect?: (subjectId: string) => void }) {
+  const name = nodeName({ name: row.label, subjectId: row.subjectId });
+  const reached = row.state !== 'NOT_ASSESSED' && row.value != null;
+  const v = Math.max(0, Math.min(100, row.value ?? 0));
+  const met = reached && v >= target;
+  const detail = reached
+    ? `${row.correct} of ${row.questions} correct${row.questions > row.evidenceCount ? ` · ${row.questions - row.evidenceCount} not attempted` : ''}`
+    : `Not attempted · ${row.questions} question${row.questions === 1 ? '' : 's'}`;
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect?.(row.subjectId)}
+      title={`${name} — ${detail}`}
+      className="group w-full rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 dark:hover:bg-gray-800/60"
+    >
+      <span className="flex items-baseline justify-between gap-2 text-[11px]">
+        <span className="min-w-0 truncate font-semibold text-gray-800 dark:text-gray-100">{name}</span>
+        <span className="flex-shrink-0 tabular-nums text-gray-500 dark:text-gray-400">
+          {reached ? (
+            <>
+              <span className="font-bold text-gray-900 dark:text-gray-50">{Math.round(v)}%</span> · {row.correct}/{row.questions}
+            </>
+          ) : (
+            'Not attempted'
+          )}
+        </span>
+      </span>
+      <span className="relative mt-1 block h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
+        {reached && v > 0 && (
+          <span
+            className="block h-full rounded-full"
+            style={{ width: `${v}%`, background: met ? '#10b981' : ACCENT.violet.hex }}
+          />
+        )}
+        <span
+          className="absolute -top-0.5 -bottom-0.5 w-0.5 rounded bg-slate-400 dark:bg-slate-500"
+          style={{ left: `${target}%` }}
+          aria-hidden
+        />
+      </span>
+    </button>
   );
 }
 
@@ -1029,8 +1132,10 @@ function RadarAxisTick({ x, y, payload, textAnchor, rows }: any) {
  * attempt gives no grounds for it, so a thin paper gets a short note rather than
  * padded prose.
  */
-function radarExplanation(model: AttemptReportModel, target: number): string {
+function radarExplanation(model: AttemptReportModel, target: number, bars = false): string {
   const cfg = model.config;
+  // The same reading for the bars a paper with too many units gets instead of a radar, in their own words.
+  const ring = bars ? 'target line' : 'ring';
   const measured = model.subjects.filter(s => s.state === 'MEASURED' && s.metrics.correctPct != null);
   const thin = model.subjects.filter(s => s.state === 'INSUFFICIENT_EVIDENCE');
   const blank = model.subjects.filter(s => s.state === 'NOT_ASSESSED');
@@ -1038,8 +1143,8 @@ function radarExplanation(model: AttemptReportModel, target: number): string {
   if (measured.length === 0) {
     const available = blank.reduce((n, s) => n + s.metrics.questions, 0);
     return thin.length > 0
-      ? `No subject has enough answered questions to plot a reliable point yet — ${thin.map(s => bilingualName(s)).join(', ')} ${thin.length === 1 ? 'sits' : 'sit'} below ${cfg.minEvidence} answers, and the remaining axes are empty. The shape fills in as you attempt more of the paper.`
-      : `Nothing was attempted, so there is no shape to read. ${available} questions across ${blank.length} subject${blank.length === 1 ? '' : 's'} are waiting on a first attempt.`;
+      ? `No subject has enough answered questions to plot a reliable point yet — ${thin.map(s => bilingualName(s)).join(', ')} ${thin.length === 1 ? 'sits' : 'sit'} below ${cfg.minEvidence} answers, and the remaining ${bars ? 'bars are empty. They fill' : 'axes are empty. The shape fills'} in as you attempt more of the paper.`
+      : `Nothing was attempted, so there is no ${bars ? 'bar' : 'shape'} to read. ${available} questions across ${blank.length} subject${blank.length === 1 ? '' : 's'} are waiting on a first attempt.`;
   }
 
   const sorted = [...measured].sort((a, b) => (b.metrics.correctPct ?? 0) - (a.metrics.correctPct ?? 0));
@@ -1051,22 +1156,26 @@ function radarExplanation(model: AttemptReportModel, target: number): string {
 
   // 1. The shape itself — and whether its lopsidedness is the story or not.
   if (measured.length === 1) {
-    sentences.push(`Only ${bilingualName(best)} has enough answers to plot, at ${best.metrics.correctPct}% — one point is a line, not yet a shape.`);
+    sentences.push(
+      bars
+        ? `Only ${bilingualName(best)} has enough answers to judge, at ${best.metrics.correctPct}% — the other bars rest on too few answers yet.`
+        : `Only ${bilingualName(best)} has enough answers to plot, at ${best.metrics.correctPct}% — one point is a line, not yet a shape.`,
+    );
   } else if (spread >= 20) {
     sentences.push(
-      `The shape stretches furthest on ${bilingualName(best)} (${best.metrics.correctPct}%) and pulls in tightest on ${bilingualName(worst)} (${worst.metrics.correctPct}%) — a ${spread}-point spread, so your preparation is uneven rather than uniformly short.`,
+      `${bars ? 'The bars run longest' : 'The shape stretches furthest'} on ${bilingualName(best)} (${best.metrics.correctPct}%) and ${bars ? 'shortest' : 'pulls in tightest'} on ${bilingualName(worst)} (${worst.metrics.correctPct}%) — a ${spread}-point spread, so your preparation is uneven rather than uniformly short.`,
     );
   } else {
     sentences.push(
-      `The shape is fairly even: ${bilingualName(best)} leads at ${best.metrics.correctPct}% and ${bilingualName(worst)} trails at ${worst.metrics.correctPct}%, only ${spread} points apart, so no single subject is dragging it down — the level is what it is across the board.`,
+      `The ${bars ? 'bars are' : 'shape is'} fairly even: ${bilingualName(best)} leads at ${best.metrics.correctPct}% and ${bilingualName(worst)} trails at ${worst.metrics.correctPct}%, only ${spread} points apart, so no single subject is dragging it down — the level is what it is across the board.`,
     );
   }
 
   // 2. Where it sits against the ring.
   sentences.push(
     atTarget.length === 0
-      ? `No subject clears the ${target}% ring yet, so the whole shape sits inside it.`
-      : `${atTarget.length} of ${measured.length} measured subjects clear the ${target}% ring (${atTarget.slice(0, 3).map(s => bilingualName(s)).join(', ')}${atTarget.length > 3 ? ' and others' : ''}); the rest of the gap between your outline and the ring is where the marks are.`,
+      ? `No subject clears the ${target}% ${ring} yet, so ${bars ? 'every bar stops short of it' : 'the whole shape sits inside it'}.`
+      : `${atTarget.length} of ${measured.length} measured subjects clear the ${target}% ${ring} (${atTarget.slice(0, 3).map(s => bilingualName(s)).join(', ')}${atTarget.length > 3 ? ' and others' : ''}); the rest of the gap between ${bars ? 'your bars' : 'your outline'} and the ${ring} is where the marks are.`,
   );
 
   // 3. What closing the nearest gap is worth — the sentence that makes the chart
@@ -1083,8 +1192,8 @@ function radarExplanation(model: AttemptReportModel, target: number): string {
       const worth = perQuestion != null ? Math.round(extraCorrect * perQuestion * 10) / 10 : null;
       sentences.push(
         worth != null
-          ? `${bilingualName(nearest)} is the closest to the ring at ${m.correctPct}% — getting ${extraCorrect} more of its ${m.questions} questions right would push it to target and is worth about ${worth} marks, which makes it the cheapest gap on this chart to close.`
-          : `${bilingualName(nearest)} is the closest to the ring at ${m.correctPct}% — ${extraCorrect} more correct out of its ${m.questions} questions would reach target, which makes it the cheapest gap on this chart to close.`,
+          ? `${bilingualName(nearest)} is the closest to the ${ring} at ${m.correctPct}% — getting ${extraCorrect} more of its ${m.questions} questions right would push it to target and is worth about ${worth} marks, which makes it the cheapest gap on this chart to close.`
+          : `${bilingualName(nearest)} is the closest to the ${ring} at ${m.correctPct}% — ${extraCorrect} more correct out of its ${m.questions} questions would reach target, which makes it the cheapest gap on this chart to close.`,
       );
     }
   }
@@ -1093,7 +1202,7 @@ function radarExplanation(model: AttemptReportModel, target: number): string {
   if (blank.length > 0) {
     const q = blank.reduce((n, s) => n + s.metrics.questions, 0);
     sentences.push(
-      `${blank.length} ax${blank.length === 1 ? 'is sits' : 'es sit'} at 0% because nothing was attempted there — ${q} question${q === 1 ? '' : 's'} in ${blank.slice(0, 2).map(s => bilingualName(s)).join(', ')}${blank.length > 2 ? ' and others' : ''}.`,
+      `${blank.length} ${bars ? (blank.length === 1 ? 'bar is' : 'bars are') + ' marked not attempted' : 'ax' + (blank.length === 1 ? 'is sits' : 'es sit') + ' at 0%'} because nothing was attempted there — ${q} question${q === 1 ? '' : 's'} in ${blank.slice(0, 2).map(s => bilingualName(s)).join(', ')}${blank.length > 2 ? ' and others' : ''}.`,
     );
   }
 
@@ -2437,11 +2546,29 @@ function difficultyPill(raw: string) {
 
 /** Shortens a stem to a scannable preview without cutting a word in half. */
 function preview(body: string, max = 90): string {
-  const clean = (body ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return shorten((body ?? '').replace(/<[^>]+>/g, ' '), max);
+}
+
+/**
+ * Text cut to about `max` characters at a word, never inside a formula: a cut that would land between a `$` and its
+ * closing `$` keeps the formula whole when it ends soon after, and stops before it otherwise — half a formula is not
+ * LaTeX, and KaTeX would print it as raw source.
+ */
+function shorten(text: string, max: number): string {
+  // Repaired first, so a "\right" a string escape had eaten is back before the whitespace is folded.
+  const clean = normalizeLatex(text).replace(/\s+/g, ' ').trim();
   if (clean.length <= max) return clean;
-  const cut = clean.slice(0, max);
-  const lastSpace = cut.lastIndexOf(' ');
-  return `${cut.slice(0, lastSpace > 40 ? lastSpace : max)}…`;
+  let end = clean.lastIndexOf(' ', max);
+  if (end <= max / 2) end = max;
+  const opens = (clean.slice(0, end).match(/\$/g) ?? []).length;
+  if (opens % 2 === 1) {
+    const open = clean.lastIndexOf('$', end - 1);
+    const close = clean.indexOf('$', end);
+    // A formula the question opens with is kept whole: cutting before it would leave nothing to preview.
+    end = close >= 0 && (close - end <= 60 || open < 20) ? close + 1 : open;
+  }
+  const head = clean.slice(0, end).trimEnd();
+  return head.length < clean.length ? `${head}…` : head;
 }
 
 /** Resolves an answer key to the option text where the options are available. */
@@ -2452,7 +2579,7 @@ function answerText(key: string | null, options: string[] | null): string {
   const byLetter = k.length === 1 ? k.toUpperCase().charCodeAt(0) - 65 : -1;
   const idx = byLetter >= 0 && byLetter < options.length ? byLetter : Number(k);
   const text = Number.isFinite(idx) && options[idx] != null ? options[idx] : k;
-  return String(text).replace(/<[^>]+>/g, ' ').trim().slice(0, 40);
+  return shorten(String(text).replace(/<[^>]+>/g, ' '), 40);
 }
 
 function PageBtn({
@@ -2561,12 +2688,12 @@ export function QuestionInsightsTable({
                   )}
                 >
                   <td className="px-3 py-2.5 tabular-nums text-gray-500 dark:text-gray-400">{q.number}</td>
-                  <td className="px-3 py-2.5 text-gray-800 dark:text-gray-200 max-w-[22rem]">{preview(q.body)}</td>
+                  <td className="px-3 py-2.5 text-gray-800 dark:text-gray-200 max-w-[22rem]"><MathText text={preview(q.body)} /></td>
                   <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300">
-                    {answered ? answerText(q.user_answer, q.options) : <span className="text-gray-400">—</span>}
+                    {answered ? <MathText text={answerText(q.user_answer, q.options)} /> : <span className="text-gray-400">—</span>}
                   </td>
                   <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300">
-                    {answerText(q.correct_answer, q.options)}
+                    <MathText text={answerText(q.correct_answer, q.options)} />
                   </td>
                   <td className="px-3 py-2.5">
                     <StatusPill tone={tone}>{result}</StatusPill>

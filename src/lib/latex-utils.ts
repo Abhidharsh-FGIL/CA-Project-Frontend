@@ -3,12 +3,33 @@
  */
 
 /**
+ * Put back the backslash of a LaTeX command that a JSON (or Python) string escape swallowed.
+ *
+ * A generator that writes "\right" or "\frac" into JSON without doubling the backslash has it read back as an escape:
+ * "\r" becomes a carriage return and "ight" is left behind, "\f" a form feed before "rac". KaTeX then sees "\left("
+ * with no "\right)" and refuses the whole formula, so the reader gets raw source. A carriage return, form feed,
+ * backspace, bell or vertical tab directly before a lowercase letter is never prose (a line ending is "\r\n"), so it
+ * is read as the command it was. A tab or newline can be prose, so only before the commands it must have been.
+ */
+export function repairSwallowedEscapes(content: string): string {
+  return content
+    .replace(/\r(?=[a-z])/g, '\\r')
+    .replace(/\f(?=[a-z])/g, '\\f')
+    .replace(/\x08(?=[a-z])/g, '\\b')
+    .replace(/\x07(?=[a-z])/g, '\\a')
+    .replace(/\v(?=[a-z])/g, '\\v')
+    // The escape takes the command's first letter with it: "\times" arrives as a tab and "imes".
+    .replace(/\t(?=(?:ext|imes|heta|an|au|frac|riangle|herefore|ilde)\b)/g, '\\t')
+    .replace(/\n(?=(?:eq|abla|otin)\b)/g, '\\n');
+}
+
+/**
  * Convert LaTeX-style delimiters \(...\) and \[...\] to $...$ and $$...$$
  * that remark-math and KaTeX understand.
  */
 export function normalizeLatex(content: string | null | undefined): string {
   if (!content) return '';
-  return content
+  return repairSwallowedEscapes(content)
     // Unescape literal newline / tab / carriage-return escape sequences that arrive
     // as text (double-escaped by the backend, so they render on screen as "\n").
     // Only when NOT followed by a lowercase letter, so real LaTeX commands such as

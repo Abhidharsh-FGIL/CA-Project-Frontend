@@ -12,6 +12,11 @@ const TONE: Record<PassStanding, string> = {
   below: 'border-rose-200 bg-rose-50/60 text-rose-900 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-100',
 };
 
+/** Whose pass mark this is not: "RRB NTPC CBT-1" for an RRB NTPC paper, TNPSC for every other. */
+export function officialBody(testName: string | null | undefined): string {
+  return (testName ?? '').trim().match(/^RRB NTPC CBT-\d/i)?.[0] ?? 'TNPSC';
+}
+
 /**
  * Where this score sits against the MyGovExams benchmark for the paper — its pass mark and the mark to aim for.
  * These are learning benchmarks, not TNPSC's cut-offs, and the note says so.
@@ -48,7 +53,7 @@ export function PassMarkNote({ model, track }: { model: AttemptReportModel; trac
           {marks ? ` (${marks.target}/${s.maxMarks})` : ''}
         </p>
         <p className="opacity-90">{line}</p>
-        <p className="mt-0.5 text-[11px] opacity-70">MyGovExams learning benchmark — not an official TNPSC pass mark.</p>
+        <p className="mt-0.5 text-[11px] opacity-70">MyGovExams learning benchmark — not an official {officialBody(model.meta.testName)} pass mark.</p>
       </div>
     </div>
   );

@@ -115,6 +115,14 @@ export interface SubscriptionUsage {
   /** Plan and top-up tests together. */
   mock_left: number | null;
   practice_left: number | null;
+  /**
+   * Every test of the kind ever available to the person — the plan's, free and carried-over ones, and top-ups — and
+   * every one taken. `mock_used` counts only this plan period, so it leaves the free tests out.
+   */
+  mock_overall?: number | null;
+  mock_used_all_time?: number | null;
+  practice_overall?: number | null;
+  practice_used_all_time?: number | null;
 }
 
 /** One kind of test, as the server counts it — `null` when the server sent no usage or the plan is unlimited. */
@@ -126,11 +134,16 @@ export function usageFor(
   if (!u) return null;
   const left = kind === 'mock' ? u.mock_left : u.practice_left;
   if (left == null) return null;
-  const used = kind === 'mock' ? u.mock_used : u.practice_used;
+  // Taken of everything ever available — free and carried-over tests included — when the server sends that count;
+  // this period's alone otherwise.
+  const overall = kind === 'mock' ? u.mock_overall : u.practice_overall;
+  const usedAllTime = kind === 'mock' ? u.mock_used_all_time : u.practice_used_all_time;
+  const allTime = overall != null && usedAllTime != null ? { used: usedAllTime, total: overall } : null;
+  const used = allTime ? allTime.used : kind === 'mock' ? u.mock_used : u.practice_used;
   return {
     used,
     left,
-    total: used + left,
+    total: allTime ? allTime.total : used + left,
     planLimit: kind === 'mock' ? u.mock_limit : u.practice_limit,
     topUpLeft: kind === 'mock' ? u.topup_mock_left : u.topup_practice_left,
   };

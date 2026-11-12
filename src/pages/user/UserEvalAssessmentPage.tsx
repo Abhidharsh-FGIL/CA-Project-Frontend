@@ -1838,8 +1838,13 @@ export function UserEvalAssessmentPage() {
               <option value="all">All units</option>
               {subjectOptions.map(([key, { label, count }]) => (
                 <option key={key} value={key}>
-                  {langMode === 'translation' && (paperTranslationLang === 'ta' || paperTranslationLang === 'hi') && /^RRB NTPC/i.test(assessment?.title ?? '')
-                    ? ntpcNodeName(label, null, paperTranslationLang === 'ta' ? 'tamil' : 'hindi')
+                  {/* An RRB NTPC paper names its units in the one language it is read in — English unless shown in its Tamil or Hindi translation. */}
+                  {/^RRB NTPC/i.test(assessment?.title ?? '')
+                    ? ntpcNodeName(
+                        label,
+                        null,
+                        langMode === 'translation' && paperTranslationLang === 'ta' ? 'tamil' : langMode === 'translation' && paperTranslationLang === 'hi' ? 'hindi' : 'english',
+                      )
                     : bilingual(label)}{' '}
                   ({count})
                 </option>
@@ -1960,7 +1965,9 @@ export function UserEvalAssessmentPage() {
                 * the control's two states without saying what either produced.
                 * Only rendered for a paper that genuinely carries both languages.
                 */}
-              {paperTranslationLang && (
+              {/* An RRB NTPC paper taken in English is read in English alone (it opens so): no other language to offer.
+                  One taken in Tamil or Hindi keeps the choice, with English beside it. */}
+              {paperTranslationLang && defaultQuestionLanguage(assessment?.title, (assessment as any)?.language) !== 'primary' && (
                 <div className="flex justify-end mb-3">
                   <label className="inline-flex items-center gap-2">
                     <span className="text-xs font-medium text-gray-500">Language</span>

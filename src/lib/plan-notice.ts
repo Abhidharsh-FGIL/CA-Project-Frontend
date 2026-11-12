@@ -41,6 +41,19 @@ export interface PlanErrorFacts {
   requiredTier: SubscriptionTier | null;
   /** What was blocked, for PLAN_REQUIRED ("ai_insights"). */
   feature: string | null;
+  /**
+   * The server's own running count, per kind, when the refusal carries it (`mock_overall`, `mock_used_all_time`,
+   * `mock_left`, and the same for practice). It counts plan and top-up tests alike, so unlike `limit` / `used` the
+   * two numbers always agree — a top-up never shows as "8/5 used".
+   */
+  usage?: { mock: KindUsage | null; practice: KindUsage | null } | null;
+}
+
+/** One kind of test as the server counts it: how many in all, how many taken, how many left. */
+export interface KindUsage {
+  overall: number | null;
+  used: number | null;
+  left: number | null;
 }
 
 const PLAN_CODES: PlanErrorCode[] = ['PLAN_LIMIT_REACHED', 'PLAN_REQUIRED'];
@@ -106,6 +119,30 @@ function firstNumber(source: Record<string, unknown>, keys: string[]): number | 
   return null;
 }
 
+/**
+ * The server's running count of each kind of test, read from the refusal's body or one object down in it
+ * (`usage: { mock_overall: 6, … }`). Left is the server's, else what is left of overall once used is taken off.
+ */
+function serverUsage(detail: Record<string, unknown>): PlanErrorFacts['usage'] {
+  const sources = [detail, ...Object.values(detail).filter(isRecord)];
+  const num = (key: string) => {
+    for (const src of sources) {
+      const v = src[key];
+      if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return v;
+    }
+    return null;
+  };
+  const kind = (k: TestKind): KindUsage | null => {
+    const overall = num(`${k}_overall`);
+    const used = num(`${k}_used_all_time`);
+    const left = num(`${k}_left`) ?? (overall != null && used != null ? Math.max(0, overall - used) : null);
+    return overall == null && used == null && left == null ? null : { overall, used, left };
+  };
+  const mock = kind('mock');
+  const practice = kind('practice');
+  return mock || practice ? { mock, practice } : null;
+}
+
 function firstString(source: Record<string, unknown>, keys: string[]): string | null {
   for (const key of keys) {
     const v = source[key];
@@ -128,7 +165,10 @@ export function planErrorFacts(error: unknown): PlanErrorFacts | null {
   const e = error as { code?: unknown; detail?: unknown; message?: unknown; status?: unknown };
 
   const code = typeof e.code === 'string' ? e.code.toUpperCase() : null;
-  const detail = isRecord(e.detail) ? e.detail : {};
+  // The numbers sit one level down, in `details` — `{ code, message, details: { kind, limit, used, usage: {…} } }` —
+  // with the code beside it; a body that puts them beside the code is read as it is.
+  const outer = isRecord(e.detail) ? e.detail : {};
+  const detail = isRecord(outer.details) ? { ...outer, ...outer.details } : outer;
   const message = typeof e.message === 'string' ? e.message : '';
 
   const kindOfError = typeof detail.error === 'string' ? detail.error.toUpperCase() : null;
@@ -164,6 +204,7 @@ export function planErrorFacts(error: unknown): PlanErrorFacts | null {
     requiredTier:
       code === 'PLAN_REQUIRED' ? tierOf(firstString(detail, ['required_plan', 'required_tier', 'plan_required', 'min_plan', 'min_tier'])) : null,
     feature: code === 'PLAN_REQUIRED' ? firstString(detail, ['feature', 'feature_key', 'capability']) : null,
+    usage: serverUsage(detail),
   };
 }
 
@@ -444,8 +485,15 @@ export function composePlanNotice(facts: PlanErrorFacts, ctx: PlanNoticeContext)
   }
 
   // ── PLAN_LIMIT_REACHED: the plan has no more tests of this kind ────────────
+  // `limit` is what the plan itself includes ("includes 5 mock tests"), which is what the sentence says. The count
+  // shown is the server's running one — every test of the kind ever available (`mock_overall`, carried-over and
+  // top-up ones too) against every one taken (`mock_used_all_time`) — counted the same way, so it never reads "8/5".
+  // What is left of practice is the server's count as well, else the one worked out here from the person's attempts.
+  const server = facts.kind ? facts.usage?.[facts.kind] ?? null : null;
   const limit = facts.limit ?? allowance(current, facts.kind);
-  const practiceLeft = ctx.left?.practice ?? null;
+  const total = server?.overall ?? limit;
+  const usedCount = server?.used ?? facts.used;
+  const practiceLeft = facts.usage?.practice?.left ?? ctx.left?.practice ?? null;
 
   const plan = offerPlan(ctx);
 
@@ -472,7 +520,8 @@ export function composePlanNotice(facts: PlanErrorFacts, ctx: PlanNoticeContext)
         }`,
       ],
       usage: [
-        { label: 'Mock Tests', value: limit === 0 ? 'Not included' : limit != null ? `${facts.used ?? limit}/${limit} Used` : 'All used', tone: 'used' },
+        // Never more used than there were: a count that ran past the total reads as all of them used.
+        { label: 'Mock Tests', value: limit === 0 ? 'Not included' : total != null ? `${Math.min(usedCount ?? total, total)}/${total} Used` : 'All used', tone: 'used' },
         { label: 'Practice Tests', value: `${practiceLeft} Remaining`, tone: 'left' },
       ],
       // A plan that is still running is not renewed: the way to more tests is a top-up on top of it.
