@@ -40,6 +40,7 @@ export function NtpcLevelDialog({
   fallbackLanguage,
   onSave,
   examName,
+  fixedLevel = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -49,14 +50,16 @@ export function NtpcLevelDialog({
   fallbackLanguage?: string | null;
   onSave: (prefs: NtpcPrefs) => void;
   examName?: string;
+  /** The exam is for this level (CBT-1 UG or Graduate): only the language is asked. */
+  fixedLevel?: NtpcLevel | null;
 }) {
-  const [level, setLevel] = useState<NtpcLevel | null>(value.level);
+  const [level, setLevel] = useState<NtpcLevel | null>(fixedLevel ?? value.level);
   const suggested = isNtpcLanguage(fallbackLanguage) ? fallbackLanguage : null;
   const [language, setLanguage] = useState<NtpcLanguage | null>(value.language ?? suggested);
   // Each time it opens it shows what is chosen now, not what was clicked and abandoned last time.
   useEffect(() => {
     if (open) {
-      setLevel(value.level);
+      setLevel(fixedLevel ?? value.level);
       setLanguage(value.language ?? suggested);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -65,12 +68,18 @@ export function NtpcLevelDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100%-1.5rem)] max-w-md rounded-2xl p-6 sm:p-7" onOpenAutoFocus={e => e.preventDefault()}>
-        <DialogTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">Set up your preparation</DialogTitle>
+        <DialogTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          {fixedLevel ? 'Choose your language' : 'Set up your preparation'}
+        </DialogTitle>
         <DialogDescription className="text-sm text-gray-500 dark:text-gray-400">
-          {examName ?? 'RRB NTPC'} has separate Graduate and Under-Graduate recruitments, and papers in more than one language. You will be shown the papers for your choices.
+          {fixedLevel
+            ? `${examName ?? 'RRB NTPC'} has papers in more than one language. You will be shown the papers in the one you choose.`
+            : `${examName ?? 'RRB NTPC'} has separate Graduate and Under-Graduate recruitments, and papers in more than one language. You will be shown the papers for your choices.`}
         </DialogDescription>
 
         <div className="mt-4 space-y-4">
+          {/* An exam for one level (CBT-1 UG or Graduate) says its level already. */}
+          {!fixedLevel && (
           <div>
             <p className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Your level</p>
             <div className="grid gap-2">
@@ -88,6 +97,7 @@ export function NtpcLevelDialog({
               ))}
             </div>
           </div>
+          )}
 
           <div>
             <p className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Language of the papers</p>
@@ -124,8 +134,19 @@ export function NtpcLevelDialog({
 }
 
 /** What is chosen, as a small button that opens the dialog to change it. */
-export function NtpcLevelChip({ prefs, onChange, className }: { prefs: NtpcPrefs; onChange: () => void; className?: string }) {
-  const text = [prefs.level && NTPC_LEVEL_LABEL[prefs.level], prefs.language && NTPC_LANGUAGE_LABEL[prefs.language]].filter(Boolean).join(' · ');
+export function NtpcLevelChip({
+  prefs,
+  onChange,
+  className,
+  fixedLevel = null,
+}: {
+  prefs: NtpcPrefs;
+  onChange: () => void;
+  className?: string;
+  /** The exam is for this level, and says so in its name: the chip shows the language alone. */
+  fixedLevel?: NtpcLevel | null;
+}) {
+  const text = [!fixedLevel && prefs.level && NTPC_LEVEL_LABEL[prefs.level], prefs.language && NTPC_LANGUAGE_LABEL[prefs.language]].filter(Boolean).join(' · ');
   return (
     <button
       type="button"

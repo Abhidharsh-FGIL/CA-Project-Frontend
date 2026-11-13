@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 18 640 346" role="img" aria-label="A TNPSC government building, an RRB train and a bank">
+  <defs>
+    <linearGradient id="brick" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d4693f"/>
+      <stop offset="1" stop-color="#b8512c"/>
+    </linearGradient>
+    <linearGradient id="dome" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f2c38b"/>
+      <stop offset="1" stop-color="#d48a4e"/>
+    </linearGradient>
+    <linearGradient id="trainBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e3eaf3"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2d5089"/>
+      <stop offset="1" stop-color="#172b4d"/>
+    </linearGradient>
+    <linearGradient id="bankRoof" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="coin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fde68a"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".55" r=".55">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#0f172a" flood-opacity=".12"/>
+    </filter>
+  </defs>
+
+  <!-- light behind the scene, a couple of clouds -->
+  <ellipse cx="320" cy="200" rx="320" ry="190" fill="url(#glow)"/>
+  <g fill="#ffffff" opacity=".9">
+    <path d="M92 62c0-10 9-17 19-15 4-8 16-10 23-3 9-2 17 5 15 14 6 2 7 11-1 12H98c-9 0-11-7-6-8z"/>
+    <path d="M478 46c0-8 7-13 15-12 3-6 13-8 18-2 7-2 13 4 12 11 5 2 5 9-1 9h-40c-7 0-8-5-4-6z"/>
+  </g>
+
+  <!-- ground -->
+  <ellipse cx="320" cy="318" rx="318" ry="44" fill="#cfe8c7"/>
+  <ellipse cx="320" cy="312" rx="290" ry="30" fill="#dcefd5"/>
+
+  <!-- ══ TNPSC: a government building, domes and arches ══ -->
+  <g filter="url(#soft)">
+    <!-- side wings -->
+    <rect x="34" y="208" width="58" height="88" fill="url(#brick)"/>
+    <rect x="208" y="208" width="58" height="88" fill="url(#brick)"/>
+    <rect x="30" y="202" width="66" height="8" rx="2" fill="#f3e3c4"/>
+    <rect x="204" y="202" width="66" height="8" rx="2" fill="#f3e3c4"/>
+    <!-- wing domes -->
+    <path d="M44 202a19 19 0 0 1 38 0z" fill="url(#dome)"/>
+    <path d="M218 202a19 19 0 0 1 38 0z" fill="url(#dome)"/>
+    <path d="M63 183v-9M237 183v-9" stroke="#b8512c" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- main block -->
+    <rect x="88" y="188" width="124" height="108" fill="url(#brick)"/>
+    <rect x="84" y="181" width="132" height="9" rx="2" fill="#f3e3c4"/>
+    <!-- central tower and dome -->
+    <rect x="128" y="118" width="44" height="72" fill="#c45c33"/>
+    <rect x="124" y="112" width="52" height="8" rx="2" fill="#f3e3c4"/>
+    <path d="M126 112a24 24 0 0 1 48 0z" fill="url(#dome)"/>
+    <path d="M150 88v-12" stroke="#b8512c" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="150" cy="74" r="3.5" fill="#f59e0b"/>
+    <!-- tower windows -->
+    <g fill="#f3e3c4">
+      <path d="M138 150v-14a5 5 0 0 1 10 0v14z"/><path d="M152 150v-14a5 5 0 0 1 10 0v14z"/>
+      <rect x="134" y="160" width="32" height="5" rx="1"/>
+    </g>
+    <!-- arches on the main block and wings -->
+    <g fill="#f3e3c4">
+      <path d="M98 296v-30a9 9 0 0 1 18 0v30z"/><path d="M122 296v-30a9 9 0 0 1 18 0v30z"/>
+      <path d="M160 296v-30a9 9 0 0 1 18 0v30z"/><path d="M184 296v-30a9 9 0 0 1 18 0v30z"/>
+      <path d="M42 296v-26a8 8 0 0 1 16 0v26z"/><path d="M66 296v-26a8 8 0 0 1 16 0v26z"/>
+      <path d="M216 296v-26a8 8 0 0 1 16 0v26z"/><path d="M240 296v-26a8 8 0 0 1 16 0v26z"/>
+    </g>
+    <g fill="#7a3418" opacity=".55">
+      <path d="M102 296v-27a5 5 0 0 1 10 0v27z"/><path d="M126 296v-27a5 5 0 0 1 10 0v27z"/>
+      <path d="M164 296v-27a5 5 0 0 1 10 0v27z"/><path d="M188 296v-27a5 5 0 0 1 10 0v27z"/>
+    </g>
+    <!-- upper windows -->
+    <g fill="#f3e3c4">
+      <rect x="100" y="204" width="14" height="20" rx="7"/><rect x="124" y="204" width="14" height="20" rx="7"/>
+      <rect x="162" y="204" width="14" height="20" rx="7"/><rect x="186" y="204" width="14" height="20" rx="7"/>
+      <rect x="46" y="224" width="12" height="16" rx="6"/><rect x="68" y="224" width="12" height="16" rx="6"/>
+      <rect x="220" y="224" width="12" height="16" rx="6"/><rect x="242" y="224" width="12" height="16" rx="6"/>
+    </g>
+    <!-- big entrance -->
+    <path d="M141 296v-34a9 9 0 0 1 18 0v34z" fill="#7a3418"/>
+  </g>
+
+  <!-- ══ Banking: a bank with columns and a coin ══ -->
+  <g filter="url(#soft)">
+    <rect x="440" y="290" width="168" height="8" rx="2" fill="#a3b1c2"/>
+    <rect x="448" y="282" width="152" height="9" rx="2" fill="#b6c2d1"/>
+    <rect x="456" y="210" width="136" height="73" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+    <g fill="#e8edf4" stroke="#cbd5e1" stroke-width="1.2">
+      <rect x="466" y="216" width="12" height="66" rx="2"/><rect x="492" y="216" width="12" height="66" rx="2"/>
+      <rect x="544" y="216" width="12" height="66" rx="2"/><rect x="570" y="216" width="12" height="66" rx="2"/>
+    </g>
+    <path d="M514 282v-38a10 10 0 0 1 20 0v38z" fill="#1e3a8a"/>
+    <rect x="448" y="200" width="152" height="11" rx="2" fill="#1e3a8a"/>
+    <path d="M524 150l80 50H444z" fill="url(#bankRoof)"/>
+    <circle cx="524" cy="183" r="11" fill="url(#coin)" stroke="#ffffff" stroke-width="2"/>
+    <text x="524" y="188" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#92400e">₹</text>
+  </g>
+
+  <!-- trees between and around -->
+  <g>
+    <circle cx="296" cy="270" r="22" fill="#4ade80"/><circle cx="318" cy="282" r="17" fill="#22c55e"/><circle cx="278" cy="284" r="15" fill="#16a34a"/>
+    <circle cx="414" cy="272" r="20" fill="#4ade80"/><circle cx="432" cy="284" r="14" fill="#22c55e"/>
+    <circle cx="16" cy="286" r="16" fill="#22c55e"/><circle cx="626" cy="284" r="16" fill="#4ade80"/>
+  </g>
+
+  <!-- ══ RRB: a train on the track in front ══ -->
+  <g>
+    <rect x="0" y="342" width="640" height="5" rx="2.5" fill="#64748b"/>
+    <g fill="#a0896b">
+      <rect x="14" y="346" width="16" height="6" rx="1.5"/><rect x="58" y="346" width="16" height="6" rx="1.5"/><rect x="102" y="346" width="16" height="6" rx="1.5"/>
+      <rect x="146" y="346" width="16" height="6" rx="1.5"/><rect x="190" y="346" width="16" height="6" rx="1.5"/><rect x="234" y="346" width="16" height="6" rx="1.5"/>
+      <rect x="278" y="346" width="16" height="6" rx="1.5"/><rect x="322" y="346" width="16" height="6" rx="1.5"/><rect x="366" y="346" width="16" height="6" rx="1.5"/>
+      <rect x="410" y="346" width="16" height="6" rx="1.5"/><rect x="454" y="346" width="16" height="6" rx="1.5"/><rect x="498" y="346" width="16" height="6" rx="1.5"/>
+      <rect x="542" y="346" width="16" height="6" rx="1.5"/><rect x="586" y="346" width="16" height="6" rx="1.5"/>
+    </g>
+  </g>
+  <g filter="url(#soft)">
+    <!-- coach -->
+    <path d="M150 272h132v62H150a7 7 0 0 1-7-7v-48a7 7 0 0 1 7-7z" fill="url(#trainBody)" stroke="#cbd5e1" stroke-width="1.4"/>
+    <g fill="url(#glass)"><rect x="156" y="282" width="24" height="18" rx="4"/><rect x="188" y="282" width="24" height="18" rx="4"/><rect x="220" y="282" width="24" height="18" rx="4"/></g>
+    <rect x="254" y="280" width="14" height="44" rx="3" fill="#cbd5e1"/>
+    <rect x="143" y="308" width="139" height="6" fill="#1d4ed8"/><rect x="143" y="314" width="139" height="4" fill="#f97316"/>
+    <!-- engine -->
+    <path d="M288 268h126c30 0 58 16 72 42l7 14c3 6-1 10-8 10H288a6 6 0 0 1-6-6v-54a6 6 0 0 1 6-6z" fill="url(#trainBody)" stroke="#cbd5e1" stroke-width="1.4"/>
+    <path d="M418 274c22 2 42 14 54 32h-54z" fill="url(#glass)"/>
+    <path d="M426 280c12 3 23 9 31 18" stroke="#ffffff" stroke-opacity=".35" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <g fill="url(#glass)"><rect x="296" y="280" width="26" height="20" rx="4"/><rect x="330" y="280" width="26" height="20" rx="4"/><rect x="364" y="280" width="26" height="20" rx="4"/></g>
+    <rect x="398" y="278" width="14" height="46" rx="3" fill="#cbd5e1"/>
+    <path d="M282 306h194l6 6H282z" fill="#1d4ed8"/><path d="M282 312h200l4 5H282z" fill="#f97316"/>
+    <ellipse cx="484" cy="326" rx="5" ry="3" fill="#fde68a"/>
+    <path d="M330 268l8-12" stroke="#64748b" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- wheels -->
+    <rect x="148" y="332" width="130" height="6" rx="2" fill="#475569"/><rect x="286" y="332" width="196" height="6" rx="2" fill="#475569"/>
+    <g fill="#334155" stroke="#94a3b8" stroke-width="1.6">
+      <circle cx="166" cy="340" r="6.5"/><circle cx="186" cy="340" r="6.5"/><circle cx="240" cy="340" r="6.5"/><circle cx="260" cy="340" r="6.5"/>
+      <circle cx="306" cy="340" r="6.5"/><circle cx="326" cy="340" r="6.5"/><circle cx="440" cy="340" r="6.5"/><circle cx="460" cy="340" r="6.5"/>
+    </g>
+  </g>
+
+  <!-- ══ labels ══ -->
+  <g font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="20" text-anchor="middle">
+    <g filter="url(#soft)">
+      <rect x="96" y="26" width="108" height="34" rx="17" fill="#ffffff" stroke="#fdba74" stroke-width="1.5"/>
+      <rect x="266" y="216" width="128" height="34" rx="17" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5"/>
+      <rect x="440" y="100" width="168" height="34" rx="17" fill="#fff7ed" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="4 3"/>
+    </g>
+    <text x="150" y="50" fill="#c2410c">TNPSC</text>
+    <text x="330" y="240" fill="#1d4ed8">RRB NTPC</text>
+    <text x="524" y="124" fill="#b45309">Banking · Soon</text>
+  </g>
+</svg>

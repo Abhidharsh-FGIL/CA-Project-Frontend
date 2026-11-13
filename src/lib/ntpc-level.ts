@@ -22,6 +22,26 @@ export const NTPC_LEVEL_LABEL: Record<NtpcLevel, string> = {
 /** The levels of the exam the portal prepares for: both RRB NTPC tests. */
 export const isNtpcGroup = (groupId?: string | null) => !!groupId && groupId.startsWith('rrb-ntpc-');
 
+/**
+ * CBT-1 is offered as two exams, one per level: `rrb-ntpc-cbt-1` is the Under-Graduate one (the exam everyone had,
+ * so saved choices and links keep working) and `rrb-ntpc-cbt-1-grad` the Graduate one. The exam says the level, so
+ * the aspirant is not asked it there. CBT-2 is still one exam, sat at the level they chose.
+ */
+export const NTPC_EXAM_LEVEL: Readonly<Record<string, NtpcLevel>> = {
+  'rrb-ntpc-cbt-1': 'undergraduate',
+  'rrb-ntpc-cbt-1-grad': 'graduate',
+};
+
+/** The level an RRB NTPC exam is for, or null when the aspirant chooses it (CBT-2, and every other exam). */
+export function ntpcFixedLevel(groupId?: string | null): NtpcLevel | null {
+  return (groupId && NTPC_EXAM_LEVEL[groupId]) || null;
+}
+
+/** The CBT-1 exam for a level: Graduate's own, else the Under-Graduate one. */
+export function ntpcCbt1ExamFor(level: NtpcLevel | null | undefined): string {
+  return level === 'graduate' ? 'rrb-ntpc-cbt-1-grad' : 'rrb-ntpc-cbt-1';
+}
+
 /** A level as the server or an admin writes it: "graduate", "UG", "Under Graduate", "under-graduate". */
 export function ntpcLevelOf(text?: string | null): NtpcLevel | null {
   const t = (text ?? '').toLowerCase();
@@ -185,16 +205,29 @@ function subscribe(cb: () => void) {
 /**
  * The level and language the signed-in aspirant chose for RRB NTPC (null until they do), and how to change them.
  * `ready` is true once both are chosen.
+ *
+ * Given the exam (`groupId`), an exam that is for one level (`ntpcFixedLevel`: CBT-1 UG or Graduate) answers with that
+ * level, is ready once a language is chosen, and saving there changes the language only — the level the aspirant
+ * chose for CBT-2 is kept. `fixedLevel` says which it is, so the chooser can leave the level out.
  */
-export function useNtpcPrefs(userId?: string | null): NtpcPrefs & { ready: boolean; save: (next: NtpcPrefs) => void } {
+export function useNtpcPrefs(
+  userId?: string | null,
+  groupId?: string | null,
+): NtpcPrefs & { ready: boolean; fixedLevel: NtpcLevel | null; save: (next: NtpcPrefs) => void } {
   lastUserId = userId;
   const prefs = useSyncExternalStore(
     subscribe,
     () => current(userId),
     () => NONE,
   );
-  const save = useCallback((next: NtpcPrefs) => writeRaw(userId, JSON.stringify(next)), [userId]);
-  return { ...prefs, ready: !!prefs.level && !!prefs.language, save };
+  const fixedLevel = ntpcFixedLevel(groupId);
+  const save = useCallback(
+    (next: NtpcPrefs) =>
+      writeRaw(userId, JSON.stringify(fixedLevel ? { level: current(userId).level, language: next.language } : next)),
+    [userId, fixedLevel],
+  );
+  const level = fixedLevel ?? prefs.level;
+  return { level, language: prefs.language, ready: !!level && !!prefs.language, fixedLevel, save };
 }
 
 /**

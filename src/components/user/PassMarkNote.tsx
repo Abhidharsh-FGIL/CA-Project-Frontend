@@ -4,6 +4,7 @@ import { levelFromTitle, levelKey, passMarkFor, passMarks, standingOf, type Pass
 import { difficultyLabel } from '@/lib/eval-difficulty';
 import type { AttemptReportModel } from '@/lib/attempt-report';
 import { usePassMarks } from '@/hooks/use-pass-marks';
+import { ntpcLevelOf } from '@/lib/ntpc-level';
 
 const TONE: Record<PassStanding, string> = {
   target: 'border-emerald-200 bg-emerald-50/70 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100',
@@ -12,9 +13,15 @@ const TONE: Record<PassStanding, string> = {
   below: 'border-rose-200 bg-rose-50/60 text-rose-900 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-100',
 };
 
-/** Whose pass mark this is not: "RRB NTPC CBT-1" for an RRB NTPC paper, TNPSC for every other. */
+/** Whose pass mark this is not: "RRB NTPC CBT-1 (UG)" for an RRB NTPC paper, TNPSC for every other. */
 export function officialBody(testName: string | null | undefined): string {
-  return (testName ?? '').trim().match(/^RRB NTPC CBT-\d/i)?.[0] ?? 'TNPSC';
+  const name = (testName ?? '').trim();
+  const test = name.match(/^RRB NTPC CBT-\d/i)?.[0];
+  if (!test) return 'TNPSC';
+  // CBT-1 is one exam per level: "RRB NTPC CBT-1 (UG)" / "(Graduate)", read from the paper's title. CBT-2 is one exam.
+  if (!/^RRB NTPC CBT-1$/i.test(test)) return test;
+  const level = ntpcLevelOf(name.split(' — ')[0]);
+  return level === 'graduate' ? `${test} (Graduate)` : level === 'undergraduate' ? `${test} (UG)` : test;
 }
 
 /**

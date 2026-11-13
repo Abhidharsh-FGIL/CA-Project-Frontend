@@ -326,7 +326,10 @@ export function suggestAssessmentTitle(tag: TnpscTagValue): string | null {
    * Group 1 papers "TNPSC Group 1" today and "TNPSC Group 1 Prelims" the day Mains
    * opens, leaving two naming conventions in one list and no way to sort it.
    */
-  const base = group.stages.length > 1 ? `${group.name} ${stage.short_name}` : group.name;
+  // RRB NTPC titles name the test ("RRB NTPC CBT-1"), not the portal's exam ("RRB NTPC CBT-1 (UG)"): the level goes in
+  // the brackets below, which is where the portal reads it back from (`ntpcLevelOf`).
+  const name = isNtpcGroup(group.id) ? (group.exam_type ?? group.name) : group.name;
+  const base = group.stages.length > 1 ? `${name} ${stage.short_name}` : name;
   // An RRB NTPC paper made for one level names it, which is how the portal knows whom to show it to.
   const who = isNtpcGroup(group.id)
     ? [

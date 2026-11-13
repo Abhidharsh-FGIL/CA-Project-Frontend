@@ -462,6 +462,30 @@ export function ReportTitleRow({
  * A bold score card with the percentage as a ring; beside it, how the paper split (a bar of correct,
  * incorrect and unattempted) and the four counts, each with its share of the paper.
  */
+/** A mark as people write it: whole numbers plain, else up to two decimals ("0.33", "15.84"). */
+const fmt = (n: number) => String(Math.round(n * 100) / 100);
+
+/**
+ * The score as a sum: marks for the correct answers, less the negative marks for the wrong ones — so a paper with
+ * twelve right answers that scored 0 says why. Only where the paper's marking is one rate for every question (total
+ * marks ÷ questions) and the sum comes out at the score the server gave — exactly, or below zero where the score is
+ * 0 because it is not allowed to go negative. Anything else (a paper marked differently by section) shows no sum
+ * rather than one that disagrees with the score.
+ */
+export function scoreSum(model: AttemptReportModel) {
+  const s = model.summary;
+  const neg = model.analyses?.negativeMarks;
+  if (s.score == null || !s.maxMarks || s.totalQuestions <= 0) return null;
+  if (!neg || neg.state !== 'AVAILABLE' || !neg.marksLost || !neg.perWrong || s.incorrect <= 0) return null;
+  const perCorrect = s.maxMarks / s.totalQuestions;
+  const earned = s.correct * perCorrect;
+  const lost = neg.marksLost;
+  const net = earned - lost;
+  const floored = net < 0 && s.score === 0;
+  if (!floored && Math.abs(net - s.score) > 0.05) return null;
+  return { correct: s.correct, wrong: s.incorrect, perCorrect, perWrong: neg.perWrong, earned, lost, net, floored };
+}
+
 export function OverallScoreSummary({ model }: { model: AttemptReportModel }) {
   const s = model.summary;
   const pct = s.percentage ?? (s.score != null && s.maxMarks ? Math.round((s.score / s.maxMarks) * 1000) / 10 : null);
@@ -472,6 +496,7 @@ export function OverallScoreSummary({ model }: { model: AttemptReportModel }) {
   // count up when the card appears.
   const shownPct = useCountUp(pct, 1400);
   const shownScore = useCountUp(s.score, 1400);
+  const sum = scoreSum(model);
   const R = 52;
   const C = 2 * Math.PI * R;
   const arc = (Math.min(100, Math.max(0, shownPct)) / 100) * C;
@@ -527,12 +552,14 @@ export function OverallScoreSummary({ model }: { model: AttemptReportModel }) {
     <ReportCard>
       <SectionHeader icon={<Trophy className="w-4 h-4" />} title="Overall Score Summary" />
 
-      <div className="grid lg:grid-cols-[minmax(0,330px)_minmax(0,1fr)] gap-3 sm:gap-4">
+      {/* With the sum beside the score the orange card takes more width, and the counts a little less. */}
+      <div className={cn('grid gap-3 sm:gap-4', sum ? 'lg:grid-cols-[minmax(0,560px)_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(0,330px)_minmax(0,1fr)]')}>
         {/* The score */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-500 to-brand-600 p-5 text-white shadow-lg shadow-brand-500/20">
           <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
           <div className="pointer-events-none absolute -bottom-12 -left-8 h-36 w-36 rounded-full bg-black/10 blur-2xl" />
-          <div className="relative flex items-center gap-5">
+          <div className="relative flex flex-wrap items-center gap-5">
+            <div className="flex items-center gap-5">
             <div className="relative h-[116px] w-[116px] flex-shrink-0">
               <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90" aria-hidden>
                 <circle cx="60" cy="60" r={R} fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="11" />
@@ -560,6 +587,31 @@ export function OverallScoreSummary({ model }: { model: AttemptReportModel }) {
               </p>
               {s.maxMarks != null && <p className="mt-1.5 text-sm font-medium text-white/85">out of {s.maxMarks} marks</p>}
             </div>
+            </div>
+
+            {/* How the score was made: marks for the right answers, less the negative marks for the wrong ones —
+                beside the score, so a 0 with right answers says why without making the card taller. */}
+            {sum && (
+              <div className="min-w-[200px] flex-1 rounded-xl bg-white/15 px-3.5 py-2.5 text-xs tabular-nums ring-1 ring-white/20">
+                <p className="flex items-baseline justify-between gap-3">
+                  <span className="text-white/90">
+                    {sum.correct} correct × {fmt(sum.perCorrect)}
+                  </span>
+                  <span className="font-bold">+{fmt(sum.earned)}</span>
+                </p>
+                <p className="mt-1 flex items-baseline justify-between gap-3">
+                  <span className="text-white/90">
+                    {sum.wrong} wrong × {fmt(sum.perWrong)} negative
+                  </span>
+                  <span className="font-bold">−{fmt(sum.lost)}</span>
+                </p>
+                <p className="mt-1.5 flex items-baseline justify-between gap-3 border-t border-white/25 pt-1.5">
+                  <span className="font-semibold">Net</span>
+                  <span className="text-sm font-extrabold">{sum.net < 0 ? `−${fmt(-sum.net)}` : fmt(sum.net)}</span>
+                </p>
+                {sum.floored && <p className="mt-1 text-[11px] text-white/85">A score can't go below 0, so it is 0.</p>}
+              </div>
+            )}
           </div>
         </div>
 
@@ -598,6 +650,7 @@ export function OverallScoreSummary({ model }: { model: AttemptReportModel }) {
               </div>
             ))}
           </div>
+
         </div>
       </div>
     </ReportCard>

@@ -18,7 +18,7 @@ import { inRange, isoDay, rangeLabel, type DateRange } from '@/components/user/D
 import { OPEN_EXAM_IDS } from '@/lib/exam-listing';
 
 export type TrackKey = 'all' | 'mock' | 'practice';
-export type GroupKey = 'all' | 'group-1' | 'group-2' | 'group-4' | 'gat-b' | 'rrb-ntpc-cbt-1' | 'rrb-ntpc-cbt-2';
+export type GroupKey = 'all' | 'group-1' | 'group-2' | 'group-4' | 'gat-b' | 'rrb-ntpc-cbt-1' | 'rrb-ntpc-cbt-1-grad' | 'rrb-ntpc-cbt-2';
 
 /**
  * The same two dimensions with the "all" escape hatch removed.
@@ -38,6 +38,7 @@ export const GROUP_STAGE: Record<ExamGroupKey, string> = {
   'group-4': 'group-4-written',
   'gat-b': 'gat-b-exam',
   'rrb-ntpc-cbt-1': 'rrb-ntpc-cbt-1-exam',
+  'rrb-ntpc-cbt-1-grad': 'rrb-ntpc-cbt-1-grad-exam',
   'rrb-ntpc-cbt-2': 'rrb-ntpc-cbt-2-exam',
 };
 
@@ -70,18 +71,50 @@ const EXAM_GROUPS: FilterOption<ExamGroupKey>[] = [
   { value: 'group-2', label: 'Group 2', hint: 'Prelims' },
   { value: 'group-4', label: 'Group 4', hint: 'Written' },
   { value: 'gat-b', label: 'GAT-B', hint: 'Biotechnology' },
-  { value: 'rrb-ntpc-cbt-1', label: 'RRB NTPC CBT-1', hint: 'First stage' },
+  { value: 'rrb-ntpc-cbt-1', label: 'RRB NTPC CBT-1 (UG)', hint: 'First stage · Under-Graduate' },
+  { value: 'rrb-ntpc-cbt-1-grad', label: 'RRB NTPC CBT-1 (Graduate)', hint: 'First stage · Graduate' },
   { value: 'rrb-ntpc-cbt-2', label: 'RRB NTPC CBT-2', hint: 'Second stage' },
 ];
 
 /**
- * The exam filter. An exam that is not open yet is listed but cannot be chosen — the same rule
- * as the Exams page (`OPEN_EXAM_IDS`), so a filter never opens a view of an exam the rest of the
- * portal says is not there.
+ * The exam filter: only the exams that are open, so a filter never opens a view of an exam the rest of the portal
+ * says is not there. An exam not open yet is left out rather than listed greyed out as "Coming soon": in a filter of
+ * one's own results it read as a choice that did not work. `open` is the admin's list (`useOpenExamIds`), the same
+ * one the Exams page shows — see `useExamGroupOptions`.
  */
-export const EXAM_GROUP_OPTIONS: FilterOption<ExamGroupKey>[] = EXAM_GROUPS.map(o =>
-  OPEN_EXAM_IDS.has(o.value) ? o : { ...o, hint: 'Coming soon', disabled: true },
-);
+export function examGroupOptions(open: ReadonlySet<string>): FilterOption<ExamGroupKey>[] {
+  return EXAM_GROUPS.filter(o => open.has(o.value));
+}
+
+/** Exams announced as next, named first in the "Coming soon" note: CBT-1 Graduate is the one on its way. */
+const UPCOMING_FIRST: ExamGroupKey[] = ['rrb-ntpc-cbt-1-grad'];
+
+/** Up to `limit` exams the catalog has that are not open yet, by name — the filter's "Coming soon" note. */
+export function upcomingExamLabels(open: ReadonlySet<string>, limit = 2): string[] {
+  const rank = (v: ExamGroupKey) => (UPCOMING_FIRST.includes(v) ? 0 : 1);
+  return EXAM_GROUPS.filter(o => !open.has(o.value))
+    .sort((a, b) => rank(a.value) - rank(b.value))
+    .slice(0, limit)
+    .map(o => o.label);
+}
+
+/** The built-in list, for where the server's is not to hand (the admin report) and until it answers. */
+export const EXAM_GROUP_OPTIONS: FilterOption<ExamGroupKey>[] = examGroupOptions(OPEN_EXAM_IDS);
+
+/** An exam's name in the filter, whether it is open or not — a label never goes missing because an exam closed. */
+export function examGroupLabel(group: ExamGroupKey): string {
+  return EXAM_GROUPS.find(o => o.value === group)?.label ?? group;
+}
+
+/**
+ * The exam a view shows when the one it would show is not open: the aspirant's own exam if that is open, else the
+ * first open one. One that is open is kept.
+ */
+export function openGroupIn(open: ReadonlySet<string>, group: ExamGroupKey, preferred: ExamGroupKey): ExamGroupKey {
+  if (open.has(group)) return group;
+  if (open.has(preferred)) return preferred;
+  return EXAM_GROUPS.find(o => open.has(o.value))?.value ?? group;
+}
 
 /**
  * The group a view opens on: the aspirant's exam if it is open, otherwise the fallback — an exam

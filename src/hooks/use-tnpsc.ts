@@ -12,7 +12,7 @@ import {
   type TnpscMockOverview,
   type TnpscPracticeSubject,
 } from '@/lib/tnpscApi';
-import { papersForNtpc, type NtpcPrefs } from '@/lib/ntpc-level';
+import { ntpcFixedLevel, papersForNtpc, type NtpcPrefs } from '@/lib/ntpc-level';
 import { TNPSC_GROUPS, type TnpscGroup } from '@/config/tnpsc';
 import {
   catalogForLanguage,
@@ -47,6 +47,18 @@ export function useTnpscCatalog(opts?: { forMyLanguage?: boolean }) {
   return { ...query, groups };
 }
 
+/**
+ * The NTPC papers a list keeps: the aspirant's language, and their level where the exam is for both (CBT-2). A CBT-1
+ * exam is one level already — its stage holds only that level's papers (`rrb-ntpc-cbt-1` / `-grad`) — so it is not
+ * filtered by level again; the backend counts a paper by its stage, not its title.
+ */
+function useNtpcFilter(groupId: string | undefined, ntpc: NtpcPrefs | null | undefined): NtpcPrefs | null {
+  const fixed = ntpcFixedLevel(groupId);
+  const level = fixed ? null : (ntpc?.level ?? null);
+  const language = ntpc?.language ?? null;
+  return useMemo(() => (ntpc ? { level, language } : null), [!!ntpc, level, language]);
+}
+
 /** Attempt history reduced to what the level gate needs. */
 function useAttemptSummaries(): AttemptSummary[] {
   const { history } = useUserPortal();
@@ -72,7 +84,7 @@ function useAttemptSummaries(): AttemptSummary[] {
  */
 export function useTnpscMockTests(groupId?: string, stageId?: string, language?: ExamLanguage | null, ntpc?: NtpcPrefs | null) {
   const attempts = useAttemptSummaries();
-  const ntpcPrefs = useMemo(() => (ntpc ? { level: ntpc.level, language: ntpc.language } : null), [ntpc?.level, ntpc?.language]);
+  const ntpcPrefs = useNtpcFilter(groupId, ntpc);
 
   const query = useQuery<TnpscMockOverview>({
     queryKey: ['tnpsc', 'mock', groupId, stageId],
@@ -104,7 +116,7 @@ export function useTnpscMockTests(groupId?: string, stageId?: string, language?:
  */
 export function useTnpscPracticeTests(groupId?: string, stageId?: string, language?: ExamLanguage | null, ntpc?: NtpcPrefs | null) {
   const attempts = useAttemptSummaries();
-  const ntpcPrefs = useMemo(() => (ntpc ? { level: ntpc.level, language: ntpc.language } : null), [ntpc?.level, ntpc?.language]);
+  const ntpcPrefs = useNtpcFilter(groupId, ntpc);
 
   const query = useQuery<TnpscPracticeSubject[]>({
     queryKey: ['tnpsc', 'practice', groupId, stageId],

@@ -41,7 +41,7 @@ import {
   Sparkles,
   Target,
   Trophy,
-  Share2,
+  Eye,
   Users,
   Wallet,
   type LucideIcon,
@@ -125,14 +125,18 @@ function Hero() {
           </div>
           <h1>
             Your Government Exam <span>Preparation</span> Starts Here{' '}
-            {/* Which exam is open today — a sticker that floats beside the last line. (No <span>s
+            {/* Which exams are open today — a sticker that floats beside the last line. (No <span>s
                 inside it: the heading's own `span` rule would colour them orange.) */}
             <span className="mge-live-chip">
-              <b>TNPSC Group 4 &amp; 2</b>
               <em>
                 <i aria-hidden="true" />
                 Live
               </em>
+              {/* One exam a line, so another can be added without the sticker wrapping at random. */}
+              <strong className="mge-live-exams">
+                <b>TNPSC Group 4 &amp; 2</b>
+                <b>RRB NTPC CBT-1 (UG)</b>
+              </strong>
             </span>
           </h1>
           <p className="mge-lead">
@@ -224,7 +228,7 @@ function FreshAttempts() {
 function Stats() {
   // The same figures as the Exams page, so the two never disagree.
   const items: Array<{ icon: LucideIcon; value: string; label: string; sub?: string; levels?: boolean; tone: string }> = [
-    { icon: Database, value: EXAMS_STATS.questions, label: 'Group 4 & 2 Questions', sub: 'with various difficulty levels', levels: true, tone: 'blue' },
+    { icon: Database, value: EXAMS_STATS.questions, label: 'Questions', sub: 'with various difficulty levels', levels: true, tone: 'blue' },
     { icon: Users, value: EXAMS_STATS.aspirants, label: 'Aspirants', sub: 'currently practising here', tone: 'purple' },
     { icon: FileText, value: EXAMS_STATS.newQuestions, label: 'New Questions', sub: 'added every week', tone: 'sky' },
     { icon: Landmark, value: 'Government Exams', label: 'Focused Preparation', tone: 'green' },
@@ -291,11 +295,15 @@ function ExamBanner() {
       <div className="mge-exam-banner">
         <div className="mge-exam-copy">
           <span className="mge-kicker">Currently Available</span>
-          <h2>TNPSC Group 4 &amp; 2</h2>
+          <h2>
+            TNPSC Group 4 &amp; 2,
+            <small>RRB NTPC CBT-1 (UG)</small>
+          </h2>
           <p>Complete preparation with full mock tests, unit-wise practice tests and previous year question papers.</p>
         </div>
+        {/* One scene for the exams: the TNPSC building, the RRB train in front of it, and the bank (labelled "Soon"). */}
         <div className="mge-exam-art">
-          <img src={`${ART}building.png`} alt="" aria-hidden />
+          <img className="mge-exam-scene" src={`${ART}exams-scene.svg`} alt="" aria-hidden />
         </div>
         <div className="mge-soon">
           <AnnounceIcon size={52} />
@@ -713,16 +721,15 @@ function Referral() {
             </div>
           </div>
 
-          {/* What a member sees on their Refer & Earn page: the code to share, and what it has earned. */}
+          {/* A picture of a member's Refer & Earn page, not the page: it says so up top, the code is a placeholder, and it
+              has no buttons — a "Copy" or "Share on WhatsApp" here read as things to press. */}
           <div className="mge-ref-mock" aria-hidden="true">
+            <p className="mge-ref-preview">
+              <Eye size={14} /> Preview of your Refer &amp; Earn page
+            </p>
             <p className="mge-ref-mock-label">Your referral code</p>
-            <div className="mge-ref-code-row">
-              <span className="mge-ref-code">MGE-K5J2P</span>
-              <span className="mge-ref-copybtn">Copy</span>
-            </div>
-            <span className="mge-ref-wa">
-              <Share2 size={15} /> Share on WhatsApp
-            </span>
+            <span className="mge-ref-code">MGE-XXXXX</span>
+            <p className="mge-ref-mock-hint">Sign up to get your own code, ready to copy and share on WhatsApp.</p>
             <div className="mge-ref-mock-stats">
               <div>
                 <Users size={16} />
@@ -740,7 +747,7 @@ function Referral() {
                 <span>Total earned</span>
               </div>
             </div>
-            <em className="mge-ref-example">Example</em>
+            <p className="mge-ref-mock-foot">Sample figures</p>
           </div>
         </div>
 
@@ -768,7 +775,7 @@ function FinalCta() {
           <Rocket size={64} />
           <div>
             <h2>Take the First Step Towards Your Goal</h2>
-            <p>Join {CONFIG.students} aspirants preparing for TNPSC Group 4 &amp; 2 with MyGovExams.</p>
+            <p>Join {CONFIG.students} aspirants preparing for TNPSC Group 4 &amp; 2 and RRB NTPC CBT-1 (UG) with MyGovExams.</p>
           </div>
         </div>
         <ButtonLink to={CONFIG.signupPath}>

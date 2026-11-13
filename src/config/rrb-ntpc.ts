@@ -74,12 +74,24 @@ export function ntpcLabel(name: string, language: NtpcNameLanguage | string | nu
 
 // ─── The catalog ─────────────────────────────────────────────────────────────
 
-const topicsOf = (u: NtpcUnitData): TnpscTopic[] => u.topics.map(([en]) => ({ id: slug(en), name: en }));
+/**
+ * A topic shown under a shorter name than the sheet's. Only the name on screen changes: the id is still made from the
+ * sheet's wording, and its Tamil and Hindi stay registered under it, so papers and reports that carry it still match.
+ */
+const TOPIC_DISPLAY: Record<string, string> = {
+  // The unit is "Current Events" and this is its only topic: the long form only repeated it.
+  'Current Events of National and International Importance': 'Current Events',
+};
 
-/** One subject's units for one test: ids carry the test (`n1-`/`n2-`), and the counts are that test's. */
-function build(n: 1 | 2, s: S): { subject: TnpscSubject; units: TnpscSyllabusUnit[] } {
+const topicsOf = (u: NtpcUnitData): TnpscTopic[] => u.topics.map(([en]) => ({ id: slug(en), name: TOPIC_DISPLAY[en] ?? en }));
+
+/**
+ * One subject's units for one exam: ids carry the exam (`n1-` CBT-1 Under-Graduate, `ng-` CBT-1 Graduate, `n2-` CBT-2 —
+ * the backend's own), and the counts are that test's.
+ */
+function build(n: 1 | 2, s: S, prefix: string): { subject: TnpscSubject; units: TnpscSyllabusUnit[] } {
   const units: TnpscSyllabusUnit[] = s.units.map((u, i) => ({
-    id: `n${n}-${u.key}`,
+    id: `${prefix}-${u.key}`,
     label: ROMAN[i + 1],
     name: u.en,
     name_ta: u.ta,
@@ -95,12 +107,31 @@ function build(n: 1 | 2, s: S): { subject: TnpscSubject; units: TnpscSyllabusUni
 /** Wrong answers cost a third of a mark in both tests. */
 const NEGATIVE = 0.33;
 
+/**
+ * How one CBT is offered. CBT-1 is two exams, one per level — Under-Graduate keeps the id CBT-1 always had
+ * (`rrb-ntpc-cbt-1`), so every saved choice, link and attempt still finds it; Graduate is `rrb-ntpc-cbt-1-grad`.
+ * CBT-2 is one exam for both levels.
+ */
+interface CbtVariant {
+  id: string;
+  /** What the aspirant reads: "RRB NTPC CBT-1 (UG)". Paper titles keep `exam_type` ("RRB NTPC CBT-1") — see tnpscAdminApi. */
+  name: string;
+  tagline: string;
+  accent: string;
+  /** Whose posts it is for, in the stage's description. */
+  posts: string;
+  /** Beside the stage's name in its title — "CBT 1 (UG) — First-stage Computer-Based Test". */
+  level?: string;
+  /** What its unit ids start with, as the backend has them: `n1`, `ng`, `n2`. */
+  unitPrefix: string;
+}
+
 /** One CBT as an exam of its own: `awareness`, `maths` and `reasoning` are its question counts. */
-function cbt(n: 1 | 2, counts: { awareness: number; maths: number; reasoning: number }, blurb: string): TnpscGroup {
+function cbt(n: 1 | 2, counts: { awareness: number; maths: number; reasoning: number }, blurb: string, variant: CbtVariant): TnpscGroup {
   const total = counts.awareness + counts.maths + counts.reasoning;
-  const id = `rrb-ntpc-cbt-${n}` as TnpscGroup['id'];
-  const stageId = `rrb-ntpc-cbt-${n}-exam` as TnpscGroup['stages'][number]['id'];
-  const [awareness, maths, reasoning] = SYLLABUS.map(s => build(n, s));
+  const id = variant.id as TnpscGroup['id'];
+  const stageId = `${variant.id}-exam` as TnpscGroup['stages'][number]['id'];
+  const [awareness, maths, reasoning] = SYLLABUS.map(s => build(n, s, variant.unitPrefix));
   const section = (name: string, questions: number, b: ReturnType<typeof build>) => ({
     name,
     questions,
@@ -112,21 +143,21 @@ function cbt(n: 1 | 2, counts: { awareness: number; maths: number; reasoning: nu
   });
   return {
     id,
-    name: `RRB NTPC CBT-${n}`,
-    short_name: `RRB NTPC CBT-${n}`,
+    name: variant.name,
+    short_name: variant.name,
     authority: 'Railway Recruitment Boards (RRB)',
     exam_type: `RRB NTPC CBT-${n}`,
-    tagline: n === 1 ? 'Non-Technical Popular Categories — First-stage CBT' : 'Non-Technical Popular Categories — Second-stage CBT',
+    tagline: variant.tagline,
     description: blurb,
-    accent: n === 1 ? 'from-sky-500 via-blue-500 to-indigo-600' : 'from-cyan-500 via-teal-500 to-emerald-600',
+    accent: variant.accent,
     posts: ['Station Master', 'Goods Train Manager', 'Chief Commercial cum Ticket Supervisor', 'Senior Clerk cum Typist', 'Junior Accounts Assistant cum Typist'],
     stages: [
       {
         id: stageId,
         group_id: id,
-        name: n === 1 ? 'CBT 1 — First-stage Computer-Based Test' : 'CBT 2 — Second-stage Computer-Based Test',
+        name: `CBT ${n}${variant.level ? ` (${variant.level})` : ''} — ${n === 1 ? 'First' : 'Second'}-stage Computer-Based Test`,
         short_name: `CBT ${n}`,
-        description: `Single objective computer-based test of ${total} questions in 90 minutes — General Awareness, Mathematics and General Intelligence & Reasoning. Common to Graduate (CEN 06/2026) and Under-Graduate (CEN 07/2026) posts.`,
+        description: `Single objective computer-based test of ${total} questions in 90 minutes — General Awareness, Mathematics and General Intelligence & Reasoning. ${variant.posts}`,
         status: 'active',
         paper_type: 'objective',
         bilingual: false,
@@ -149,14 +180,43 @@ function cbt(n: 1 | 2, counts: { awareness: number; maths: number; reasoning: nu
   };
 }
 
+const CBT1_COUNTS = { awareness: 40, maths: 30, reasoning: 30 };
+const CBT1_BLURB = (posts: string) =>
+  `First-stage computer-based test of the RRB Non-Technical Popular Categories recruitment for ${posts} — a 100-mark screening test.`;
+
 export const RRB_NTPC_GROUPS: TnpscGroup[] = [
-  cbt(1, { awareness: 40, maths: 30, reasoning: 30 }, 'First-stage computer-based test of the RRB Non-Technical Popular Categories recruitment — a 100-mark screening test. One-third of a mark is deducted for each wrong answer.'),
-  cbt(2, { awareness: 50, maths: 35, reasoning: 35 }, 'Second-stage computer-based test of the RRB Non-Technical Popular Categories recruitment — 120 marks, and the merit is made from its normalised marks. One-third of a mark is deducted for each wrong answer.'),
+  cbt(1, CBT1_COUNTS, CBT1_BLURB('Under-Graduate posts'), {
+    id: 'rrb-ntpc-cbt-1',
+    name: 'RRB NTPC CBT-1 (UG)',
+    tagline: 'Non-Technical Popular Categories — First-stage CBT · Under-Graduate posts',
+    accent: 'from-sky-500 via-blue-500 to-indigo-600',
+    posts: 'For Under-Graduate (12th pass) posts.',
+    level: 'UG',
+    unitPrefix: 'n1',
+  }),
+  cbt(1, CBT1_COUNTS, CBT1_BLURB('Graduate posts'), {
+    id: 'rrb-ntpc-cbt-1-grad',
+    name: 'RRB NTPC CBT-1 (Graduate)',
+    tagline: 'Non-Technical Popular Categories — First-stage CBT · Graduate posts',
+    accent: 'from-indigo-500 via-violet-500 to-purple-600',
+    posts: 'For Graduate posts.',
+    level: 'Graduate',
+    unitPrefix: 'ng',
+  }),
+  cbt(2, { awareness: 50, maths: 35, reasoning: 35 }, 'Second-stage computer-based test of the RRB Non-Technical Popular Categories recruitment — 120 marks, and the merit is made from its normalised marks.', {
+    id: 'rrb-ntpc-cbt-2',
+    name: 'RRB NTPC CBT-2',
+    tagline: 'Non-Technical Popular Categories — Second-stage CBT',
+    accent: 'from-cyan-500 via-teal-500 to-emerald-600',
+    posts: 'Common to Graduate and Under-Graduate posts.',
+    unitPrefix: 'n2',
+  }),
 ];
 
 /** The stage each NTPC exam's papers live under. */
 export const RRB_NTPC_STAGE: Record<string, string> = {
   'rrb-ntpc-cbt-1': 'rrb-ntpc-cbt-1-exam',
+  'rrb-ntpc-cbt-1-grad': 'rrb-ntpc-cbt-1-grad-exam',
   'rrb-ntpc-cbt-2': 'rrb-ntpc-cbt-2-exam',
 };
 
@@ -164,17 +224,23 @@ export const RRB_NTPC_STAGE: Record<string, string> = {
 // The backend's group is `rrb-ntpc` for both tests and its stage codes carry no `-exam` suffix; its subjects are
 // `general-awareness`, `mathematics` and `general-intelligence-and-reasoning`. Units are the same on both sides (`n1-…`, `n2-…`).
 // Everything sent goes through these, and what comes back goes through `fromWire*`. See RRB_NTPC_BACKEND.md.
+//
+// CBT-1 Graduate has its own stage on the backend, `rrb-ntpc-cbt-1-grad`, with its own units (`ng-…`) — see
+// BACKEND_NTPC_LEVELS.md. Papers are counted by the stage they are filed under, not by their title.
+export const CBT1_GRADUATE_WIRE_STAGE = 'rrb-ntpc-cbt-1-grad';
 
-const NTPC_STAGE = /^rrb-ntpc-cbt-([12])(?:-exam)?$/;
+const NTPC_STAGE = /^rrb-ntpc-cbt-(?:1-grad|[12])(?:-exam)?$/;
 
-/** The stage code the backend knows: `rrb-ntpc-cbt-1-exam` → `rrb-ntpc-cbt-1`. Any other stage is unchanged. */
-export const toWireStage = (stageId: string): string => stageId.replace(/^(rrb-ntpc-cbt-[12])-exam$/, '$1');
+/** The stage code the backend knows: `rrb-ntpc-cbt-1-exam` → `rrb-ntpc-cbt-1`; Graduate's, see above. Any other stage is unchanged. */
+export const toWireStage = (stageId: string): string =>
+  /^rrb-ntpc-cbt-1-grad(?:-exam)?$/.test(stageId) ? CBT1_GRADUATE_WIRE_STAGE : stageId.replace(/^(rrb-ntpc-cbt-[12])-exam$/, '$1');
 
-/** The backend files both CBTs under one exam: `rrb-ntpc-cbt-1` → `rrb-ntpc`. Any other group is unchanged. */
-export const toWireGroup = (groupId: string): string => groupId.replace(/^rrb-ntpc-cbt-[12]$/, 'rrb-ntpc');
+/** The backend files every CBT under one exam: `rrb-ntpc-cbt-1`, `rrb-ntpc-cbt-1-grad` → `rrb-ntpc`. Any other group is unchanged. */
+export const toWireGroup = (groupId: string): string => groupId.replace(/^rrb-ntpc-cbt-(?:1-grad|[12])$/, 'rrb-ntpc');
 
-/** The portal's stage id for a code the backend sent. */
-export const fromWireStage = (stageId: string): string => (NTPC_STAGE.test(stageId) ? `${toWireStage(stageId)}-exam` : stageId);
+/** The portal's stage id for a code the backend sent. CBT-1's own code is the Under-Graduate exam's — `fromWireRow` places a Graduate paper. */
+export const fromWireStage = (stageId: string): string =>
+  NTPC_STAGE.test(stageId) ? `${stageId.replace(/-exam$/, '')}-exam` : stageId;
 
 /** Units are the same on both sides; kept so every caller converts the same way. */
 export const toWireUnit = (_stageId: string, unitId: string | null): string | null => unitId;
@@ -194,7 +260,11 @@ export function fromWireSubject<T extends string | null | undefined>(subjectId: 
   return (hit ? hit.id : subjectId) as T;
 }
 
-/** A row the backend filed under an NTPC stage, put back in the portal's codes. Any other row is returned as it is. */
+/**
+ * A row the backend filed under an NTPC stage, put back in the portal's codes. Any other row is returned as it is.
+ * The stage says which exam it is — `rrb-ntpc-cbt-1` Under-Graduate, `rrb-ntpc-cbt-1-grad` Graduate — whatever the
+ * paper's title says (the backend counts a paper by its stage).
+ */
 export function fromWireRow<T extends Record<string, any>>(row: T): T {
   const stage = row?.tnpsc_stage_id ?? row?.stage_id;
   if (typeof stage !== 'string' || !NTPC_STAGE.test(stage)) return row;
@@ -206,8 +276,8 @@ export function fromWireRow<T extends Record<string, any>>(row: T): T {
   swap('tnpsc_stage_id', fromWireStage);
   swap('subject_id', fromWireSubject);
   swap('tnpsc_subject_id', fromWireSubject);
-  // Both CBTs sit under one backend exam, so the portal's group is the one its stage belongs to.
-  const group = toWireStage(stage);
+  // Every CBT sits under one backend exam, so the portal's group is the one its stage belongs to.
+  const group = fromWireStage(stage).replace(/-exam$/, '');
   if (out.group_id === 'rrb-ntpc') out.group_id = group;
   if (out.tnpsc_group_id === 'rrb-ntpc') out.tnpsc_group_id = group;
   return out as T;

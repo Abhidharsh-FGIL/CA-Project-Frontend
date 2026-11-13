@@ -194,8 +194,8 @@ export function displayUnitName(id: string | null | undefined, fallback: string)
   return paperName(name, unitPaperLang(id), other) || name;
 }
 
-/** An RRB NTPC unit ("n1-current-events", "n2-…"). */
-const isNtpcUnit = (id: string | null | undefined) => /^(?:unit:)?n[12]-/.test(id ?? '');
+/** An RRB NTPC unit ("n1-current-events", CBT-1 Graduate's "ng-…", "n2-…"). */
+const isNtpcUnit = (id: string | null | undefined) => /^(?:unit:)?n[12g]-/.test(id ?? '');
 
 /**
  * A name in an RRB NTPC pick, in the one language the aspirant sits the paper in: English alone for English, Tamil or

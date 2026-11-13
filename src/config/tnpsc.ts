@@ -22,10 +22,11 @@
 
 import { G4_SUBJECT_ALIASES, splitTag } from './g4-tag-aliases';
 import { RRB_NTPC_GROUPS } from './rrb-ntpc';
+import { ntpcCbt1ExamFor, ntpcFixedLevel, ntpcLevelOf } from '@/lib/ntpc-level';
 
 // ─── Ids & levels ──────────────────────────────────────────────────────────────
 
-export type TnpscGroupId = 'group-1' | 'group-2' | 'group-4' | 'gat-b' | 'rrb-ntpc-cbt-1' | 'rrb-ntpc-cbt-2';
+export type TnpscGroupId = 'group-1' | 'group-2' | 'group-4' | 'gat-b' | 'rrb-ntpc-cbt-1' | 'rrb-ntpc-cbt-1-grad' | 'rrb-ntpc-cbt-2';
 export type TnpscStageId =
   | 'group-1-prelims'
   | 'group-1-mains'
@@ -34,6 +35,7 @@ export type TnpscStageId =
   | 'group-4-written'
   | 'gat-b-exam'
   | 'rrb-ntpc-cbt-1-exam'
+  | 'rrb-ntpc-cbt-1-grad-exam'
   | 'rrb-ntpc-cbt-2-exam';
 export type TnpscLevel = 'simple' | 'medium' | 'complex';
 export type TnpscTestType = 'mock' | 'practice';
@@ -1907,6 +1909,12 @@ export function stageForTitle(title?: string | null): TnpscStage | undefined {
       .map(subjectKey)
       .filter(n => n.length >= 4);
     if (needles.some(n => key.includes(n))) {
+      // CBT-1 is two exams with one title: "RRB NTPC CBT-1 (Graduate · English) — …" is the Graduate one.
+      const fixed = ntpcFixedLevel(group.id);
+      if (fixed) {
+        const own = TNPSC_GROUPS.find(g => g.id === ntpcCbt1ExamFor(ntpcLevelOf(title)));
+        return (own ?? group).stages.find(st => st.status === 'active');
+      }
       return group.stages.find(st => st.status === 'active');
     }
   }

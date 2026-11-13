@@ -134,7 +134,9 @@ export interface TnpscPracticeSubject {
 export async function getTnpscCatalog(): Promise<TnpscGroup[]> {
   try {
     const res = await userApi.get<{ groups: TnpscGroup[] } | TnpscGroup[]>('/api/v1/user/tnpsc/catalog');
-    const groups = Array.isArray(res) ? res : res?.groups;
+    // The server files every RRB NTPC test under one exam, `rrb-ntpc`; the portal offers each as an exam of its own
+    // (`rrb-ntpc-cbt-1`, `-1-grad`, `-2`, from config/rrb-ntpc.ts), so that one is not listed as another card.
+    const groups = (Array.isArray(res) ? res : res?.groups)?.filter(g => (g?.id as string | undefined) !== 'rrb-ntpc');
     if (Array.isArray(groups) && groups.length > 0) return mergeCatalog(groups);
   } catch {
     /* endpoint not deployed yet — use the bundled catalog */
@@ -630,6 +632,8 @@ const STAGE_KEYWORDS: Record<string, string[]> = {
   'group-4-written': ['group 4', 'group-4', 'group4', 'g4', 'vao', 'written'],
   'gat-b-exam': ['gat-b', 'gat b', 'gatb', 'biotechnology aptitude'],
   'rrb-ntpc-cbt-1-exam': ['rrb ntpc cbt-1', 'rrb ntpc cbt 1', 'ntpc cbt-1', 'ntpc cbt 1'],
+  // The same papers: which level each is for is decided after (`papersForNtpc`), not by its title here.
+  'rrb-ntpc-cbt-1-grad-exam': ['rrb ntpc cbt-1', 'rrb ntpc cbt 1', 'ntpc cbt-1', 'ntpc cbt 1'],
   'rrb-ntpc-cbt-2-exam': ['rrb ntpc cbt-2', 'rrb ntpc cbt 2', 'ntpc cbt-2', 'ntpc cbt 2'],
 };
 

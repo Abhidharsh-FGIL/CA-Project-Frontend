@@ -1,4 +1,5 @@
 import { upperMeridiem } from '@/lib/meridiem';
+import { useGroupOptions, useUpcomingExamLabels } from '@/hooks/use-exam-availability';
 import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import { displayTitle } from '@/lib/display-title';
 import { bilingualTitle } from '@/lib/bilingual';
@@ -29,7 +30,7 @@ import { isPromotional } from '@/lib/promotional-flag';
 import { FilterSelect, type FilterOption } from '@/components/user/FilterSelect';
 import type { ApiAttempt } from '@/lib/userPortalApi';
 import { ALL_TIME, DateRangeFilter, inRange, isoDay, type DateRange } from '@/components/user/DateRangeFilter';
-import { GROUP_OPTIONS, TRACK_OPTIONS, useGroupMatcher, type GroupKey, type TrackKey } from '@/hooks/use-progress-trend';
+import { TRACK_OPTIONS, useGroupMatcher, type GroupKey, type TrackKey } from '@/hooks/use-progress-trend';
 import { commonMaxMarks, marksLabel, maxMarksOf } from '@/lib/userDashboardApi';
 import { attemptOutcome, durationLabel, isUnfinished, scoreTone, type AttemptOutcome, type ScoreTone } from '@/lib/attempt-history';
 
@@ -87,6 +88,9 @@ export default function UserHistoryPage() {
   const [range, setRange] = useState<DateRange>(fromLink.range ?? ALL_TIME);
   const [statusFilter, setStatusFilter] = useState<StatusKey>('all');
   const [group, setGroup] = useState<GroupKey>(fromLink.group ?? 'all');
+  // The exams open to this student — the admin's list, as the Exams page shows them.
+  const groupOptions = useGroupOptions();
+  const upcomingExams = useUpcomingExamLabels();
 
   // Attempts carry no group id, so the group's catalog decides which tests belong to it.
   const { matchesGroup, isLoading: groupLoading } = useGroupMatcher(group);
@@ -218,7 +222,7 @@ export default function UserHistoryPage() {
                   className="w-full h-9 pl-9 pr-3 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900/40"
                 />
               </div>
-              <FilterSelect value={group} options={GROUP_OPTIONS} onChange={v => setGroup(v)} ariaLabel="Exam group" />
+              <FilterSelect value={group} options={groupOptions} upcoming={upcomingExams} onChange={v => setGroup(v)} ariaLabel="Exam group" />
               <FilterSelect value={statusFilter} options={STATUS_OPTIONS} onChange={v => setStatusFilter(v)} ariaLabel="Status" />
               <FilterSelect value={modeFilter} options={TRACK_OPTIONS} onChange={v => setModeFilter(v)} ariaLabel="Test type" />
               <DateRangeFilter value={range} onChange={setRange} />

@@ -1,4 +1,5 @@
 import { upperMeridiem } from '@/lib/meridiem';
+import { useExamGroupOptions, useUpcomingExamLabels } from '@/hooks/use-exam-availability';
 import { useEffect, useMemo, useState } from 'react';
 import { studentTitle } from '@/lib/bilingual';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -26,7 +27,7 @@ import { SubjectPerformance } from '@/components/user/AttemptDiagnosticReport';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useReportGate } from '@/hooks/use-report-gate';
 import {
-  EXAM_GROUP_OPTIONS,
+  examGroupLabel,
   TRACK_OPTIONS,
   type TrackKey,
   GROUP_STAGE,
@@ -87,7 +88,10 @@ export default function UserPerformancePage() {
    * range has been narrowed — that alone decides between range copy and all-time copy.
    */
   const rangeNarrowed = range.key !== 'all';
-  const groupLabel = EXAM_GROUP_OPTIONS.find(o => o.value === group)!.label;
+  const groupLabel = examGroupLabel(group);
+  // The exams open to this student — the admin's list, as the Exams page shows them.
+  const examOptions = useExamGroupOptions();
+  const upcomingExams = useUpcomingExamLabels();
   const trackLabel = TRACK_OPTIONS.find(o => o.value === track)!.label;
   const trackNoun = track === 'mock' ? 'Mock Test' : track === 'practice' ? 'Practice Test' : 'Test';
   const trackHref = `/user/exams/${group}/${GROUP_STAGE[group]}?tab=${track === 'mock' ? 'mock' : 'practice'}`;
@@ -216,7 +220,7 @@ export default function UserPerformancePage() {
         </div>
         {/* One filter bar for the page — scores, curve and attempts all obey it. */}
         <div className="flex items-center gap-2 flex-wrap">
-          <FilterSelect value={group} options={EXAM_GROUP_OPTIONS} onChange={chooseGroup} ariaLabel="Exam group" />
+          <FilterSelect value={group} options={examOptions} upcoming={upcomingExams} onChange={chooseGroup} ariaLabel="Exam group" />
           <FilterSelect value={track} options={TRACK_OPTIONS} onChange={v => setTrack(v)} ariaLabel="Test type" />
           <DateRangeFilter value={range} onChange={setRange} />
           {!isDefaultView && (

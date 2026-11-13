@@ -14,6 +14,7 @@
  * rather than a code change.
  */
 import { findGroup, findStage, TNPSC_GROUPS, type TnpscExamPattern, type TnpscGroup, type TnpscStage } from '@/config/tnpsc';
+import { fromWireRow } from '@/config/rrb-ntpc';
 
 /** One node of the exam's configured syllabus, independent of what was tested. */
 export interface ExamTaxonomyNode {
@@ -108,7 +109,11 @@ export function resolveExamContext(
   opts: { groupId?: string | null; stageId?: string | null },
   catalog: TnpscGroup[] = TNPSC_GROUPS,
 ): ExamContext | null {
-  const { groupId, stageId } = opts;
+  // An attempt can carry the backend's own codes (`rrb-ntpc` / `rrb-ntpc-cbt-1`): put them in the portal's, where
+  // RRB NTPC's tests are exams of their own (`rrb-ntpc-cbt-1`, `-1-grad`, `-2`). Any other id is unchanged.
+  const placed = fromWireRow({ group_id: opts.groupId ?? null, stage_id: opts.stageId ?? null });
+  const groupId: string | null = placed.group_id;
+  const stageId: string | null = placed.stage_id;
   if (!groupId && !stageId) return null;
 
   const found = findStage(groupId ?? undefined, stageId ?? undefined, catalog);

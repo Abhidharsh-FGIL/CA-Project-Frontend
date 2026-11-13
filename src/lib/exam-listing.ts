@@ -20,6 +20,12 @@ import type { TnpscGroup } from '@/config/tnpsc';
  */
 export const OPEN_EXAM_IDS: ReadonlySet<string> = new Set(['group-4', 'group-2', 'rrb-ntpc-cbt-1', 'rrb-ntpc-cbt-2']);
 
+/**
+ * The cards the Exams page leads with, in this order, open or not: a coming-soon exam here keeps its place (greyed)
+ * beside the one it belongs with — CBT-1 Graduate next to CBT-1 UG. Every other exam follows, as before.
+ */
+export const EXAM_CARD_ORDER: readonly string[] = ['group-4', 'rrb-ntpc-cbt-1', 'rrb-ntpc-cbt-1-grad', 'group-2'];
+
 /** The exam a name, a collection or a view with no stated exam belongs to — the one that was there first. */
 export const PRIMARY_EXAM_ID = 'group-4';
 

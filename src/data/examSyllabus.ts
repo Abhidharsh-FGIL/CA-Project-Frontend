@@ -30,6 +30,7 @@ export interface SyllabusSubject {
 const STAGE_SECTION_QUESTIONS: Record<string, Record<string, number>> = {
   // RRB NTPC: both tests carry the same three subjects, in different numbers.
   'rrb-ntpc-cbt-1-exam': { 'ntpc-general-awareness': 40, 'ntpc-mathematics': 30, 'ntpc-reasoning': 30 },
+  'rrb-ntpc-cbt-1-grad-exam': { 'ntpc-general-awareness': 40, 'ntpc-mathematics': 30, 'ntpc-reasoning': 30 },
   'rrb-ntpc-cbt-2-exam': { 'ntpc-general-awareness': 50, 'ntpc-mathematics': 35, 'ntpc-reasoning': 35 },
   // Group 1 Prelims: General Studies 175 + Aptitude 25
   'group-1-prelims': {

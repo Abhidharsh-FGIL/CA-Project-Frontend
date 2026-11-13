@@ -1,4 +1,5 @@
 import { upperMeridiem } from '@/lib/meridiem';
+import { useExamGroupOptions, useUpcomingExamLabels } from '@/hooks/use-exam-availability';
 import { useEffect, useMemo, useState } from 'react';
 import { bilingual, studentTitle } from '@/lib/bilingual';
 import { Link } from 'react-router-dom';
@@ -53,7 +54,7 @@ import { TestScoreCard } from '@/components/user/TestScoreCard';
 import { useSubjectStrengths } from '@/hooks/use-subject-strengths';
 import { examEntryPath } from '@/lib/exam-listing';
 import {
-  EXAM_GROUP_OPTIONS,
+  examGroupLabel,
   EXAM_TRACK_OPTIONS,
   GROUP_STAGE,
   formatTrendLabel,
@@ -100,7 +101,7 @@ export default function UserDashboardPage() {
   useAiCoachAutoOpen(group, GROUP_STAGE[group], () => setCoachOpen(true));
   const firstName = user?.name?.split(' ')[0];
   // RRB NTPC is sat at two levels; the papers counted and offered here are the chosen level's.
-  const { level: chosenLevel, language: chosenLanguage, save: saveNtpc } = useNtpcPrefs(user?.user_id);
+  const { level: chosenLevel, language: chosenLanguage, fixedLevel: ntpcFixedLevel, save: saveNtpc } = useNtpcPrefs(user?.user_id, group);
   const isNtpc = isNtpcGroup(group);
   const ntpcPrefs = useMemo(() => (isNtpc ? { level: chosenLevel, language: chosenLanguage } : null), [isNtpc, chosenLevel, chosenLanguage]);
   const [askingLevel, setAskingLevel] = useState(false);
@@ -324,7 +325,10 @@ export default function UserDashboardPage() {
 
   /** What the selection is called, for tile labels and empty states. */
   const trackNoun = track === 'mock' ? 'Mock Test' : 'Practice Test';
-  const groupLabel = EXAM_GROUP_OPTIONS.find(o => o.value === group)!.label;
+  const groupLabel = examGroupLabel(group);
+  // The exams open to this student — the admin's list, as the Exams page shows them.
+  const examOptions = useExamGroupOptions();
+  const upcomingExams = useUpcomingExamLabels();
 
   /** The exam card for the selected group — the page shows one exam at a time. */
   const visibleGroups = useMemo(() => groups.filter(g => g.id === group), [groups, group]);
@@ -363,11 +367,11 @@ export default function UserDashboardPage() {
         <div className="flex items-center gap-2 flex-wrap">
           {isNtpcGroup(group) && (
             <>
-              <NtpcLevelChip prefs={{ level: chosenLevel, language: chosenLanguage }} onChange={() => setAskingLevel(true)} />
-              <NtpcLevelDialog open={askingLevel} onOpenChange={setAskingLevel} value={{ level: chosenLevel, language: chosenLanguage }} fallbackLanguage={examLanguageOf(user?.medium)} onSave={p => { saveNtpc(p); setAskingLevel(false); }} />
+              <NtpcLevelChip prefs={{ level: chosenLevel, language: chosenLanguage }} fixedLevel={ntpcFixedLevel} onChange={() => setAskingLevel(true)} />
+              <NtpcLevelDialog open={askingLevel} onOpenChange={setAskingLevel} value={{ level: chosenLevel, language: chosenLanguage }} fallbackLanguage={examLanguageOf(user?.medium)} onSave={p => { saveNtpc(p); setAskingLevel(false); }} fixedLevel={ntpcFixedLevel} />
             </>
           )}
-          <FilterSelect value={group} options={EXAM_GROUP_OPTIONS} onChange={chooseGroup} ariaLabel="Exam group" />
+          <FilterSelect value={group} options={examOptions} upcoming={upcomingExams} onChange={chooseGroup} ariaLabel="Exam group" />
           <FilterSelect value={track} options={EXAM_TRACK_OPTIONS} onChange={v => setTrack(v)} ariaLabel="Test type" />
           <DateRangeFilter value={range} onChange={setRange} />
         </div>

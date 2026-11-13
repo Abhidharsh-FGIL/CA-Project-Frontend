@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Layers, Sparkles } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Languages, Layers, Sparkles } from 'lucide-react';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { NtpcLevelChip, NtpcLevelDialog } from '@/components/user/NtpcLevelDialog';
-import { isNtpcGroup, useNtpcPrefs, type NtpcPrefs } from '@/lib/ntpc-level';
+import { NTPC_LANGUAGES, NTPC_LANGUAGE_NATIVE, isNtpcGroup, useNtpcPrefs, type NtpcPrefs } from '@/lib/ntpc-level';
 import { examLanguageOf } from '@/lib/exam-language';
 import { examLogo } from '@/lib/exam-logo';
 import { cn } from '@/lib/utils';
 import type { TnpscGroup } from '@/config/tnpsc';
 import { useOpenExamIds } from '@/hooks/use-exam-availability';
-import { UPCOMING_EXAMS, examEntryPath, splitExams, type UpcomingExam } from '@/lib/exam-listing';
+import { EXAM_CARD_ORDER, UPCOMING_EXAMS, examEntryPath, splitExams, type UpcomingExam } from '@/lib/exam-listing';
 
 /** Shown after everything else, whatever the catalog's order. */
 const LAST_EXAM_IDS: ReadonlySet<string> = new Set(['group-1']);
@@ -23,20 +23,26 @@ const LAST_EXAM_IDS: ReadonlySet<string> = new Set(['group-1']);
  * no catalog entry at all (see `exam-listing.ts`).
  */
 export function TnpscGroupGrid({ groups }: { groups: TnpscGroup[] }) {
-  const split = splitExams(groups, useOpenExamIds());
+  const openIds = useOpenExamIds();
+  // The lead cards, in their fixed order (`EXAM_CARD_ORDER`), open or coming soon; every other exam after them.
+  const featured = EXAM_CARD_ORDER.map(id => groups.find(g => g.id === id)).filter((g): g is TnpscGroup => !!g);
+  const split = splitExams(groups.filter(g => !EXAM_CARD_ORDER.includes(g.id)), openIds);
   const { open } = split;
   // Exams the product has the least to do with yet go at the very end, after the announced ones too.
   const soon = split.soon.filter(g => !LAST_EXAM_IDS.has(g.id));
   const last = split.soon.filter(g => LAST_EXAM_IDS.has(g.id));
-  const lead = open.length + soon.length;
+  const lead = featured.length + open.length + soon.length;
 
   return (
     <CardScroller>
+      {featured.map((g, i) => (
+        <GroupCard key={g.id} group={g} index={i} comingSoon={!openIds.has(g.id)} />
+      ))}
       {open.map((g, i) => (
-        <GroupCard key={g.id} group={g} index={i} />
+        <GroupCard key={g.id} group={g} index={featured.length + i} />
       ))}
       {soon.map((g, i) => (
-        <GroupCard key={g.id} group={g} index={open.length + i} comingSoon />
+        <GroupCard key={g.id} group={g} index={featured.length + open.length + i} comingSoon />
       ))}
       {UPCOMING_EXAMS.map((e, i) => (
         <UpcomingCard key={e.id} exam={e} index={lead + i} />
@@ -165,7 +171,7 @@ const TONES: Record<'blue' | 'teal' | 'violet' | 'amber' | 'rose' | 'indigo', To
 };
 
 /** The known exams keep their colour wherever they sit in the list; a new one takes the next free hue. */
-const TONE_BY_GROUP: Record<string, keyof typeof TONES> = { 'group-1': 'blue', 'group-2': 'indigo', 'group-4': 'teal', 'gat-b': 'violet', 'rrb-ntpc-cbt-1': 'amber', 'rrb-ntpc-cbt-2': 'rose' };
+const TONE_BY_GROUP: Record<string, keyof typeof TONES> = { 'group-1': 'blue', 'group-2': 'indigo', 'group-4': 'teal', 'gat-b': 'violet', 'rrb-ntpc-cbt-1': 'amber', 'rrb-ntpc-cbt-1-grad': 'violet', 'rrb-ntpc-cbt-2': 'rose' };
 const TONE_ORDER = ['blue', 'teal', 'violet', 'amber', 'rose'] as const;
 
 const toneFor = (groupId: string, index: number): Tone =>
@@ -246,12 +252,29 @@ function CardFrame({
   );
 }
 
+/**
+ * The languages an exam's papers come in, each written in its own script: TNPSC's in Tamil and English, RRB NTPC's in
+ * Tamil, English and Hindi. An exam not listed here (GAT-B) shows none rather than a guess.
+ */
+function examLanguages(groupId: string): string[] {
+  if (isNtpcGroup(groupId)) return NTPC_LANGUAGES.map(l => NTPC_LANGUAGE_NATIVE[l]);
+  if (/^group-\d+$/.test(groupId)) return [NTPC_LANGUAGE_NATIVE.tamil, NTPC_LANGUAGE_NATIVE.english];
+  return [];
+}
+
+/** What a wrong answer costs in the exam's open stage ("0.33"), or null where it costs nothing. */
+function negativeMark(group: TnpscGroup): number | null {
+  const stage = group.stages.find(s => s.status === 'active') ?? group.stages[0];
+  const p = stage?.pattern;
+  return p?.negative_marking && p.negative_mark_value ? p.negative_mark_value : null;
+}
+
 function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; index: number; comingSoon?: boolean }) {
   const activeStages = group.stages.filter(s => s.status === 'active');
   // RRB NTPC is sat at two levels: the first time it is opened the aspirant is asked which, and can change it after.
   const ntpc = isNtpcGroup(group.id) && !comingSoon;
   const { user } = useUserPortal();
-  const { level, language, ready, save } = useNtpcPrefs(user?.user_id);
+  const { level, language, ready, fixedLevel, save } = useNtpcPrefs(user?.user_id, group.id);
   const navigate = useNavigate();
   const logo = examLogo(group.id);
   const [asking, setAsking] = useState<'enter' | 'change' | null>(null);
@@ -371,6 +394,33 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
           </div>
         )}
 
+        {/* The languages its papers are in — a strip in the card's own colour, so it reads as a feature of the exam. */}
+        {examLanguages(group.id).length > 0 && (
+          <div
+            className={cn(
+              'mt-4 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2',
+              comingSoon ? 'border-gray-200 bg-gray-50 text-gray-400 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-500' : tone.stage,
+            )}
+          >
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold">
+              <Languages className="h-4 w-4" aria-hidden /> Available in
+            </span>
+            {examLanguages(group.id).map(name => (
+              <span
+                key={name}
+                className={cn(
+                  'rounded-md px-2 py-0.5 text-xs font-bold',
+                  comingSoon
+                    ? 'bg-white/70 text-gray-400 dark:bg-gray-900/60 dark:text-gray-500'
+                    : 'bg-white text-gray-800 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:text-gray-100 dark:ring-white/10',
+                )}
+              >
+                {name}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Stage chips — mt-auto pins these and the footer to the card's base. */}
         <div className="flex flex-wrap gap-2 mt-auto pt-5">
           {group.stages.map(s => {
@@ -391,12 +441,26 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
               </span>
             );
           })}
+          {/* What a wrong answer costs, beside the stage it applies to. */}
+          {negativeMark(group) != null && (
+            <span
+              className={cn(
+                'inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold',
+                comingSoon
+                  ? 'border-gray-200 bg-gray-50 text-gray-400 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-500'
+                  : 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300',
+              )}
+            >
+              −{negativeMark(group)} per wrong answer
+            </span>
+          )}
         </div>
 
         {ntpc && ready && (
           <div className="mt-3">
             <NtpcLevelChip
               prefs={{ level, language }}
+              fixedLevel={fixedLevel}
               onChange={() => setAsking('change')}
             />
           </div>
@@ -417,7 +481,7 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
         </div>
       </div>
     </CardFrame>
-    {ntpc && <NtpcLevelDialog open={asking !== null} onOpenChange={o => !o && setAsking(null)} value={{ level, language }} fallbackLanguage={examLanguageOf(user?.medium)} onSave={choose} examName={group.name} />}
+    {ntpc && <NtpcLevelDialog open={asking !== null} onOpenChange={o => !o && setAsking(null)} value={{ level, language }} fallbackLanguage={examLanguageOf(user?.medium)} onSave={choose} examName={group.name} fixedLevel={fixedLevel} />}
     </>
   );
 }

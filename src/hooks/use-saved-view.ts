@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ALL_TIME, type DateRange } from '@/components/user/DateRangeFilter';
-import { openGroupKey, type ExamGroupKey, type ExamTrackKey } from '@/hooks/use-progress-trend';
+import { openGroupIn, openGroupKey, type ExamGroupKey, type ExamTrackKey } from '@/hooks/use-progress-trend';
+import { useOpenExamIds } from '@/hooks/use-exam-availability';
 import { clearSavedView, loadSavedView, saveView } from '@/lib/saved-view';
 
 interface Named {
@@ -68,5 +69,8 @@ export function useSavedView(user: Named | null | undefined, link: { group?: Exa
     setRange(ALL_TIME);
   }, [userKey, preferred]);
 
-  return { group, track, range, preferred, chooseGroup, chooseTrack, chooseRange, resetView };
+  // An exam the admin has since closed is not shown: its option has gone from the filter, so the view moves to an
+  // open one — the aspirant's own if it is open. Their saved choice is kept, for when it opens again.
+  const open = useOpenExamIds();
+  return { group: openGroupIn(open, group, preferred), track, range, preferred, chooseGroup, chooseTrack, chooseRange, resetView };
 }

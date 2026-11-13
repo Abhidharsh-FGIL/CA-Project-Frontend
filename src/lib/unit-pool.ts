@@ -127,7 +127,7 @@ interface Compiled {
 const COMPILED = new WeakMap<TnpscStage, Compiled>();
 
 /** "g4-gs-indian-polity" → "gs-indian-polity": a unit's id without the exam it was filed under. */
-const unitFamily = (id: string) => id.replace(/^(?:g\d+|n[12])-/, '');
+const unitFamily = (id: string) => id.replace(/^(?:g\d+|n[12g])-/, '');
 
 const TAMIL_SCRIPT = /[஀-௿]/;
 const squash = (k: string) => k.replace(/ /g, '');

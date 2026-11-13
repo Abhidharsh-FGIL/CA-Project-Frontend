@@ -5,11 +5,13 @@
  * as clickable next to the rest of the UI. Built on Radix so keyboard navigation,
  * focus return and click-outside come for free.
  */
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Clock } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -34,6 +36,11 @@ interface FilterSelectProps<T extends string> {
   align?: 'start' | 'end';
   className?: string;
   ariaLabel?: string;
+  /**
+   * Names of what is on the way ("Group 1"), shown under the choices as a note — not as choices. A disabled row
+   * still read as an option that did not work; these sit apart, muted, with nothing to hover or press.
+   */
+  upcoming?: string[];
 }
 
 export function FilterSelect<T extends string>({
@@ -45,6 +52,7 @@ export function FilterSelect<T extends string>({
   align = 'end',
   className,
   ariaLabel,
+  upcoming = [],
 }: FilterSelectProps<T>) {
   const active = options.find(o => o.value === value) ?? options[0];
   // A non-default selection is tinted, so a filtered view is never mistaken for the
@@ -92,6 +100,26 @@ export function FilterSelect<T extends string>({
             {o.value === value && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
           </DropdownMenuItem>
         ))}
+        {upcoming.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="px-2 pb-2 pt-1.5 font-normal">
+              <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.14em] text-gray-400">
+                <Clock className="h-3 w-3" aria-hidden /> Coming soon
+              </span>
+              <span className="mt-1.5 flex flex-wrap gap-1.5">
+                {upcoming.map(name => (
+                  <span
+                    key={name}
+                    className="rounded-md border border-dashed border-gray-300 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:border-gray-600 dark:text-gray-400"
+                  >
+                    {name}
+                  </span>
+                ))}
+              </span>
+            </DropdownMenuLabel>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

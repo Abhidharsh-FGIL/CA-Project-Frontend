@@ -286,7 +286,7 @@ export default function TnpscStagePage() {
   // RRB NTPC: the level (Graduate / Under-Graduate) the aspirant chose, which decides the papers listed.
   const { user: me } = useUserPortal();
   const ntpc = isNtpcGroup(groupId);
-  const { level: chosenLevel, language: chosenLanguage, ready: ntpcReady, save: saveNtpc } = useNtpcPrefs(me?.user_id);
+  const { level: chosenLevel, language: chosenLanguage, ready: ntpcReady, fixedLevel: ntpcFixedLevel, save: saveNtpc } = useNtpcPrefs(me?.user_id, groupId);
   const ntpcPrefs = useMemo(() => (ntpc ? { level: chosenLevel, language: chosenLanguage } : null), [ntpc, chosenLevel, chosenLanguage]);
   const [askingLevel, setAskingLevel] = useState(false);
   // Arriving with no level chosen (a link, a bookmark) asks once, here.
@@ -532,8 +532,8 @@ export default function TnpscStagePage() {
       {ntpc && (
         <div className="mb-4 sm:mb-5 flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
           <span>Papers shown for</span>
-          <NtpcLevelChip prefs={{ level: chosenLevel, language: chosenLanguage }} onChange={() => setAskingLevel(true)} />
-          <NtpcLevelDialog open={askingLevel} onOpenChange={setAskingLevel} value={{ level: chosenLevel, language: chosenLanguage }} fallbackLanguage={examLanguageOf(me?.medium)} onSave={p => { saveNtpc(p); setAskingLevel(false); }} examName={group.name} />
+          <NtpcLevelChip prefs={{ level: chosenLevel, language: chosenLanguage }} fixedLevel={ntpcFixedLevel} onChange={() => setAskingLevel(true)} />
+          <NtpcLevelDialog open={askingLevel} onOpenChange={setAskingLevel} value={{ level: chosenLevel, language: chosenLanguage }} fallbackLanguage={examLanguageOf(me?.medium)} onSave={p => { saveNtpc(p); setAskingLevel(false); }} examName={group.name} fixedLevel={ntpcFixedLevel} />
         </div>
       )}
 
