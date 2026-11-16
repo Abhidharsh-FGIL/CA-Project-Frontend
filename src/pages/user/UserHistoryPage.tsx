@@ -50,11 +50,35 @@ const COLUMNS_NO_LEVEL =
 
 /** A trailing difficulty in a practice paper's name — "இலக்கணம் · Simple" — is a column of its own, not part of the name. */
 const LEVEL_TAIL = /\s*[·•|-]\s*(Simple|Medium|Complex|Mixed|Easy|Hard)\s*$/i;
-function splitLevel(title: string | null): { name: string; level: string | null } {
+function splitLevel(title: string | null): { name: string; level: string | null; exam: string | null } {
   const t = displayTitle(title) ?? 'Test Attempt';
   const m = t.match(LEVEL_TAIL);
-  if (!m || m.index == null) return { name: bilingualTitle(t), level: null };
-  return { name: bilingualTitle(t.slice(0, m.index).trim() || t), level: m[1][0].toUpperCase() + m[1].slice(1).toLowerCase() };
+  const level = m && m.index != null ? m[1][0].toUpperCase() + m[1].slice(1).toLowerCase() : null;
+  const { exam, unit } = splitExam(m && m.index != null ? t.slice(0, m.index).trim() || t : t);
+  return { name: bilingualTitle(unit), level, exam };
+}
+
+/**
+ * A practice paper is named "RRB NTPC CBT-1 (Under-Graduate · English) — LCM and HCF": the exam, then the unit. The row
+ * shows the unit alone — the exam is the heading the rows sit under — because the same unit turns up in more than one
+ * exam, and a long prefix on every row doesn't fit a phone. A title with no " — " has no exam to lift out.
+ */
+const EXAM_SPLIT = /^(.+?)\s+[—–]\s+(.+)$/;
+function splitExam(title: string): { exam: string | null; unit: string } {
+  const m = title.match(EXAM_SPLIT);
+  return m ? { exam: m[1].trim(), unit: m[2].trim() } : { exam: null, unit: title };
+}
+
+/** One tab's attempts under the exam each belongs to, the exam of the newest attempt first. Attempts with no exam go last. */
+function groupByExam(rows: ApiAttempt[]): Array<{ exam: string | null; rows: ApiAttempt[] }> {
+  const sections = new Map<string | null, ApiAttempt[]>();
+  for (const r of rows) {
+    const exam = splitLevel(r.test_name).exam;
+    sections.set(exam, [...(sections.get(exam) ?? []), r]);
+  }
+  const named = [...sections].filter(([exam]) => exam != null);
+  const rest = sections.get(null);
+  return [...named, ...(rest ? [[null, rest] as const] : [])].map(([exam, rs]) => ({ exam, rows: rs }));
 }
 
 const LEVEL_CHIP: Record<string, string> = {
@@ -398,19 +422,36 @@ export default function UserHistoryPage() {
               <span>Status</span>
               <span className="text-right">Report</span>
             </div>
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {activeGroup.rows.map((a, i) => (
-                <AttemptRow
-                  key={a.attempt_id}
-                  attempt={a}
-                  hasLevel={activeHasLevel}
-                  courseName={a.course_id ? courses.find(c => c.course_id === a.course_id)?.name : undefined}
-                  paperMax={stats.paperMax}
-                  resumeTarget={a.status === 'in_progress' ? resumeTargetFor(a) : null}
-                  index={i}
-                />
-              ))}
-            </div>
+            {/* Under an exam heading when the attempts carry one; the rows then say only the unit. */}
+            {(() => {
+              const sections = groupByExam(activeGroup.rows);
+              const headed = sections.some(s => s.exam != null);
+              return sections.map(section => (
+                <div key={section.exam ?? 'other'}>
+                  {headed && (
+                    <div className="flex items-center justify-between gap-3 border-y border-gray-100 bg-gray-50 px-4 py-2 dark:border-gray-800 dark:bg-gray-800/50">
+                      <h3 className="min-w-0 text-[12.5px] font-bold text-gray-800 dark:text-gray-100">{section.exam ?? 'Other tests'}</h3>
+                      <span className="flex-shrink-0 rounded-full bg-white px-2 text-[11px] font-bold tabular-nums text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:ring-gray-700">
+                        {section.rows.length}
+                      </span>
+                    </div>
+                  )}
+                  <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {section.rows.map((a, i) => (
+                      <AttemptRow
+                        key={a.attempt_id}
+                        attempt={a}
+                        hasLevel={activeHasLevel}
+                        courseName={a.course_id ? courses.find(c => c.course_id === a.course_id)?.name : undefined}
+                        paperMax={stats.paperMax}
+                        resumeTarget={a.status === 'in_progress' ? resumeTargetFor(a) : null}
+                        index={i}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()}
           </section>
         )      )}
     </UserShell>

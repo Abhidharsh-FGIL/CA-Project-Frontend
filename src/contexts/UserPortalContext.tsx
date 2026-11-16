@@ -42,7 +42,7 @@ import {
 } from '@/lib/userAuthApi';
 import {
   getUserAssessments,
-  getAttemptHistory,
+  getAllAttempts,
   getNotifications,
   markNotificationReadApi,
   markAllNotificationsReadApi,
@@ -202,13 +202,13 @@ async function fetchPortalData(u: SampleUser): Promise<{
 }> {
   const [assessmentsRes, historyRes, notificationsRes] = await Promise.allSettled([
     getUserAssessments(assessmentFilter(u)),
-    getAttemptHistory(1, 50),
+    getAllAttempts(),
     getNotifications(1, 50),
   ]);
 
   return {
     assessments: assessmentsRes.status === 'fulfilled' ? assessmentsRes.value : [],
-    history: historyRes.status === 'fulfilled' ? historyRes.value.items : [],
+    history: historyRes.status === 'fulfilled' ? historyRes.value : [],
     notifications: notificationsRes.status === 'fulfilled' ? notificationsRes.value.items : [],
   };
 }
@@ -707,8 +707,7 @@ export function UserPortalProvider({ children }: { children: React.ReactNode }) 
   /** Re-fetch attempt history from the API. Call after a test is submitted. */
   const refreshHistory = useCallback(async () => {
     try {
-      const res = await getAttemptHistory(1, 50);
-      setHistory(res.items);
+      setHistory(await getAllAttempts());
     } catch {
       // Non-fatal — stale history is still usable
     }

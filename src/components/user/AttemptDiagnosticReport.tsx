@@ -468,9 +468,9 @@ const fmt = (n: number) => String(Math.round(n * 100) / 100);
 /**
  * The score as a sum: marks for the correct answers, less the negative marks for the wrong ones — so a paper with
  * twelve right answers that scored 0 says why. Only where the paper's marking is one rate for every question (total
- * marks ÷ questions) and the sum comes out at the score the server gave — exactly, or below zero where the score is
- * 0 because it is not allowed to go negative. Anything else (a paper marked differently by section) shows no sum
- * rather than one that disagrees with the score.
+ * marks ÷ questions) and the sum comes out at the score shown. A score the server held at 0 is already corrected to
+ * the true net (see scoreBelowZero). Anything else (a paper marked differently by section) shows no sum rather than
+ * one that disagrees with the score.
  */
 export function scoreSum(model: AttemptReportModel) {
   const s = model.summary;
@@ -481,9 +481,8 @@ export function scoreSum(model: AttemptReportModel) {
   const earned = s.correct * perCorrect;
   const lost = neg.marksLost;
   const net = earned - lost;
-  const floored = net < 0 && s.score === 0;
-  if (!floored && Math.abs(net - s.score) > 0.05) return null;
-  return { correct: s.correct, wrong: s.incorrect, perCorrect, perWrong: neg.perWrong, earned, lost, net, floored };
+  if (Math.abs(net - s.score) > 0.05) return null;
+  return { correct: s.correct, wrong: s.incorrect, perCorrect, perWrong: neg.perWrong, earned, lost, net };
 }
 
 export function OverallScoreSummary({ model }: { model: AttemptReportModel }) {
@@ -583,7 +582,7 @@ export function OverallScoreSummary({ model }: { model: AttemptReportModel }) {
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/85">Total Score</p>
               <p className="mt-1 text-4xl font-extrabold tabular-nums leading-none">
-                {s.score != null ? Math.round(shownScore * 10) / 10 : '—'}
+                {s.score != null ? fmt(shownScore) : '—'}
               </p>
               {s.maxMarks != null && <p className="mt-1.5 text-sm font-medium text-white/85">out of {s.maxMarks} marks</p>}
             </div>
@@ -609,7 +608,6 @@ export function OverallScoreSummary({ model }: { model: AttemptReportModel }) {
                   <span className="font-semibold">Net</span>
                   <span className="text-sm font-extrabold">{sum.net < 0 ? `−${fmt(-sum.net)}` : fmt(sum.net)}</span>
                 </p>
-                {sum.floored && <p className="mt-1 text-[11px] text-white/85">A score can't go below 0, so it is 0.</p>}
               </div>
             )}
           </div>

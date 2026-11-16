@@ -720,6 +720,26 @@ export function getAttemptHistory(
   );
 }
 
+/** The most attempts the history API returns in one page. */
+const HISTORY_PAGE_LIMIT = 500;
+
+/**
+ * Every attempt the student has made, newest first. The history API pages its results, and the History and Performance
+ * screens work out their totals (completed, best, average, tab counts) from what they are given — so a single page of
+ * 50 made a 125-attempt history look like 50. Reads the first page, then any further pages the response's `pages` says
+ * exist; an attempt that moved between pages mid-load is kept once.
+ */
+export async function getAllAttempts(): Promise<ApiAttempt[]> {
+  const first = await getAttemptHistory(1, HISTORY_PAGE_LIMIT);
+  const items = [...first.items];
+  for (let page = 2; page <= (first.pages ?? 1); page++) {
+    const next = await getAttemptHistory(page, HISTORY_PAGE_LIMIT);
+    items.push(...next.items);
+  }
+  const seen = new Set<string>();
+  return items.filter(a => (seen.has(a.attempt_id) ? false : (seen.add(a.attempt_id), true)));
+}
+
 /** GET /api/v1/user/notifications/?page=&limit=&is_read= */
 export function getNotifications(
   page = 1,

@@ -40,7 +40,7 @@ export function PassMarkNote({ model, track }: { model: AttemptReportModel; trac
   const marks = passMarks(mark, s.maxMarks);
   const what = isMock ? 'full-length mock' : `${difficultyLabel(levelKey(level))} practice`;
   const pct = Math.round((s.percentage ?? 0) * 10) / 10;
-  const gap = marks && s.score != null ? Math.max(0, marks.pass - s.score) : null;
+  const gap = marks && s.score != null ? Math.max(0, Math.round((marks.pass - s.score) * 100) / 100) : null;
 
   const line =
     standing === 'target'

@@ -478,6 +478,24 @@ function withCached(cached: string | null | undefined, computed: string): string
 }
 
 /** A question counts as attempted when the student recorded an answer. */
+/**
+ * The true net score where negative marking took it below zero. The server stores a score of at least 0, so a paper
+ * it gave 0 may really have earned less: marks for the right answers (total marks ÷ questions each) less the marks
+ * lost to wrong ones. Null unless the server's score is 0 and that sum is negative. Two decimals, which is the finest
+ * a mark is given in, so float noise (2 − 5.94 = −3.9399999…) never shows.
+ */
+export function scoreBelowZero(
+  serverScore: number | null,
+  maxMarks: number | null,
+  totalQuestions: number,
+  correct: number,
+  marksLost: number,
+): number | null {
+  if (serverScore !== 0 || !maxMarks || totalQuestions <= 0 || marksLost <= 0) return null;
+  const net = Math.round(((correct * maxMarks) / totalQuestions - marksLost) * 100) / 100;
+  return net < 0 ? net : null;
+}
+
 export function isAttempted(q: QuestionReviewItem): boolean {
   const a = q.user_answer;
   return a != null && String(a).trim() !== '';
@@ -1350,10 +1368,14 @@ export function buildAttemptReport(
     warnings,
   };
 
+  const negativeLoss = negativeMarkLoss(exam?.marking ?? null, overall.incorrect);
+  const serverScore = detail.attempt?.score ?? null;
+  const serverMax = detail.attempt?.max_score ?? null;
+  const belowZero = scoreBelowZero(serverScore, serverMax, totalQuestions, overall.correct, negativeLoss?.marks ?? 0);
   const summary = {
-    score: detail.attempt?.score ?? null,
-    maxMarks: detail.attempt?.max_score ?? null,
-    percentage: detail.attempt?.percentage ?? null,
+    score: belowZero ?? serverScore,
+    maxMarks: serverMax,
+    percentage: belowZero != null && serverMax ? Math.round((belowZero / serverMax) * 10000) / 100 : (detail.attempt?.percentage ?? null),
     totalQuestions,
     attempted: overall.attempted,
     correct: overall.correct,
@@ -1377,7 +1399,6 @@ export function buildAttemptReport(
       ? Math.round((exam.durationSec / totalQuestions) * 10) / 10
       : null;
 
-  const negativeLoss = negativeMarkLoss(exam?.marking ?? null, overall.incorrect);
   const difficulty = difficultyRows(questions);
   const subjectShares = shareRows(subjects, overall);
   // Only subjects that actually cost marks, heaviest first.
