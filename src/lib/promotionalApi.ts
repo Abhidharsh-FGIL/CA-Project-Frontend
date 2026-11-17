@@ -4,7 +4,7 @@
  * One paper, open only between `starts_at` and `ends_at`. Before the start the link counts down; after the end it is
  * expired. Taking it is free (it never uses up the plan's tests), it shows in the student's history, and once the
  * window closes the student sees where they stand: the top 50 and their own rank. It is never listed among the
- * exams in the portal; the link, the daily popup and the dashboard card are the ways in.
+ * exams in the portal; the link, the daily popup and the card on the Exams page are the ways in.
  */
 import { api, publicApi, userApi } from './api';
 
@@ -87,11 +87,11 @@ export function promotionalPhase(p: Pick<PromotionalAssessment, 'starts_at' | 'e
   return 'live';
 }
 
-/** How long a test the student took stays on the dashboard after it closes, so they can open their result. */
+/** How long a test the student took stays on the Exams page card after it closes, so they can open their result. */
 export const DASHBOARD_RESULT_LINGER_MS = 6 * 60 * 60 * 1000;
 
 /**
- * Whether the dashboard still lists a test: one open or to come, or one the student took that closed less than six
+ * Whether the Exams page card still lists a test: one open or to come, or one the student took that closed less than six
  * hours ago. A closed test they did not take, or took and closed longer ago, is gone from it (the result stays on
  * their History).
  */
@@ -167,7 +167,7 @@ export const getPublicPromotional = (id: string) =>
 
 // ─── Student ─────────────────────────────────────────────────────────────────
 
-/** Upcoming and live promotional tests, for the popup and the dashboard card. */
+/** Upcoming and live promotional tests, for the popup and the Exams page card. */
 export async function listMyPromotional(): Promise<PromotionalAssessment[]> {
   const res = await userApi.get<PromotionalAssessment[] | { items: PromotionalAssessment[] }>('/api/v1/user/promotional');
   return Array.isArray(res) ? res : (res?.items ?? []);
@@ -234,7 +234,7 @@ export function setReturnTo(path: string): void {
   try {
     localStorage.setItem(RETURN_KEY, JSON.stringify({ path, at: Date.now() }));
   } catch {
-    /* storage blocked — the student lands on the dashboard and finds the test there */
+    /* storage blocked — the student lands on the dashboard and finds the test on the Exams page */
   }
 }
 

@@ -74,7 +74,6 @@ import {
   type UserDashboardAnalytics,
 } from '@/lib/userDashboardApi';
 import { cn } from '@/lib/utils';
-import { PromotionalDashboardCard } from '@/components/user/PromotionalDashboardCard';
 
 // Validated for colour-blind separation (see dataviz validator). Do not extend past
 // seven: a 14-hue version failed deutan separation, which is why more than seven
@@ -381,8 +380,6 @@ export default function UserDashboardPage() {
       <div className="grid lg:grid-cols-3 gap-3 sm:gap-4">
         {/* ── Left: headline numbers, progress, strengths ────────────────── */}
         <div className="lg:col-span-2 min-w-0 flex flex-col gap-3 sm:gap-4">
-          {/* Free promotional tests: upcoming, live, or closed with a rank to see. Nothing when there are none. */}
-          <PromotionalDashboardCard />
           {/* Stats */}
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3">
             <StatCard

@@ -5,7 +5,7 @@ an end time. It is not one of the exams: it never appears in the exam lists. It 
 tests. After it closes, students see the top 50 and their own rank.
 
 The portal is built and calls the endpoints below. Until they exist, the promotional pages show an empty list or an
-error and the daily popup and dashboard card stay hidden.
+error and the daily popup and the card at the top of the Exams page stay hidden.
 
 ## 1. Data
 
@@ -88,7 +88,7 @@ the window allows. Attempts already in progress may finish. The server must enfo
 - `GET /api/v1/user/promotional` → promotional tests the student should see: those that are **upcoming or live**, plus
   ones **they took that closed in the last 7 days**. Same shape as §5 plus:
   `attempted` (bool), `attempt_id`, `in_progress_attempt_id`, and `server_time`. Used by the dashboard card and the
-  daily popup. Not per exam, not per plan: every signed-in student sees them.
+  daily popup. Shown at the top of the Exams page. Not per exam, not per plan: every signed-in student sees them.
 - `GET /api/v1/user/promotional/{id}` → one test (same shape as above).
 - `GET /api/v1/user/promotional/{id}/leaderboard`:
 

@@ -64,7 +64,7 @@ export default function PromotionalNoticeHost() {
             <CalendarClock className="h-4 w-4 text-orange-500" /> {whenLabel(first.starts_at)} – {whenLabel(first.ends_at)}
           </p>
           {list.length > 1 && (
-            <p className="text-xs text-gray-500">+ {list.length - 1} more free test{list.length > 2 ? 's' : ''} on your dashboard.</p>
+            <p className="text-xs text-gray-500">+ {list.length - 1} more free test{list.length > 2 ? 's' : ''} on the Exams page.</p>
           )}
           <button
             type="button"

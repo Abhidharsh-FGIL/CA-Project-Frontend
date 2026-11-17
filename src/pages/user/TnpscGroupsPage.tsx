@@ -1,5 +1,6 @@
 import { UserShell } from '@/components/user/UserShell';
 import { TnpscGroupGrid } from '@/components/user/TnpscGroupGrid';
+import { FreeTestStrip } from '@/components/user/FreeTestStrip';
 import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { BarChart3, BookOpen, ClipboardList, Database, FileText, Loader2, RefreshCw, Users, type LucideIcon } from 'lucide-react';
 import { EXAMS_FEATURES, EXAMS_STATS } from '@/config/exams-page';
@@ -28,43 +29,46 @@ export default function TnpscGroupsPage() {
 
   return (
     <UserShell>
-      {/* Figures */}
-      <div className="mb-3 grid gap-2 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 sm:grid-cols-2 sm:gap-y-3 lg:grid-cols-4 lg:gap-0 lg:divide-x lg:divide-gray-100 dark:lg:divide-gray-800 animate-fadeIn">
-        <Stat icon={<Database className="w-5 h-5" />} tone="blue" value={EXAMS_STATS.questions} label="Questions" sub="with various difficulty levels">
-          <span className="mt-1 flex gap-1">
-            <Level cls="bg-emerald-500">Simple</Level>
-            <Level cls="bg-amber-500">Medium</Level>
-            <Level cls="bg-rose-500">Complex</Level>
-          </span>
-        </Stat>
-        <Stat icon={<Users className="w-5 h-5" />} tone="violet" value={EXAMS_STATS.aspirants} label="Aspirants" sub="currently practising here" />
-        <Stat icon={<FileText className="w-5 h-5" />} tone="sky" value={EXAMS_STATS.newQuestions} label="New Questions" sub="added every week" />
-        <div className="flex items-center gap-3 lg:px-5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300">
-            <RefreshCw className="w-5 h-5" />
-          </span>
+      {/* One compact dark hero: heading and tagline, with the figures as glass chips. */}
+      <section
+        className="relative mb-4 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg shadow-indigo-950/20 animate-fadeIn"
+      >
+        <span aria-hidden className="pointer-events-none absolute -right-10 -top-16 h-52 w-72 rounded-full bg-orange-500/30 blur-3xl" />
+        <span aria-hidden className="pointer-events-none absolute -bottom-20 left-1/3 h-40 w-64 rounded-full bg-indigo-500/25 blur-3xl" />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '18px 18px' }}
+        />
+
+        <div className="relative grid items-center gap-x-8 gap-y-3 px-4 py-3.5 sm:px-6 lg:grid-cols-[1fr_auto]">
           <div className="min-w-0">
-            <p className="text-sm font-extrabold leading-snug text-gray-900 dark:text-gray-100">New Questions Every Attempt</p>
-            <p className="mt-0.5 text-[11px] leading-snug text-gray-500 dark:text-gray-400">
-              Simple to Complex levels, with detailed insights.
+            <p className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-orange-300">
+              <span className="h-1 w-5 rounded-full bg-orange-400" aria-hidden />
+              Choose your examination
+            </p>
+            <h1 className="mt-0.5 text-xl font-extrabold leading-tight tracking-tight sm:text-2xl">
+              Competitive <span className="bg-gradient-to-r from-orange-300 to-rose-400 bg-clip-text text-transparent">Examinations</span>
+            </h1>
+            <p className="mt-0.5 text-xs leading-relaxed text-slate-300">
+              Pick the examination you are preparing for — stages, level-wise mock tests and syllabus-based practice.
+            </p>
+            <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
+              <RefreshCw className="h-3.5 w-3.5 text-emerald-400" aria-hidden />
+              New questions every attempt
+              <Level cls="bg-emerald-500">Simple</Level>
+              <Level cls="bg-amber-500">Medium</Level>
+              <Level cls="bg-rose-500">Complex</Level>
             </p>
           </div>
-        </div>
-      </div>
 
-      <div className="mb-4 animate-fadeIn">
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-5 py-4 sm:px-6">
-          {/* The tagline sits beside the picture, not over it. */}
-          <div className="hidden lg:flex absolute right-6 xl:right-12 top-1/2 -translate-y-1/2 items-center gap-3 pointer-events-none">
-            <p className="tagline-block pb-2 text-right text-2xl font-bold leading-tight xl:text-[1.7rem]" style={{ fontFamily: 'Kalam, cursive' }}>
-              {['Your', 'Gateway'].map((w, i) => (
-                <span key={w} className="tagline-word mr-2" style={{ animationDelay: `${0.18 * i}s, 0s` }}>
-                  {w}
-                </span>
-              ))}
-              <br />
-              {['to', 'a', 'Government', 'Job'].map((w, i) => (
-                <span key={w} className="tagline-word mr-2 last:mr-0" style={{ animationDelay: `${0.36 + 0.18 * i}s, 0s` }}>
+          <div className="flex flex-col gap-2.5 lg:items-end">
+            <p
+              className="tagline-block tagline-on-dark pointer-events-none hidden pb-2 text-right text-xl font-bold leading-tight lg:inline-block xl:text-2xl"
+              style={{ fontFamily: 'Kalam, cursive' }}
+            >
+              {['Your', 'Gateway', 'to', 'a', 'Government', 'Job'].map((w, i) => (
+                <span key={i} className="tagline-word mr-1.5 last:mr-0" style={{ animationDelay: `${0.18 * i}s, 0s` }}>
                   {w}
                 </span>
               ))}
@@ -72,22 +76,17 @@ export default function TnpscGroupsPage() {
                 <path d="M2 6 Q 50 0 100 5 T 198 4" />
               </svg>
             </p>
-            <ExamArt className="h-16 xl:h-20 w-auto opacity-90 dark:opacity-40" />
-          </div>
-          <div className="relative max-w-2xl lg:max-w-[50%] xl:max-w-2xl">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-blue-600 dark:text-blue-400 font-bold mb-1">
-              Choose Your Examination
-            </p>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
-              Competitive <span className="text-brand-500">Examinations</span>
-            </h1>
-            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 leading-relaxed">
-              Pick the examination you are preparing for. Each one includes stages, level-wise
-              mock tests, and syllabus-based practice tests.
-            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <Stat icon={<Database className="h-4 w-4" />} tone="blue" value={EXAMS_STATS.questions} label="Questions" />
+              <Stat icon={<Users className="h-4 w-4" />} tone="violet" value={EXAMS_STATS.aspirants} label="Aspirants" />
+              <Stat icon={<FileText className="h-4 w-4" />} tone="sky" value={EXAMS_STATS.newQuestions} label="New / week" />
+            </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* Free scheduled tests, as one slim line: upcoming, live, or closed with a result to see. Nothing when there are none. */}
+      <FreeTestStrip className="mb-4" />
 
       {isLoading && groups.length === 0 ? (
         <div className="flex items-center justify-center py-20 gap-3 text-gray-400">
@@ -120,38 +119,20 @@ export default function TnpscGroupsPage() {
 }
 
 const STAT_TONE: Record<string, string> = {
-  blue: 'bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300',
-  violet: 'bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300',
-  sky: 'bg-sky-100 text-sky-600 dark:bg-sky-950/50 dark:text-sky-300',
+  blue: 'bg-blue-400/20 text-blue-300',
+  violet: 'bg-violet-400/20 text-violet-300',
+  sky: 'bg-sky-400/20 text-sky-300',
 };
 
-/** One figure in the strip above the banner. */
-function Stat({
-  icon,
-  tone,
-  value,
-  label,
-  sub,
-  children,
-}: {
-  icon: React.ReactNode;
-  tone: string;
-  value: string;
-  label: string;
-  sub: string;
-  children?: React.ReactNode;
-}) {
+/** One figure as a glass chip on the dark hero: icon, the number, and what it counts. */
+function Stat({ icon, tone, value, label }: { icon: React.ReactNode; tone: string; value: string; label: string }) {
   return (
-    <div className="flex items-center gap-3 sm:px-5 sm:first:pl-0">
-      <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', STAT_TONE[tone])}>{icon}</span>
-      <div className="min-w-0">
-        <p className="flex flex-wrap items-baseline gap-x-1.5 leading-none">
-          <span className="text-xl font-extrabold text-gray-900 dark:text-gray-100">{value}</span>
-          <span className="text-sm font-bold text-gray-800 dark:text-gray-200">{label}</span>
-        </p>
-        <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{sub}</p>
-        {children}
-      </div>
+    <div className="flex items-center gap-2 rounded-xl bg-white/[0.07] px-2.5 py-1.5 ring-1 ring-white/10 backdrop-blur-sm sm:px-3">
+      <span className={cn('hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg sm:flex', STAT_TONE[tone])}>{icon}</span>
+      <p className="min-w-0 leading-tight">
+        <span className="block text-base font-extrabold tabular-nums">{value}</span>
+        <span className="block truncate text-[10px] font-medium text-slate-300">{label}</span>
+      </p>
     </div>
   );
 }
@@ -159,45 +140,3 @@ function Stat({
 const Level = ({ cls, children }: { cls: string; children: React.ReactNode }) => (
   <span className={cn('rounded-md px-1.5 py-0.5 text-[10px] font-bold text-white', cls)}>{children}</span>
 );
-
-/**
- * The banner's picture: a checklist, a stopwatch and a stack of books, kept pale so it sits
- * behind the heading rather than competing with it. Decorative, so hidden from assistive tech.
- */
-function ExamArt({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 330 150" fill="none" aria-hidden="true">
-      {/* a rising bar chart behind everything */}
-      <rect x="10" y="96" width="20" height="44" rx="4" fill="#e6ebf5" />
-      <rect x="38" y="72" width="20" height="68" rx="4" fill="#dde4f1" />
-      <rect x="66" y="46" width="20" height="94" rx="4" fill="#e6ebf5" />
-
-      {/* the checklist */}
-      <rect x="104" y="20" width="104" height="124" rx="12" fill="#f7f9fd" stroke="#d3dcee" strokeWidth="2" />
-      <rect x="136" y="10" width="40" height="16" rx="6" fill="#d3dcee" />
-      {[0, 1, 2, 3].map(i => (
-        <g key={i}>
-          <circle cx="127" cy={56 + i * 26} r="8" fill="#fff" stroke="#a8bbdc" strokeWidth="2" />
-          <path d={`M123 ${56 + i * 26}l3 3 5-6`} stroke="#7e9bd0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          <rect x="145" y={53 + i * 26} width={i % 2 ? 44 : 54} height="6" rx="3" fill="#d3dcee" />
-        </g>
-      ))}
-
-      {/* the stopwatch */}
-      <circle cx="252" cy="70" r="36" fill="#fff" stroke="#ffa56b" strokeWidth="6" />
-      <circle cx="252" cy="70" r="26" stroke="#ffe0cb" strokeWidth="2" />
-      <rect x="243" y="26" width="18" height="9" rx="3" fill="#ffa56b" />
-      <rect x="283" y="38" width="9" height="14" rx="3" fill="#ffa56b" transform="rotate(40 283 38)" />
-      <g>
-        <path d="M252 70V50M252 70l13 8" stroke="#ff8a3d" strokeWidth="4" strokeLinecap="round" />
-        <animateTransform attributeName="transform" type="rotate" from="0 252 70" to="360 252 70" dur="8s" repeatCount="indefinite" />
-      </g>
-      <circle cx="252" cy="70" r="4" fill="#ff8a3d" />
-
-      {/* a stack of books */}
-      <rect x="226" y="118" width="96" height="14" rx="4" fill="#c9d5ec" />
-      <rect x="234" y="104" width="80" height="14" rx="4" fill="#dbe3f3" />
-      <rect x="230" y="132" width="90" height="12" rx="4" fill="#d3dcee" />
-    </svg>
-  );
-}
