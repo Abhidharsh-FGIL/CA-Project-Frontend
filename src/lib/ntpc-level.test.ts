@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isNtpcGroup, ntpcLevelOf, paperIsForLevel, paperNtpcLanguage, paperNtpcLevel, papersForLevel, papersForNtpc, questionNtpcLanguage, questionsForPaperLanguage, defaultQuestionLanguage } from './ntpc-level';
+import { isNtpcGroup, ntpcLevelOf, paperIsForLevel, paperNtpcLanguage, paperNtpcLevel, papersForLevel, papersForNtpc, questionNtpcLanguage, questionsForPaperLanguage, defaultQuestionLanguage, selectedNtpcLanguages } from './ntpc-level';
 
 describe('ntpcLevelOf', () => {
   it('reads Under-Graduate before Graduate, whichever way it is written', () => {
@@ -128,5 +128,14 @@ describe('defaultQuestionLanguage', () => {
     expect(defaultQuestionLanguage('RRB NTPC CBT-1 (Graduate · English) — A', 'hi')).toBe('translation');
     expect(defaultQuestionLanguage('RRB NTPC CBT-1 — A')).toBe('both');
     expect(defaultQuestionLanguage('TNPSC Group 4 — General Tamil')).toBe('both');
+  });
+});
+
+describe('selectedNtpcLanguages', () => {
+  it('reads the ticked list in the portal order, else the single language, else none', () => {
+    expect(selectedNtpcLanguages({ ntpc_languages: ['hindi', 'tamil'], ntpc_language: 'hindi' })).toEqual(['tamil', 'hindi']);
+    expect(selectedNtpcLanguages({ ntpc_language: 'english' })).toEqual(['english']);
+    expect(selectedNtpcLanguages({ ntpc_language: 'both', ntpc_languages: [] })).toEqual([]);
+    expect(selectedNtpcLanguages(null)).toEqual([]);
   });
 });

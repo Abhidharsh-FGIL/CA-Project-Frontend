@@ -42,6 +42,30 @@ export function stageUnitId(id: string, stageIds: readonly string[] | null | und
   return stageIds.find(s => unitFamily(s) === unitFamily(id)) ?? id;
 }
 
+/**
+ * RRB NTPC CBT-1 is two exams, Under-Graduate (`n1-…`) and Graduate (`ng-…`), over the same 52 units — and its question
+ * bank holds both levels' questions, tagged with either spelling (the Graduate pack's Unit column says `n1-…`). A paper's
+ * pool is every question of its units at either level, so the live rule names both spellings of each unit: the server
+ * matches `unit_id` exactly, and a Graduate paper naming only `ng-…` would never draw the `n1-…` questions (or the other
+ * way round). Ids of any other exam — and CBT-2's `n2-…`, a separate bank — are left as they are.
+ */
+const CBT1_UNIT = /^n[1g]-(.+)$/;
+
+/** Each CBT-1 unit id with its other-level twin beside it, each id once, in the order given. */
+export function bothLevelUnitIds<T extends string[] | null | undefined>(ids: T): T {
+  if (!ids) return ids;
+  const out = new Set<string>();
+  for (const id of ids) {
+    out.add(id);
+    const m = CBT1_UNIT.exec(id);
+    if (m) {
+      out.add(`n1-${m[1]}`);
+      out.add(`ng-${m[1]}`);
+    }
+  }
+  return [...out] as T;
+}
+
 /** A list of unit ids as the stage lists them, each once. */
 export const stageUnitIds = <T extends string[] | null | undefined>(ids: T, stageIds: readonly string[] | null | undefined): T =>
   (ids ? [...new Set(ids.map(id => stageUnitId(id, stageIds)))] : ids) as T;

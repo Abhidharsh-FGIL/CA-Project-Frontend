@@ -111,6 +111,13 @@ function languageOfCode(code?: string | null): NtpcLanguage | null {
   return NTPC_LANGUAGE_CODES[(code ?? '').trim().toLowerCase()] ?? null;
 }
 
+/** The languages a form value asks for: the ticked list, else the single language, else none (`both` and unset). */
+export function selectedNtpcLanguages(tag: { ntpc_language?: unknown; ntpc_languages?: unknown } | null | undefined): NtpcLanguage[] {
+  const listed = Array.isArray(tag?.ntpc_languages) ? tag.ntpc_languages.filter(isNtpcLanguage) : [];
+  if (listed.length > 0) return NTPC_LANGUAGES.filter(l => listed.includes(l));
+  return isNtpcLanguage(tag?.ntpc_language) ? [tag.ntpc_language] : [];
+}
+
 /** A language code or name ("hi", "Hindi") as an NTPC language, or null. */
 export const languageOfNtpcCode = languageOfCode;
 

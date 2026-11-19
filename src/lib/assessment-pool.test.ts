@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describePool, stageUnitId, stageUnitIds, stageUnitWeights } from '@/lib/assessment-pool';
+import { bothLevelUnitIds, describePool, stageUnitId, stageUnitIds, stageUnitWeights } from '@/lib/assessment-pool';
 
 const base = { source: 'bank' as const, shuffle: true, composed: false, stageId: 'group-4-written' };
 
@@ -141,5 +141,30 @@ describe('the unit ids sent — as the stage lists them', () => {
   it('a live pool’s rule keeps the Group 2 ids', () => {
     const { filter } = describePool({ ...base, stageId: 'group-2-prelims', unitIds: ['g2-gs-geography'], questions: pool });
     expect(filter?.unit_ids).toEqual(['g2-gs-geography']);
+  });
+});
+
+describe('bothLevelUnitIds — an RRB NTPC CBT-1 pool is both levels', () => {
+  it('names each unit under both spellings, the chosen one first', () => {
+    expect(bothLevelUnitIds(['ng-ma-lcm-and-hcf', 'n1-ga-current-affairs'])).toEqual([
+      'ng-ma-lcm-and-hcf',
+      'n1-ma-lcm-and-hcf',
+      'n1-ga-current-affairs',
+      'ng-ga-current-affairs',
+    ]);
+  });
+
+  it('lists a unit once when both of its spellings were already chosen', () => {
+    expect(bothLevelUnitIds(['n1-ma-percentage', 'ng-ma-percentage'])).toEqual(['n1-ma-percentage', 'ng-ma-percentage']);
+  });
+
+  it('leaves other exams, and CBT-2’s separate bank, alone', () => {
+    expect(bothLevelUnitIds(['g4-gs-geography', 'n2-ma-percentage'])).toEqual(['g4-gs-geography', 'n2-ma-percentage']);
+  });
+
+  it('passes nothing through', () => {
+    expect(bothLevelUnitIds(null)).toBeNull();
+    expect(bothLevelUnitIds(undefined)).toBeUndefined();
+    expect(bothLevelUnitIds([])).toEqual([]);
   });
 });

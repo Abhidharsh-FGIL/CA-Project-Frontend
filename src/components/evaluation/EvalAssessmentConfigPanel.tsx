@@ -55,10 +55,10 @@ import { difficultyLabel, toStored } from '@/lib/eval-difficulty';
 import { format } from 'date-fns';
 import { api } from '@/lib/api';
 import { TnpscTagFields } from '@/components/evaluation/TnpscTagFields';
-import { isNtpcGroup, isNtpcLanguage, languageOfNtpcCode, questionNtpcLanguage } from '@/lib/ntpc-level';
+import { NTPC_LANGUAGE_LABEL, isNtpcGroup, isNtpcLanguage, languageOfNtpcCode, questionNtpcLanguage, selectedNtpcLanguages, type NtpcLanguage } from '@/lib/ntpc-level';
 import { UnitPoolDiagnosis, UnitPoolPicker } from '@/components/evaluation/UnitPoolPicker';
 import { UnitMappingDialog } from '@/components/evaluation/UnitMappingDialog';
-import { EMPTY_TAG, describeTag, describeTagError, examTypeLabel, suggestAssessmentTitle, tagAssessmentKeepingTopic, topicIdForUnit, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
+import { EMPTY_TAG, describeTag, describeTagError, examTypeLabel, selectedLevels, suggestAssessmentTitle, tagAssessmentKeepingTopic, topicIdForUnit, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
 import {
   hasPerSectionNegative,
   leastNegative,
@@ -449,11 +449,11 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
    * which unit a sheet was for, and unit placement falls back on it (`collection-unit.ts`)
    * when a question's own tags do not say.
    */
-  const bankQuestions = useMemo(() => {
+  // An RRB NTPC paper is sat in one language, so its pool holds that language's questions only. A question whose
+  // language cannot be told is kept. A form with several languages ticked previews the first; Create makes one paper
+  // per language, each from its own `bankFor`.
+  const bankFor = (only: NtpcLanguage | null): any[] => {
     const titleById = new Map<string, string>((papers as any[]).map(p => [p.id, p.title]));
-    // An RRB NTPC paper is sat in one language, so its pool holds that language's questions only. A question whose
-    // language cannot be told is kept.
-    const only = isNtpcGroup(tnpscTag.group_id) && isNtpcLanguage(tnpscTag.ntpc_language) ? tnpscTag.ntpc_language : null;
     return (rawBankQuestions as any[])
       .filter(q => {
         if (!only) return true;
@@ -467,7 +467,12 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
         const title = q?.paper_id ? titleById.get(q.paper_id) : undefined;
         return title ? { ...q, paper_title: title } : q;
       });
-  }, [rawBankQuestions, papers, tnpscTag.group_id, tnpscTag.ntpc_language]);
+  };
+  const bankQuestions = useMemo(
+    () => bankFor(isNtpcGroup(tnpscTag.group_id) && isNtpcLanguage(tnpscTag.ntpc_language) ? tnpscTag.ntpc_language : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rawBankQuestions, papers, tnpscTag.group_id, tnpscTag.ntpc_language],
+  );
 
   /** What the bank can supply to each unit, shown beside the unit's published count. */
   const unitCounts = useMemo(
@@ -553,13 +558,16 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
    * pool the screen can say *what is there instead* — "0 Complex, but 58 Medium"
    * — rather than a bare zero that reads as "no such questions exist".
    */
-  const subjectPool = useMemo(() => {
-    if (source === 'paper') return [] as any[];
-    if (unitMode) return (bankQuestions as any[]).filter((q: any) => inSelectedUnits(tnpscStage, q, selectedUnits));
-    return (bankQuestions as any[]).filter((q: any) =>
-      inSelectedSubjects(tnpscStage, q?.subject, selectedSubjects),
-    );
-  }, [bankQuestions, selectedSubjects, selectedUnits, unitMode, tnpscStage, source]);
+  const subjectPoolOf = (bank: any[]): any[] => {
+    if (source === 'paper') return [];
+    if (unitMode) return bank.filter((q: any) => inSelectedUnits(tnpscStage, q, selectedUnits));
+    return bank.filter((q: any) => inSelectedSubjects(tnpscStage, q?.subject, selectedSubjects));
+  };
+  const subjectPool = useMemo(
+    () => subjectPoolOf(bankQuestions as any[]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bankQuestions, selectedSubjects, selectedUnits, unitMode, tnpscStage, source],
+  );
 
   /**
    * The key-topic choices: the placed unit's official categories, with how many bank questions carry each.
@@ -620,9 +628,9 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
     setAnyDifficulty(false);
   }, [tnpscTag.level, tnpscTag.unit_id, tnpscTag.scope, tnpscTag.track, selectedSubjects.join('|')]);
 
-  const matchingQuestions = useMemo(() => {
+  const matchingOf = (pool: any[], wanted: QuestionDifficulty | null = wantedDifficulty): any[] => {
     if (source === 'paper') return [];
-    let qs = subjectPool.filter((q: any) => matchesDifficulty(q, wantedDifficulty));
+    let qs = pool.filter((q: any) => matchesDifficulty(q, wanted));
     // A key-topic paper is drawn from its category alone.
     if (tnpscTag.scope === 'topic' && tnpscTag.topic_id) {
       const wanted = tnpscTag.topic_id.trim();
@@ -635,7 +643,12 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
       qs = qs.filter((q: any) => selectedTypes.includes(q.type));
     }
     return qs;
-  }, [subjectPool, wantedDifficulty, selectedChapters, selectedTypes, source, tnpscTag.scope, tnpscTag.topic_id]);
+  };
+  const matchingQuestions = useMemo(
+    () => matchingOf(subjectPool),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [subjectPool, wantedDifficulty, selectedChapters, selectedTypes, source, tnpscTag.scope, tnpscTag.topic_id],
+  );
 
   const toggleSubject = (s: string) => {
     setPickedSubjects(prev => {
@@ -681,6 +694,23 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
     : matchingQuestions.length;
 
   const effectiveCount = Math.min(questionCount, availableCount);
+
+  /**
+   * Where the pool's size comes from, step by step — what the server sent, what is left in the paper's language, what sits
+   * in the chosen units and at what difficulty. When the pool is smaller than the question files an admin has prepared,
+   * this says which step it drops at instead of leaving a bare number.
+   */
+  const poolBreakdown = useMemo(() => {
+    if (!unitMode || bankLoading || bankError || selectedUnits.length === 0) return null;
+    const lang = isNtpcGroup(tnpscTag.group_id) && isNtpcLanguage(tnpscTag.ntpc_language) ? tnpscTag.ntpc_language : null;
+    return {
+      loaded: (rawBankQuestions as any[]).length,
+      inLanguage: (bankQuestions as any[]).length,
+      lang,
+      inUnits: subjectPool.length,
+      spread: difficultySpread(subjectPool as any[]),
+    };
+  }, [unitMode, bankLoading, bankError, selectedUnits.length, rawBankQuestions, bankQuestions, subjectPool, tnpscTag.group_id, tnpscTag.ntpc_language]);
 
   // A paper with no stage/track never surfaces in the aspirant portal, so the
   // placement is part of step-1 validity rather than an optional extra.
@@ -734,10 +764,11 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
    */
   // The mix asked for in the placement step, or the standard one.
   const activeBlend = tnpscTag.blend ?? FULL_PAPER_BLEND;
-  const wantsBlend =
-    tnpscTag.track === 'mock' ||
-    (tnpscTag.track === 'practice' && tnpscTag.scope === 'section') ||
-    (tnpscTag.track === 'practice' && (tnpscTag.scope === 'unit' || tnpscTag.scope === 'topic') && !tnpscTag.level);
+  const wantsBlendOf = (t: TnpscTagValue) =>
+    t.track === 'mock' ||
+    (t.track === 'practice' && t.scope === 'section') ||
+    (t.track === 'practice' && (t.scope === 'unit' || t.scope === 'topic') && !t.level);
+  const wantsBlend = wantsBlendOf(tnpscTag);
 
   // The fallback difficulty is no longer asked for, so it follows the placement: a unit
   // pitched at one level saves as that level. Whole papers take their difficulty from
@@ -791,7 +822,18 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
   const shortGroups = compositionPlan.filter(p => p.available < p.wanted);
 
   // ── Submit ──
-  const handleCreate = async () => {
+  /**
+   * Makes one assessment. The placement, title, pool and count are parameters (shadowing the form's own) so that a form with
+   * several languages ticked can make one paper per language, each from that language's questions. Null when nothing was made.
+   */
+  const createFor = async (
+    tnpscTag: TnpscTagValue,
+    title: string,
+    matchingQuestions: any[],
+    effectiveCount: number,
+    // What the placement implies for this paper — they differ between a Simple and a Mixed paper made in the same go.
+    { wantsBlend, wantedDifficulty, difficulty }: { wantsBlend: boolean; wantedDifficulty: QuestionDifficulty | null; difficulty: string },
+  ): Promise<string | null> => {
     let qIds: string[] = [];
     let maxScore = 0;
     /** The question objects behind `qIds` — their own difficulty is authoritative. */
@@ -910,8 +952,8 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
     }
 
     if (qIds.length === 0) {
-      toast.error('No questions available to create assessment');
-      return;
+      toast.error(`No questions available to create “${title}”`);
+      return null;
     }
 
     /**
@@ -936,7 +978,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
         const go = window.confirm(`${explainBlendShortfall(blended, blended.picked.length)}
 
 Create it anyway?`);
-        if (!go) return;
+        if (!go) return null;
       }
     }
 
@@ -1074,7 +1116,78 @@ Create it anyway?`);
       );
     }
 
-    onCreated(result.id);
+    return result.id;
+  };
+
+  /**
+   * Create. With several NTPC languages ticked this makes one assessment per language: each is titled for its language and
+   * drawn from the bank questions of that language only. A language the bank cannot fill is skipped, and said so.
+   */
+  const [creating, setCreating] = useState(false);
+  /** The placements Create will make a paper for: each ticked NTPC language × each ticked difficulty button. */
+  const variantTags = (): TnpscTagValue[] => {
+    const langs = isNtpcGroup(tnpscTag.group_id) ? selectedNtpcLanguages(tnpscTag) : [];
+    const inUnitFlow = tnpscTag.track === 'practice' && (tnpscTag.scope === 'unit' || tnpscTag.scope === 'topic');
+    const levels = inUnitFlow ? selectedLevels(tnpscTag) : [tnpscTag.level ?? null];
+    const tags: TnpscTagValue[] = [];
+    for (const lang of langs.length > 1 ? langs : [null]) {
+      for (const lv of levels) {
+        tags.push({
+          ...tnpscTag,
+          ...(lang ? { ntpc_language: lang, ntpc_languages: [lang] } : {}),
+          ...(inUnitFlow ? { level: lv, levels: [lv ?? 'mixed'] } : {}),
+        });
+      }
+    }
+    return tags;
+  };
+  const variantCount = variantTags().length;
+  const handleCreate = async () => {
+    setCreating(true);
+    try {
+      await createEach();
+    } finally {
+      setCreating(false);
+    }
+  };
+  const createEach = async () => {
+    const tags = variantTags();
+    if (tags.length < 2) {
+      const id = await createFor(tnpscTag, title, matchingQuestions as any[], effectiveCount, { wantsBlend, wantedDifficulty, difficulty });
+      if (id) onCreated(id);
+      return;
+    }
+
+    const createdIds: string[] = [];
+    const skipped: string[] = [];
+    for (const tag of tags) {
+      // The language and difficulty are part of the title (it is how the portal knows whom to show the paper to), so each
+      // paper takes the title its own placement suggests.
+      const name = suggestAssessmentTitle(tag) || title;
+      const lang = isNtpcGroup(tag.group_id) && isNtpcLanguage(tag.ntpc_language) ? tag.ntpc_language : null;
+      const wanted = anyDifficulty ? null : poolDifficulty(tag, difficulty);
+      const pool = matchingOf(subjectPoolOf(bankFor(lang)), wanted);
+      const count = Math.min(questionCount, pool.length);
+      // A unit pitched at one level saves as that level, as the form does for a single paper.
+      const stored =
+        tag.track === 'practice' && (tag.scope === 'unit' || tag.scope === 'topic') && tag.level ? toStored(tag.level) : difficulty;
+      try {
+        const id = await createFor(tag, name, pool, count, { wantsBlend: wantsBlendOf(tag), wantedDifficulty: wanted, difficulty: stored });
+        if (id) createdIds.push(id);
+        else skipped.push(name);
+      } catch (err: any) {
+        skipped.push(name);
+        toast.error(`${name}: ${err?.message ?? 'could not be created'}`);
+      }
+    }
+
+    if (createdIds.length > 0) {
+      toast.success(
+        `${createdIds.length} of ${tags.length} assessments created.` + (skipped.length > 0 ? ` Not created: ${skipped.join('; ')}.` : ''),
+        { duration: 15_000 },
+      );
+      onCreated(createdIds[0]);
+    }
   };
 
   return (
@@ -1466,6 +1579,17 @@ Create it anyway?`);
                           bank={bankQuestions as any[]}
                           sourceType={sourceType}
                         />
+                      )}
+                      {poolBreakdown && (
+                        <p className="mb-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                          Bank: {poolBreakdown.loaded.toLocaleString()} questions loaded
+                          {poolBreakdown.lang && poolBreakdown.inLanguage !== poolBreakdown.loaded
+                            ? ` · ${poolBreakdown.inLanguage.toLocaleString()} in ${poolBreakdown.lang}`
+                            : ''}
+                          {` · ${poolBreakdown.inUnits.toLocaleString()} in the selected unit${selectedUnits.length === 1 ? '' : 's'}`}
+                          {` — ${poolBreakdown.spread.easy} Simple · ${poolBreakdown.spread.medium} Medium · ${poolBreakdown.spread.hard} Complex`}
+                          {poolBreakdown.spread.untagged > 0 ? ` · ${poolBreakdown.spread.untagged} without a difficulty` : ''}
+                        </p>
                       )}
                       {blendNotice && (
                         <p className="mb-2 flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
@@ -1950,9 +2074,13 @@ Create it anyway?`);
               Continue <ChevronRight className="h-4 w-4" />
             </Button>
           ) : (
-            <Button size="sm" onClick={handleCreate} disabled={!canSubmit || createAssessment.isPending} className="gap-1.5">
-              {createAssessment.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-              {promotional ? 'Create Promotional Test' : 'Create Assessment'}
+            <Button size="sm" onClick={handleCreate} disabled={!canSubmit || createAssessment.isPending || creating} className="gap-1.5">
+              {createAssessment.isPending || creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              {promotional
+                ? 'Create Promotional Test'
+                : variantCount > 1
+                  ? `Create ${variantCount} Assessments`
+                  : 'Create Assessment'}
             </Button>
           )}
         </div>

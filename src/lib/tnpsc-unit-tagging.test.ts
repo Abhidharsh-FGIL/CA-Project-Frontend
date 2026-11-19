@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { TNPSC_GROUPS, findStage, findUnit, stageUnits, subjectForUnit } from '@/config/tnpsc';
-import { EMPTY_TAG, describeTag, readTnpscTag, suggestAssessmentTitle, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
+import { EMPTY_TAG, describeTag, readTnpscTag, selectedLevels, suggestAssessmentTitle, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
 
 const stage = findStage('group-4', 'group-4-written', TNPSC_GROUPS)!.stage;
 
@@ -550,5 +550,14 @@ describe("RRB NTPC level and language in a paper's placement", () => {
     expect(read({ title: 'x', ntpc_level: 'graduate', ntpc_language: 'tamil' })).toEqual(['graduate', 'tamil']);
     expect(read({ title: 'RRB NTPC CBT-1 — Percentage' })).toEqual(['both', 'both']);
     expect(readTnpscTag({ stage_id: 'group-4-written', title: 'Graduate Tamil' }).ntpc_level).toBeNull();
+  });
+});
+
+describe('selectedLevels', () => {
+  it('lists the ticked difficulty buttons in button order, Mixed last; never empty', () => {
+    expect(selectedLevels({ level: 'simple', levels: ['mixed', 'complex', 'simple'] })).toEqual(['simple', 'complex', null]);
+    expect(selectedLevels({ level: 'medium' })).toEqual(['medium']);
+    expect(selectedLevels({ level: null, levels: [] })).toEqual([null]);
+    expect(selectedLevels(null)).toEqual([null]);
   });
 });

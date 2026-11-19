@@ -28,9 +28,9 @@ import {
   type TnpscScope,
   type TnpscTagValue,
 } from '@/lib/tnpscAdminApi';
-import { NTPC_LANGUAGES, NTPC_LANGUAGE_LABEL, isNtpcGroup, ntpcFixedLevel } from '@/lib/ntpc-level';
+import { NTPC_LANGUAGES, NTPC_LANGUAGE_LABEL, isNtpcGroup, ntpcFixedLevel, selectedNtpcLanguages, type NtpcLanguage } from '@/lib/ntpc-level';
 import { FULL_PAPER_BLEND, blendTargets, describeBlend } from '@/lib/difficulty-blend';
-import { blendTotal } from '@/lib/tnpscAdminApi';
+import { blendTotal, selectedLevels } from '@/lib/tnpscAdminApi';
 
 interface Props {
   value: TnpscTagValue;
@@ -115,7 +115,24 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, cate
       // CBT-1 UG and CBT-1 Graduate are each for one level: the exam sets it, and it is not asked below.
       ntpc_level: ntpcFixedLevel(groupId) ?? (isNtpcGroup(groupId) ? (value.ntpc_level ?? null) : null),
       ntpc_language: isNtpcGroup(groupId) ? (value.ntpc_language ?? null) : null,
+      ntpc_languages: isNtpcGroup(groupId) ? (value.ntpc_languages ?? []) : [],
     });
+  };
+
+  const pickedLanguages = selectedNtpcLanguages(value);
+  const toggleLanguage = (lang: NtpcLanguage) => {
+    const next = pickedLanguages.includes(lang) ? pickedLanguages.filter(l => l !== lang) : NTPC_LANGUAGES.filter(l => l === lang || pickedLanguages.includes(l));
+    onChange({ ...value, ntpc_languages: next, ntpc_language: next[0] ?? null });
+  };
+
+  const pickedLevels = selectedLevels(value);
+  const toggleLevel = (lv: TnpscLevel | null) => {
+    const has = pickedLevels.includes(lv);
+    // At least one button stays ticked.
+    if (has && pickedLevels.length === 1) return;
+    const keep = has ? pickedLevels.filter(l => l !== lv) : [...pickedLevels, lv];
+    const next = [...TNPSC_LEVELS.filter(l => keep.includes(l)), ...(keep.includes(null) ? [null] : [])];
+    onChange({ ...value, level: next[0] ?? null, levels: next.map(l => l ?? 'mixed') });
   };
 
   const setStage = (stageId: string) =>
@@ -135,6 +152,7 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, cate
       track,
       // A mock must have a level, so seed it; practice may legitimately have none.
       level: track === 'mock' ? (value.level ?? 'simple') : value.level,
+      levels: track === 'mock' ? [] : value.levels,
       scope: track === 'practice' ? (value.scope ?? 'unit') : null,
       unit_id: track === 'practice' ? value.unit_id : null,
       subject_id: track === 'practice' ? value.subject_id : null,
@@ -153,6 +171,7 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, cate
       // Only a key topic names a topic; a whole-unit paper covers all of them.
       topic_id: scope === 'topic' ? value.topic_id : null,
       level: scope !== 'section' ? value.level : null,
+      levels: scope !== 'section' ? value.levels : [],
       section_name: scope === 'section' ? value.section_name : null,
       subject_id: scope !== 'section' ? value.subject_id : null,
     });
@@ -258,21 +277,23 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, cate
             {NTPC_LANGUAGES.map(lang => (
               <ChoiceCard
                 key={lang}
-                active={value.ntpc_language === lang}
-                onClick={() => onChange({ ...value, ntpc_language: lang })}
+                active={pickedLanguages.includes(lang)}
+                onClick={() => toggleLanguage(lang)}
                 title={NTPC_LANGUAGE_LABEL[lang]}
                 detail={`Shown to aspirants who chose ${NTPC_LANGUAGE_LABEL[lang]}`}
               />
             ))}
             <ChoiceCard
               active={value.ntpc_language === 'both'}
-              onClick={() => onChange({ ...value, ntpc_language: 'both' })}
+              onClick={() => onChange({ ...value, ntpc_language: 'both', ntpc_languages: [] })}
               title="Both languages"
-              detail="Shown to every aspirant"
+              detail="One paper, shown to every aspirant"
             />
           </div>
           <p className="text-[11px] text-muted-foreground">
-            A paper made for one level or language has it in its title, which is how the portal knows whom to show it to.
+            {pickedLanguages.length > 1
+              ? `Tick as many languages as you need — ${pickedLanguages.length} assessments will be created, one for each (${pickedLanguages.map(l => NTPC_LANGUAGE_LABEL[l]).join(', ')}), each drawn from its own language's questions.`
+              : 'Tick one or more languages to create an assessment for each. A paper made for one level or language has it in its title, which is how the portal knows whom to show it to.'}
           </p>
         </div>
       )}
@@ -436,21 +457,26 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, cate
               {TNPSC_LEVELS.map(lv => (
                 <ChoiceCard
                   key={lv}
-                  active={value.level === lv}
-                  onClick={() => onChange({ ...value, level: lv })}
+                  active={pickedLevels.includes(lv)}
+                  onClick={() => toggleLevel(lv)}
                   title={LEVEL_META[lv as TnpscLevel].label}
                   detail={LEVEL_META[lv as TnpscLevel].blurb}
                   badge={LEVEL_META[lv as TnpscLevel].order}
                 />
               ))}
               <ChoiceCard
-                active={value.level == null}
-                onClick={() => onChange({ ...value, level: null })}
+                active={pickedLevels.includes(null)}
+                onClick={() => toggleLevel(null)}
                 icon={<Layers className="h-4 w-4" />}
                 title={MIXED_LABEL}
                 detail="Spans the range — built to the standard blend"
               />
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              {pickedLevels.length > 1
+                ? `Tick as many as you need — one assessment is created for each (${pickedLevels.map(l => (l ? LEVEL_META[l].label : MIXED_LABEL)).join(', ')}).`
+                : 'Tick more than one to create an assessment for each difficulty.'}
+            </p>
           </div>
         </div>
       )}
@@ -484,7 +510,7 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, cate
               <ChoiceCard
                 key={lv}
                 active={value.level === lv}
-                onClick={() => onChange({ ...value, level: lv })}
+                onClick={() => onChange({ ...value, level: lv, levels: [] })}
                 title={LEVEL_META[lv as TnpscLevel].label}
                 detail={LEVEL_META[lv as TnpscLevel].blurb}
                 badge={LEVEL_META[lv as TnpscLevel].order}
@@ -538,7 +564,7 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, cate
           </span>
           {/* A Tamil unit's name is already the Tamil one; a gloss would repeat it. */}
           {unit.name_ta && unitDisplayName(stage, unit) === unit.name ? ` (${unit.name_ta})` : ''} —{' '}
-          {value.level ? `${LEVEL_META[value.level].label} button` : `${MIXED_LABEL} button`}.
+          {pickedLevels.map(l => `${l ? LEVEL_META[l].label : MIXED_LABEL} button`).join(' and ')}.
         </p>
       )}
 

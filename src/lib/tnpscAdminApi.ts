@@ -22,6 +22,7 @@ import {
   PRACTICE_MAX_QUESTIONS,
   PRACTICE_MIN_QUESTIONS,
   TNPSC_GROUPS,
+  TNPSC_LEVELS,
   findStage,
   findUnit,
   unitDisplayName,
@@ -88,6 +89,23 @@ export interface TnpscTagValue {
   ntpc_level?: NtpcLevel | 'both' | null;
   /** RRB NTPC: the language the paper is in — `both` names none and is shown to everyone. Carried in the title like the level. */
   ntpc_language?: NtpcLanguage | 'both' | null;
+  /**
+   * RRB NTPC: the languages ticked in the form. Create makes one paper for each, every one titled and drawn from its own
+   * language. `ntpc_language` follows the first of them (what the counts on screen are read for); empty when `both` is chosen.
+   */
+  ntpc_languages?: NtpcLanguage[];
+  /**
+   * Practice unit / key-topic papers: the difficulty buttons ticked in the form (`mixed` is the standard blend). Create makes one
+   * paper for each. `level` follows the first of them (null for mixed); empty means just `level`.
+   */
+  levels?: Array<TnpscLevel | 'mixed'>;
+}
+
+/** The difficulty buttons a form value asks for, in button order: a level, or null for Mixed. Never empty. */
+export function selectedLevels(tag: Pick<TnpscTagValue, 'level' | 'levels'> | null | undefined): Array<TnpscLevel | null> {
+  const listed = tag?.levels ?? [];
+  if (listed.length === 0) return [tag?.level ?? null];
+  return [...TNPSC_LEVELS.filter(l => listed.includes(l)), ...(listed.includes('mixed') ? [null] : [])];
 }
 
 /**

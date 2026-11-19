@@ -1,5 +1,6 @@
 import { upperMeridiem } from '@/lib/meridiem';
 import { useGroupOptions, useUpcomingExamLabels } from '@/hooks/use-exam-availability';
+import { useAttemptExams } from '@/hooks/use-attempt-exams';
 import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import { displayTitle } from '@/lib/display-title';
 import { bilingualTitle } from '@/lib/bilingual';
@@ -69,11 +70,18 @@ function splitExam(title: string): { exam: string | null; unit: string } {
   return m ? { exam: m[1].trim(), unit: m[2].trim() } : { exam: null, unit: title };
 }
 
-/** One tab's attempts under the exam each belongs to, the exam of the newest attempt first. Attempts with no exam go last. */
-function groupByExam(rows: ApiAttempt[]): Array<{ exam: string | null; rows: ApiAttempt[] }> {
+/**
+ * One tab's attempts under the exam each belongs to, the exam of the newest attempt first. An exam named in the paper's own
+ * title ("RRB NTPC CBT-1 (UG · English) — LCM") wins; otherwise `examOf` says, from the exams' catalogs. Attempts no exam
+ * claims go last.
+ */
+function groupByExam(
+  rows: ApiAttempt[],
+  examOf: (a: ApiAttempt) => string | null,
+): Array<{ exam: string | null; rows: ApiAttempt[] }> {
   const sections = new Map<string | null, ApiAttempt[]>();
   for (const r of rows) {
-    const exam = splitLevel(r.test_name).exam;
+    const exam = splitLevel(r.test_name).exam ?? examOf(r);
     sections.set(exam, [...(sections.get(exam) ?? []), r]);
   }
   const named = [...sections].filter(([exam]) => exam != null);
@@ -118,6 +126,8 @@ export default function UserHistoryPage() {
 
   // Attempts carry no group id, so the group's catalog decides which tests belong to it.
   const { matchesGroup, isLoading: groupLoading } = useGroupMatcher(group);
+  // …and the same catalogs say which exam each row sits under.
+  const examOf = useAttemptExams(group);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -424,7 +434,7 @@ export default function UserHistoryPage() {
             </div>
             {/* Under an exam heading when the attempts carry one; the rows then say only the unit. */}
             {(() => {
-              const sections = groupByExam(activeGroup.rows);
+              const sections = groupByExam(activeGroup.rows, examOf);
               const headed = sections.some(s => s.exam != null);
               return sections.map(section => (
                 <div key={section.exam ?? 'other'}>

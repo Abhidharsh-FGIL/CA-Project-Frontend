@@ -1,6 +1,6 @@
 import { toWireStage, toWireSubject, toWireUnit } from '@/config/rrb-ntpc';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { stageUnitId, stageUnitIds, stageUnitWeights } from '@/lib/assessment-pool';
+import { bothLevelUnitIds, stageUnitId, stageUnitIds, stageUnitWeights } from '@/lib/assessment-pool';
 import { api } from '@/lib/api';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { toast } from 'sonner';
@@ -182,7 +182,9 @@ export function useCreateEvalAssessment() {
         paper_weights: config.paperWeights,
         pool_mode: config.poolMode ?? 'fixed',
         pool_filter: config.poolFilter
-          ? { ...config.poolFilter, unit_ids: stageUnitIds(wireIds(config.poolFilter.unit_ids), stageIds), stage_id: config.poolFilter.stage_id ? toWireStage(config.poolFilter.stage_id) : config.poolFilter.stage_id }
+          // The rule names both levels' spellings of an RRB CBT-1 unit (Under-Graduate and Graduate questions are one pool);
+          // the paper's own `unit_ids` above stay the stage's, which the server checks.
+          ? { ...config.poolFilter, unit_ids: bothLevelUnitIds(stageUnitIds(wireIds(config.poolFilter.unit_ids), stageIds)), stage_id: config.poolFilter.stage_id ? toWireStage(config.poolFilter.stage_id) : config.poolFilter.stage_id }
           : null,
         difficulty_blend: config.difficultyBlend ?? null,
         pricing_type: config.pricingType,
