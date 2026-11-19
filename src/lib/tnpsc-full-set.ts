@@ -48,6 +48,17 @@ function claimedSection(t: TnpscTest): string | null {
   return t.section_name?.trim() || fullSetSectionFromTitle(t.title);
 }
 
+/**
+ * A paper that stands for a whole section — placed there by tag or title, and tagged to no unit or topic.
+ *
+ * It is the section's Full Set, never one unit's paper. The stage page's subject-based matching used to file it under every
+ * unit of the section that had no paper of its own, as that unit's Mixed button: Graduate "Common Abbreviations", which has
+ * no questions, opened "General Awareness · Full Set".
+ */
+export function isSectionFullSet(t: TnpscTest): boolean {
+  return !t.unit_id && !t.topic_id && claimedSection(t) != null;
+}
+
 export function fullSetFor(
   stage: TnpscStage | undefined,
   section: TnpscPatternSection,

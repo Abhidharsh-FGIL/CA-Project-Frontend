@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { findStage, sectionSyllabus, stageUnits, type TnpscPatternSection } from '@/config/tnpsc';
 import type { TnpscTest } from '@/lib/tnpscApi';
-import { fullSetFor, fullSetSectionFromTitle } from '@/lib/tnpsc-full-set';
+import { fullSetFor, fullSetSectionFromTitle, isSectionFullSet } from '@/lib/tnpsc-full-set';
 
 const stage = findStage('group-4', 'group-4-written')!.stage;
 const sectionNamed = (name: string): TnpscPatternSection => stage.pattern!.sections.find(s => s.name === name)!;
@@ -165,5 +165,30 @@ describe('fullSetSectionFromTitle', () => {
 
   it('does not mind case or spacing in the marker', () => {
     expect(fullSetSectionFromTitle('TNPSC Group 4 — General Studies · full  set')).toBe('General Studies');
+  });
+});
+
+describe('isSectionFullSet — a Full Set is the section’s, not a unit’s', () => {
+  it('is true for a paper placed in a section by tag or title with no unit', () => {
+    expect(isSectionFullSet(paper({ section_name: 'General Studies' }))).toBe(true);
+    expect(isSectionFullSet(paper({ title: 'RRB NTPC CBT-1 (Graduate · English) — General Awareness · Full Set' }))).toBe(true);
+  });
+  it('is false for a unit or key-topic paper, and for an unplaced one', () => {
+    expect(isSectionFullSet(paper({ unit_id: 'u1', section_name: 'General Studies' }))).toBe(false);
+    expect(isSectionFullSet(paper({ topic_id: 'physics', title: 'X — General Studies · Full Set' }))).toBe(false);
+    expect(isSectionFullSet(paper({ title: 'A paper' }))).toBe(false);
+  });
+});
+
+describe('isOfferableUnitPaper', () => {
+  it('hides a unit paper below the minimum and offers the rest, including one of unknown size', async () => {
+    const { isOfferableUnitPaper } = await import('@/config/tnpsc');
+    expect(isOfferableUnitPaper(3)).toBe(false);
+    expect(isOfferableUnitPaper(9)).toBe(false);
+    expect(isOfferableUnitPaper(10)).toBe(true);
+    expect(isOfferableUnitPaper(40)).toBe(true);
+    expect(isOfferableUnitPaper(0)).toBe(true);
+    expect(isOfferableUnitPaper(null)).toBe(true);
+    expect(isOfferableUnitPaper(undefined)).toBe(true);
   });
 });

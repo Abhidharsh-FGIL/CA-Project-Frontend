@@ -60,6 +60,8 @@ import { UnitPoolDiagnosis, UnitPoolPicker } from '@/components/evaluation/UnitP
 import { UnitMappingDialog } from '@/components/evaluation/UnitMappingDialog';
 import { EMPTY_TAG, describeTag, describeTagError, examTypeLabel, selectedLevels, suggestAssessmentTitle, tagAssessmentKeepingTopic, topicIdForUnit, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
 import {
+  MIN_UNIT_PAPER_QUESTIONS,
+  isOfferableUnitPaper,
   hasPerSectionNegative,
   leastNegative,
   stageForExamType,
@@ -953,6 +955,16 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
 
     if (qIds.length === 0) {
       toast.error(`No questions available to create “${title}”`);
+      return null;
+    }
+
+    // A unit the bank barely covers would make a three-question "set" that the portal lists as if it were a real one. The
+    // portal hides such a paper, so creating it would only leave an invisible assessment behind.
+    if (!promotional && tnpscTag.track === 'practice' && tnpscTag.scope === 'unit' && !isOfferableUnitPaper(effectiveCount)) {
+      toast.error(
+        `“${title}” not created: the bank has only ${effectiveCount} matching question${effectiveCount === 1 ? '' : 's'}, and a unit paper needs at least ${MIN_UNIT_PAPER_QUESTIONS}. Add questions for this unit first.`,
+        { duration: 15_000 },
+      );
       return null;
     }
 

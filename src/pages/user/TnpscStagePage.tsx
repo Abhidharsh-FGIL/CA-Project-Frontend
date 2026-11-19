@@ -15,6 +15,7 @@ import {
   LEVEL_GATE_ENABLED,
   LEVEL_META,
   MIXED_LABEL,
+  isOfferableUnitPaper,
  SINGLE_LEVEL_BLURB,
   SINGLE_LEVEL_HEADING,
   TNPSC_LEVELS,
@@ -40,7 +41,7 @@ import { mockPassPercentage } from '@/config/pass-marks';
 import { hasLanguageChoice } from '@/lib/exam-language';
 import { attemptsUsed } from '@/lib/plan-notice';
 import { showPlanNotice } from '@/lib/plan-notice-bus';
-import { fullSetFor } from '@/lib/tnpsc-full-set';
+import { fullSetFor, isSectionFullSet } from '@/lib/tnpsc-full-set';
 import {
   buildKeyTopicSections,
   isKeyTopicPaper,
@@ -213,6 +214,9 @@ function testsForUnit(unit: TnpscSyllabusUnit, topics: TnpscTopic[], tests: Tnps
   const tagged = tests.filter(t => t.unit_id === unit.id);
   if (tagged.length > 0) return tagged;
 
+  // A section's Full Set belongs to the section, not to whichever unit of it has no paper of its own.
+  tests = tests.filter(t => !isSectionFullSet(t));
+
   const linked = tests.filter(t => {
     if (t.unit_id && t.unit_id !== unit.id) return false; // claimed by another unit
     if (t.subject_id && subjectIds.has(t.subject_id)) return true;
@@ -377,6 +381,10 @@ export default function TnpscStagePage() {
 
   const sections = useMemo<SectionModel[]>(() => {
     if (!stage) return [];
+    // A unit's practice paper must be big enough to be a set (see MIN_UNIT_PAPER_QUESTIONS); a section's Full Set is judged
+    // by `fullSetFor` and mocks are not unit papers, so neither is thinned here.
+    const unitPapers =
+      tab === 'exam' ? trackTests : trackTests.filter(t => isSectionFullSet(t) || isOfferableUnitPaper(t.question_count));
 
     return (stage.pattern?.sections ?? []).map(section => {
       const built: UnitRowModel[] = section.units?.length
@@ -404,7 +412,7 @@ export default function TnpscStagePage() {
               nameTa: unit.name_ta,
               questions: unit.questions,
               topics,
-              tests: testsForUnit(unit, matchTopics, trackTests),
+              tests: testsForUnit(unit, matchTopics, unitPapers),
             };
           })
         : // No published units — fall back to the section's catalog subjects, with
@@ -458,7 +466,7 @@ export default function TnpscStagePage() {
         lang: paperLangOf(section.name),
       };
     });
-  }, [stage, trackTests, ntpc, chosenLanguage]);
+  }, [stage, trackTests, tab, ntpc, chosenLanguage]);
 
   // Development aid: the practice papers the server lists for this stage that no row on this page shows (they name
   // no unit or topic this page knows), so the dashboard's "available" total can be told from what is listed here.

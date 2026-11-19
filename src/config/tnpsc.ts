@@ -117,6 +117,17 @@ export const LEVEL_UNLOCK_RULE: 'any' | 'all' = 'any';
 export const PRACTICE_MIN_QUESTIONS = 30;
 export const PRACTICE_MAX_QUESTIONS = 50;
 
+/**
+ * The fewest questions a unit's practice paper may have to be offered. A unit the bank barely covers — three Common
+ * Abbreviations questions — made a three-question "Mixed" paper that read as a real set. Below this the portal lists the
+ * unit as "No paper yet", and the admin form will not create one. (Key-topic papers are small by nature and exempt.)
+ */
+export const MIN_UNIT_PAPER_QUESTIONS = 10;
+
+/** Whether a unit's practice paper is big enough to offer. A paper whose size is unknown is offered. */
+export const isOfferableUnitPaper = (questionCount: number | null | undefined): boolean =>
+  !(typeof questionCount === 'number' && questionCount > 0 && questionCount < MIN_UNIT_PAPER_QUESTIONS);
+
 export const LEVEL_META: Record<
   TnpscLevel,
   { label: string; order: number; blurb: string; accent: string; chip: string; ring: string }
