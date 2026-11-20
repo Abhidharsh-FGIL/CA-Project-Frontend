@@ -5,6 +5,7 @@ import { UserShell } from '@/components/user/UserShell';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { Bell, Check, Trash2, Sparkles, Clock, FileText, AlertTriangle, Inbox } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useT } from '@/content/useText';
 
 const TYPE_META = {
   new_test: {
@@ -32,6 +33,7 @@ const TYPE_META = {
 type FilterKey = 'all' | 'unread' | 'new_test' | 'report_ready' | 'subscription_expiry';
 
 export default function NotificationsPage() {
+  const t = useT();
   const navigate = useNavigate();
   const {
     notifications,
@@ -90,10 +92,10 @@ export default function NotificationsPage() {
           <div className="relative flex items-end justify-between gap-3 flex-wrap">
             <div>
               <p className="text-[10px] uppercase tracking-[0.25em] text-blue-700 dark:text-brand-300 font-bold mb-2">
-                Inbox
+                {t('account.notifications.eyebrow')}
               </p>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <span className="gradient-text-animated">Notifications</span>
+                <span className="gradient-text-animated">{t('account.notifications.title')}</span>
                 {unreadCount > 0 && (
                   <span className="text-[10px] font-bold bg-red-500 text-white px-2 py-0.5 rounded-full animate-bounce-soft">
                     {unreadCount}
@@ -101,7 +103,7 @@ export default function NotificationsPage() {
                 )}
               </h1>
               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1.5">
-                {unreadCount > 0 ? `You have ${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}.` : "You're all caught up."}
+                {unreadCount > 0 ? `You have ${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}.` : t('account.notifications.caught_up')}
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -110,7 +112,7 @@ export default function NotificationsPage() {
                   onClick={markAllNotificationsRead}
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/80 dark:bg-gray-900/60 backdrop-blur border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 transition-all press"
                 >
-                  <Check className="w-3.5 h-3.5" /> Mark all read
+                  <Check className="w-3.5 h-3.5" /> {t('account.notifications.mark_all')}
                 </button>
               )}
               {notifications.length > 0 && (
@@ -118,7 +120,7 @@ export default function NotificationsPage() {
                   onClick={clearAllNotifications}
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/80 dark:bg-gray-900/60 backdrop-blur border border-red-200 dark:border-red-900 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-all press"
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> Clear all
+                  <Trash2 className="w-3.5 h-3.5" /> {t('account.notifications.clear_all')}
                 </button>
               )}
             </div>
@@ -128,11 +130,11 @@ export default function NotificationsPage() {
 
       {/* Filter chips — horizontal scroll on narrow screens to keep them on one line */}
       <div className="flex gap-2 mb-5 overflow-x-auto sm:overflow-x-visible flex-nowrap sm:flex-wrap -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0 scrollbar-thin animate-fadeIn" style={{ animationDelay: '0.1s' }}>
-        <FilterChip label="All" active={filter === 'all'} count={filterCount('all')} onClick={() => setFilter('all')} />
-        <FilterChip label="Unread" active={filter === 'unread'} count={filterCount('unread')} onClick={() => setFilter('unread')} accent />
-        <FilterChip label="New Tests" active={filter === 'new_test'} count={filterCount('new_test')} onClick={() => setFilter('new_test')} />
-        <FilterChip label="Reports" active={filter === 'report_ready'} count={filterCount('report_ready')} onClick={() => setFilter('report_ready')} />
-        <FilterChip label="Subscription" active={filter === 'subscription_expiry'} count={filterCount('subscription_expiry')} onClick={() => setFilter('subscription_expiry')} />
+        <FilterChip label={t('account.notifications.filter_all')} active={filter === 'all'} count={filterCount('all')} onClick={() => setFilter('all')} />
+        <FilterChip label={t('account.notifications.filter_unread')} active={filter === 'unread'} count={filterCount('unread')} onClick={() => setFilter('unread')} accent />
+        <FilterChip label={t('account.notifications.filter_new_tests')} active={filter === 'new_test'} count={filterCount('new_test')} onClick={() => setFilter('new_test')} />
+        <FilterChip label={t('account.notifications.filter_reports')} active={filter === 'report_ready'} count={filterCount('report_ready')} onClick={() => setFilter('report_ready')} />
+        <FilterChip label={t('account.notifications.filter_subscription')} active={filter === 'subscription_expiry'} count={filterCount('subscription_expiry')} onClick={() => setFilter('subscription_expiry')} />
       </div>
 
       {/* Notifications list — grouped by date */}
@@ -143,25 +145,23 @@ export default function NotificationsPage() {
               <Inbox className="w-10 h-10 text-blue-400 dark:text-blue-500" />
             </div>
             <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
-              {filter === 'all' ? "No notifications yet" : "Nothing here"}
+              {filter === 'all' ? t('account.notifications.empty_title') : t('account.notifications.empty_filtered_title')}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {filter === 'all'
-                ? "We'll let you know when new tests, reports, or updates arrive."
-                : "Try a different filter to see other notifications."}
+              {filter === 'all' ? t('account.notifications.empty_text') : t('account.notifications.empty_filtered_text')}
             </p>
           </div>
         </div>
       ) : (
         <div className="space-y-5 animate-fadeIn" style={{ animationDelay: '0.15s' }}>
           {grouped.today.length > 0 && (
-            <DateSection title="Today" notifications={grouped.today} formatTime={formatTime} onRead={markNotificationRead} navigate={navigate} />
+            <DateSection title={t('account.notifications.today')} notifications={grouped.today} formatTime={formatTime} onRead={markNotificationRead} navigate={navigate} />
           )}
           {grouped.yesterday.length > 0 && (
-            <DateSection title="Yesterday" notifications={grouped.yesterday} formatTime={formatTime} onRead={markNotificationRead} navigate={navigate} />
+            <DateSection title={t('account.notifications.yesterday')} notifications={grouped.yesterday} formatTime={formatTime} onRead={markNotificationRead} navigate={navigate} />
           )}
           {grouped.earlier.length > 0 && (
-            <DateSection title="Earlier" notifications={grouped.earlier} formatTime={formatTime} onRead={markNotificationRead} navigate={navigate} />
+            <DateSection title={t('account.notifications.earlier')} notifications={grouped.earlier} formatTime={formatTime} onRead={markNotificationRead} navigate={navigate} />
           )}
         </div>
       )}

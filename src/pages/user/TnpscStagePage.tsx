@@ -88,6 +88,8 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Rich, useT } from '@/content/useText';
+import { Strong } from '@/content/strong';
 import { bilingual, bilingualTitle, inLanguage, paperLangOf, paperName, paperTitle, unitIdLang, type PaperLang } from '@/lib/bilingual';
 
 /**
@@ -278,6 +280,7 @@ interface SectionModel {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TnpscStagePage() {
+  const t = useT();
   usePassMarks(); // the "needs N%" labels below follow the server's mock pass mark once it arrives
   const { groupId, stageId } = useParams<{ groupId: string; stageId: string }>();
   const navigate = useNavigate();
@@ -489,7 +492,7 @@ export default function TnpscStagePage() {
       <UserShell>
         <div className="text-center py-20">
           <AlertCircle className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">This exam stage could not be found.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('practice.notfound.message')}</p>
           <button
             onClick={() => navigate('/user/exams')}
             className="mt-4 text-sm font-semibold text-blue-600 hover:underline"
@@ -504,7 +507,7 @@ export default function TnpscStagePage() {
   const isLoading = tab === 'exam' ? mock.isLoading : practice.isLoading;
   const error = (tab === 'exam' ? mock.error : practice.error) as Error | null;
   const drill = drillKey ? (sections.find(x => x.key === drillKey) ?? null) : null;
-  const verb = tab === 'exam' ? 'Exam' : 'Practice';
+  const verb = tab === 'exam' ? t('practice.verb.exam') : t('practice.verb.practice');
 
   const openDrill = (key: string) => {
     setDrillKey(key);
@@ -530,7 +533,7 @@ export default function TnpscStagePage() {
         className="group inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 mb-4 transition-colors"
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />{' '}
-        {skipsStageList(group) ? 'All examinations' : `Back to ${group.name}`}
+        {skipsStageList(group) ? t('practice.nav.all_exams') : t('practice.nav.back_to', { exam: group.name })}
       </Link>
 
       <StageHero stage={stage} groupName={group.name} accent={group.accent} onTakeMock={takeMock} />
@@ -539,7 +542,7 @@ export default function TnpscStagePage() {
 
       {ntpc && (
         <div className="mb-4 sm:mb-5 flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-          <span>Papers shown for</span>
+          <span>{t('practice.ntpc.papers_for')}</span>
           <NtpcLevelChip prefs={{ level: chosenLevel, language: chosenLanguage }} fixedLevel={ntpcFixedLevel} onChange={() => setAskingLevel(true)} />
           <NtpcLevelDialog open={askingLevel} onOpenChange={setAskingLevel} value={{ level: chosenLevel, language: chosenLanguage }} fallbackLanguage={examLanguageOf(me?.medium)} onSave={p => { saveNtpc(p); setAskingLevel(false); }} examName={group.name} fixedLevel={ntpcFixedLevel} />
         </div>
@@ -570,7 +573,7 @@ export default function TnpscStagePage() {
 
           {isLoading ? (
             <LoadingRow
-              label={tab === 'exam' ? 'Loading exam papers…' : tab === 'topics' ? 'Loading key topics…' : 'Loading practice tests…'}
+              label={tab === 'exam' ? t('practice.loading.exam') : tab === 'topics' ? t('practice.loading.topics') : t('practice.loading.practice')}
             />
           ) : error ? (
             <ErrorRow message={error.message} />
@@ -590,7 +593,7 @@ export default function TnpscStagePage() {
             // stage whose syllabus has not been published still has mocks to sit.
             <ExamTrack levels={mock.levels} totalQuestions={answeredCount(stage.pattern)} pattern={stage.pattern} />
           ) : sections.length === 0 ? (
-            <EmptyRow label="No sections are published for this stage yet." />
+            <EmptyRow label={t('practice.empty.sections')} />
           ) : drill ? (
             <>
               <DrillHeader section={drill} verb={verb} onBack={() => setDrillKey(null)} />
@@ -613,7 +616,7 @@ export default function TnpscStagePage() {
                       index={drill.units.indexOf(u)}
                       order={i}
                       verb={verb}
-                      passPercentage={mock.levels[0]?.required_percentage ?? mockPassPercentage()}
+                      passPercentage={mock.levels[0]?.required_percentage ?? mockPassPercentage(groupId)}
                       lang={unitIdLang(u.key) ?? drill.lang}
                     />
                   ),
@@ -665,14 +668,15 @@ function KeyTopicsTrack({
   open: string[];
   onToggle: (key: string) => void;
 }) {
-  if (sections.length === 0) return <EmptyRow label="No sections are published for this stage yet." />;
+  const t = useT();
+  if (sections.length === 0) return <EmptyRow label={t('practice.topics.empty_sections')} />;
 
   const tests = sections.reduce((n, sec) => n + sec.testCount, 0);
 
   return (
     <>
       {tests === 0 && (
-        <EmptyRow label="Key-topic tests are on the way. Each one covers a single topic of the syllabus." />
+        <EmptyRow label={t('practice.topics.empty_tests')} />
       )}
       <div className="space-y-2.5">
         {sections.map((sec, i) => {
@@ -703,14 +707,14 @@ function KeyTopicsTrack({
                     <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">{paperName(sec.name, lang)}</h3>
                     {sec.alternativeTo && (
                       <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 bg-white/70 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded-full">
-                        or {sec.alternativeTo}
+                        {t('practice.section.alternative', { section: sec.alternativeTo })}
                       </span>
                     )}
                   </div>
                   <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mt-0.5">
                     {available
                       ? `${sec.topicCount} key topic${sec.topicCount === 1 ? '' : 's'} · ${sec.testCount} test${sec.testCount === 1 ? '' : 's'}`
-                      : 'Coming soon'}
+                      : t('practice.topics.coming_soon')}
                   </p>
                 </div>
                 {available && (
@@ -729,7 +733,7 @@ function KeyTopicsTrack({
                       {(sec.groups.length > 1 || g.label || g.star) && (
                         <p className={cn('mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider', a.text)}>
                           {g.star && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" aria-hidden />}
-                          {g.label ? `Unit ${g.label} · ` : ''}
+                          {g.label ? `${t('practice.topics.unit_heading', { label: g.label })} · ` : ''}
                           {paperName(g.name, lang)}
                         </p>
                       )}
@@ -798,14 +802,15 @@ function KeyTopicLine({
   const attemptsLeft = test.max_attempts == null ? null : Math.max(0, test.max_attempts - test.attempts_used);
   const exhausted = attemptsLeft === 0;
   const recommended = useContext(RecommendedTests).has(test.test_id);
+  const t = useT();
 
   const status = test.is_completed
-    ? { text: test.best_percentage != null ? `Cleared · ${Math.round(test.best_percentage)}%` : 'Cleared', cls: 'text-emerald-600 dark:text-emerald-400 font-semibold' }
+    ? { text: test.best_percentage != null ? t('practice.status.cleared_score', { pct: Math.round(test.best_percentage) }) : t('practice.status.cleared'), cls: 'text-emerald-600 dark:text-emerald-400 font-semibold' }
     : test.best_percentage != null
-      ? { text: `Best ${Math.round(test.best_percentage)}%`, cls: 'text-gray-700 dark:text-gray-200 font-semibold' }
+      ? { text: t('practice.status.best', { pct: Math.round(test.best_percentage) }), cls: 'text-gray-700 dark:text-gray-200 font-semibold' }
       : test.attempts_used > 0
         ? { text: `${test.attempts_used} attempt${test.attempts_used === 1 ? '' : 's'}`, cls: 'text-gray-600 dark:text-gray-300' }
-        : { text: 'Not attempted', cls: 'text-gray-400 dark:text-gray-500' };
+        : { text: t('practice.status.not_attempted'), cls: 'text-gray-400 dark:text-gray-500' };
 
   const body = (
     <>
@@ -818,18 +823,18 @@ function KeyTopicLine({
           {recommended && (
             <span className="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
               <Sparkles className="h-2.5 w-2.5" />
-              <span className="hidden sm:inline">Recommended for you</span>
-              <span className="sm:hidden">For you</span>
+              <span className="hidden sm:inline">{t('practice.paper.recommended')}</span>
+              <span className="sm:hidden">{t('practice.paper.recommended_short')}</span>
             </span>
           )}
         </span>
         {/* On a phone the figures sit under the name; from `sm` they have their own columns. */}
         <span className="block text-[11px] text-gray-500 sm:hidden">
-          {test.question_count} Qs · <span className={status.cls}>{status.text}</span>
+          {t('practice.paper.questions', { count: test.question_count })} · <span className={status.cls}>{status.text}</span>
         </span>
       </span>
       <span className="hidden w-16 flex-shrink-0 text-right text-xs tabular-nums text-gray-500 sm:block dark:text-gray-400">
-        {test.question_count} Qs
+        {t('practice.paper.questions', { count: test.question_count })}
       </span>
       <span className={cn('hidden w-32 flex-shrink-0 text-right text-xs sm:block', status.cls)}>
         {test.is_completed && <CheckCircle2 className="mr-1 inline h-3 w-3 align-[-2px]" />}
@@ -838,13 +843,13 @@ function KeyTopicLine({
       <span className="w-20 flex-shrink-0 text-right">
         {test.is_locked ? (
           <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
-            <Lock className="h-3 w-3" /> Upgrade
+            <Lock className="h-3 w-3" /> {t('practice.action.upgrade')}
           </span>
         ) : exhausted ? (
-          <span className="text-[11px] font-semibold text-gray-400">No attempts</span>
+          <span className="text-[11px] font-semibold text-gray-400">{t('practice.action.no_attempts')}</span>
         ) : (
           <span className="inline-flex items-center gap-0.5 text-xs font-bold text-orange-600 group-hover/kt:text-orange-700 dark:text-orange-400">
-            Start <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover/kt:translate-x-0.5" />
+            {t('practice.action.start')} <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover/kt:translate-x-0.5" />
           </span>
         )}
       </span>
@@ -887,8 +892,10 @@ function ExamTrack({
   /** The official paper's shape, so the banner can say exactly how closely a mock follows it. */
   pattern?: TnpscStage['pattern'];
 }) {
-  const passPercentage = levels[0]?.required_percentage ?? mockPassPercentage();
-  const logo = examLogo(useParams<{ groupId: string }>().groupId);
+  const examGroupId = useParams<{ groupId: string }>().groupId;
+  const passPercentage = levels[0]?.required_percentage ?? mockPassPercentage(examGroupId);
+  const logo = examLogo(examGroupId);
+  const t = useT();
 
   /**
    * Which level groups to show.
@@ -912,20 +919,20 @@ function ExamTrack({
             </span>
             <div className="min-w-0">
               <p className="flex flex-wrap items-center gap-2 text-base font-extrabold text-gray-900 dark:text-gray-100">
-                Just like the official exam
+                {t('practice.exam.banner.title')}
                 <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                  Official pattern
+                  {t('practice.exam.banner.tag')}
                 </span>
               </p>
               <p className="mt-1 text-[13px] leading-relaxed text-gray-600 dark:text-gray-400">
-                Every mock follows the real paper structure and is taken in one sitting, so exam day feels familiar.{' '}
+                {t('practice.exam.banner.body')}{' '}
                 {LEVEL_GATE_ENABLED ? (
                   <>
-                    Score <b>{passPercentage}% or more</b> in a Simple mock to unlock Medium, and in a Medium mock to unlock Complex.
+                    <Strong text={t('practice.exam.banner.gate', { pct: passPercentage })} />
                   </>
                 ) : (
                   <>
-                    A paper counts as <b>cleared</b> once you score {passPercentage}% or more.
+                    <Strong text={t('practice.exam.banner.cleared', { pct: passPercentage })} />
                   </>
                 )}
               </p>
@@ -934,17 +941,17 @@ function ExamTrack({
           {pattern && (
             <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
               {[
-                { icon: <FileText className="h-4 w-4" />, value: String(totalQuestions ?? pattern.total_questions), label: 'Questions' },
-                { icon: <Layers className="h-4 w-4" />, value: String(pattern.total_marks), label: 'Marks' },
+                { icon: <FileText className="h-4 w-4" />, value: String(totalQuestions ?? pattern.total_questions), label: t('practice.stat.questions') },
+                { icon: <Layers className="h-4 w-4" />, value: String(pattern.total_marks), label: t('practice.stat.marks') },
                 {
                   icon: <Clock className="h-4 w-4" />,
                   value: `${pattern.duration_minutes % 60 === 0 ? pattern.duration_minutes / 60 : (pattern.duration_minutes / 60).toFixed(1)}h`,
-                  label: 'Duration',
+                  label: t('practice.stat.duration'),
                 },
                 {
                   icon: <AlertCircle className="h-4 w-4" />,
-                  value: pattern.negative_marking ? `−${pattern.negative_mark_value || 0.25}` : 'None',
-                  label: 'Negative marking',
+                  value: pattern.negative_marking ? `−${pattern.negative_mark_value || 0.25}` : t('practice.stat.negative_none'),
+                  label: t('practice.stat.negative_marking'),
                 },
               ].map(t => (
                 <div key={t.label} className="flex items-center gap-2.5 rounded-xl bg-gray-50 px-3 py-2.5 dark:bg-gray-800/60">
@@ -964,7 +971,7 @@ function ExamTrack({
       {!LEVELS_HIDDEN && groups.length > 1 && <LevelRail levels={levels} />}
 
       {groups.length === 0 || total === 0 ? (
-        <EmptyRow label="No mock tests have been published for this stage yet." />
+        <EmptyRow label={t('practice.exam.empty')} />
       ) : (
         groups.map(g => <MockLevel key={g.level} group={g} />)
       )}
@@ -1017,6 +1024,7 @@ function LevelRail({ levels }: { levels: TnpscLevelGroup[] }) {
  * heading and a grid of papers, without a second box around them.
  */
 function MockLevel({ group }: { group: TnpscLevelGroup }) {
+  const t = useT();
   if (!group.is_unlocked || group.tests.length === 0) return <LevelSection group={group} />;
   const meta = LEVEL_META[group.level];
   return (
@@ -1024,13 +1032,13 @@ function MockLevel({ group }: { group: TnpscLevelGroup }) {
       <div className="mb-2.5 flex flex-wrap items-end justify-between gap-2 px-0.5">
         <div className="min-w-0">
           <h3 className="flex items-center gap-2 text-base font-extrabold text-gray-900 dark:text-gray-100">
-            {LEVELS_HIDDEN ? 'Full mock papers' : `${meta.label} level mocks`}
+            {LEVELS_HIDDEN ? t('practice.exam.full_heading') : t('practice.exam.level_heading', { level: meta.label })}
             <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
               {group.tests.length}
             </span>
           </h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {LEVELS_HIDDEN ? 'Set to the official exam pattern — the real question count, in one sitting.' : meta.blurb}
+            {LEVELS_HIDDEN ? t('practice.exam.full_blurb') : meta.blurb}
           </p>
         </div>
       </div>
@@ -1048,24 +1056,25 @@ function MockCard({ test, index, passPercentage }: { test: TnpscTest; index: num
   const attemptsLeft = test.max_attempts == null ? null : Math.max(0, test.max_attempts - test.attempts_used);
   const exhausted = attemptsLeft === 0;
   const best = test.best_percentage != null ? Math.round(test.best_percentage) : null;
+  const t = useT();
 
   const status = test.is_completed ? (
     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-      <CheckCircle2 className="h-3 w-3" /> Cleared
+      <CheckCircle2 className="h-3 w-3" /> {t('practice.status.cleared')}
     </span>
   ) : null;
 
   const action = test.is_locked ? (
     <span className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-amber-50 px-3.5 text-xs font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-      <Lock className="h-3.5 w-3.5" /> Upgrade to unlock
+      <Lock className="h-3.5 w-3.5" /> {t('practice.action.upgrade_unlock')}
     </span>
   ) : exhausted ? (
     <span className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gray-100 px-3.5 text-xs font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-      <Lock className="h-3.5 w-3.5" /> No attempts left
+      <Lock className="h-3.5 w-3.5" /> {t('practice.action.no_attempts_left')}
     </span>
   ) : (
     <span className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 px-4 text-sm font-bold text-white shadow-sm transition group-hover/mock:shadow-md group-hover/mock:brightness-105">
-      {best != null ? 'Take again' : 'Start exam'} <ChevronRight className="h-4 w-4" />
+      {best != null ? t('practice.action.take_again') : t('practice.action.start_exam')} <ChevronRight className="h-4 w-4" />
     </span>
   );
 
@@ -1081,11 +1090,11 @@ function MockCard({ test, index, passPercentage }: { test: TnpscTest; index: num
             {status}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <MiniChip icon={<FileText className="h-3 w-3" />} label={`${test.question_count} Qs`} />
-            {test.time_limit_minutes ? <MiniChip icon={<Clock className="h-3 w-3" />} label={`${test.time_limit_minutes} min`} /> : null}
+            <MiniChip icon={<FileText className="h-3 w-3" />} label={t('practice.paper.questions', { count: test.question_count })} />
+            {test.time_limit_minutes ? <MiniChip icon={<Clock className="h-3 w-3" />} label={t('practice.paper.minutes', { count: test.time_limit_minutes })} /> : null}
             {test.negative_marking && (
               <span className="rounded-md bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-600 dark:bg-red-950/40 dark:text-red-300">
-                −{test.negative_mark_value || 0.25} negative
+                {t('practice.paper.negative', { value: test.negative_mark_value || 0.25 })}
               </span>
             )}
             {test.level && !LEVELS_HIDDEN && (
@@ -1100,16 +1109,16 @@ function MockCard({ test, index, passPercentage }: { test: TnpscTest; index: num
         <div className="min-w-0 text-xs text-gray-500 dark:text-gray-400">
           {best != null ? (
             <>
-              <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400">Best score</span>
+              <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400">{t('practice.status.best_score')}</span>
               <span className="text-base font-extrabold text-gray-900 dark:text-gray-100">{best}%</span>
               {LEVEL_GATE_ENABLED && !test.is_completed && passPercentage != null && (
-                <span className="ml-1 text-amber-600 dark:text-amber-400">· needs {passPercentage}%</span>
+                <span className="ml-1 text-amber-600 dark:text-amber-400">{t('practice.status.needs', { pct: passPercentage })}</span>
               )}
             </>
           ) : test.max_attempts != null ? (
-            `${test.attempts_used}/${test.max_attempts} attempts used`
+            t('practice.status.attempts_used', { used: test.attempts_used, max: test.max_attempts })
           ) : (
-            'Not attempted yet'
+            t('practice.status.not_attempted_yet')
           )}
         </div>
         {action}
@@ -1152,6 +1161,7 @@ function MockCard({ test, index, passPercentage }: { test: TnpscTest; index: num
 function LevelSection({ group }: { group: TnpscLevelGroup }) {
   const meta = LEVEL_META[group.level];
   const locked = !group.is_unlocked;
+  const t = useT();
 
   return (
     <section
@@ -1183,7 +1193,7 @@ function LevelSection({ group }: { group: TnpscLevelGroup }) {
               </h3>
               {group.is_completed && !locked && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full">
-                  <CheckCircle2 className="w-3 h-3" /> Cleared
+                  <CheckCircle2 className="w-3 h-3" /> {t('practice.status.cleared')}
                 </span>
               )}
             </div>
@@ -1198,10 +1208,10 @@ function LevelSection({ group }: { group: TnpscLevelGroup }) {
       {locked ? (
         <div className="p-6 text-center">
           <Lock className="w-7 h-7 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-          <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Locked</p>
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('practice.exam.locked')}</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-md mx-auto">
             {group.lock_reason ??
-              `Clear the previous level with at least ${group.required_percentage}% to unlock.`}
+              t('practice.exam.locked_reason', { pct: group.required_percentage })}
           </p>
         </div>
       ) : group.tests.length === 0 ? (
@@ -1215,8 +1225,8 @@ function LevelSection({ group }: { group: TnpscLevelGroup }) {
             {group.lock_reason
               ? `${group.lock_reason} These papers exist but are not being served yet.`
               : LEVELS_HIDDEN
-                ? 'No mock tests published yet.'
-                : `No ${meta.label.toLowerCase()} mock tests published yet.`}
+                ? t('practice.exam.level_empty_all')
+                : t('practice.exam.level_empty', { level: meta.label.toLowerCase() })}
           </p>
         </div>
       ) : (
@@ -1241,6 +1251,7 @@ function DrillHeader({
   verb: string;
   onBack: () => void;
 }) {
+  const t = useT();
   return (
     <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
       <div className="flex items-start gap-3">
@@ -1249,10 +1260,10 @@ function DrillHeader({
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-            <SecName name={section.name} lang={section.lang} /> — unit-wise {verb.toLowerCase()}
+            <SecName name={section.name} lang={section.lang} /> {t('practice.drill.title', { verb: verb.toLowerCase() })}
           </p>
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 leading-relaxed">
-            Pick a unit, then a difficulty. Each button opens that paper straight away.
+            {t('practice.drill.hint')}
           </p>
         </div>
         <button
@@ -1260,7 +1271,7 @@ function DrillHeader({
           onClick={onBack}
           className="flex-shrink-0 inline-flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/60 px-2.5 py-1.5 text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-900"
         >
-          <ArrowLeft className="w-3 h-3" /> All sections
+          <ArrowLeft className="w-3 h-3" /> {t('practice.drill.all_sections')}
         </button>
       </div>
     </div>
@@ -1282,6 +1293,7 @@ function UnitFilterPills({
   lang: PaperLang;
 }) {
   const single = useContext(NtpcLangContext);
+  const t = useT();
   return (
     <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-1">
       <button
@@ -1294,7 +1306,7 @@ function UnitFilterPills({
             : 'border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:border-blue-300',
         )}
       >
-        All Units
+        {t('practice.drill.all_units')}
       </button>
 
       {units.map((u, i) => {
@@ -1342,6 +1354,7 @@ function SectionRow({
   onDrill: () => void;
 }) {
   const a = accentFor(index);
+  const t = useT();
 
   return (
     <section className="group/row relative overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow duration-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:shadow-none">
@@ -1360,7 +1373,7 @@ function SectionRow({
             </span>
             {section.alternativeTo && (
               <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 bg-white/70 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded-full">
-                or {section.alternativeTo}
+                {t('practice.section.alternative', { section: section.alternativeTo })}
               </span>
             )}
           </div>
@@ -1376,7 +1389,7 @@ function SectionRow({
         <div className="flex flex-col gap-1.5 flex-shrink-0 w-full sm:w-auto sm:self-center">
           <ActionTile
             icon={<ListChecks className="w-4 h-4" />}
-            title={`Unit-wise ${verb}`}
+            title={t('practice.section.unit_wise', { verb })}
             accent={a}
             primary
             onClick={onDrill}
@@ -1384,7 +1397,7 @@ function SectionRow({
           />
           <ActionTile
             icon={<Layers className="w-4 h-4" />}
-            title={`Full Set ${verb}`}
+            title={t('practice.section.full_set', { verb })}
             accent={a}
             to={
               section.fullSet
@@ -1504,6 +1517,7 @@ function StageHero({
   /** Opens the exam (full mock) tab. */
   onTakeMock?: () => void;
 }) {
+  const t = useT();
   return (
     <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm mb-4 sm:mb-5">
       <div className={cn('h-1.5 w-full bg-gradient-to-r', accent)} />
@@ -1534,19 +1548,19 @@ function StageHero({
                 icon={<FileText className="w-4 h-4" />}
                 tone="indigo"
                 value={questionCountLabel(stage.pattern) ?? '—'}
-                label="Questions"
+                label={t('practice.stat.questions')}
               />
               <StatCard
                 icon={<Layers className="w-4 h-4" />}
                 tone="emerald"
                 value={stage.pattern.total_marks}
-                label="Marks"
+                label={t('practice.stat.marks')}
               />
               <StatCard
                 icon={<Clock className="w-4 h-4" />}
                 tone="amber"
                 value={`${stage.pattern.duration_minutes / 60}h`}
-                label="Duration"
+                label={t('practice.stat.duration')}
               />
               </div>
             </div>
@@ -1602,7 +1616,7 @@ function StatCard({
  * for one topic at a time, Practice for a unit or subject, Exam for the full paper in the official pattern. Pick
  * whichever you need today.
  */
-const PATH_STEPS: Array<{
+const pathSteps = (t: ReturnType<typeof useT>): Array<{
   key: Tab;
   label: string;
   icon: React.ReactNode;
@@ -1614,12 +1628,12 @@ const PATH_STEPS: Array<{
   check: string;
   tile: string;
   edge: string;
-}> = [
+}> => [
   {
     key: 'topics',
-    label: 'Practice by Key Topics',
+    label: t('practice.tabs.topics.label'),
     icon: <KeyRound className="w-5 h-5" />,
-    note: 'One topic at a time — build your basics',
+    note: t('practice.tabs.topics.note'),
     on: 'border-blue-500 shadow-blue-100',
     tileOn: 'bg-blue-600 text-white',
     check: 'bg-blue-600',
@@ -1628,9 +1642,9 @@ const PATH_STEPS: Array<{
   },
   {
     key: 'practice',
-    label: 'Practice by Unit',
+    label: t('practice.tabs.practice.label'),
     icon: <Pencil className="w-5 h-5" />,
-    note: 'Pick a unit, then Simple, Medium or Complex',
+    note: t('practice.tabs.practice.note'),
     on: 'border-orange-500 shadow-orange-100',
     tileOn: 'bg-orange-500 text-white',
     check: 'bg-orange-500',
@@ -1639,10 +1653,10 @@ const PATH_STEPS: Array<{
   },
   {
     key: 'exam',
-    label: 'Mock Exam',
+    label: t('practice.tabs.exam.label'),
     icon: <FileText className="w-5 h-5" />,
-    note: 'Full paper, timed like the real one',
-    tag: 'Official pattern',
+    note: t('practice.tabs.exam.note'),
+    tag: t('practice.tabs.exam.tag'),
     on: 'border-emerald-500 shadow-emerald-100',
     tileOn: 'bg-emerald-600 text-white',
     check: 'bg-emerald-600',
@@ -1653,7 +1667,9 @@ const PATH_STEPS: Array<{
 
 function TrackTabs({ tab, onChange, hideTopics }: { tab: Tab; onChange: (t: Tab) => void; hideTopics?: boolean }) {
   const logo = examLogo(useParams<{ groupId: string }>().groupId);
-  const steps = hideTopics ? PATH_STEPS.filter(it => it.key !== 'topics') : PATH_STEPS;
+  const t = useT();
+  const allSteps = pathSteps(t);
+  const steps = hideTopics ? allSteps.filter(it => it.key !== 'topics') : allSteps;
   return (
     <div>
       <div role="tablist" aria-label="Test type" className={cn('grid gap-2 sm:gap-3', steps.length === 2 ? 'grid-cols-2' : 'grid-cols-3')}>
@@ -1711,8 +1727,8 @@ function TrackTabs({ tab, onChange, hideTopics }: { tab: Tab; onChange: (t: Tab)
       {/* One line, not a banner: every test draws a new set of questions. */}
       <p className="mt-2.5 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
         <Shuffle className="h-3.5 w-3.5 shrink-0 text-sky-500" aria-hidden />
-        <span>
-          <span className="font-semibold text-gray-700 dark:text-gray-200">Fresh questions every attempt</span> — a new set of expert-validated questions each time.
+        <span className="[&_strong]:font-semibold [&_strong]:text-gray-700 dark:[&_strong]:text-gray-200">
+          <Strong text={t('practice.tabs.fresh')} />
         </span>
       </p>
     </div>
@@ -1779,6 +1795,7 @@ function UnitListRow({
   const a = accentFor(index);
   const levels = levelStats(unit.tests);
   const anyPaper = unit.tests.length > 0;
+  const t = useT();
 
   return (
     <section
@@ -1810,7 +1827,7 @@ function UnitListRow({
             </p>
           )}
           {unit.questions == null && (
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{unit.topics.length} topics</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{t('practice.unit.topics_count', { count: unit.topics.length })}</p>
           )}
         </div>
 
@@ -1822,7 +1839,7 @@ function UnitListRow({
 
         {!anyPaper && (
           <p className="w-full text-[10px] text-gray-400 pl-12">
-            {verb} papers for this unit are being prepared.
+            {t('practice.unit.being_prepared', { verb })}
           </p>
         )}
       </div>
@@ -1846,6 +1863,7 @@ function LevelButton({ stat }: { stat: LevelStat }) {
   const { key, test, attempts, cleared, best } = stat;
   const meta = key === 'all' ? null : LEVEL_META[key];
   const locked = test?.is_locked ?? false;
+  const t = useT();
 
   const className = cn(
     'flex flex-col items-start justify-center gap-0.5 rounded-lg border px-2.5 py-1.5 text-left transition-all w-[5.75rem] flex-shrink-0',
@@ -1858,14 +1876,14 @@ function LevelButton({ stat }: { stat: LevelStat }) {
 
   /** One line of history, or why the button cannot be pressed. */
   const detail = !test
-    ? 'No paper yet'
+    ? t('practice.level.no_paper')
     : cleared
       ? best != null
-        ? `Cleared · ${Math.round(best)}%`
-        : 'Cleared'
+        ? t('practice.status.cleared_score', { pct: Math.round(best) })
+        : t('practice.status.cleared')
       : attempts > 0
         ? `${attempts} attempt${attempts === 1 ? '' : 's'}`
-        : 'Not attempted';
+        : t('practice.status.not_attempted');
 
   const body = (
     <>
@@ -1892,7 +1910,7 @@ function LevelButton({ stat }: { stat: LevelStat }) {
     <Link
       to={locked ? '/user/subscription' : testHref(test)}
       state={{ from: here() }}
-      title={locked ? (test.lock_reason ?? 'Upgrade to unlock') : paperTitle(test.title, unitIdLang(test.unit_id))}
+      title={locked ? (test.lock_reason ?? t('practice.action.upgrade_unlock')) : paperTitle(test.title, unitIdLang(test.unit_id))}
       className={className}
     >
       {body}
@@ -1904,6 +1922,7 @@ function LevelButton({ stat }: { stat: LevelStat }) {
 
 /** The one paper that covers a whole section, offered at the foot of its units. */
 function FullSetBar({ section, verb }: { section: SectionModel; verb: string }) {
+  const t = useT();
   const test = section.fullSet;
   if (!test) return null;
 
@@ -1916,9 +1935,9 @@ function FullSetBar({ section, verb }: { section: SectionModel; verb: string }) 
           <Layers className="w-5 h-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Full Set {verb}</p>
+          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{t('practice.fullset.title', { verb })}</p>
           <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
-            Take the complete set of questions from all units in one sitting.
+            {t('practice.fullset.text')}
           </p>
         </div>
       </div>
@@ -1933,7 +1952,7 @@ function FullSetBar({ section, verb }: { section: SectionModel; verb: string }) 
         </span>
         <span className="text-left">
           <span className="block text-xs font-bold leading-tight"><SecName name={section.name} lang={section.lang} /></span>
-          <span className="block text-[10px] opacity-80">All units</span>
+          <span className="block text-[10px] opacity-80">{t('practice.fullset.all_units')}</span>
         </span>
         <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-80" />
       </Link>
@@ -1970,6 +1989,7 @@ function PaperRow({
   const attemptsLeft =
     test.max_attempts == null ? null : Math.max(0, test.max_attempts - test.attempts_used);
   const exhausted = attemptsLeft === 0;
+  const t = useT();
 
   const title = (
     <div className="flex items-start gap-2">
@@ -1984,7 +2004,7 @@ function PaperRow({
       </p>
       {test.is_completed && (
         <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full flex-shrink-0">
-          <CheckCircle2 className="w-3 h-3" /> Cleared
+          <CheckCircle2 className="w-3 h-3" /> {t('practice.status.cleared')}
         </span>
       )}
     </div>
@@ -1992,9 +2012,9 @@ function PaperRow({
 
   const meta = (
     <div className={cn('flex items-center gap-1.5 flex-wrap', !compact && 'mt-1.5')}>
-      <MiniChip icon={<FileText className="w-3 h-3" />} label={`${test.question_count} Qs`} />
+      <MiniChip icon={<FileText className="w-3 h-3" />} label={t('practice.paper.questions', { count: test.question_count })} />
       {test.time_limit_minutes ? (
-        <MiniChip icon={<Clock className="w-3 h-3" />} label={`${test.time_limit_minutes} min`} />
+        <MiniChip icon={<Clock className="w-3 h-3" />} label={t('practice.paper.minutes', { count: test.time_limit_minutes })} />
       ) : null}
       {/* A mock is built across all three difficulties, and while the portal shows a
           single level the group is headed "Exam Pattern" rather than naming one — so a
@@ -2011,21 +2031,21 @@ function PaperRow({
       )}
       {test.negative_marking && (
         <span className="text-[10px] font-semibold text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-950/40 px-2 py-1 rounded-md">
-          -{test.negative_mark_value || 0.25} neg
+          {t('practice.paper.negative_short', { value: test.negative_mark_value || 0.25 })}
         </span>
       )}
       <span className="text-[10px] text-gray-500 dark:text-gray-400">
         {test.best_percentage != null ? (
           <>
-            Best {Math.round(test.best_percentage)}%
+            {t('practice.status.best', { pct: Math.round(test.best_percentage) })}
             {LEVEL_GATE_ENABLED && !test.is_completed && passPercentage != null && (
-              <span className="text-amber-600 dark:text-amber-400"> · needs {passPercentage}%</span>
+              <span className="text-amber-600 dark:text-amber-400"> {t('practice.status.needs', { pct: passPercentage })}</span>
             )}
           </>
         ) : test.max_attempts != null ? (
-          `${test.attempts_used}/${test.max_attempts} attempts`
+          t('practice.status.attempts_of', { used: test.attempts_used, max: test.max_attempts })
         ) : (
-          'Not attempted'
+          t('practice.status.not_attempted')
         )}
       </span>
     </div>
@@ -2034,11 +2054,11 @@ function PaperRow({
   // In a card the action is a small button at the right of the details row, not a bar across the card.
   const action = test.is_locked ? (
     <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-1 rounded-lg flex-shrink-0">
-      <Lock className="w-3 h-3" /> Upgrade <Sparkles className="w-3 h-3" />
+      <Lock className="w-3 h-3" /> {t('practice.action.upgrade')} <Sparkles className="w-3 h-3" />
     </span>
   ) : exhausted ? (
     <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 dark:text-gray-400 flex-shrink-0">
-      <Lock className="w-3 h-3" /> No attempts left
+      <Lock className="w-3 h-3" /> {t('practice.action.no_attempts_left')}
     </span>
   ) : (
     <span
@@ -2048,7 +2068,7 @@ function PaperRow({
         compact ? 'h-6 px-2.5 text-[11px]' : 'h-8 px-3 text-xs',
       )}
     >
-      Start <ChevronRight className={compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
+      {t('practice.action.start')} <ChevronRight className={compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
     </span>
   );
 
@@ -2115,6 +2135,7 @@ function PaperRow({
  */
 /** The phone's way to open the syllabus, which starts folded. Not shown on desktop, where the panel is always open. */
 function MobileSyllabusToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const t = useT();
   return (
     <button
       type="button"
@@ -2124,7 +2145,7 @@ function MobileSyllabusToggle({ open, onToggle }: { open: boolean; onToggle: () 
     >
       <span className="inline-flex items-center gap-1.5 text-sm font-bold text-gray-900 dark:text-gray-100">
         <BookOpen className="w-4 h-4 text-blue-500" />
-        Syllabus
+        {t('practice.syllabus.title')}
       </span>
       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400">
         {open ? 'Hide' : 'Show'}
@@ -2160,6 +2181,7 @@ function SyllabusPanel({
   const toggleAll = () => setOpenKeys(allOpen ? [] : allKeys);
   // On a phone the syllabus starts folded, so the papers are what the page opens on. Desktop ignores this.
   const [mobileOpen, setMobileOpen] = useState(false);
+  const t = useT();
   if (sections.length === 0) return null;
 
   // ── Folded: a rail that says what it is and opens on a click ─────────────
@@ -2178,7 +2200,7 @@ function SyllabusPanel({
             className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400"
             style={{ writingMode: 'vertical-rl' }}
           >
-            Syllabus
+            {t('practice.syllabus.title')}
           </span>
         </button>
       </aside>
@@ -2193,11 +2215,11 @@ function SyllabusPanel({
         <div className={cn(mobileOpen ? 'flex' : 'hidden', 'lg:flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800')}>
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100 inline-flex items-center gap-1.5 min-w-0">
             <BookOpen className="w-4 h-4 text-blue-500 flex-shrink-0" />
-            <span className="truncate">Syllabus</span>
+            <span className="truncate">{t('practice.syllabus.title')}</span>
           </p>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-2 py-0.5 rounded-full tabular-nums">
-              Total Units: {drill.units.length}
+              {t('practice.syllabus.total_units', { count: drill.units.length })}
             </span>
             <button
               type="button"
@@ -2226,7 +2248,7 @@ function SyllabusPanel({
               label={u.label}
               name={u.name}
               nameTa={u.nameTa}
-              count={u.questions != null ? undefined : `${u.topics.length} topics`}
+              count={u.questions != null ? undefined : t('practice.unit.topics_count', { count: u.topics.length })}
               topics={u.topics}
               lang={unitIdLang(u.key) ?? drill.lang}
             />
@@ -2236,7 +2258,7 @@ function SyllabusPanel({
         <div className={cn(mobileOpen ? 'flex' : 'hidden', 'lg:flex border-t border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/30 px-4 py-3 items-start gap-2')}>
           <BookOpen className="w-4 h-4 text-blue-400 flex-shrink-0 mt-px" />
           <p className="text-[10px] leading-snug text-gray-500 dark:text-gray-400">
-            You can expand each unit to view the topics under it and start practising.
+            {t('practice.syllabus.unit_hint')}
           </p>
         </div>
       </aside>
@@ -2250,7 +2272,7 @@ function SyllabusPanel({
       <div className={cn(mobileOpen ? 'flex' : 'hidden', 'lg:flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800')}>
         <p className="text-sm font-bold text-gray-900 dark:text-gray-100 inline-flex items-center gap-1.5">
           <BookOpen className="w-4 h-4 text-blue-500" />
-          Syllabus
+          {t('practice.syllabus.title')}
         </p>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <button
@@ -2259,7 +2281,7 @@ function SyllabusPanel({
             className="inline-flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700 px-2 py-1 text-[10px] font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             <ChevronDown className={cn('w-3 h-3 transition-transform', allOpen && 'rotate-180')} />
-            {allOpen ? 'Collapse All' : 'Expand All'}
+            {allOpen ? t('practice.syllabus.collapse_all') : t('practice.syllabus.expand_all')}
           </button>
           <button
             type="button"
@@ -2315,7 +2337,7 @@ function SyllabusPanel({
                       label={u.label}
                       name={u.name}
                       nameTa={u.nameTa}
-                      count={u.questions != null ? undefined : `${u.topics.length} topics`}
+                      count={u.questions != null ? undefined : t('practice.unit.topics_count', { count: u.topics.length })}
                       topics={u.topics}
                       lang={unitIdLang(u.key) ?? sec.lang}
                     />
@@ -2333,9 +2355,7 @@ function SyllabusPanel({
             <BookOpen className="w-5 h-5 text-brand-300 dark:text-blue-700" />
           </span>
           <p className="text-[11px] leading-snug text-gray-500 dark:text-gray-400">
-            Click on any section to view
-            <br />
-            the units and start practising.
+            <Rich text={t('practice.syllabus.section_hint')} />
           </p>
         </div>
       )}
@@ -2370,6 +2390,7 @@ function SyllabusRow({
   const expandable = topics.length > 0;
   const a = accentFor(index);
   const PREVIEW = 5;
+  const t = useT();
 
   return (
     <li className="border-t border-gray-50 dark:border-gray-800/60 first:border-t-0">
@@ -2433,7 +2454,7 @@ function SyllabusRow({
                 aria-expanded={showAll}
                 className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
               >
-                {showAll ? 'Show fewer topics' : `+ ${topics.length - PREVIEW} more topics`}
+                {showAll ? t('practice.syllabus.fewer_topics') : t('practice.syllabus.more_topics', { count: topics.length - PREVIEW })}
               </button>
             </li>
           )}
@@ -2491,6 +2512,7 @@ function ErrorRow({ message }: { message: string }) {
 function TakeMockCta({ onClick, minutes }: { onClick: () => void; minutes: number }) {
   const total = Math.max(60, Math.round(minutes * 60));
   const [left, setLeft] = useState(total);
+  const t = useT();
   useEffect(() => {
     setLeft(total);
     const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -2525,11 +2547,11 @@ function TakeMockCta({ onClick, minutes }: { onClick: () => void; minutes: numbe
           ))}
         </span>
         <span className="flex items-center gap-2 bg-gradient-to-r from-amber-500 via-orange-500 to-orange-600 px-4 text-sm font-extrabold text-white transition-[filter] group-hover:brightness-110">
-          Take Mock Exam
+          {t('practice.hero.cta')}
           <ArrowRight className="cta-arrow h-4 w-4" />
         </span>
       </button>
-      <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">Timed exactly like the real exam</p>
+      <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{t('practice.hero.cta_note')}</p>
     </div>
   );
 }

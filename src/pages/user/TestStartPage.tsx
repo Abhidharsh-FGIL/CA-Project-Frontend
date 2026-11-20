@@ -13,10 +13,13 @@ import {
 import { getTestDetail, type TestDetail } from '@/lib/userPortalApi';
 import { useFreshQuestionsNotice } from '@/components/user/FreshQuestionsNotice';
 import { difficultyLabel } from '@/lib/eval-difficulty';
+import { useT } from '@/content/useText';
+import { Strong } from '@/content/strong';
 
 export default function TestStartPage() {
   const { testId } = useParams<{ testId: string }>();
   const navigate = useNavigate();
+  const t = useT();
 
   const [test, setTest] = useState<TestDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,7 +99,7 @@ export default function TestStartPage() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
                   <span className="text-[10px] font-bold uppercase tracking-[0.25em] bg-white/20 backdrop-blur border border-white/30 text-white px-2.5 py-1 rounded-full whitespace-nowrap">
-                    {isMock ? '★ Mock Exam' : 'Practice Mode'}
+                    {isMock ? t('assessment.start.badge.mock') : t('assessment.start.badge.practice')}
                   </span>
                   {test.subject && (
                     <span className="text-[10px] font-semibold uppercase tracking-wider opacity-90 truncate">
@@ -109,15 +112,15 @@ export default function TestStartPage() {
                 </h1>
                 <p className="text-xs sm:text-sm opacity-90 mt-2 font-serif italic">
                   {isMock
-                    ? 'Full-length, time-bound simulation. Treat it like the real thing.'
-                    : 'Practice freely — no rank, just learning.'}
+                    ? t('assessment.start.tagline.mock')
+                    : t('assessment.start.tagline.practice')}
                 </p>
               </div>
 
               <div className="flex-shrink-0 self-start bg-white/15 backdrop-blur border border-white/25 rounded-xl px-3 py-2 text-right">
-                <p className="text-[9px] uppercase tracking-widest opacity-80">Test Fee</p>
+                <p className="text-[9px] uppercase tracking-widest opacity-80">{t('assessment.start.fee.label')}</p>
                 <p className="text-lg font-bold leading-tight">
-                  {test.price > 0 ? `₹${test.price}` : 'FREE'}
+                  {test.price > 0 ? `₹${test.price}` : t('assessment.start.fee.free')}
                 </p>
               </div>
             </div>
@@ -128,23 +131,23 @@ export default function TestStartPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <InfoTile
                 icon={<FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
-                label="Questions"
+                label={t('assessment.start.tile.questions')}
                 value={String(test.question_count)}
               />
               <InfoTile
                 icon={<Clock className="w-4 h-4 text-rose-600 dark:text-rose-400" />}
-                label="Time Limit"
-                value={test.time_limit > 0 ? `${test.time_limit} min` : 'Untimed'}
+                label={t('assessment.start.tile.time')}
+                value={test.time_limit > 0 ? `${test.time_limit} min` : t('assessment.start.tile.untimed')}
               />
               <InfoTile
                 icon={<Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
-                label="Difficulty"
-                value={test.difficulty ? difficultyLabel(test.difficulty) : 'Mixed'}
+                label={t('assessment.start.tile.difficulty')}
+                value={test.difficulty ? difficultyLabel(test.difficulty) : t('assessment.start.tile.mixed')}
                 valueClass="capitalize"
               />
               <InfoTile
                 icon={<AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />}
-                label="Negative Marking"
+                label={t('assessment.start.tile.negative')}
                 value={test.negative_marking ? `Yes (-${test.negative_marking_fraction})` : 'No'}
               />
             </div>
@@ -152,21 +155,20 @@ export default function TestStartPage() {
             {/* Instructions */}
             <div className="mt-6 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
               <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" /> Instructions
+                <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" /> {t('assessment.start.instructions.heading')}
               </p>
               <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-1.5 list-disc pl-5">
-                <li>Read each question carefully before answering.</li>
-                <li>You can flag questions for review and revisit them before submitting.</li>
-                {isMock && <li>The timer cannot be paused. The test will auto-submit when time expires.</li>}
-                <li>Do not switch tabs or leave this page during the assessment.</li>
+                <li>{t('assessment.start.instructions.read')}</li>
+                <li>{t('assessment.start.instructions.flag')}</li>
+                {isMock && <li>{t('assessment.start.instructions.timer')}</li>}
+                <li>{t('assessment.start.instructions.tabs')}</li>
                 <li>
-                  After <strong>3 tab-switch violations</strong>, your test will be auto-submitted.
+                  <Strong text={t('assessment.start.instructions.violations')} />
                 </li>
-                <li>Right-click and copy-paste are disabled during the test.</li>
+                <li>{t('assessment.start.instructions.copy')}</li>
                 {test.negative_marking && (
                   <li className="text-red-700 dark:text-red-300">
-                    <strong>Negative marking is enabled.</strong> Each wrong answer deducts{' '}
-                    {test.negative_marking_fraction} marks.
+                    <Strong text={t('assessment.start.instructions.negative', { fraction: test.negative_marking_fraction })} />
                   </li>
                 )}
               </ul>
@@ -180,7 +182,7 @@ export default function TestStartPage() {
                 className="mt-0.5 w-4 h-4 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-blue-600 focus:ring-brand-500 dark:focus:ring-blue-400"
               />
               <span className="text-xs text-gray-700 dark:text-gray-300">
-                I have read and understood the instructions. I agree to abide by the anti-malpractice rules.
+                {t('assessment.start.agree')}
               </span>
             </label>
 
@@ -190,7 +192,7 @@ export default function TestStartPage() {
               className="group w-full mt-5 bg-gradient-to-r from-brand-600 via-brand-400 to-brand-600 bg-[length:200%_auto] hover:bg-right-bottom text-white py-3.5 rounded-xl font-semibold transition-all duration-500 shadow-lg shadow-blue-200 dark:shadow-blue-900/40 hover:shadow-xl hover:shadow-blue-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none press"
             >
               <span className="inline-flex items-center justify-center gap-2">
-                Begin Test
+                {t('assessment.start.begin')}
                 <Sparkles className="w-4 h-4 group-hover:rotate-12 transition-transform" />
               </span>
             </button>

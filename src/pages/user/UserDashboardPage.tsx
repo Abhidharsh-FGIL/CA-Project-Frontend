@@ -74,6 +74,7 @@ import {
   type UserDashboardAnalytics,
 } from '@/lib/userDashboardApi';
 import { cn } from '@/lib/utils';
+import { useT } from '@/content/useText';
 
 // Validated for colour-blind separation (see dataviz validator). Do not extend past
 // seven: a 14-hue version failed deutan separation, which is why more than seven
@@ -84,6 +85,7 @@ const SUBJECT_COLORS = ['#ff6c24', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '
 const SUBJECT_PREVIEW_COUNT = 6;
 
 export default function UserDashboardPage() {
+  const t = useT();
   const { user, assessments, history, isLoading } = useUserPortal();
   const gateReport = useReportGate();
   const { groups } = useTnpscCatalog({ forMyLanguage: true });
@@ -280,14 +282,15 @@ export default function UserDashboardPage() {
     const last = chartTrend[chartTrend.length - 1];
     const delta = Math.round((last.value - first.value) * 10) / 10;
     const peak = chartTrend.reduce((hi, p) => (p.value > hi.value ? p : hi), chartTrend[0]);
+    const span = { first: first.value, firstLabel: first.label, last: last.value, lastLabel: last.label };
     const movement =
       delta > 0.5
-        ? `rose by ${delta} points, from ${first.value}% on ${first.label} to ${last.value}% on ${last.label}`
+        ? t('dashboard.trend.note.rose', { ...span, delta })
         : delta < -0.5
-          ? `fell by ${Math.abs(delta)} points, from ${first.value}% on ${first.label} to ${last.value}% on ${last.label}`
-          : `remained steady at ${last.value}% from ${first.label} to ${last.label}`;
-    return `Your average score ${movement}. Your highest daily average was ${peak.value}%, recorded on ${peak.label}.`;
-  }, [chartTrend]);
+          ? t('dashboard.trend.note.fell', { ...span, delta: Math.abs(delta) })
+          : t('dashboard.trend.note.steady', span);
+    return `${movement} ${t('dashboard.trend.note.peak', { peak: peak.value, peakLabel: peak.label })}`;
+  }, [chartTrend, t]);
 
   /** The last 7 days that had a test, each at that day's average — as on the Performance screen. */
   const activeDayBars = useMemo(() => {
@@ -355,10 +358,10 @@ export default function UserDashboardPage() {
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4 sm:mb-5">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Welcome back, <span className="text-blue-600 dark:text-blue-400">{user.name.split(' ')[0]}</span>! <span className="mge-wave" aria-hidden>👋</span>
+            {t('dashboard.welcome.before')} <span className="text-blue-600 dark:text-blue-400">{user.name.split(' ')[0]}</span>{t('dashboard.welcome.after')} <span className="mge-wave" aria-hidden>👋</span>
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">
-            Let's continue your preparation and work towards your goals.
+            {t('dashboard.welcome.subtitle')}
           </p>
         </div>
         {/* These two scope every card below, so they lead the page rather than
@@ -386,28 +389,28 @@ export default function UserDashboardPage() {
               icon={<ClipboardList className="w-5 h-5" />}
               tone="indigo"
               value={availableCount}
-              label={`${trackNoun}s Available`}
+              label={t('dashboard.stat.available', { track: trackNoun })}
               delta={null}
             />
             <StatCard
               icon={<Timer className="w-5 h-5" />}
               tone="emerald"
               value={stats.attempted}
-              label={`${trackNoun}s Attempted`}
+              label={t('dashboard.stat.attempted', { track: trackNoun })}
               delta={null}
             />
             <StatCard
               icon={<TrendingUp className="w-5 h-5" />}
               tone="amber"
               value={`${stats.average}%`}
-              label="Average Score"
+              label={t('dashboard.stat.average')}
               delta={null}
             />
             <StatCard
               icon={<LineChartIcon className="w-5 h-5" />}
               tone="rose"
               value={stats.thisMonth}
-              label={`${trackNoun}s Taken This Month`}
+              label={t('dashboard.stat.month', { track: trackNoun })}
               delta={null}
             />
           </div>
@@ -421,7 +424,7 @@ export default function UserDashboardPage() {
                 <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                      Score Trend <span className="font-normal text-gray-400">(%)</span>
+                      {t('dashboard.trend.title')} <span className="font-normal text-gray-400">(%)</span>
                     </p>
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{trendCaption}</p>
                   </div>
@@ -430,7 +433,7 @@ export default function UserDashboardPage() {
                       to={performanceHref({ group, track, range })}
                       className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap"
                     >
-                      View detailed report
+                      {t('dashboard.trend.report')}
                     </Link>
                   </div>
                 </div>
@@ -460,7 +463,7 @@ export default function UserDashboardPage() {
                         />
                         <Tooltip
                           contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
-                          formatter={(v: any) => [`${v}%`, 'Average that day']}
+                          formatter={(v: any) => [`${v}%`, t('dashboard.trend.tooltip')]}
                           labelFormatter={formatTrendLabel}
                         />
                         <Area type="monotone" dataKey="value" stroke="#2f7fe0" strokeWidth={2.5} fill="url(#progressFill)" />
@@ -478,13 +481,13 @@ export default function UserDashboardPage() {
                     icon={<TrendingUp className="w-5 h-5" />}
                     text={
                       range.key === 'all'
-                        ? `Your ${groupLabel} curve starts after your first submitted ${trackNoun.toLowerCase()}.`
-                        : `No ${trackNoun.toLowerCase()}s in ${groupLabel} over this period.`
+                        ? t('dashboard.trend.empty.all', { exam: groupLabel, test: trackNoun.toLowerCase() })
+                        : t('dashboard.trend.empty.period', { exam: groupLabel, test: trackNoun.toLowerCase() })
                     }
                     action={
                       range.key === 'all' ? (
                         <Link to={trackHref(track)} className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
-                          Take a {trackNoun.toLowerCase()}
+                          {t('dashboard.trend.empty.take', { test: trackNoun.toLowerCase() })}
                         </Link>
                       ) : (
                         <button
@@ -492,7 +495,7 @@ export default function UserDashboardPage() {
                           onClick={() => setRange(ALL_TIME)}
                           className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
                         >
-                          Show all time
+                          {t('dashboard.trend.empty.showAll')}
                         </button>
                       )
                     }
@@ -530,18 +533,18 @@ export default function UserDashboardPage() {
           <div className={cn('rounded-2xl p-4 text-gray-900 dark:text-gray-100', PANEL_SURFACE)}>
             <div className="flex items-start justify-between gap-3 mb-3">
               <div className="min-w-0">
-                <p className="text-sm font-bold">Recent Activity</p>
+                <p className="text-sm font-bold">{t('dashboard.recent.title')}</p>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                  {groupLabel} · {trackNoun}s
+                  {t('dashboard.recent.subtitle', { exam: groupLabel, track: trackNoun })}
                 </p>
               </div>
               <Link to={historyHref({ group, track, range })} className="text-xs font-semibold text-brand-600 dark:text-brand-400 underline-offset-2 hover:underline whitespace-nowrap">
-                View all
+                {t('dashboard.recent.viewAll')}
               </Link>
             </div>
             {recent.length === 0 ? (
               <p className="py-5 text-center text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                No {trackNoun.toLowerCase()}s taken under this selection yet.
+                {t('dashboard.recent.empty', { test: trackNoun.toLowerCase() })}
               </p>
             ) : (
               <ul className="space-y-2">
@@ -558,7 +561,7 @@ export default function UserDashboardPage() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
-                          {studentTitle(r.test_name) || 'Test attempt'}
+                          {studentTitle(r.test_name) || t('dashboard.recent.untitled')}
                         </span>
                         <span className="block text-[10px] text-gray-400">
                           {upperMeridiem(new Date(r.start_time).toLocaleString('en-IN', {
@@ -584,16 +587,16 @@ export default function UserDashboardPage() {
               used to make that column grow (units, tests) now sit below both, so it no longer changes with them. */}
           <div className={cn('rounded-2xl p-4 text-gray-900 dark:text-gray-100 flex flex-col lg:flex-1', PANEL_SURFACE)}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-bold">Last 7 Active Days</p>
+              <p className="text-sm font-bold">{t('dashboard.days.title')}</p>
               <Link to={performanceHref({ group, track, range })} className="text-xs font-semibold text-brand-600 dark:text-brand-400 underline-offset-2 hover:underline">
-                View report
+                {t('dashboard.days.report')}
               </Link>
             </div>
             <div className="flex items-center gap-4 mb-3">
               <div>
                 <p className="text-2xl font-bold leading-none">{activeDayAverage}%</p>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                  Average Score Across {filteredAttempts.length} {filteredAttempts.length === 1 ? 'Attempt' : 'Attempts'}
+                  {t('dashboard.days.average', { count: filteredAttempts.length, attempts: filteredAttempts.length === 1 ? 'Attempt' : 'Attempts' })}
                 </p>
               </div>
             </div>
@@ -609,7 +612,7 @@ export default function UserDashboardPage() {
                   <Tooltip
                     cursor={{ fill: 'rgba(255,108,36,0.08)' }}
                     contentStyle={{ borderRadius: 10, border: 'none', fontSize: 11, background: '#111827', color: '#fff' }}
-                    formatter={(v: any) => [`${v}%`, 'Average']}
+                    formatter={(v: any) => [`${v}%`, t('dashboard.days.tooltip')]}
                   />
                   <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#ff6c24" maxBarSize={44} />
                 </BarChart>
@@ -618,7 +621,7 @@ export default function UserDashboardPage() {
             </div>
             {activeDayBars.length > 0 && (
               <p className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
-                Activity shown for {activeDayBars.length} day{activeDayBars.length === 1 ? '' : 's'}.
+                {t('dashboard.days.note', { count: activeDayBars.length, days: activeDayBars.length === 1 ? 'day' : 'days' })}
               </p>
             )}
           </div>
@@ -626,13 +629,13 @@ export default function UserDashboardPage() {
           {user.subscription_tier === 'free' && (
             <div className="rounded-2xl bg-gradient-to-br from-brand-500 to-brand-400 p-4 text-white">
               <Sparkles className="w-5 h-5 mb-2" />
-              <p className="text-sm font-bold">Unlock unlimited mocks, detailed analytics &amp; more</p>
-              <p className="text-[11px] text-white/80 mt-1">Upgrade to browse and attempt every mock test.</p>
+              <p className="text-sm font-bold">{t('dashboard.upgrade.title')}</p>
+              <p className="text-[11px] text-white/80 mt-1">{t('dashboard.upgrade.text')}</p>
               <Link
                 to="/user/subscription"
                 className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-white text-blue-700 text-xs font-bold px-3.5 py-2 hover:bg-white/90 transition-colors"
               >
-                Upgrade Now <ArrowRight className="w-3.5 h-3.5" />
+                {t('dashboard.upgrade.button')} <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           )}
@@ -652,13 +655,13 @@ export default function UserDashboardPage() {
 
         <Card className="h-full min-w-0 flex flex-col">
           <CardHead
-            title="Strengths by Unit"
+            title={t('dashboard.units.title')}
             subtitle={
               allSubjects.length === 0
                 ? undefined
                 : showAllSubjects || hiddenSubjects === 0
-                  ? `Accuracy Across Answered Questions · ${allSubjects.length} Unit${allSubjects.length === 1 ? '' : 's'}`
-                  : `Accuracy Across Answered Questions · Your ${topSubjects.length} Strongest Units`
+                  ? t('dashboard.units.subtitle.all', { count: allSubjects.length, units: allSubjects.length === 1 ? 'Unit' : 'Units' })
+                  : t('dashboard.units.subtitle.top', { count: topSubjects.length })
             }
           />
           {subjectsLoading ? (
@@ -677,7 +680,7 @@ export default function UserDashboardPage() {
                     onMouseEnter={() => setActiveSubject(i)}
                     title={
                       sub.correct != null && sub.attempted != null
-                        ? `${bilingual(sub.subject)} — ${sub.correct} of ${sub.attempted} answered correctly`
+                        ? t('dashboard.units.rowTip', { subject: bilingual(sub.subject), correct: sub.correct, attempted: sub.attempted })
                         : bilingual(sub.subject)
                     }
                     className={cn(
@@ -707,9 +710,9 @@ export default function UserDashboardPage() {
                       className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
                     >
                       {showAllSubjects ? (
-                        <>Show top {SUBJECT_PREVIEW_COUNT} <ChevronUp className="w-3 h-3" /></>
+                        <>{t('dashboard.units.showTop', { count: SUBJECT_PREVIEW_COUNT })} <ChevronUp className="w-3 h-3" /></>
                       ) : (
-                        <>Show all {allSubjects.length} units <ChevronDown className="w-3 h-3" /></>
+                        <>{t('dashboard.units.showAll', { count: allSubjects.length })} <ChevronDown className="w-3 h-3" /></>
                       )}
                     </button>
                   </div>
@@ -718,7 +721,7 @@ export default function UserDashboardPage() {
                   sorted strongest-first. */}
               {needsFocus.length > 0 && (
                 <div className="mt-3 mb-3 rounded-xl border border-rose-100 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/20 p-3">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">Needs focus</p>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">{t('dashboard.units.needsFocus')}</p>
                   <ul className="mt-1.5 space-y-1">
                     {needsFocus.map(u => (
                       <li key={u.subject} className="flex items-center justify-between gap-3 text-xs">
@@ -745,15 +748,14 @@ export default function UserDashboardPage() {
                       listed[activeSubject].attempted != null && (
                         <>
                           {' — '}
-                          {listed[activeSubject].correct} of {listed[activeSubject].attempted} answered
-                          correctly
+                          {t('dashboard.units.detail.answered', { correct: listed[activeSubject].correct, attempted: listed[activeSubject].attempted })}
                           {listed[activeSubject].total_questions != null &&
                             listed[activeSubject].attempted! < listed[activeSubject].total_questions! && (
                               <>
                                 {' · '}
-                                {listed[activeSubject].total_questions! -
-                                  listed[activeSubject].attempted!}{' '}
-                                left blank
+                                {t('dashboard.units.detail.blank', {
+                                  blank: listed[activeSubject].total_questions! - listed[activeSubject].attempted!,
+                                })}
                               </>
                             )}
                         </>
@@ -763,17 +765,21 @@ export default function UserDashboardPage() {
                   <>
                     {answeredTotals && (
                       <>
-                        You answered {answeredTotals.correct} out of {answeredTotals.attempted} questions correctly across{' '}
-                        {allSubjects.length} unit{allSubjects.length === 1 ? '' : 's'}
-                        {` in ${groupLabel}`}.{' '}
-                        {subjectsTruncated && 'Based on your 25 most recent attempts. '}
+                        {t('dashboard.units.summary', {
+                          correct: answeredTotals.correct,
+                          attempted: answeredTotals.attempted,
+                          count: allSubjects.length,
+                          units: allSubjects.length === 1 ? 'unit' : 'units',
+                          exam: groupLabel,
+                        })}{' '}
+                        {subjectsTruncated && `${t('dashboard.units.truncated')} `}
                       </>
                     )}
                     {/* The list is sorted strongest-first, so the subject that most needs
                         work is the one furthest from view. Call it out regardless. */}
                     {weakestSubject && (
                       <>
-                        Area for Improvement:{' '}
+                        {t('dashboard.units.improve')}{' '}
                         <span className="font-semibold text-gray-700 dark:text-gray-200">
                           {bilingual(weakestSubject.subject)}
                         </span>{' '}
@@ -795,7 +801,7 @@ export default function UserDashboardPage() {
                   </div>
                 ))}
                 <p className="text-[10px] text-gray-400 pt-0.5 leading-snug">
-                  Appears once your attempts have been analysed.
+                  {t('dashboard.units.placeholder')}
                 </p>
               </div>
             </div>
@@ -830,18 +836,19 @@ function ContinueCard({
   performanceUrl: string;
   historyUrl: string;
 }) {
+  const t = useT();
   const open = group.stages.filter(s => s.status === 'active').length;
   return (
     <div className={cn('flex flex-col rounded-2xl border border-gray-300 bg-white p-5 shadow-lg shadow-gray-300/60 dark:border-gray-700 dark:bg-gray-900 dark:shadow-black/40 sm:p-6', className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-base font-extrabold text-gray-900 dark:text-gray-100">Continue Your Preparation</p>
+          <p className="text-base font-extrabold text-gray-900 dark:text-gray-100">{t('dashboard.continue.title')}</p>
           <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{group.authority}</p>
         </div>
         {open > 0 && (
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Active Now
+            {t('dashboard.continue.active')}
           </span>
         )}
       </div>
@@ -865,11 +872,11 @@ function ContinueCard({
             )}
           >
             {s.short_name}
-            {s.status !== 'active' && ' · soon'}
+            {s.status !== 'active' && ` · ${t('dashboard.continue.soon')}`}
           </span>
         ))}
         <span className="text-[11px] text-gray-500 dark:text-gray-400">
-          {group.stages.length} Stage{group.stages.length !== 1 ? 's' : ''} · {open} Currently Available
+          {t('dashboard.continue.stages', { stages: `${group.stages.length} Stage${group.stages.length !== 1 ? 's' : ''}`, open })}
         </span>
       </div>
 
@@ -879,19 +886,19 @@ function ContinueCard({
           to={mockHref}
           className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 text-sm font-bold text-white shadow-md shadow-orange-200/60 transition-colors hover:bg-orange-600 dark:shadow-none"
         >
-          Take a Mock Test <ArrowRight className="h-4 w-4" />
+          {t('dashboard.continue.mock')} <ArrowRight className="h-4 w-4" />
         </Link>
         <Link
           to={practiceHref}
           className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 transition-colors hover:border-orange-300 hover:text-orange-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
         >
-          <BookOpen className="h-4 w-4" /> Practice Now
+          <BookOpen className="h-4 w-4" /> {t('dashboard.continue.practice')}
         </Link>
         <Link
           to={performanceUrl}
           className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 transition-colors hover:border-orange-300 hover:text-orange-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
         >
-          <LineChartIcon className="h-4 w-4" /> View Performance
+          <LineChartIcon className="h-4 w-4" /> {t('dashboard.continue.performance')}
         </Link>
       </div>
 
@@ -899,7 +906,7 @@ function ContinueCard({
         to={historyUrl}
         className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
       >
-        <HistoryIcon className="h-3.5 w-3.5" /> Test History
+        <HistoryIcon className="h-3.5 w-3.5" /> {t('dashboard.continue.history')}
       </Link>
     </div>
   );

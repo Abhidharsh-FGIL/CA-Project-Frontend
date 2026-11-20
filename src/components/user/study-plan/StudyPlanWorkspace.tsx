@@ -44,6 +44,7 @@ import {
   fmtRange,
   todayISO,
 } from './plan-ui';
+import { useT } from '@/content/useText';
 
 type Tab = 'overview' | 'week' | 'schedule';
 
@@ -59,6 +60,7 @@ export function StudyPlanWorkspace({
   /** Caller-supplied controls (regenerate, pause) — kept out of this component. */
   action?: React.ReactNode;
 }) {
+  const t = useT();
   const [tab, setTab] = useState<Tab>('overview');
   const daysLeft = daysBetween(todayISO(), plan.exam_date ?? plan.end_date);
 
@@ -72,7 +74,7 @@ export function StudyPlanWorkspace({
             </span>
             <div className="min-w-0">
               <h1 className="text-lg font-bold leading-snug text-gray-900 dark:text-gray-100 sm:text-xl">
-                {plan.goal.headline || 'Your study plan'}
+                {plan.goal.headline || t('reports.plan.workspace.title')}
               </h1>
               <p className="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">
                 {`${plan.stage_name} · ${fmtRange(plan.start_date, plan.end_date)}${plan.version > 1 ? ` · revision ${plan.version}` : ''}`}
@@ -87,33 +89,33 @@ export function StudyPlanWorkspace({
             icon={CalendarDays}
             tone="rose"
             value={daysLeft != null ? `${daysLeft}` : '—'}
-            label={plan.exam_date ? 'Days to the exam' : 'Days remaining'}
+            label={plan.exam_date ? t('reports.plan.tile.daysToExam') : t('reports.plan.tile.daysRemaining')}
             hint={plan.exam_date ? fmtDate(plan.exam_date) : fmtDate(plan.end_date)}
           />
           <PlanTile
             icon={PieChart}
             tone="emerald"
             value={`${plan.coverage.pct}%`}
-            label="Syllabus covered"
-            hint={`${plan.coverage.topics_touched} of ${plan.coverage.topics_total} topics`}
+            label={t('reports.plan.tile.covered')}
+            hint={t('reports.plan.tile.covered.hint', { touched: plan.coverage.topics_touched, total: plan.coverage.topics_total })}
           />
           <PlanTile
             icon={Target}
             tone="orange"
             value={`${plan.adherence.pct}%`}
-            label={`Adherence · ${plan.adherence.window_days}d`}
+            label={t('reports.plan.tile.adherence', { days: plan.adherence.window_days })}
             hint={
               plan.adherence.streak_days > 0
-                ? `${plan.adherence.streak_days}-day streak`
-                : 'No streak yet'
+                ? t('reports.plan.streak', { days: plan.adherence.streak_days })
+                : t('reports.plan.tile.noStreak')
             }
           />
           <PlanTile
             icon={BarChart3}
             tone="blue"
             value={fmtHours(plan.totals.planned_minutes)}
-            label="Total study time"
-            hint={`${plan.totals.study_days} study days · ${plan.totals.mocks} mocks`}
+            label={t('reports.plan.tile.total')}
+            hint={t('reports.plan.tile.total.hint', { days: plan.totals.study_days, mocks: plan.totals.mocks })}
           />
         </div>
 
@@ -136,8 +138,7 @@ export function StudyPlanWorkspace({
               <span className="font-bold">
                 {VERDICT[plan.feasibility].label}:{' '}
               </span>
-              {VERDICT[plan.feasibility].blurb} Increasing your daily time or adding a study day
-              would give this plan more room.
+              {t(VERDICT[plan.feasibility].blurb)} {t('reports.plan.verdict.advice')}
             </p>
           </div>
         )}
@@ -148,9 +149,9 @@ export function StudyPlanWorkspace({
             onChange={setTab}
             underline="blue"
             options={[
-              { value: 'overview', label: 'Overview' },
-              { value: 'week', label: 'This week' },
-              { value: 'schedule', label: 'Full schedule' },
+              { value: 'overview', label: t('reports.plan.tab.overview') },
+              { value: 'week', label: t('reports.plan.tab.week') },
+              { value: 'schedule', label: t('reports.plan.tab.schedule') },
             ]}
           />
         </div>
@@ -229,6 +230,7 @@ function PlanTile({
  * coverage sit underneath.
  */
 function Overview({ plan, today }: { plan: StudyPlan; today?: PlanDay | null }) {
+  const t = useT();
   const sel = useWeekSelection(plan);
   // The week's days take a request; the plan payload already carries today, so it fills the gap.
   const day = sel.selectedDay ?? (sel.isLoading ? (today ?? null) : null);
@@ -246,7 +248,7 @@ function Overview({ plan, today }: { plan: StudyPlan; today?: PlanDay | null }) 
                   <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
                 </div>
               ) : (
-                <NotAvailable reason="Pick a day in the week to see what is planned." />
+                <NotAvailable reason={t('reports.plan.overview.pickDay')} />
               )}
             </ReportCard>
           )}
@@ -264,19 +266,21 @@ function Overview({ plan, today }: { plan: StudyPlan; today?: PlanDay | null }) 
             <ReportCard className="sm:p-6">
               <PanelHeader
                 icon={<Target className="w-4 h-4" />}
-                title="What this plan is aiming at"
+                title={t('reports.plan.aim.title')}
                 subtitle={
                   plan.basis.attempt_id
-                    ? `Built from ${studentTitle(plan.basis.test_name) || 'your last mock'}${plan.basis.percentage != null ? ` (${plan.basis.percentage}%)` : ''}`
-                    : 'Built from the exam’s own mark distribution'
+                    ? t('reports.plan.aim.fromAttempt', {
+                        test: `${studentTitle(plan.basis.test_name) || 'your last mock'}${plan.basis.percentage != null ? ` (${plan.basis.percentage}%)` : ''}`,
+                      })
+                    : t('reports.plan.aim.fromExam')
                 }
               />
               <ul className="space-y-1.5">
-                {plan.goal.targets.map((t, i) => (
+                {plan.goal.targets.map((target, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 mt-px flex-shrink-0" />
                     <span className="text-[14px] leading-relaxed text-gray-700 dark:text-gray-200">
-                      {t}
+                      {target}
                     </span>
                   </li>
                 ))}
@@ -296,12 +300,13 @@ function Overview({ plan, today }: { plan: StudyPlan; today?: PlanDay | null }) 
 // ─── Phase timeline ───────────────────────────────────────────────────────────
 
 export function PhaseTimeline({ phases }: { phases: PlanPhase[] }) {
+  const t = useT();
   const todayStr = todayISO();
 
   if (phases.length === 0) {
     return (
       <ReportCard className="sm:p-6">
-        <NotAvailable reason="This plan has no phases recorded." />
+        <NotAvailable reason={t('reports.plan.phases.none')} />
       </ReportCard>
     );
   }
@@ -310,8 +315,8 @@ export function PhaseTimeline({ phases }: { phases: PlanPhase[] }) {
     <ReportCard className="sm:p-6">
       <PanelHeader
         icon={<Layers className="w-4 h-4" />}
-        title="How the plan is staged"
-        subtitle="Each phase changes the balance of concepts, practice and mocks"
+        title={t('reports.plan.phases.title')}
+        subtitle={t('reports.plan.phases.subtitle')}
       />
 
       <ol className="space-y-2">
@@ -343,7 +348,7 @@ export function PhaseTimeline({ phases }: { phases: PlanPhase[] }) {
                           ACCENT[accent].chip,
                         )}
                       >
-                        Now
+                        {t('reports.plan.now')}
                       </span>
                     )}
                   </p>
@@ -361,7 +366,7 @@ export function PhaseTimeline({ phases }: { phases: PlanPhase[] }) {
 
               {p.goal && (
                 <p className="mt-1.5 text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">
-                  <span className="font-semibold">Goal: </span>
+                  <span className="font-semibold">{t('reports.plan.phases.goal')} </span>
                   {p.goal}
                 </p>
               )}
@@ -379,30 +384,31 @@ export function PhaseTimeline({ phases }: { phases: PlanPhase[] }) {
 // ─── Coverage ─────────────────────────────────────────────────────────────────
 
 function CoveragePanel({ plan }: { plan: StudyPlan }) {
+  const t = useT();
   const subjects = plan.coverage.by_subject;
 
   return (
     <ReportCard className="sm:p-6">
       <PanelHeader
         icon={<TrendingUp className="w-4 h-4" />}
-        title="Syllabus coverage"
-        subtitle="Every subject the plan schedules, and how far through it you are"
+        title={t('reports.plan.coverage.title')}
+        subtitle={t('reports.plan.coverage.subtitle')}
         action={
           plan.adherence.streak_days > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 text-[13px] font-bold text-amber-600 dark:text-amber-400">
-              <Flame className="w-3 h-3" /> {plan.adherence.streak_days}-day streak
+              <Flame className="w-3 h-3" /> {t('reports.plan.streak', { days: plan.adherence.streak_days })}
             </span>
           )
         }
       />
 
       {subjects.length === 0 ? (
-        <NotAvailable reason="No per-subject coverage has been recorded for this plan." />
+        <NotAvailable reason={t('reports.plan.coverage.none')} />
       ) : (
         <div className="flex items-start gap-4">
           <div className="hidden sm:flex flex-col items-center gap-1 pt-1">
             <MiniRing pct={plan.coverage.pct} size={64} accent="emerald" />
-            <span className="text-[12px] text-gray-400">covered</span>
+            <span className="text-[12px] text-gray-400">{t('reports.plan.coverage.covered')}</span>
           </div>
 
           <div className="min-w-0 flex-1 space-y-2.5">
@@ -429,14 +435,14 @@ function CoveragePanel({ plan }: { plan: StudyPlan }) {
                               ACCENT[accent].chip,
                             )}
                           >
-                            Priority {s.priority_rank}
+                            {t('reports.plan.coverage.priority', { rank: s.priority_rank })}
                           </span>
                         )}
                       </span>
                     }
                     value={pct}
                     accent={accent}
-                    right={`${s.topics_completed}/${s.topics_planned} topics · ${fmtHours(s.planned_minutes)}`}
+                    right={t('reports.plan.coverage.subject', { done: s.topics_completed, planned: s.topics_planned, hours: fmtHours(s.planned_minutes) })}
                   />
                 </div>
               );
@@ -447,8 +453,7 @@ function CoveragePanel({ plan }: { plan: StudyPlan }) {
 
       {plan.narrative_source === 'deterministic' && (
         <p className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 text-[13px] text-gray-400 leading-relaxed">
-          The wording in this plan is generated from your figures rather than written for you —
-          the schedule itself is unaffected.
+          {t('reports.plan.coverage.deterministic')}
         </p>
       )}
     </ReportCard>
@@ -459,30 +464,37 @@ function CoveragePanel({ plan }: { plan: StudyPlan }) {
 
 /** Every week to the exam, as a table — its own tab, and the lower half of the Overview's right column. */
 export function FullSchedule({ plan }: { plan: StudyPlan }) {
+  const t = useT();
   const todayStr = todayISO();
 
   return (
     <ReportCard className="sm:p-6">
       <PanelHeader
         icon={<CalendarClock className="w-4 h-4" />}
-        title="Every week to the exam"
-        subtitle={`${plan.totals.weeks} weeks · ${fmtRange(plan.start_date, plan.end_date)}`}
+        title={t('reports.plan.schedule.title')}
+        subtitle={t('reports.plan.schedule.subtitle', { weeks: plan.totals.weeks, range: fmtRange(plan.start_date, plan.end_date) })}
       />
 
       {plan.weeks.length === 0 ? (
-        <NotAvailable reason="This plan has no weeks recorded." />
+        <NotAvailable reason={t('reports.plan.schedule.none')} />
       ) : (
         <div className="overflow-hidden rounded-xl border border-gray-100 dark:border-gray-800">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50/70 dark:bg-gray-800/40">
-                  {['Week', 'Dates', 'Focus', 'Time', 'Progress'].map(h => (
+                  {([
+                    ['week', t('reports.plan.schedule.col.week')],
+                    ['dates', t('reports.plan.schedule.col.dates')],
+                    ['focus', t('reports.plan.schedule.col.focus')],
+                    ['time', t('reports.plan.schedule.col.time')],
+                    ['progress', t('reports.plan.schedule.col.progress')],
+                  ] as const).map(([id, h]) => (
                     <th
-                      key={h}
+                      key={id}
                       className={cn(
                         'whitespace-nowrap px-3 py-2.5 text-[12px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400',
-                        h === 'Dates' && 'hidden sm:table-cell',
+                        id === 'dates' && 'hidden sm:table-cell',
                       )}
                     >
                       {h}
@@ -511,7 +523,7 @@ export function FullSchedule({ plan }: { plan: StudyPlan }) {
                         <span className="text-[14px] font-bold text-gray-800 dark:text-gray-100">{w.week_no}</span>
                         {current && (
                           <span className="ml-1.5 rounded-full bg-blue-600 px-2 py-px text-[12px] font-bold text-white">
-                            Now
+                            {t('reports.plan.now')}
                           </span>
                         )}
                         <span className="mt-0.5 block text-[12px] font-normal tabular-nums text-gray-400 sm:hidden">
@@ -532,7 +544,7 @@ export function FullSchedule({ plan }: { plan: StudyPlan }) {
                         )}
                         {w.detail_status === 'outline' && (
                           <p className="mt-1 inline-flex items-center gap-1 text-[12px] text-gray-400">
-                            <CalendarClock className="h-3 w-3" /> Day detail filled in nearer the time
+                            <CalendarClock className="h-3 w-3" /> {t('reports.plan.schedule.outline')}
                           </p>
                         )}
                       </td>

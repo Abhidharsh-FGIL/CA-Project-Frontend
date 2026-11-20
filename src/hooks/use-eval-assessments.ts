@@ -72,6 +72,9 @@ export interface EvalAssessmentConfig {
   tnpscTopicId?: string;
   /** The published syllabus unit a unit-wise practice paper is filed under. */
   tnpscUnitId?: string;
+  /** This assessment's own pass mark and aim, in percent — beats its exam's and the default (BACKEND_PASS_MARKS.md). */
+  passPercentage?: number;
+  targetPercentage?: number;
   /** Whether a practice paper covers one unit or a whole printed section. */
   tnpscScope?: 'unit' | 'section';
   /** The section a section-wise practice paper covers, by its printed name. */
@@ -162,6 +165,8 @@ export function useCreateEvalAssessment() {
         mode: config.mode || 'exam',
         time_limit_seconds: config.timeLimitSeconds,
         negative_marking: config.negativeMarking ?? false,
+        pass_percentage: config.passPercentage ?? null,
+        target_percentage: config.targetPercentage ?? null,
         negative_mark_value: config.negativeMarkValue,
         negative_mark_mode: config.negativeMarkMode,
         negative_mark_group_size: config.negativeMarkGroupSize,

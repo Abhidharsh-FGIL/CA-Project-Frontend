@@ -6,7 +6,8 @@ import { BadgeCheck, Banknote, Clock, Copy, Gift, Link2, Loader2, MessageCircle,
 import { UserShell } from '@/components/user/UserShell';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { SUPPORT_EMAIL } from '@/config/support';
+import { useSupport } from '@/content/support';
+import { Rich, useT } from '@/content/useText';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import {
   WITHDRAWAL_STATUS_LABEL,
@@ -39,6 +40,7 @@ async function copyText(text: string, done: string) {
 
 /** Refer & Earn: the user's code and link, what friends have earned them, and the wallet it feeds. */
 export default function ReferralPage() {
+  const t = useT();
   const { data, isLoading, error } = useQuery({ queryKey: ['referral', 'me'], queryFn: getReferralMe, staleTime: 30_000 });
   const friends = useQuery({ queryKey: ['referral', 'friends'], queryFn: getReferralFriends, staleTime: 30_000 });
 
@@ -46,9 +48,9 @@ export default function ReferralPage() {
     <UserShell>
       <div className="space-y-4 sm:space-y-5">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 sm:text-2xl">Refer &amp; Earn</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 sm:text-2xl">{t('account.referral.title')}</h1>
           <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
-            Invite your friends and earn cashback when they make their first purchase.
+            {t('account.referral.subtitle')}
           </p>
         </div>
 
@@ -64,17 +66,22 @@ export default function ReferralPage() {
           <>
             <ShareCard me={data} />
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Stat label="Friends referred" value={String(data.stats.friends_referred)} icon={Users} tone="blue" />
-              <Stat label="Friends who made an eligible purchase" value={String(data.stats.paying_friends)} icon={BadgeCheck} tone="emerald" />
-              <Stat label="Cashback pending" value={rupees(data.wallet.pending)} icon={Clock} tone="amber" />
-              <Stat label="Total cashback earned" value={rupees(data.stats.total_earned)} icon={Gift} tone="orange" />
+              <Stat label={t('account.referral.stat_referred')} value={String(data.stats.friends_referred)} icon={Users} tone="blue" />
+              <Stat label={t('account.referral.stat_paying')} value={String(data.stats.paying_friends)} icon={BadgeCheck} tone="emerald" />
+              <Stat label={t('account.referral.stat_pending')} value={rupees(data.wallet.pending)} icon={Clock} tone="amber" />
+              <Stat label={t('account.referral.stat_earned')} value={rupees(data.stats.total_earned)} icon={Gift} tone="orange" />
             </div>
             <WithdrawCard me={data} />
             {data.can_apply_code && <ApplyCode />}
             {data.my_referrer && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                You joined through <span className="font-semibold text-gray-700 dark:text-gray-300">{data.my_referrer.name}</span>
-                {data.my_referrer.linked_at ? ` on ${shortDate(data.my_referrer.linked_at)}` : ''}.
+              <p className="text-xs text-gray-500 dark:text-gray-400 [&_span]:font-semibold [&_span]:text-gray-700 dark:[&_span]:text-gray-300">
+                <Rich
+                  text={
+                    data.my_referrer.linked_at
+                      ? t('account.referral.joined_through_on', { name: data.my_referrer.name, date: shortDate(data.my_referrer.linked_at) })
+                      : t('account.referral.joined_through', { name: data.my_referrer.name })
+                  }
+                />
               </p>
             )}
             <HowItWorks me={data} />
@@ -87,16 +94,17 @@ export default function ReferralPage() {
 }
 
 function ShareCard({ me }: { me: ReferralMe }) {
-  const message = `Join me on MyGovExams for TNPSC mock tests and practice. Sign up with my referral code ${me.referral_code}: ${me.share_link}`;
+  const t = useT();
+  const message = t('account.referral.share_message', { code: me.referral_code, link: me.share_link });
   return (
     <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-500 via-orange-400 to-pink-500 p-5 text-white shadow-lg shadow-orange-200/60 dark:shadow-none sm:p-6">
       <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
       <div className="relative">
-        <h2 className="text-2xl font-extrabold leading-tight sm:text-3xl">Earn {me.reward_percent}% Cashback!</h2>
+        <h2 className="text-2xl font-extrabold leading-tight sm:text-3xl">{t('account.referral.hero_title', { percent: me.reward_percent })}</h2>
         <p className="mt-1 max-w-xl text-sm text-white/90">
-          Invite your friends and earn {me.reward_percent}% cashback on their first eligible purchase.
+          {t('account.referral.hero_text', { percent: me.reward_percent })}
         </p>
-        <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.25em] text-white/80">Your referral code</p>
+        <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.25em] text-white/80">{t('account.referral.code_label')}</p>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <p className="rounded-xl bg-white/20 px-4 py-2 font-mono text-2xl font-extrabold tracking-wider ring-1 ring-white/40 backdrop-blur sm:text-3xl">
             {me.referral_code || '—'}
@@ -117,7 +125,7 @@ function ShareCard({ me }: { me: ReferralMe }) {
             disabled={!me.share_link}
             className="inline-flex items-center gap-1.5 rounded-xl bg-white/20 px-3.5 py-2 text-sm font-semibold ring-1 ring-white/40 backdrop-blur transition hover:bg-white/30 disabled:opacity-60"
           >
-            <Link2 className="h-4 w-4" /> Copy Link
+            <Link2 className="h-4 w-4" /> {t('account.referral.copy_link')}
           </button>
           <a
             href={whatsappShareUrl(message)}
@@ -125,7 +133,7 @@ function ShareCard({ me }: { me: ReferralMe }) {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-600"
           >
-            <MessageCircle className="h-4 w-4" /> Share on WhatsApp
+            <MessageCircle className="h-4 w-4" /> {t('account.referral.share_whatsapp')}
           </a>
         </div>
       </div>
@@ -156,6 +164,7 @@ function Stat({ label, value, icon: Icon, tone }: { label: string; value: string
 
 /** For someone who signed up without a code: allowed for a short while, and only before the first purchase. */
 function ApplyCode() {
+  const t = useT();
   const queryClient = useQueryClient();
   const [code, setCode] = useState('');
   const apply = useMutation({
@@ -169,16 +178,16 @@ function ApplyCode() {
   });
   return (
     <section className={cn(CARD, 'border-amber-200 bg-amber-50/60 p-4 dark:border-amber-900/60 dark:bg-amber-950/20')}>
-      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Add a referral code</p>
+      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{t('account.referral.apply_title')}</p>
       <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
-        Did a friend tell you about MyGovExams? Enter their code, mobile number or email — before your first purchase.
+        {t('account.referral.apply_text')}
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <input
           value={code}
           onChange={e => setCode(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && code.trim() && apply.mutate()}
-          placeholder="Referral code"
+          placeholder={t('account.referral.apply_placeholder')}
           aria-label="Referral code"
           className="min-w-0 flex-1 basis-48 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm uppercase tracking-wide focus:outline-none focus:ring-2 focus:ring-amber-300 dark:border-amber-900 dark:bg-gray-800 dark:text-gray-100"
         />
@@ -196,24 +205,25 @@ function ApplyCode() {
 }
 
 function HowItWorks({ me }: { me: ReferralMe }) {
+  const t = useT();
   const steps = [
     {
-      title: 'Refer a Friend',
-      text: "Share your referral code or link. When your friend signs up using your referral code, they'll be linked to your account.",
+      title: t('account.referral.how_step1_title'),
+      text: t('account.referral.how_step1_text'),
     },
     {
-      title: 'Friend Makes Their First Eligible Purchase',
-      text: `Earn ${me.reward_percent}% cashback on your friend's first eligible purchase, excluding GST.`,
+      title: t('account.referral.how_step2_title'),
+      text: t('account.referral.how_step2_text', { percent: me.reward_percent }),
     },
     {
-      title: 'Earn Cashback',
-      text: `Your reward will remain pending for ${me.hold_days} days before becoming available for withdrawal. Once available, you can withdraw from ${rupees(me.min_withdrawal)}, subject to the applicable withdrawal terms.`,
+      title: t('account.referral.how_step3_title'),
+      text: t('account.referral.how_step3_text', { days: me.hold_days, minimum: rupees(me.min_withdrawal) }),
     },
   ];
   return (
     <>
       <section className={cn(CARD, 'p-5')}>
-        <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">How It Works</h2>
+        <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">{t('account.referral.how_title')}</h2>
         <ol className="mt-4 grid gap-4 sm:grid-cols-3">
           {steps.map((s, i) => (
             <li key={s.title} className="flex items-start gap-3">
@@ -228,9 +238,9 @@ function HowItWorks({ me }: { me: ReferralMe }) {
           ))}
         </ol>
         <p className="mt-4 text-[11px] text-gray-500 dark:text-gray-400">
-          Terms apply.{' '}
+          {t('account.referral.terms_note')}{' '}
           <Link to="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-orange-600 hover:underline dark:text-orange-400">
-            Read the Refer &amp; Earn terms
+            {t('account.referral.terms_link')}
           </Link>
         </p>
       </section>
@@ -239,11 +249,12 @@ function HowItWorks({ me }: { me: ReferralMe }) {
 }
 
 function Friends({ items, total, loading, me }: { items: ReferralFriend[]; total: number; loading: boolean; me: ReferralMe }) {
+  const t = useT();
   return (
     <section className={cn(CARD, 'p-5')}>
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">Recent referral activity</h2>
-        {total > 0 && <span className="text-xs text-gray-400">{total} in all</span>}
+        <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">{t('account.referral.friends_title')}</h2>
+        {total > 0 && <span className="text-xs text-gray-400">{t('account.referral.friends_total', { total })}</span>}
       </div>
       {loading ? (
         <div className="flex h-24 items-center justify-center">
@@ -251,7 +262,7 @@ function Friends({ items, total, loading, me }: { items: ReferralFriend[]; total
         </div>
       ) : items.length === 0 ? (
         <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-          No friends yet. Share your code{me.referral_code ? ` ${me.referral_code}` : ''} to get started.
+          {me.referral_code ? t('account.referral.friends_empty_code', { code: me.referral_code }) : t('account.referral.friends_empty')}
         </p>
       ) : (
         <ul className="mt-3 space-y-2">
@@ -266,21 +277,21 @@ function Friends({ items, total, loading, me }: { items: ReferralFriend[]; total
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{f.name}</p>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                  {f.joined_at ? `Joined ${shortDate(f.joined_at)}` : 'Joined'}
+                  {f.joined_at ? t('account.referral.joined_on', { date: shortDate(f.joined_at) }) : t('account.referral.joined')}
                   {f.purchases === 0 &&
                     (f.earning_active && f.earning_until
-                      ? ` · first purchase by ${shortDate(f.earning_until)}`
-                      : ' · reward window ended')}
+                      ? ` · ${t('account.referral.first_purchase_by', { date: shortDate(f.earning_until) })}`
+                      : ` · ${t('account.referral.window_ended')}`)}
                 </p>
               </div>
               {f.purchases > 0 || f.earned > 0 ? (
                 <span className="text-right">
                   <span className="block text-sm font-bold text-emerald-600 dark:text-emerald-400">+{rupees(f.earned)}</span>
-                  <span className="block text-[10px] text-gray-400">First purchase</span>
+                  <span className="block text-[10px] text-gray-400">{t('account.referral.first_purchase')}</span>
                 </span>
               ) : (
                 <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-                  {f.earning_active ? 'Waiting for first purchase' : 'No purchase'}
+                  {f.earning_active ? t('account.referral.waiting') : t('account.referral.no_purchase')}
                 </span>
               )}
             </li>
@@ -293,6 +304,7 @@ function Friends({ items, total, loading, me }: { items: ReferralFriend[]; total
 
 /** Available cash, the rules for taking it out, and the requests made so far. */
 function WithdrawCard({ me }: { me: ReferralMe }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const list = useQuery({ queryKey: ['referral', 'withdrawals'], queryFn: getWithdrawals, staleTime: 30_000, enabled: me.withdrawals_enabled });
   // A request is an e-mail to support, so it needs only a balance and the first week of the month.
@@ -305,12 +317,12 @@ function WithdrawCard({ me }: { me: ReferralMe }) {
       <div className="flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-emerald-50 to-white p-5 dark:from-emerald-950/30 dark:to-gray-900">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-            <Banknote className="h-3.5 w-3.5" aria-hidden /> Available for withdrawal
+            <Banknote className="h-3.5 w-3.5" aria-hidden /> {t('account.referral.available')}
           </p>
           <p className="mt-1 text-3xl font-extrabold text-gray-900 dark:text-gray-100">{rupees(me.wallet.available)}</p>
-          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-            Withdrawal can be requested from the <span className="font-semibold text-gray-700 dark:text-gray-300">1st to the 7th</span> of every month
-            {me.wallet.pending > 0 ? ` · ${rupees(me.wallet.pending)} pending` : ''}
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 [&_span]:font-semibold [&_span]:text-gray-700 dark:[&_span]:text-gray-300">
+            <Rich text={t('account.referral.window_text')} />
+            {me.wallet.pending > 0 ? ` · ${t('account.referral.pending_note', { amount: rupees(me.wallet.pending) })}` : ''}
           </p>
         </div>
         <div className="flex flex-col items-start gap-1.5 sm:items-end">
@@ -320,21 +332,21 @@ function WithdrawCard({ me }: { me: ReferralMe }) {
             disabled={!canWithdraw}
             className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Withdraw
+            {t('account.referral.withdraw')}
           </button>
           <p className="max-w-[16rem] text-[11px] text-gray-500 dark:text-gray-400 sm:text-right">
             {!windowOpen
-              ? `The window opens on ${opensOn}.`
+              ? t('account.referral.window_opens', { date: opensOn })
               : me.wallet.available <= 0
-                ? `The window is open, but there is nothing to withdraw yet. Rewards become available after the ${me.hold_days}-day pending period.`
-                : 'The window is open — request your withdrawal until the 7th.'}
+                ? t('account.referral.window_empty', { days: me.hold_days })
+                : t('account.referral.window_open')}
           </p>
         </div>
       </div>
 
       {me.withdrawals_enabled && (list.data?.length ?? 0) > 0 && (
         <div className="border-t border-gray-100 p-5 dark:border-gray-800">
-          <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Your withdrawals</h3>
+          <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">{t('account.referral.withdrawals_title')}</h3>
           <ul className="mt-3 space-y-2">
             {list.data!.map((w, i) => (
               <WithdrawalRow key={w.id || i} w={w} />
@@ -379,6 +391,8 @@ function WithdrawalRow({ w }: { w: Withdrawal }) {
 }
 
 function WithdrawDialog({ me, open, onClose }: { me: ReferralMe; open: boolean; onClose: () => void }) {
+  const t = useT();
+  const support = useSupport();
   const [form, setForm] = useState({
     amount: '',
     method: 'upi' as 'upi' | 'bank',
@@ -407,7 +421,7 @@ function WithdrawDialog({ me, open, onClose }: { me: ReferralMe; open: boolean; 
       accountNumber: form.accountNumber.trim(),
       ifsc: form.ifsc.trim().toUpperCase(),
     });
-    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = `mailto:${support.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     toast.success('Your email app has opened — press Send to place the withdrawal request.');
     setForm(f => ({ ...f, amount: '', accountNumber: '' }));
     onClose();
@@ -420,14 +434,14 @@ function WithdrawDialog({ me, open, onClose }: { me: ReferralMe; open: boolean; 
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-md gap-0 rounded-2xl bg-white p-0 dark:bg-gray-900">
         <div className="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
-          <DialogTitle className="text-lg font-bold text-gray-900 dark:text-gray-100">Withdraw rewards</DialogTitle>
+          <DialogTitle className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('account.referral.dialog_title')}</DialogTitle>
           <DialogDescription className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-            Available {rupees(me.wallet.available)} · requests open from the 1st to the 7th of the month
+            {t('account.referral.dialog_text', { amount: rupees(me.wallet.available) })}
           </DialogDescription>
         </div>
         <div className="space-y-3 px-6 py-4">
           <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300">
-            Amount (₹)
+            {t('account.referral.field_amount')}
             <input
               className={cn(input, 'mt-1')}
               inputMode="decimal"
@@ -449,23 +463,23 @@ function WithdrawDialog({ me, open, onClose }: { me: ReferralMe; open: boolean; 
                   form.method === m ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-600 hover:bg-white dark:text-gray-300 dark:hover:bg-gray-800',
                 )}
               >
-                {m === 'upi' ? 'UPI' : 'Bank account'}
+                {m === 'upi' ? t('account.referral.method_upi') : t('account.referral.method_bank')}
               </button>
             ))}
           </div>
           {form.method === 'upi' ? (
             <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300">
-              UPI ID
+              {t('account.referral.field_upi')}
               <input className={cn(input, 'mt-1')} value={form.upiId} onChange={e => set({ upiId: e.target.value })} placeholder="name@okaxis" autoComplete="off" />
             </label>
           ) : (
             <>
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300">
-                Account holder name
+                {t('account.referral.field_holder')}
                 <input className={cn(input, 'mt-1')} value={form.accountName} onChange={e => set({ accountName: e.target.value })} autoComplete="off" />
               </label>
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300">
-                Account number
+                {t('account.referral.field_account')}
                 <input
                   className={cn(input, 'mt-1')}
                   inputMode="numeric"
@@ -475,7 +489,7 @@ function WithdrawDialog({ me, open, onClose }: { me: ReferralMe; open: boolean; 
                 />
               </label>
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300">
-                IFSC
+                {t('account.referral.field_ifsc')}
                 <input
                   className={cn(input, 'mt-1 uppercase')}
                   value={form.ifsc}
@@ -487,7 +501,7 @@ function WithdrawDialog({ me, open, onClose }: { me: ReferralMe; open: boolean; 
             </>
           )}
           <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
-            Your request is sent to our support team by email. It is approved by our team and paid within 3–5 working days. Verification (such as PAN) may be needed.
+            {t('account.referral.dialog_note')}
           </p>
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-6 py-4 dark:border-gray-800">
@@ -501,7 +515,7 @@ function WithdrawDialog({ me, open, onClose }: { me: ReferralMe; open: boolean; 
             title={problem ?? undefined}
             className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Request withdrawal
+            {t('account.referral.dialog_submit')}
           </button>
         </div>
       </DialogContent>

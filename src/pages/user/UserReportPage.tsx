@@ -32,7 +32,12 @@ export default function UserReportPage() {
   const performance = attempt
     ? performanceOf(
         attempt.percentage,
-        passMarkFor({ kind: attempt.test_mode === 'mock' ? 'mock' : 'practice', level: levelFromTitle(attempt.test_name) }),
+        passMarkFor({
+          kind: attempt.test_mode === 'mock' ? 'mock' : 'practice',
+          level: levelFromTitle(attempt.test_name),
+          title: attempt.test_name,
+          override: { pass: attempt.pass_percentage, target: attempt.target_percentage },
+        }),
       )
     : null;
   const celebrateKey = attemptId ? `mge:celebrated:${attemptId}` : null;

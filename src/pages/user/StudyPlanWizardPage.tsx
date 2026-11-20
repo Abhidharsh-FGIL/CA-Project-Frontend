@@ -29,8 +29,10 @@ import {
 import { buildAttemptReport, factsFromModel } from '@/lib/attempt-report';
 import { resolveExamContext } from '@/lib/exam-report-config';
 import { getAttemptDetail } from '@/lib/userPortalApi';
+import { useT } from '@/content/useText';
 
 function StudyPlanWizardPageBody() {
+  const t = useT();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const qc = useQueryClient();
@@ -134,19 +136,18 @@ function StudyPlanWizardPageBody() {
         <ReportCard>
           <SectionHeader
             icon={<AlertTriangle className="w-4 h-4" />}
-            title="We don't know which exam to plan for"
+            title={t('reports.plan.noExam.title')}
             accent="amber"
           />
           <p className="text-[12px] leading-relaxed text-gray-500 dark:text-gray-400">
-            Set your target exam on your profile, then come back — the plan is built from that
-            exam's syllabus, so it cannot be made without one.
+            {t('reports.plan.noExam.body')}
           </p>
           <button
             type="button"
             onClick={() => navigate('/user/profile?tab=profile&edit=1')}
             className="mt-3 rounded-xl bg-brand-600 px-3.5 py-2 text-[13px] font-bold text-white hover:bg-brand-700"
           >
-            Choose my exam
+            {t('reports.plan.noExam.cta')}
           </button>
         </ReportCard>
       </UserShell>

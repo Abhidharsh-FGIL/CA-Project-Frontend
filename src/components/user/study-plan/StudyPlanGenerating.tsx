@@ -9,6 +9,8 @@ import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ReportCard } from '@/components/user/report-ui';
 import type { PlanJobStatus } from '@/lib/studyPlanApi';
+import { useT } from '@/content/useText';
+import type { ContentKey } from '@/content/registry';
 
 /**
  * The pipeline's stages, in order (§S5).
@@ -23,6 +25,15 @@ const STAGES = [
   'Allocating topics',
   'Scheduling revision',
   'Writing your plan',
+];
+
+/** What each stage is called on screen, in the same order as STAGES (which is only for matching the server's label). */
+const STAGE_TEXT: ContentKey[] = [
+  'reports.plan.generating.stage1',
+  'reports.plan.generating.stage2',
+  'reports.plan.generating.stage3',
+  'reports.plan.generating.stage4',
+  'reports.plan.generating.stage5',
 ];
 
 function stageIndex(label: string | null): number {
@@ -40,6 +51,7 @@ export function StudyPlanGenerating({
   onRetry?: () => void;
   onCancel?: () => void;
 }) {
+  const t = useT();
   const failed = status?.status === 'failed';
   const current = stageIndex(status?.stage_label ?? null);
   const pct = Math.max(0, Math.min(100, status?.progress ?? 0));
@@ -52,7 +64,7 @@ export function StudyPlanGenerating({
             <AlertTriangle className="w-6 h-6 text-rose-500" />
           </span>
           <p className="text-[15px] font-bold text-gray-900 dark:text-gray-100">
-            Your plan could not be built
+            {t('reports.plan.generating.failed.title')}
           </p>
           <p className="mt-1 text-[14px] text-gray-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">
             {status?.error ?? 'Something went wrong on our side. Your answers were not lost.'}
@@ -73,7 +85,7 @@ export function StudyPlanGenerating({
                 onClick={onCancel}
                 className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2 text-[13px] font-semibold text-gray-600 dark:text-gray-300"
               >
-                Change my answers
+                {t('reports.plan.generating.failed.change')}
               </button>
             )}
           </div>
@@ -93,8 +105,8 @@ export function StudyPlanGenerating({
         <span className="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-950/40">
           <PlanArt />
         </span>
-        <h1 className="mt-5 text-xl font-bold text-gray-900 dark:text-gray-100">Building your study plan</h1>
-        <p className="mt-1.5 text-[14px] text-gray-500 dark:text-gray-400">{status?.stage_label ?? 'Starting up…'}</p>
+        <h1 className="mt-5 text-xl font-bold text-gray-900 dark:text-gray-100">{t('reports.plan.generating.title')}</h1>
+        <p className="mt-1.5 text-[14px] text-gray-500 dark:text-gray-400">{status?.stage_label ?? t('reports.plan.generating.starting')}</p>
 
         <div className="mx-auto mt-5 flex max-w-md items-center gap-3">
           <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-950/60">
@@ -127,7 +139,7 @@ export function StudyPlanGenerating({
                     !done && !active && 'text-gray-400',
                   )}
                 >
-                  {s}
+                  {t(STAGE_TEXT[i])}
                 </span>
               </li>
             );
@@ -135,7 +147,7 @@ export function StudyPlanGenerating({
         </ol>
 
         <p className="mt-8 text-[13px] text-gray-400">
-          This usually takes under a minute. You can leave this page — the plan keeps building.
+          {t('reports.plan.generating.note')}
         </p>
       </div>
     </div>

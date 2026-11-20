@@ -8,7 +8,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { ButtonLink, LandingFooter, LandingHeader } from './LandingShell';
-import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_LINK } from '@/config/support';
+import { useSupport } from '@/content/support';
 import './landing.css';
 
 export const WEBSITE = 'www.mygovexams.com';
@@ -21,18 +21,28 @@ export interface LegalSection {
   points?: string[];
 }
 
+/** The support email or phone, as the admin has set it (Site content → Support contact). */
+function SupportLine({ kind }: { kind: 'email' | 'phone' }) {
+  const support = useSupport();
+  return kind === 'email' ? (
+    <>
+      <strong>Email:</strong> <a href={`mailto:${support.email}`}>{support.email}</a>
+    </>
+  ) : (
+    <>
+      <strong>Phone:</strong> <a href={`tel:${support.phoneLink}`}>{support.phone}</a>
+    </>
+  );
+}
+
 /** The closing "Contact Us" section — the same address and website on every legal page. */
 export function contactSection(intro: string): LegalSection {
   return {
     title: 'Contact Us',
     body: [
       intro,
-      <>
-        <strong>Email:</strong> <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
-      </>,
-      <>
-        <strong>Phone:</strong> <a href={`tel:${SUPPORT_PHONE_LINK}`}>{SUPPORT_PHONE}</a>
-      </>,
+      <SupportLine kind="email" />,
+      <SupportLine kind="phone" />,
       <>
         <strong>Website:</strong>{' '}
         <a href={`https://${WEBSITE}`} target="_blank" rel="noopener noreferrer">

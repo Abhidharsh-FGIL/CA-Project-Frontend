@@ -14,6 +14,8 @@ import {
 } from '@/lib/userPortalApi';
 import { toast } from 'sonner';
 import { useUserPortal } from '@/contexts/UserPortalContext';
+import { useT } from '@/content/useText';
+import { Strong } from '@/content/strong';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -50,6 +52,7 @@ export default function TestTakingPage() {
   const location = useLocation();
   const state = location.state as TakeState | null;
   const { user } = useUserPortal();
+  const t = useT();
 
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -309,26 +312,26 @@ export default function TestTakingPage() {
       <div className="grid grid-cols-3 gap-2 mb-4">
         <div className="text-center p-2.5 bg-white rounded-xl border border-gray-200">
           <p className="text-xl font-bold text-emerald-600">{answered}</p>
-          <p className="text-[10px] text-emerald-600 font-semibold">Answered</p>
+          <p className="text-[10px] text-emerald-600 font-semibold">{t('assessment.taking.stat.answered')}</p>
         </div>
         <div className="text-center p-2.5 bg-white rounded-xl border border-gray-200">
           <p className="text-xl font-bold text-gray-900">{remaining}</p>
-          <p className="text-[10px] text-gray-500 font-semibold">Remaining</p>
+          <p className="text-[10px] text-gray-500 font-semibold">{t('assessment.taking.stat.remaining')}</p>
         </div>
         <div className="text-center p-2.5 bg-white rounded-xl border border-gray-200">
           <p className="text-xl font-bold text-amber-500">{markedReview}</p>
-          <p className="text-[10px] text-amber-500 font-semibold">Review</p>
+          <p className="text-[10px] text-amber-500 font-semibold">{t('assessment.taking.stat.review')}</p>
         </div>
       </div>
 
       {/* Legend */}
       <div className="bg-white rounded-xl border border-gray-200 p-3 mb-4 space-y-1.5">
         {[
-          { cls: 'bg-white border border-gray-300', label: 'Not Visited' },
-          { cls: 'bg-pink-200 border border-pink-300', label: 'Not Answered' },
-          { cls: 'bg-emerald-500', label: 'Answered' },
-          { cls: 'bg-amber-400', label: 'Marked for Review' },
-          { cls: 'bg-blue-500', label: 'Answered & Marked' },
+          { cls: 'bg-white border border-gray-300', label: t('assessment.taking.legend.not_visited') },
+          { cls: 'bg-pink-200 border border-pink-300', label: t('assessment.taking.legend.not_answered') },
+          { cls: 'bg-emerald-500', label: t('assessment.taking.legend.answered') },
+          { cls: 'bg-amber-400', label: t('assessment.taking.legend.marked') },
+          { cls: 'bg-blue-500', label: t('assessment.taking.legend.answered_marked') },
         ].map(({ cls, label }) => (
           <div key={label} className="flex items-center gap-2">
             <div className={`w-3.5 h-3.5 rounded flex-shrink-0 ${cls}`} />
@@ -340,7 +343,7 @@ export default function TestTakingPage() {
       {/* Question grid */}
       <div className="bg-white rounded-xl border border-gray-200 p-3">
         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2.5">
-          QUESTIONS
+          {t('assessment.taking.grid.heading')}
         </p>
         <div className="grid grid-cols-6 gap-1.5">
           {questions.map((q, idx) => {
@@ -378,7 +381,7 @@ export default function TestTakingPage() {
             )}
             <p className="text-sm sm:text-[15px] font-bold leading-snug line-clamp-2 break-words sm:line-clamp-none sm:truncate">{studentTitle(test_name) || test_name}</p>
             <p className="text-[11px] text-gray-400 mt-0.5">
-              Q {currentIdx + 1} of {questions.length}
+              {t('assessment.taking.header.progress', { current: currentIdx + 1, total: questions.length })}
             </p>
           </div>
 
@@ -432,11 +435,11 @@ export default function TestTakingPage() {
                   {/* Marks & subject tags */}
                   <div className="flex flex-wrap items-center gap-1.5 mt-3">
                     <span className="text-[11px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-medium">
-                      1 mark
+                      {t('assessment.taking.tag.mark')}
                     </span>
                     {negative_marking && negative_marking_fraction > 0 && (
                       <span className="text-[11px] bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded font-medium">
-                        -{negative_marking_fraction} negative
+                        {t('assessment.taking.tag.negative', { fraction: negative_marking_fraction })}
                       </span>
                     )}
                     {currentQ.subject && (
@@ -501,7 +504,7 @@ export default function TestTakingPage() {
                   type="text"
                   value={answers[currentQ.question_id] ?? ''}
                   onChange={e => selectAnswer(currentQ.question_id, e.target.value)}
-                  placeholder="Type your answer here..."
+                  placeholder={t('assessment.taking.placeholder.short')}
                   className="w-full ml-[52px] px-4 py-3 border-2 border-gray-200 bg-white text-gray-900 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none text-sm"
                 />
               )}
@@ -511,7 +514,7 @@ export default function TestTakingPage() {
                 <textarea
                   value={answers[currentQ.question_id] ?? ''}
                   onChange={e => selectAnswer(currentQ.question_id, e.target.value)}
-                  placeholder="Type your detailed answer here..."
+                  placeholder={t('assessment.taking.placeholder.long')}
                   rows={5}
                   className="w-full ml-[52px] px-4 py-3 border-2 border-gray-200 bg-white text-gray-900 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-y text-sm"
                 />
@@ -523,14 +526,14 @@ export default function TestTakingPage() {
                   onClick={handleMarkForReview}
                   className="border border-amber-400 text-amber-700 bg-white hover:bg-amber-50 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
                 >
-                  Mark for Review & Next
+                  {t('assessment.taking.action.mark_next')}
                 </button>
                 {answers[currentQ.question_id] && (
                   <button
                     onClick={() => clearAnswer(currentQ.question_id)}
                     className="text-xs text-gray-400 hover:text-red-500 transition-colors"
                   >
-                    Clear response
+                    {t('assessment.taking.action.clear')}
                   </button>
                 )}
               </div>
@@ -553,7 +556,7 @@ export default function TestTakingPage() {
                   disabled={currentIdx === questions.length - 1}
                   className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
-                  Save & Next
+                  {t('assessment.taking.action.save_next')}
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
@@ -578,7 +581,7 @@ export default function TestTakingPage() {
           />
           <aside className="fixed inset-y-0 right-0 z-50 w-80 bg-slate-100 overflow-y-auto p-4 flex flex-col gap-0 lg:hidden shadow-2xl">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-bold text-gray-900">Questions</p>
+              <p className="text-sm font-bold text-gray-900">{t('assessment.taking.panel.heading')}</p>
               <button
                 onClick={() => setPanelOpen(false)}
                 className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg"
@@ -597,15 +600,15 @@ export default function TestTakingPage() {
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Submit Assessment?</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">{t('assessment.taking.confirm.heading')}</h3>
 
             {/* Stats table */}
             <div className="border border-gray-200 rounded-xl overflow-hidden mb-4">
               {[
-                { label: 'Total Questions', value: questions.length, cls: 'text-gray-900' },
-                { label: 'Answered', value: answered, cls: 'text-emerald-600' },
-                { label: 'Not Answered', value: questions.length - answered, cls: 'text-red-600' },
-                { label: 'Marked for Review', value: markedReview, cls: 'text-amber-600' },
+                { label: t('assessment.taking.confirm.total'), value: questions.length, cls: 'text-gray-900' },
+                { label: t('assessment.taking.confirm.answered'), value: answered, cls: 'text-emerald-600' },
+                { label: t('assessment.taking.confirm.not_answered'), value: questions.length - answered, cls: 'text-red-600' },
+                { label: t('assessment.taking.confirm.marked'), value: markedReview, cls: 'text-amber-600' },
               ].map(({ label, value, cls }, i, arr) => (
                 <div
                   key={label}
@@ -624,7 +627,7 @@ export default function TestTakingPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                 </svg>
                 <p className="text-xs text-amber-800 leading-relaxed">
-                  You have <strong>{questions.length - answered}</strong> unanswered question(s). Are you sure you want to submit?
+                  <Strong text={t('assessment.taking.confirm.unanswered', { count: questions.length - answered })} />
                 </p>
               </div>
             )}
@@ -642,7 +645,7 @@ export default function TestTakingPage() {
                 disabled={submitting}
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl font-semibold disabled:opacity-50 transition-colors text-sm"
               >
-                {submitting ? 'Submitting…' : 'Confirm Submit'}
+                {submitting ? t('assessment.taking.confirm.submitting') : t('assessment.taking.confirm.submit')}
               </button>
             </div>
           </div>

@@ -24,17 +24,19 @@ import { ArtImage, AuthField, AuthLayout, AuthModal } from './auth/AuthShell';
 import { LoginOtpForm } from './auth/LoginOtpForm';
 import { GoogleButton } from './auth/GoogleButton';
 import { askAboutReferral } from '@/components/user/ReferralAskHost';
-
-/** What the product offers, as a row under the form. */
-const POINTS = [
-  { icon: FileText, label: 'Full mock tests', tone: 'blue' },
-  { icon: BookOpen, label: 'Unit-wise practice', tone: 'orange' },
-  { icon: Target, label: 'Previous year papers', tone: 'purple' },
-  { icon: BarChart3, label: 'AI performance reports', tone: 'green' },
-];
+import { useT } from '@/content/useText';
+import { Slots } from './auth/Slots';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const t = useT();
+  /** What the product offers, as a row under the form. */
+  const POINTS = [
+    { icon: FileText, label: t('auth.login.point_mock'), tone: 'blue' },
+    { icon: BookOpen, label: t('auth.login.point_unit'), tone: 'orange' },
+    { icon: Target, label: t('auth.login.point_pyq'), tone: 'purple' },
+    { icon: BarChart3, label: t('auth.login.point_ai'), tone: 'green' },
+  ];
   const { login, forgotPassword, signInWithGoogle, isAuthenticated } = useUserPortal();
   /**
    * Password is the way in by default, with the OTP form one tap away and back. When password
@@ -112,7 +114,7 @@ export default function LoginPage() {
 
   return (
     <AuthLayout
-      title="Login | MyGovExams"
+      title={t('auth.login.page_title')}
       side={<ArtImage name="hero.png" alt="A student preparing for her government exam" />}
       below={
         <div className="mge-auth-points">
@@ -128,7 +130,7 @@ export default function LoginPage() {
       }
     >
       <div className="mge-auth-card">
-        <h1>Welcome Back</h1>
+        <h1>{t('auth.login.heading')}</h1>
         {mode === 'otp' ? (
           <LoginOtpForm
             initialIdentifier={email}
@@ -136,11 +138,11 @@ export default function LoginPage() {
           />
         ) : (
           <>
-            <p className="mge-auth-sub">Login to continue your exam preparation</p>
+            <p className="mge-auth-sub">{t('auth.login.subheading')}</p>
 
             {locked && (
               <div className="mge-auth-alert">
-                <strong>Account locked.</strong> Too many failed attempts. Check your email for the unlock link.
+                <strong>{t('auth.login.locked_title')}</strong> {t('auth.login.locked_text')}
               </div>
             )}
 
@@ -150,7 +152,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={setEmail}
-                placeholder="Email"
+                placeholder={t('auth.login.email_placeholder')}
                 required
                 autoComplete="email"
               />
@@ -159,7 +161,7 @@ export default function LoginPage() {
                 type={showPwd ? 'text' : 'password'}
                 value={password}
                 onChange={setPassword}
-                placeholder="Password"
+                placeholder={t('auth.login.password_placeholder')}
                 required
                 autoComplete="current-password"
                 trailing={
@@ -182,17 +184,17 @@ export default function LoginPage() {
                   setForgotOpen(true);
                 }}
               >
-                Forgot Password?
+                {t('auth.login.forgot_link')}
               </button>
 
               <button type="submit" disabled={submitting || locked} className="mge-btn mge-btn-primary mge-auth-submit">
                 {submitting ? (
                   <>
-                    <span className="mge-spinner" /> Logging in...
+                    <span className="mge-spinner" /> {t('auth.login.submitting')}
                   </>
                 ) : (
                   <>
-                    Login <ArrowRight size={19} />
+                    {t('auth.login.submit')} <ArrowRight size={19} />
                   </>
                 )}
               </button>
@@ -202,7 +204,7 @@ export default function LoginPage() {
               <span>or</span>
             </div>
             <button type="button" className="mge-auth-alt" onClick={() => setMode('otp')}>
-              <KeyRound size={18} aria-hidden="true" /> Login with OTP
+              <KeyRound size={18} aria-hidden="true" /> {t('auth.login.otp_button')}
             </button>
           </>
         )}
@@ -223,8 +225,8 @@ export default function LoginPage() {
 
         <div className="mge-auth-rule" />
         <p className="mge-auth-switch">
-          Don't have an account?
-          <Link to={ROUTES.signup}>Sign up</Link>
+          {t('auth.login.signup_prompt')}
+          <Link to={ROUTES.signup}>{t('auth.login.signup_link')}</Link>
         </p>
       </div>
 
@@ -235,9 +237,9 @@ export default function LoginPage() {
               <div className="mge-modal-icon mge-tile-green">
                 <CheckCircle2 size={30} />
               </div>
-              <h2>Check your email</h2>
+              <h2>{t('auth.login.forgot_sent_title')}</h2>
               <p>
-                We've sent a reset link to <strong>{forgotEmail}</strong>.
+                <Slots text={t('auth.login.forgot_sent_text')} slots={{ email: <strong>{forgotEmail}</strong> }} />
               </p>
               <button
                 type="button"
@@ -255,19 +257,19 @@ export default function LoginPage() {
               <div className="mge-modal-icon mge-tile-blue">
                 <Mail size={28} />
               </div>
-              <h2>Reset your password</h2>
-              <p>Enter your email and we'll send a reset link.</p>
+              <h2>{t('auth.login.forgot_title')}</h2>
+              <p>{t('auth.login.forgot_text')}</p>
               <AuthField
                 icon={Mail}
                 type="email"
                 value={forgotEmail}
                 onChange={setForgotEmail}
-                placeholder="Email"
+                placeholder={t('auth.login.email_placeholder')}
                 required
                 autoComplete="email"
               />
               <button type="submit" className="mge-btn mge-btn-primary mge-auth-submit">
-                Send reset link
+                {t('auth.login.forgot_submit')}
               </button>
               <button type="button" className="mge-modal-text-btn" onClick={() => setForgotOpen(false)}>
                 Cancel

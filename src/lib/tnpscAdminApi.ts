@@ -15,6 +15,7 @@ import { fromWireRow, toWireGroup, toWireStage, toWireSubject, toWireUnit } from
  */
 import { NTPC_LANGUAGE_LABEL, NTPC_LEVEL_LABEL, isNtpcGroup, ntpcLevelOf, paperNtpcLanguage, type NtpcLanguage, type NtpcLevel } from '@/lib/ntpc-level';
 import { api } from './api';
+import { parsePassMarkSettings, type ExamPassMarks, type PassMarkSettings, type PassMarkTable } from '@/config/pass-marks';
 import {
   LEVELS_HIDDEN,
   LEVEL_META,
@@ -598,6 +599,25 @@ export async function tagAssessmentKeepingTopic(
     await tagAssessment(assessmentId, { ...tag, scope: 'unit', topic_id: null });
     return { topicInTitleOnly: true };
   }
+}
+
+// ─── Pass marks ────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/v1/admin/tnpsc/pass-marks — the pass marks as the admin set them: the product-wide table, and each exam's own
+ * (only the kinds of paper it overrides). Same shape the aspirant endpoint serves. See BACKEND_PASS_MARKS.md.
+ */
+export async function getAdminPassMarks(): Promise<PassMarkSettings> {
+  const res = await api.get<unknown>('/api/v1/admin/tnpsc/pass-marks');
+  return parsePassMarkSettings(res);
+}
+
+/**
+ * PUT /api/v1/admin/tnpsc/pass-marks — replaces the settings: `default` is the product-wide table, `exams` the per-exam
+ * tables by group id (an exam left out follows the default).
+ */
+export function saveAdminPassMarks(settings: { global: PassMarkTable; exams: Record<string, ExamPassMarks> }): Promise<unknown> {
+  return api.put('/api/v1/admin/tnpsc/pass-marks', { default: settings.global, exams: settings.exams });
 }
 
 /** PATCH the TNPSC tags onto an Evaluation-Hub assessment. */

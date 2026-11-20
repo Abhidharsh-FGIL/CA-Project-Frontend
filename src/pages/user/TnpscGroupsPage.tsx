@@ -3,9 +3,11 @@ import { TnpscGroupGrid } from '@/components/user/TnpscGroupGrid';
 import { FreeTestStrip } from '@/components/user/FreeTestStrip';
 import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { BarChart3, BookOpen, ClipboardList, Database, FileText, Loader2, RefreshCw, Users, type LucideIcon } from 'lucide-react';
-import { EXAMS_FEATURES, EXAMS_STATS } from '@/config/exams-page';
+import { EXAMS_FEATURES } from '@/config/exams-page';
 import { SHOW_STUDY_PLAN } from '@/config/features';
 import { cn } from '@/lib/utils';
+import { useT } from '@/content/useText';
+import type { ContentKey } from '@/content/registry';
 
 const FEATURE_ICON: Record<string, LucideIcon> = {
   pyq: FileText,
@@ -23,8 +25,18 @@ const TONE: Record<string, string> = {
   amber: 'bg-amber-500',
 };
 
+/** The editable text for each feature tile, by its key in `EXAMS_FEATURES`. */
+const FEATURE_TEXT: Record<string, { title: ContentKey; detail: ContentKey }> = {
+  pyq: { title: 'exams.list.feature.pyq.title', detail: 'exams.list.feature.pyq.detail' },
+  tests: { title: 'exams.list.feature.tests.title', detail: 'exams.list.feature.tests.detail' },
+  ai: { title: 'exams.list.feature.ai.title', detail: 'exams.list.feature.ai.detail' },
+  plan: { title: 'exams.list.feature.plan.title', detail: 'exams.list.feature.plan.detail' },
+  topic: { title: 'exams.list.feature.topic.title', detail: 'exams.list.feature.topic.detail' },
+};
+
 /** /user/exams — pick an examination from the catalog. */
 export default function TnpscGroupsPage() {
+  const t = useT();
   const { groups, isLoading } = useTnpscCatalog({ forMyLanguage: true });
 
   return (
@@ -45,17 +57,17 @@ export default function TnpscGroupsPage() {
           <div className="min-w-0">
             <p className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-orange-300">
               <span className="h-1 w-5 rounded-full bg-orange-400" aria-hidden />
-              Choose your examination
+              {t('exams.list.eyebrow')}
             </p>
             <h1 className="mt-0.5 text-xl font-extrabold leading-tight tracking-tight sm:text-2xl">
-              Competitive <span className="bg-gradient-to-r from-orange-300 to-rose-400 bg-clip-text text-transparent">Examinations</span>
+              {t('exams.list.title.lead')} <span className="bg-gradient-to-r from-orange-300 to-rose-400 bg-clip-text text-transparent">{t('exams.list.title.accent')}</span>
             </h1>
             <p className="mt-0.5 text-xs leading-relaxed text-slate-300">
-              Pick the examination you are preparing for — stages, level-wise mock tests and syllabus-based practice.
+              {t('exams.list.subtitle')}
             </p>
             <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
               <RefreshCw className="h-3.5 w-3.5 text-emerald-400" aria-hidden />
-              New questions every attempt
+              {t('exams.list.fresh')}
               <Level cls="bg-emerald-500">Simple</Level>
               <Level cls="bg-amber-500">Medium</Level>
               <Level cls="bg-rose-500">Complex</Level>
@@ -67,7 +79,7 @@ export default function TnpscGroupsPage() {
               className="tagline-block tagline-on-dark pointer-events-none hidden pb-2 text-right text-xl font-bold leading-tight lg:inline-block xl:text-2xl"
               style={{ fontFamily: 'Kalam, cursive' }}
             >
-              {['Your', 'Gateway', 'to', 'a', 'Government', 'Job'].map((w, i) => (
+              {t('exams.list.tagline').split(' ').map((w, i) => (
                 <span key={i} className="tagline-word mr-1.5 last:mr-0" style={{ animationDelay: `${0.18 * i}s, 0s` }}>
                   {w}
                 </span>
@@ -77,9 +89,9 @@ export default function TnpscGroupsPage() {
               </svg>
             </p>
             <div className="grid grid-cols-3 gap-2">
-              <Stat icon={<Database className="h-4 w-4" />} tone="blue" value={EXAMS_STATS.questions} label="Questions" />
-              <Stat icon={<Users className="h-4 w-4" />} tone="violet" value={EXAMS_STATS.aspirants} label="Aspirants" />
-              <Stat icon={<FileText className="h-4 w-4" />} tone="sky" value={EXAMS_STATS.newQuestions} label="New / week" />
+              <Stat icon={<Database className="h-4 w-4" />} tone="blue" value={t('site.stats.questions')} label={t('exams.list.stat.questions.label')} />
+              <Stat icon={<Users className="h-4 w-4" />} tone="violet" value={t('site.stats.aspirants')} label={t('exams.list.stat.aspirants.label')} />
+              <Stat icon={<FileText className="h-4 w-4" />} tone="sky" value={t('site.stats.newQuestions')} label={t('exams.list.stat.new.label')} />
             </div>
           </div>
         </div>
@@ -91,7 +103,7 @@ export default function TnpscGroupsPage() {
       {isLoading && groups.length === 0 ? (
         <div className="flex items-center justify-center py-20 gap-3 text-gray-400">
           <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-          <span className="text-sm">Loading examinations…</span>
+          <span className="text-sm">{t('exams.list.loading')}</span>
         </div>
       ) : (
         <TnpscGroupGrid groups={groups} />
@@ -101,14 +113,15 @@ export default function TnpscGroupsPage() {
       <div className="mt-6 grid gap-3 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 sm:grid-cols-2 lg:grid-cols-none lg:grid-flow-col lg:auto-cols-fr">
         {EXAMS_FEATURES.filter(f => f.key !== 'plan' || SHOW_STUDY_PLAN).map(f => {
           const Icon = FEATURE_ICON[f.key] ?? BookOpen;
+          const text = FEATURE_TEXT[f.key];
           return (
             <div key={f.key} className="flex items-start gap-3">
               <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white', TONE[f.tone] ?? 'bg-blue-500')}>
                 <Icon className="w-5 h-5" />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-bold leading-snug text-gray-900 dark:text-gray-100">{f.title}</p>
-                <p className="mt-0.5 text-[11px] leading-snug text-gray-500 dark:text-gray-400">{f.detail}</p>
+                <p className="text-sm font-bold leading-snug text-gray-900 dark:text-gray-100">{text ? t(text.title) : f.title}</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-gray-500 dark:text-gray-400">{text ? t(text.detail) : f.detail}</p>
               </div>
             </div>
           );

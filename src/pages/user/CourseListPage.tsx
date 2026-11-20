@@ -2,8 +2,10 @@ import { Link } from 'react-router-dom';
 import { UserShell } from '@/components/user/UserShell';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { ChevronRight, Layers, FileText } from 'lucide-react';
+import { useT } from '@/content/useText';
 
 export default function CourseListPage() {
+  const t = useT();
   const { courses } = useUserPortal();
   const totalTests = courses.reduce((sum, c) => sum + (c.total_tests ?? 0), 0);
 
@@ -17,18 +19,18 @@ export default function CourseListPage() {
           <div className="relative flex items-end justify-between gap-3 flex-wrap">
             <div>
               <p className="text-[10px] uppercase tracking-[0.25em] text-blue-700 dark:text-brand-300 font-bold mb-2">
-                Your Library
+                {t('account.courses.eyebrow')}
               </p>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                Your <span className="gradient-text-animated">Courses</span>
+                {t('account.courses.title_lead')} <span className="gradient-text-animated">{t('account.courses.title_accent')}</span>
               </h1>
               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1.5">
                 {courses.length} CA & accounting course{courses.length !== 1 ? 's' : ''} available · {totalTests} test{totalTests !== 1 ? 's' : ''} ready to take.
               </p>
             </div>
             <div className="flex gap-2.5 flex-wrap">
-              <Pill icon={<Layers className="w-3 h-3" />} label="Courses" value={courses.length} />
-              <Pill icon={<FileText className="w-3 h-3" />} label="Tests" value={totalTests} />
+              <Pill icon={<Layers className="w-3 h-3" />} label={t('account.courses.pill_courses')} value={courses.length} />
+              <Pill icon={<FileText className="w-3 h-3" />} label={t('account.courses.pill_tests')} value={totalTests} />
             </div>
           </div>
         </div>
@@ -37,7 +39,7 @@ export default function CourseListPage() {
       {courses.length === 0 ? (
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-12 text-center animate-fadeIn">
           <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">No courses available yet. Check back soon.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('account.courses.empty')}</p>
         </div>
       ) : (
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">

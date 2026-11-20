@@ -50,12 +50,15 @@ import { publicApi } from '@/lib/api';
 import { costPerMonth, offeredPlans, perksFor, plansFromApi, yearlySavings } from '@/lib/plans';
 import { cardFor, cycleShown } from '@/lib/plan-copy';
 import { topUpPacksFrom, type TopUpPack } from '@/lib/topup-api';
+import { useLiveExams } from '@/hooks/use-live-exams';
+import { joinExamNames } from '@/config/landing-settings';
+import { Rich, useT } from '@/content';
+import type { ContentKey } from '@/content/registry';
 import { AnnounceIcon, ChooseTestIcon, PlanIcon, PracticeIcon, ReportIcon, type LandingIcon } from './LandingIcons';
 import { ButtonLink, LandingFooter, LandingHeader, ROUTES, SectionLink, scrollToSection } from './LandingShell';
 import './landing.css';
 
 /** Where the page's artwork lives — `public/landing/`, so it can be swapped without a build. */
-import { EXAMS_STATS } from '@/config/exams-page';
 
 const ART = `${import.meta.env.BASE_URL}landing/`;
 
@@ -65,102 +68,78 @@ const CONFIG = {
    * Display claims, taken from the mockup. They are the business's to confirm — none of
    * them is measured by this app — so confirm each before this goes public.
    */
-  students: EXAMS_STATS.aspirants,
-  questionsAddedWeekly: '1,000+',
   loginPath: ROUTES.login,
   signupPath: ROUTES.signup,
 };
 
-const heroChecks = ['Full mock tests', 'Unit-wise practice', 'Previous year papers', 'AI performance reports'];
+const heroChecks: ContentKey[] = ['landing.hero.check1', 'landing.hero.check2', 'landing.hero.check3', 'landing.hero.check4'];
 
 /** The "Powered by AI" cards. `tone` picks the tint of the icon circle. */
-const features: Array<{ icon: LucideIcon; title: string; desc: string; tone: string; soon?: boolean }> = [
-  {
-    icon: ClipboardList,
-    title: 'Expert-Curated Mock Tests',
-    desc: 'Experience real exam-style mock tests with carefully curated and validated questions. Get a fresh set of questions with every attempt to strengthen your knowledge, improve accuracy, and build exam confidence.',
-    tone: 'blue',
-  },
-  {
-    icon: Target,
-    title: 'Smart Subject & Unit-wise Practice',
-    desc: 'Practice with expert-validated questions across subjects and units. Choose Simple, Medium, or Complex difficulty levels and strengthen your understanding with detailed explanations.',
-    tone: 'pink',
-  },
-  {
-    icon: BookOpen,
-    title: 'Previous Year Question Papers',
-    desc: 'Practice authentic previous-year questions with detailed explanations. Understand exam patterns, important topics, and frequently tested concepts.',
-    tone: 'purple',
-  },
-  {
-    icon: BarChart3,
-    title: 'AI-Powered Performance Insights',
-    desc: 'Understand your strengths, weaknesses, accuracy, and topic-wise performance through AI-driven analysis. Identify improvement areas and prepare more effectively.',
-    tone: 'green',
-  },
-  {
-    icon: CalendarDays,
-    title: 'AI-Personalized Study Plans',
-    desc: 'Get personalized study recommendations based on your performance, knowledge gaps, and learning progress.',
-    tone: 'rose',
-  },
+const features: Array<{ icon: LucideIcon; title: ContentKey; desc: ContentKey; tone: string; soon?: boolean }> = [
+  { icon: ClipboardList, title: 'landing.features.1.title', desc: 'landing.features.1.desc', tone: 'blue' },
+  { icon: Target, title: 'landing.features.2.title', desc: 'landing.features.2.desc', tone: 'pink' },
+  { icon: BookOpen, title: 'landing.features.3.title', desc: 'landing.features.3.desc', tone: 'purple' },
+  { icon: BarChart3, title: 'landing.features.4.title', desc: 'landing.features.4.desc', tone: 'green' },
+  { icon: CalendarDays, title: 'landing.features.5.title', desc: 'landing.features.5.desc', tone: 'rose' },
 ];
 
-const steps: Array<{ name: string; desc: string; icon: LandingIcon; soon?: boolean }> = [
-  { name: 'Choose a Test', desc: 'Take a full mock test or practice by subject, part and unit.', icon: ChooseTestIcon },
-  { name: 'Practice & Learn', desc: 'Attempt questions at Simple, Medium, and Complex difficulty levels.', icon: PracticeIcon },
-  { name: 'Get Your AI Report', desc: 'See your score, accuracy, strengths, weak areas and comparisons.', icon: ReportIcon },
-  { name: 'Build Your Study Plan', desc: 'Get a personalized plan based on your performance and focus on weak topics.', icon: PlanIcon },
+const steps: Array<{ name: ContentKey; desc: ContentKey; icon: LandingIcon; soon?: boolean }> = [
+  { name: 'landing.how.1.name', desc: 'landing.how.1.desc', icon: ChooseTestIcon },
+  { name: 'landing.how.2.name', desc: 'landing.how.2.desc', icon: PracticeIcon },
+  { name: 'landing.how.3.name', desc: 'landing.how.3.desc', icon: ReportIcon },
+  { name: 'landing.how.4.name', desc: 'landing.how.4.desc', icon: PlanIcon },
 ];
 
 function Hero() {
+  const t = useT();
+  const liveExams = useLiveExams(); // the admin's list (Admin Settings → Site content)
   return (
     <section id="home" className="mge-hero">
       <div className="mge-container mge-hero-grid">
         <div className="mge-hero-copy">
           <div className="mge-eyebrow mge-eyebrow-ai">
             <Sparkles size={14} aria-hidden="true" />
-            End-to-end AI-powered exam preparation
+            {t('landing.hero.eyebrow')}
           </div>
           <h1>
-            Your Government Exam <span>Preparation</span> Starts Here{' '}
+            <Rich text={t('landing.hero.title')} />{' '}
             {/* Which exams are open today — a sticker that floats beside the last line. (No <span>s
                 inside it: the heading's own `span` rule would colour them orange.) */}
             <span className="mge-live-chip">
               <em>
                 <i aria-hidden="true" />
-                Live
+                {t('landing.hero.live')}
               </em>
               {/* One exam a line, so another can be added without the sticker wrapping at random. */}
               <strong className="mge-live-exams">
-                <b>TNPSC Group 4 &amp; 2</b>
-                <b>RRB NTPC CBT-1 (UG)</b>
+                {liveExams.map(name => (
+                  <b key={name}>{name}</b>
+                ))}
               </strong>
             </span>
           </h1>
           <p className="mge-lead">
-            Prepare smarter with syllabus-aligned questions and practice tests organised by Unit, Category, and
-            Subcategory, across Simple, Medium, and Complex levels. Take full-length mock exams, learn with clear
-            explanations, and improve with <span className="mge-nowrap">AI-powered</span> performance insights and
-            personalized study plans — all in one place.
+            {/* "AI-powered" never breaks across lines. */}
+            {t('landing.hero.lead')
+              .split(/(AI-powered)/)
+              .map((part, i) => (part === 'AI-powered' ? <span key={i} className="mge-nowrap">{part}</span> : part))}
           </p>
           <div className="mge-hero-actions">
             <ButtonLink to={CONFIG.signupPath}>
-              Start Free Trial <ArrowRight size={19} />
+              {t('landing.nav.cta')} <ArrowRight size={19} />
             </ButtonLink>
             {/* Phones only: the header's Login is behind the menu button there. */}
             <ButtonLink to={CONFIG.loginPath} secondary className="mge-hero-login">
-              Login
+              {t('landing.nav.login')}
             </ButtonLink>
             <SectionLink to="pricing" className="mge-btn mge-btn-secondary">
-              View Plans
+              {t('landing.hero.plans')}
             </SectionLink>
           </div>
           <div className="mge-checks">
             {heroChecks.map(c => (
               <span key={c}>
-                <CheckCircle2 /> {c}
+                <CheckCircle2 /> {t(c)}
               </span>
             ))}
           </div>
@@ -169,15 +148,11 @@ function Hero() {
           <img src={`${ART}hero.png`} alt="A student preparing for her government exam" />
           {/* Live text on the artwork, not painted into it: crisp at any size, and editable. */}
           <p className="mge-art-note">
-            Your AI
-            <br />
-            Study
-            <br />
-            Partner
+            <Rich text={t('landing.hero.note')} />
           </p>
           <div className="mge-art-badge">
             <Trophy size={18} aria-hidden="true" />
-            Learn. Practice. Succeed with AI.
+            {t('landing.hero.badge')}
           </div>
         </div>
       </div>
@@ -187,11 +162,12 @@ function Hero() {
 
 /** The "new questions every attempt" promise, with the four things it means. */
 function FreshAttempts() {
-  const points: Array<{ icon: LucideIcon; title: string; tone: string }> = [
-    { icon: Shuffle, title: 'Fresh Question Sets for Every Attempt', tone: 'blue' },
-    { icon: BarChart3, title: 'Multiple Difficulty Levels (Simple to Complex)', tone: 'sky' },
-    { icon: FileText, title: 'AI-Powered Explanations', tone: 'purple' },
-    { icon: Target, title: 'Track Progress & Improve Faster', tone: 'rose' },
+  const t = useT();
+  const points: Array<{ icon: LucideIcon; title: ContentKey; tone: string }> = [
+    { icon: Shuffle, title: 'landing.fresh.p1', tone: 'blue' },
+    { icon: BarChart3, title: 'landing.fresh.p2', tone: 'sky' },
+    { icon: FileText, title: 'landing.fresh.p3', tone: 'purple' },
+    { icon: Target, title: 'landing.fresh.p4', tone: 'rose' },
   ];
   return (
     <section className="mge-container">
@@ -202,12 +178,9 @@ function FreshAttempts() {
           </span>
           <div>
             <h2>
-              <em>New</em> New Questions. Every Attempt.
+              <em>{t('landing.fresh.tag')}</em> {t('landing.fresh.title')}
             </h2>
-            <p>
-              Get a fresh set of questions every time you take a mock test. Practice more, challenge yourself and build
-              exam confidence.
-            </p>
+            <p>{t('landing.fresh.desc')}</p>
           </div>
         </div>
         <ul className="mge-fresh-points">
@@ -216,7 +189,7 @@ function FreshAttempts() {
               <span className={`mge-stat-icon mge-tone-${p.tone}`}>
                 <p.icon size={24} aria-hidden="true" />
               </span>
-              {p.title}
+              {t(p.title)}
             </li>
           ))}
         </ul>
@@ -226,12 +199,13 @@ function FreshAttempts() {
 }
 
 function Stats() {
-  // The same figures as the Exams page, so the two never disagree.
+  const t = useT();
+  // The same figures as the Exams page (`site.stats.*`), so the two never disagree.
   const items: Array<{ icon: LucideIcon; value: string; label: string; sub?: string; levels?: boolean; tone: string }> = [
-    { icon: Database, value: EXAMS_STATS.questions, label: 'Questions', sub: 'with various difficulty levels', levels: true, tone: 'blue' },
-    { icon: Users, value: EXAMS_STATS.aspirants, label: 'Aspirants', sub: 'currently practising here', tone: 'purple' },
-    { icon: FileText, value: EXAMS_STATS.newQuestions, label: 'New Questions', sub: 'added every week', tone: 'sky' },
-    { icon: Landmark, value: 'Government Exams', label: 'Focused Preparation', tone: 'green' },
+    { icon: Database, value: t('site.stats.questions'), label: t('landing.stats.questions.label'), sub: t('landing.stats.questions.sub'), levels: true, tone: 'blue' },
+    { icon: Users, value: t('site.stats.aspirants'), label: t('landing.stats.aspirants.label'), sub: t('landing.stats.aspirants.sub'), tone: 'purple' },
+    { icon: FileText, value: t('site.stats.newQuestions'), label: t('landing.stats.new.label'), sub: t('landing.stats.new.sub'), tone: 'sky' },
+    { icon: Landmark, value: t('landing.stats.focus.value'), label: t('landing.stats.focus.label'), tone: 'green' },
   ];
   return (
     <section className="mge-container">
@@ -261,13 +235,14 @@ function Stats() {
 }
 
 function Features() {
+  const t = useT();
   return (
     <section className="mge-container mge-ai-section" aria-labelledby="mge-ai-title">
       <div className="mge-ai-heading">
         <h2 id="mge-ai-title">
-          Expert-Curated Questions. <span>AI-Powered Insights.</span>
+          <Rich text={t('landing.features.title')} />
         </h2>
-        <p>Practice with expert-validated questions, track your performance through AI-powered analytics, and improve with personalized study recommendations.</p>
+        <p>{t('landing.features.lead')}</p>
       </div>
       <div className="mge-ai-grid">
         {features.map(f => (
@@ -277,11 +252,11 @@ function Features() {
                 <f.icon size={26} aria-hidden="true" />
               </span>
               <h3>
-                {f.title}
+                {t(f.title)}
                 {f.soon && <em className="mge-soon-tag">Coming soon</em>}
               </h3>
             </div>
-            <p>{f.desc}</p>
+            <p>{t(f.desc)}</p>
           </article>
         ))}
       </div>
@@ -290,16 +265,23 @@ function Features() {
 }
 
 function ExamBanner() {
+  const t = useT();
+  const [first, ...rest] = useLiveExams();
   return (
     <section className="mge-container">
       <div className="mge-exam-banner">
         <div className="mge-exam-copy">
-          <span className="mge-kicker">Currently Available</span>
+          <span className="mge-kicker">{t('landing.banner.kicker')}</span>
           <h2>
-            TNPSC Group 4 &amp; 2,
-            <small>RRB NTPC CBT-1 (UG)</small>
+            {first}
+            {rest.map((name, i) => (
+              <small key={name}>
+                {name}
+                {i < rest.length - 1 ? ',' : ''}
+              </small>
+            ))}
           </h2>
-          <p>Complete preparation with full mock tests, unit-wise practice tests and previous year question papers.</p>
+          <p>{t('landing.banner.desc')}</p>
         </div>
         {/* One scene for the exams: the TNPSC building, the RRB train in front of it, and the bank (labelled "Soon"). */}
         <div className="mge-exam-art">
@@ -308,8 +290,8 @@ function ExamBanner() {
         <div className="mge-soon">
           <AnnounceIcon size={52} />
           <div>
-            <strong>More Government Exams Coming Soon</strong>
-            <p>We are working to bring more exams to the platform.</p>
+            <strong>{t('landing.banner.soon.title')}</strong>
+            <p>{t('landing.banner.soon.desc')}</p>
           </div>
         </div>
       </div>
@@ -319,6 +301,7 @@ function ExamBanner() {
 
 /** The four product previews under the steps. Drawings, not data. */
 function DemoCards() {
+  const t = useT();
   return (
     <div className="mge-demo-grid">
       <figure>
@@ -340,7 +323,7 @@ function DemoCards() {
             Next Question <ArrowRight size={12} />
           </div>
         </div>
-        <figcaption>Experience a realistic exam interface with a fresh set of questions for every attempt.</figcaption>
+        <figcaption>{t('landing.how.demo1')}</figcaption>
       </figure>
 
       <figure>
@@ -362,7 +345,7 @@ function DemoCards() {
             </div>
           ))}
         </div>
-        <figcaption>Practice by subject, part and unit with different difficulty levels</figcaption>
+        <figcaption>{t('landing.how.demo2')}</figcaption>
       </figure>
 
       <figure>
@@ -401,7 +384,7 @@ function DemoCards() {
             </div>
           ))}
         </div>
-        <figcaption>Detailed AI-powered analysis of your performance</figcaption>
+        <figcaption>{t('landing.how.demo3')}</figcaption>
       </figure>
 
       <figure>
@@ -426,18 +409,19 @@ function DemoCards() {
             </div>
           ))}
         </div>
-        <figcaption>Get a personalized study plan to improve your performance step by step.</figcaption>
+        <figcaption>{t('landing.how.demo4')}</figcaption>
       </figure>
     </div>
   );
 }
 
 function HowItWorks() {
+  const t = useT();
   return (
     <section className="mge-container mge-section" id="how-it-works">
       <div className="mge-section-heading mge-left">
-        <h2>How It Works</h2>
-        <p>A simple way to prepare, practice and improve.</p>
+        <h2>{t('landing.how.title')}</h2>
+        <p>{t('landing.how.lead')}</p>
       </div>
       <div className="mge-steps">
         {steps.map((s, i) => (
@@ -450,10 +434,10 @@ function HowItWorks() {
               {i < 3 && <ArrowRight className="mge-step-arrow" size={22} />}
             </div>
             <h3>
-              {s.name}
+              {t(s.name)}
               {s.soon && <em className="mge-soon-tag">Coming soon</em>}
             </h3>
-            <p>{s.desc}</p>
+            <p>{t(s.desc)}</p>
           </div>
         ))}
       </div>
@@ -512,6 +496,7 @@ type Billing = 'monthly' | 'yearly';
  * answer them the section is simply left out rather than showing prices it did not give.
  */
 function TopUps() {
+  const t = useT();
   const { data } = useQuery({
     queryKey: ['landing', 'topup-packs'],
     queryFn: async () => topUpPacksFrom(await publicApi.get<unknown>('/api/v1/user/topup/packs')),
@@ -532,8 +517,8 @@ function TopUps() {
   ].filter(c => c.packs.length > 0);
   return (
     <div className="mge-topups">
-      <h3>Need more tests?</h3>
-      <p>Add a top-up to your Monthly or Yearly plan. Unused top-up tests are saved and carried forward when you renew your subscription.</p>
+      <h3>{t('landing.topups.title')}</h3>
+      <p>{t('landing.topups.desc')}</p>
       <div className="mge-topup-cols">
         {columns.map(col => (
           <div key={col.title}>
@@ -557,6 +542,7 @@ function TopUps() {
 }
 
 function Pricing() {
+  const t = useT();
   const { plans, loading, failed, retry } = useLandingPlans();
   const savings = yearlySavings(plans);
   // The same cards the Subscription page shows: Free, then each paid plan monthly and yearly — nothing to toggle.
@@ -573,8 +559,8 @@ function Pricing() {
     <section className="mge-pricing-section" id="pricing">
       <div className="mge-container">
         <div className="mge-section-heading">
-          <h2>Simple Plans for Serious Preparation</h2>
-          <p>Choose a plan that fits your goals.</p>
+          <h2>{t('landing.pricing.title')}</h2>
+          <p>{t('landing.pricing.lead')}</p>
         </div>
         {loading && (
           <div className="mge-pricing-grid" aria-busy="true" aria-label="Loading plans">
@@ -585,7 +571,7 @@ function Pricing() {
         )}
         {failed && !loading && (
           <div className="mge-pricing-error" role="status">
-            <p>We couldn't load the plans just now.</p>
+            <p>{t('landing.pricing.error')}</p>
             <button type="button" className="mge-btn mge-btn-secondary" onClick={retry}>
               Try again
             </button>
@@ -680,13 +666,14 @@ function Pricing() {
 }
 
 /** Refer & Earn, told once, with the three things a visitor asks: what do I do, what do I get, when is it paid. */
-const referralSteps: Array<{ icon: LucideIcon; title: string; desc: string }> = [
-  { icon: Users, title: 'Share your code', desc: 'Every account gets a personal referral code and link, ready to share on WhatsApp.' },
-  { icon: Sparkles, title: 'Your friend joins and subscribes', desc: 'They sign up with your code and buy a plan.' },
-  { icon: Gift, title: 'You earn cash', desc: 'You get 5% of their eligible purchases as real cash.' },
+const referralSteps: Array<{ icon: LucideIcon; title: ContentKey; desc: ContentKey }> = [
+  { icon: Users, title: 'landing.referral.1.title', desc: 'landing.referral.1.desc' },
+  { icon: Sparkles, title: 'landing.referral.2.title', desc: 'landing.referral.2.desc' },
+  { icon: Gift, title: 'landing.referral.3.title', desc: 'landing.referral.3.desc' },
 ];
 
 function Referral() {
+  const t = useT();
   return (
     <section className="mge-container" id="refer-and-earn" aria-labelledby="mge-ref-title">
       <div className="mge-ref">
@@ -695,28 +682,24 @@ function Referral() {
         <div className="mge-ref-top">
           <div className="mge-ref-copy">
             <span className="mge-ref-kicker">
-              <Gift size={14} aria-hidden="true" /> Refer &amp; Earn
+              <Gift size={14} aria-hidden="true" /> {t('landing.referral.kicker')}
             </span>
             <h2 id="mge-ref-title">
-              Share MyGovExams. <span>Earn real cash.</span>
+              <Rich text={t('landing.referral.title')} />
             </h2>
-            <p>
-              Invite friends who are preparing for government exams. When they subscribe, you earn cash — paid out to your UPI or bank account.
-            </p>
+            <p>{t('landing.referral.desc')}</p>
             <div className="mge-ref-big">
-              <strong>5%</strong>
+              <strong>{t('landing.referral.rate')}</strong>
               <span>
-                cash on every eligible
-                <br />
-                purchase your friend makes
+                <Rich text={t('landing.referral.rateDesc')} />
               </span>
             </div>
             <div className="mge-ref-actions">
               <ButtonLink to={CONFIG.signupPath} className="mge-ref-cta">
-                Get your referral code <ArrowRight size={18} />
+                {t('landing.referral.cta')} <ArrowRight size={18} />
               </ButtonLink>
               <span className="mge-ref-note">
-                <CalendarDays size={15} aria-hidden="true" /> Withdraw from the 1st to the 7th of every month
+                <CalendarDays size={15} aria-hidden="true" /> {t('landing.referral.window')}
               </span>
             </div>
           </div>
@@ -756,8 +739,8 @@ function Referral() {
             <li key={st.title}>
               <span className="mge-ref-num">{i + 1}</span>
               <div>
-                <h3>{st.title}</h3>
-                <p>{st.desc}</p>
+                <h3>{t(st.title)}</h3>
+                <p>{t(st.desc)}</p>
               </div>
             </li>
           ))}
@@ -768,18 +751,20 @@ function Referral() {
 }
 
 function FinalCta() {
+  const t = useT();
+  const liveExams = useLiveExams();
   return (
     <section className="mge-container mge-cta-section">
       <div className="mge-final-cta">
         <div>
           <Rocket size={64} />
           <div>
-            <h2>Take the First Step Towards Your Goal</h2>
-            <p>Join {CONFIG.students} aspirants preparing for TNPSC Group 4 &amp; 2 and RRB NTPC CBT-1 (UG) with MyGovExams.</p>
+            <h2>{t('landing.cta.title')}</h2>
+            <p>{t('landing.cta.join', { students: t('site.stats.aspirants'), exams: joinExamNames(liveExams) })}</p>
           </div>
         </div>
         <ButtonLink to={CONFIG.signupPath}>
-          Start Free Trial <ArrowRight size={18} />
+          {t('landing.nav.cta')} <ArrowRight size={18} />
         </ButtonLink>
       </div>
     </section>
@@ -787,6 +772,7 @@ function FinalCta() {
 }
 
 export default function LandingPage() {
+  const t = useT();
   // "Pricing" in the header of the login and sign-up pages comes back here, to that section.
   const location = useLocation();
   useEffect(() => {
@@ -800,11 +786,11 @@ export default function LandingPage() {
   // The app's own title is for the portal; this page is the public face of the product.
   useEffect(() => {
     const previous = document.title;
-    document.title = 'MyGovExams | Prepare Smarter';
+    document.title = t('landing.page.title');
     return () => {
       document.title = previous;
     };
-  }, []);
+  }, [t]);
 
   return (
     <div className="mge">

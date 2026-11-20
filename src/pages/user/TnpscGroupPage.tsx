@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils';
 import { paperStructure } from '@/lib/paper-structure';
 import { examEntryPath, skipsStageList } from '@/lib/exam-listing';
+import { useT } from '@/content/useText';
 
 /**
  * /user/exams/:groupId — the stages of a group.
@@ -24,6 +25,7 @@ import { examEntryPath, skipsStageList } from '@/lib/exam-listing';
 export default function TnpscGroupPage() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
+  const t = useT();
   const { groups } = useTnpscCatalog({ forMyLanguage: true });
   const group = findGroup(groupId, groups);
 
@@ -42,7 +44,7 @@ export default function TnpscGroupPage() {
         className="group inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 mb-4 transition-colors animate-fadeIn"
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-        All examinations
+        {t('exams.group.back')}
       </button>
 
       {/* Group header */}
@@ -57,7 +59,7 @@ export default function TnpscGroupPage() {
           {structure.length > 0 && (
             <div className="mt-4">
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
-                Paper structure{group.stages.length > 1 && featured ? ` · ${featured.short_name}` : ''}
+                {t('exams.group.structure')}{group.stages.length > 1 && featured ? ` · ${featured.short_name}` : ''}
               </p>
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {structure.map(row => (
@@ -79,7 +81,7 @@ export default function TnpscGroupPage() {
       <div className={cn('grid items-start gap-5', featured && 'lg:grid-cols-5')}>
         <section className={cn('flex min-w-0 flex-col', featured && 'lg:col-span-3')}>
           <h2 className="mb-3 text-lg font-bold text-gray-900 dark:text-gray-100">
-            {group.stages.length > 1 ? 'Select a stage' : 'Examination'}
+            {group.stages.length > 1 ? t('exams.group.stages') : t('exams.group.single')}
           </h2>
           <div className={cn('grid gap-4', group.stages.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1')}>
             {group.stages.map((stage, i) => (
@@ -91,42 +93,46 @@ export default function TnpscGroupPage() {
         {/* What preparing here involves — only for an examination that can be sat today. Each row is a way in. */}
         {featured && (
           <aside className="flex min-w-0 flex-col lg:col-span-2">
-            <h2 className="mb-3 text-lg font-bold text-gray-900 dark:text-gray-100">Prepare smarter</h2>
+            <h2 className="mb-3 text-lg font-bold text-gray-900 dark:text-gray-100">{t('exams.group.prepare')}</h2>
             <div className="flex flex-col rounded-2xl border border-gray-100 bg-white p-4 animate-fadeIn dark:border-gray-800 dark:bg-gray-900 sm:p-5">
               <ul className="divide-y divide-gray-100 dark:divide-gray-800">
                 {[
                   {
                     icon: Layers,
-                    title: 'Unit-wise practice',
-                    text: 'Every unit split into categories and sub-categories.',
+                    id: 'units',
+                    title: t('exams.group.prep.units.title'),
+                    text: t('exams.group.prep.units.text'),
                     to: `/user/exams/${group.id}/${featured.id}?tab=practice`,
                     tone: 'bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300',
                   },
                   {
                     icon: Target,
-                    title: 'Simple · Medium · Complex',
-                    text: 'Choose the level that matches where you are.',
+                    id: 'levels',
+                    title: t('exams.group.prep.levels.title'),
+                    text: t('exams.group.prep.levels.text'),
                     to: `/user/exams/${group.id}/${featured.id}?tab=practice`,
                     tone: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300',
                   },
                   {
                     icon: Clock,
-                    title: 'Full-length mocks',
+                    id: 'mocks',
+                    title: t('exams.group.prep.mocks.title'),
                     text: featured.pattern?.total_questions
-                      ? `The real ${featured.pattern.total_questions}-question pattern, in one sitting.`
-                      : 'The real exam pattern, in one sitting.',
+                      ? t('exams.group.prep.mocks.text', { count: featured.pattern.total_questions })
+                      : t('exams.group.prep.mocks.textPlain'),
                     to: `/user/exams/${group.id}/${featured.id}?tab=exam`,
                     tone: 'bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300',
                   },
                   {
                     icon: BarChart3,
-                    title: 'Insights & study plan',
-                    text: 'See your strengths and weak spots, then follow a plan.',
+                    id: 'insights',
+                    title: t('exams.group.prep.insights.title'),
+                    text: t('exams.group.prep.insights.text'),
                     to: '/user/performance',
                     tone: 'bg-orange-100 text-orange-600 dark:bg-orange-950/50 dark:text-orange-300',
                   },
                 ].map(f => (
-                  <li key={f.title}>
+                  <li key={f.id}>
                     <Link
                       to={f.to}
                       className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60"
@@ -151,6 +157,7 @@ export default function TnpscGroupPage() {
 }
 
 function StageCard({ groupId, stage, index }: { groupId: string; stage: TnpscStage; index: number }) {
+  const t = useT();
   const disabled = stage.status !== 'active';
   // The syllabus units the paper covers. A language paper sat in one of two languages counts once.
   const counted = new Set<string>();
@@ -185,14 +192,14 @@ function StageCard({ groupId, stage, index }: { groupId: string; stage: TnpscSta
 
       {stage.pattern && (
         <div className="flex flex-wrap gap-2 mt-4">
-          <Chip icon={<FileText className="w-3 h-3" />} label={`${questionCountLabel(stage.pattern)} questions`} />
-          <Chip icon={<Layers className="w-3 h-3" />} label={`${stage.pattern.total_marks} marks`} />
-          <Chip icon={<Clock className="w-3 h-3" />} label={`${stage.pattern.duration_minutes / 60} hours`} />
+          <Chip icon={<FileText className="w-3 h-3" />} label={t('exams.stage.questions', { count: questionCountLabel(stage.pattern) })} />
+          <Chip icon={<Layers className="w-3 h-3" />} label={t('exams.stage.marks', { marks: stage.pattern.total_marks })} />
+          <Chip icon={<Clock className="w-3 h-3" />} label={t('exams.stage.hours', { hours: stage.pattern.duration_minutes / 60 })} />
           {unitCount > 0 ? (
             <Chip icon={<BookOpen className="w-3 h-3" />} label={`${unitCount} unit${unitCount === 1 ? '' : 's'}`} />
           ) : (
             stage.subjects.length > 0 && (
-              <Chip icon={<BookOpen className="w-3 h-3" />} label={`${stage.subjects.length} subjects`} />
+              <Chip icon={<BookOpen className="w-3 h-3" />} label={t('exams.stage.subjects', { count: stage.subjects.length })} />
             )
           )}
         </div>
@@ -200,17 +207,17 @@ function StageCard({ groupId, stage, index }: { groupId: string; stage: TnpscSta
 
       <div className="mt-4 flex items-center justify-between gap-3">
         {disabled && (
-          <span className="text-xs text-gray-500 dark:text-gray-400">Opening soon on the portal</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{t('exams.stage.soonNote')}</span>
         )}
         {disabled ? (
           <span className="inline-flex items-center gap-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-400 text-xs font-semibold px-3.5 py-2">
-            Coming soon
+            {t('exams.stage.comingSoon')}
           </span>
         ) : (
           // Same gradient pill as the header's Upgrade action, so the primary
           // control on the page reads as a button rather than a text link.
           <span className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-400 text-white text-xs font-semibold px-3.5 py-2 group-hover:from-brand-700 group-hover:to-brand-500 transition-all">
-            Enter <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            {t('exams.stage.enter')} <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
           </span>
         )}
       </div>

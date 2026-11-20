@@ -4,6 +4,7 @@ import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { questionCountLabel } from '@/config/tnpsc';
 import { BookOpen, Timer, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useT } from '@/content/useText';
 
 /**
  * "Mock Tests" and "Practice" in the sidebar are the same hierarchy as Exams,
@@ -12,6 +13,7 @@ import { cn } from '@/lib/utils';
 export default function UserTrackPage({ track }: { track: 'mock' | 'practice' }) {
   const { groups } = useTnpscCatalog({ forMyLanguage: true });
   const isMock = track === 'mock';
+  const t = useT();
 
   const stages = groups.flatMap(g =>
     g.stages.filter(s => s.status === 'active').map(s => ({ group: g, stage: s })),
@@ -27,15 +29,13 @@ export default function UserTrackPage({ track }: { track: 'mock' | 'practice' })
             : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300',
         )}>
           {isMock ? <Timer className="w-3 h-3" /> : <BookOpen className="w-3 h-3" />}
-          {isMock ? 'Mock Tests' : 'Practice Tests'}
+          {isMock ? t('exams.track.mock.badge') : t('exams.track.practice.badge')}
         </span>
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-2">
-          {isMock ? 'Full-length mock tests' : 'Syllabus-wise practice'}
+          {isMock ? t('exams.track.mock.title') : t('exams.track.practice.title')}
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          {isMock
-            ? 'Real exam pattern, in one sitting. Pick the stage you are preparing for.'
-            : 'Short sets by subject and topic. Revise anything, any time.'}
+          {isMock ? t('exams.track.mock.text') : t('exams.track.practice.text')}
         </p>
       </div>
 
@@ -52,14 +52,14 @@ export default function UserTrackPage({ track }: { track: 'mock' | 'practice' })
             <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{stage.description}</p>
             {stage.pattern && (
               <div className="flex flex-wrap gap-1.5 mt-3">
-                <Chip label={`${questionCountLabel(stage.pattern)} questions`} />
-                <Chip label={`${stage.pattern.total_marks} marks`} />
-                <Chip label={`${stage.pattern.duration_minutes / 60}h`} />
+                <Chip label={t('exams.track.questions', { count: questionCountLabel(stage.pattern) })} />
+                <Chip label={t('exams.track.marks', { marks: stage.pattern.total_marks })} />
+                <Chip label={t('exams.track.hours', { hours: stage.pattern.duration_minutes / 60 })} />
               </div>
             )}
             <div className="flex items-center justify-end mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
               <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400">
-                Open <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                {t('exams.track.open')} <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </span>
             </div>
           </Link>

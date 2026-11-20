@@ -59,6 +59,9 @@ export interface ApiAttempt {
   course_id: string | null;
   /** An attempt at a promotional test: free, never counted against the plan — BACKEND_PROMOTIONAL.md. */
   is_promotional?: boolean;
+  /** The paper's own pass mark and aim, in percent, when its admin set them — BACKEND_PASS_MARKS.md. Beats the exam's and the product's. */
+  pass_percentage?: number | null;
+  target_percentage?: number | null;
 }
 
 export interface ApiNotification {
@@ -986,6 +989,9 @@ export interface AssessmentDetailResponse {
   is_promotional?: boolean;
   starts_at?: string | null;
   ends_at?: string | null;
+  /** This assessment's own pass mark and aim, in percent, when its admin set them — BACKEND_PASS_MARKS.md. */
+  pass_percentage?: number | null;
+  target_percentage?: number | null;
 }
 
 export function getEvalAssessmentDetail(assessmentId: string): Promise<AssessmentDetailResponse> {

@@ -3,6 +3,8 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { Download, Loader2, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 import { UserShell } from '@/components/user/UserShell';
+import { useT } from '@/content/useText';
+import type { ContentKey } from '@/content/registry';
 import { cn } from '@/lib/utils';
 import {
   describeValidity,
@@ -14,10 +16,10 @@ import {
 
 type Filter = 'all' | 'plan' | 'topup';
 
-const FILTERS: Array<{ key: Filter; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'plan', label: 'Plans' },
-  { key: 'topup', label: 'Top-ups' },
+const FILTERS: Array<{ key: Filter; label: ContentKey }> = [
+  { key: 'all', label: 'account.payments.filter_all' },
+  { key: 'plan', label: 'account.payments.filter_plans' },
+  { key: 'topup', label: 'account.payments.filter_topups' },
 ];
 
 const rupees = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
@@ -31,6 +33,7 @@ const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
 };
 
 export default function PaymentHistoryPage() {
+  const t = useT();
   const [filter, setFilter] = useState<Filter>('all');
 
   const q = useInfiniteQuery({
@@ -46,9 +49,9 @@ export default function PaymentHistoryPage() {
     <UserShell>
       <div className="mb-5">
         <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
-          <Receipt className="w-6 h-6 text-blue-600" /> Purchase History
+          <Receipt className="w-6 h-6 text-blue-600" /> {t('account.payments.title')}
         </h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Every plan and top-up you have paid for, newest first.</p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('account.payments.subtitle')}</p>
       </div>
 
       <div className="mb-4 inline-flex gap-1 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/40 p-1">
@@ -62,7 +65,7 @@ export default function PaymentHistoryPage() {
               filter === f.key ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400',
             )}
           >
-            {f.label}
+            {t(f.label)}
           </button>
         ))}
       </div>
@@ -77,7 +80,7 @@ export default function PaymentHistoryPage() {
         </p>
       ) : items.length === 0 ? (
         <p className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-500">
-          No purchases yet
+          {t('account.payments.empty')}
         </p>
       ) : (
         <>
@@ -105,6 +108,7 @@ export default function PaymentHistoryPage() {
 }
 
 function PurchaseRow({ p }: { p: Purchase }) {
+  const t = useT();
   const [downloading, setDownloading] = useState(false);
   const v = describeValidity(p);
   const status = v.status ? STATUS_STYLE[v.status] : null;
@@ -149,18 +153,18 @@ function PurchaseRow({ p }: { p: Purchase }) {
         <div className="text-right">
           <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{rupees(p.amount_paid)}</p>
           {discounted && <p className="text-xs text-gray-400 line-through">{rupees(p.base_amount)}</p>}
-          {gst > 0 && <p className="text-xs text-gray-500 dark:text-gray-400">incl. GST {rupees(gst)}</p>}
+          {gst > 0 && <p className="text-xs text-gray-500 dark:text-gray-400">{t('account.payments.incl_gst', { amount: rupees(gst) })}</p>}
         </div>
       </div>
 
       <dl className="mt-3 grid gap-x-6 gap-y-2 border-t border-gray-100 dark:border-gray-800 pt-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
-        <Field label="Invoice ID" value={p.invoice_no ?? '—'} mono />
-        <Field label="Payment ID" value={p.payment_id ?? '—'} mono />
-        <Field label="Paid with" value={p.payment_method ? cap(p.payment_method) : '—'} />
-        {p.promo_code && <Field label="Promo code" value={p.promo_code} mono />}
-        {gst > 0 && <Field label="GST" value={rupees(gst)} />}
+        <Field label={t('account.payments.invoice_id')} value={p.invoice_no ?? '—'} mono />
+        <Field label={t('account.payments.payment_id')} value={p.payment_id ?? '—'} mono />
+        <Field label={t('account.payments.paid_with')} value={p.payment_method ? cap(p.payment_method) : '—'} />
+        {p.promo_code && <Field label={t('account.payments.promo_code')} value={p.promo_code} mono />}
+        {gst > 0 && <Field label={t('account.payments.gst')} value={rupees(gst)} />}
         <div className="sm:col-span-2 lg:col-span-4">
-          <dt className="text-gray-400">Validity</dt>
+          <dt className="text-gray-400">{t('account.payments.validity')}</dt>
           <dd className="mt-0.5 flex flex-wrap items-center gap-2 font-semibold text-gray-800 dark:text-gray-100">
             <span>{v.line}</span>
             {status && (
@@ -180,7 +184,7 @@ function PurchaseRow({ p }: { p: Purchase }) {
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
           >
             {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-            {downloading ? 'Downloading…' : 'Download invoice'}
+            {downloading ? t('account.payments.downloading') : t('account.payments.download')}
           </button>
         </div>
       )}

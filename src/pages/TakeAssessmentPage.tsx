@@ -7,6 +7,8 @@ import { MathText } from '@/components/ui/MathText';
 import { MarkdownText } from '@/components/ui/MarkdownText';
 import { SAMPLE_TESTS, SAMPLE_COURSES } from '@/data/userPortalSampleData';
 import { generateDemoQuestions } from '@/data/sampleQuestions';
+import { useT } from '@/content/useText';
+import { Strong } from '@/content/strong';
 
 const API_BASE = `${BASE_URL}/api/v1/evaluation`;
 
@@ -205,6 +207,7 @@ function DetailSelect({
 }: {
   label: string; value: string; onChange: (v: string) => void; error?: string; options: string[];
 }) {
+  const t = useT();
   return (
     <div>
       <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
@@ -215,7 +218,7 @@ function DetailSelect({
           value ? 'text-gray-900' : 'text-gray-400'
         } ${error ? 'border-red-300 focus:ring-red-100 focus:border-red-400' : 'border-gray-200 focus:ring-blue-100 focus:border-blue-400'}`}
       >
-        <option value="" disabled>Select…</option>
+        <option value="" disabled>{t('assessment.invite.details.select')}</option>
         {options.map(o => <option key={o} value={o} className="text-gray-900">{o}</option>)}
       </select>
       {error && <p className="text-[11px] text-red-600 mt-0.5">{error}</p>}
@@ -237,6 +240,7 @@ function Modal({ open, children }: { open: boolean; children: React.ReactNode })
 
 // ── Circular Timer ──
 function CircularTimer({ timeLeft, totalTime }: { timeLeft: number; totalTime: number }) {
+  const t = useT();
   const radius = 36;
   const circumference = 2 * Math.PI * radius;
   const progress = totalTime > 0 ? timeLeft / totalTime : 1;
@@ -273,7 +277,7 @@ function CircularTimer({ timeLeft, totalTime }: { timeLeft: number; totalTime: n
           {minutes}:{seconds.toString().padStart(2, '0')}
         </span>
         {(isCritical || isUrgent) && (
-          <p className="text-[9px] text-red-500 font-semibold">HURRY!</p>
+          <p className="text-[9px] text-red-500 font-semibold">{t('assessment.invite.timer.hurry')}</p>
         )}
       </div>
     </div>
@@ -282,6 +286,7 @@ function CircularTimer({ timeLeft, totalTime }: { timeLeft: number; totalTime: n
 
 export default function TakeAssessmentPage() {
   const [searchParams] = useSearchParams();
+  const t = useT();
   const token = searchParams.get('token') || '';
   const isPopup = searchParams.get('popup') === '1';
 
@@ -899,11 +904,11 @@ export default function TakeAssessmentPage() {
 
   // Status colors and labels
   const STATUS_CONFIG: Record<QuestionStatus, { bg: string; border: string; text: string; label: string }> = {
-    not_visited: { bg: 'bg-slate-100', border: 'border-slate-300', text: 'text-slate-500', label: 'Not Visited' },
-    not_answered: { bg: 'bg-rose-50', border: 'border-rose-300', text: 'text-rose-600', label: 'Not Answered' },
-    answered: { bg: 'bg-emerald-500', border: 'border-emerald-600', text: 'text-white', label: 'Answered' },
-    marked_review: { bg: 'bg-amber-400', border: 'border-amber-500', text: 'text-white', label: 'Marked for Review' },
-    answered_marked: { bg: 'bg-brand-500', border: 'border-brand-600', text: 'text-white', label: 'Answered & Marked' },
+    not_visited: { bg: 'bg-slate-100', border: 'border-slate-300', text: 'text-slate-500', label: t('assessment.invite.legend.not_visited') },
+    not_answered: { bg: 'bg-rose-50', border: 'border-rose-300', text: 'text-rose-600', label: t('assessment.invite.legend.not_answered') },
+    answered: { bg: 'bg-emerald-500', border: 'border-emerald-600', text: 'text-white', label: t('assessment.invite.legend.answered') },
+    marked_review: { bg: 'bg-amber-400', border: 'border-amber-500', text: 'text-white', label: t('assessment.invite.legend.marked') },
+    answered_marked: { bg: 'bg-brand-500', border: 'border-brand-600', text: 'text-white', label: t('assessment.invite.legend.answered_marked') },
   };
 
   const getStatusCounts = () => {
@@ -937,7 +942,7 @@ export default function TakeAssessmentPage() {
               </span>
               {q.negative_marks > 0 && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-red-50 text-red-600 text-xs font-medium">
-                  -{q.negative_marks} negative
+                  {t('assessment.invite.tag.negative', { marks: q.negative_marks })}
                 </span>
               )}
               {q.subject && (
@@ -945,7 +950,7 @@ export default function TakeAssessmentPage() {
               )}
               {isReview && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-xs font-medium">
-                  Marked for Review
+                  {t('assessment.invite.tag.review')}
                 </span>
               )}
             </div>
@@ -967,7 +972,7 @@ export default function TakeAssessmentPage() {
                   img.requestFullscreen?.();
                 }
               }}
-              title="Click to view full screen"
+              title={t('assessment.invite.attachment.tooltip')}
             />
             {q.attachment_name && (
               <p className="text-xs text-gray-400 mt-1">{q.attachment_name}</p>
@@ -1019,7 +1024,7 @@ export default function TakeAssessmentPage() {
               type="text"
               value={answer}
               onChange={e => setAnswer(q.id, e.target.value)}
-              placeholder="Type your answer here..."
+              placeholder={t('assessment.invite.placeholder.short')}
               className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all text-sm"
             />
           </div>
@@ -1031,7 +1036,7 @@ export default function TakeAssessmentPage() {
             <textarea
               value={answer}
               onChange={e => setAnswer(q.id, e.target.value)}
-              placeholder="Type your detailed answer here..."
+              placeholder={t('assessment.invite.placeholder.long')}
               rows={6}
               className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-y transition-all text-sm"
             />
@@ -1056,7 +1061,7 @@ export default function TakeAssessmentPage() {
                     parts[idx] = e.target.value;
                     setAnswer(q.id, parts.join(','));
                   }}
-                  placeholder={`Match for ${pair.left || pair.a}`}
+                  placeholder={t('assessment.invite.placeholder.match', { item: String(pair.left || pair.a) })}
                   className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all"
                 />
               </div>
@@ -1071,7 +1076,7 @@ export default function TakeAssessmentPage() {
               onClick={() => clearResponse(q.id)}
               className="px-4 py-2 rounded-lg border-2 border-red-300 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
             >
-              Clear Response
+              {t('assessment.invite.action.clear')}
             </button>
           )}
           <button
@@ -1082,7 +1087,7 @@ export default function TakeAssessmentPage() {
                 : 'border-amber-300 text-amber-600 bg-amber-50 hover:bg-amber-100'
             }`}
           >
-            {isReview ? 'Unmark Review & Next' : 'Mark for Review & Next'}
+            {isReview ? t('assessment.invite.action.unmark_next') : t('assessment.invite.action.mark_next')}
           </button>
         </div>
       </div>
@@ -1098,7 +1103,7 @@ export default function TakeAssessmentPage() {
             <div className="absolute inset-0 rounded-full border-4 border-blue-100" />
             <div className="absolute inset-0 rounded-full border-4 border-brand-500 border-t-transparent animate-spin" />
           </div>
-          <p className="text-gray-600 font-medium">Loading assessment...</p>
+          <p className="text-gray-600 font-medium">{t('assessment.invite.loading')}</p>
         </div>
       </div>
     );
@@ -1112,7 +1117,7 @@ export default function TakeAssessmentPage() {
           <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-5">
             <XIcon />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Unable to Load Assessment</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">{t('assessment.invite.error.heading')}</h2>
           <p className="text-gray-500">{errorMsg}</p>
         </div>
       </div>
@@ -1143,32 +1148,32 @@ export default function TakeAssessmentPage() {
                 ? 'bg-red-50 text-red-600'
                 : 'bg-emerald-50 text-emerald-600'
             }`}>
-              {info.mode} Mode
+              {t('assessment.invite.landing.mode', { mode: info.mode })}
             </span>
           </div>
 
           <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-3">
             {info.question_count != null && (
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Total Questions</span>
+                <span className="text-gray-500">{t('assessment.invite.landing.questions')}</span>
                 <span className="font-semibold text-gray-900">{info.question_count}</span>
               </div>
             )}
             {info.time_limit != null && (
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Time Limit</span>
-                <span className="font-semibold text-gray-900">{Math.round(info.time_limit / 60)} minutes</span>
+                <span className="text-gray-500">{t('assessment.invite.landing.time')}</span>
+                <span className="font-semibold text-gray-900">{t('assessment.invite.landing.minutes', { minutes: Math.round(info.time_limit / 60) })}</span>
               </div>
             )}
             {info.negative_marking && (
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Negative Marking</span>
-                <span className="font-semibold text-red-600">Yes</span>
+                <span className="text-gray-500">{t('assessment.invite.landing.negative')}</span>
+                <span className="font-semibold text-red-600">{t('assessment.invite.landing.negative_yes')}</span>
               </div>
             )}
             {info.due_date && (
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Due Date</span>
+                <span className="text-gray-500">{t('assessment.invite.landing.due')}</span>
                 <span className="font-semibold text-gray-900">{formatDueDate(info.due_date)}</span>
               </div>
             )}
@@ -1178,8 +1183,7 @@ export default function TakeAssessmentPage() {
             <div className="flex gap-2 items-start">
               <WarningIcon />
               <div className="text-xs text-amber-800 leading-relaxed">
-                <strong>Important:</strong> Do not switch tabs or leave this page during the assessment.
-                You will receive warnings for tab switching. After {MAX_TAB_SWITCHES} violations, your assessment will be auto-submitted.
+                <Strong text={t('assessment.invite.landing.warning', { max: MAX_TAB_SWITCHES })} />
               </div>
             </div>
           </div>
@@ -1187,7 +1191,7 @@ export default function TakeAssessmentPage() {
           {!info.can_attempt ? (
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 text-center">
               <p className="text-gray-600 font-medium">
-                {info.mode === 'exam' ? 'You have already taken this exam.' : 'Maximum attempts reached.'}
+                {info.mode === 'exam' ? t('assessment.invite.landing.taken_exam') : t('assessment.invite.landing.taken_practice')}
               </p>
             </div>
           ) : isPopup || isDemoToken(token) ? (
@@ -1196,35 +1200,35 @@ export default function TakeAssessmentPage() {
                 onClick={handleStart}
                 className="w-full bg-gradient-to-r from-brand-600 to-brand-400 text-white py-3.5 rounded-xl font-semibold hover:from-brand-700 hover:to-brand-500 transition-all shadow-lg shadow-blue-200 active:scale-[0.98]"
               >
-                Start Assessment
+                {t('assessment.invite.landing.start')}
               </button>
               <p className="text-xs text-gray-400 text-center mt-5">
-                Taking as: <span className="font-medium">{info.email}</span>
+                {t('assessment.invite.landing.taking_as')} <span className="font-medium">{info.email}</span>
               </p>
             </>
           ) : (
             <form onSubmit={handleSubmitDetails} className="space-y-3 text-left">
-              <p className="text-sm font-semibold text-gray-800">Confirm your details to begin</p>
-              <DetailInput label="Email" value={info.email} readOnly />
+              <p className="text-sm font-semibold text-gray-800">{t('assessment.invite.details.heading')}</p>
+              <DetailInput label={t('assessment.invite.details.email')} value={info.email} readOnly />
               <DetailInput
-                label="Full Name"
+                label={t('assessment.invite.details.name')}
                 value={details.full_name}
                 onChange={v => setDetail('full_name', v)}
                 error={detailsErr.full_name}
-                placeholder="Your full name"
+                placeholder={t('assessment.invite.details.name_placeholder')}
               />
               <div className="grid grid-cols-2 gap-3">
-                <DetailInput label="Date of Birth" type="date" value={details.date_of_birth} onChange={v => setDetail('date_of_birth', v)} error={detailsErr.date_of_birth} />
-                <DetailSelect label="Gender" value={details.gender} onChange={v => setDetail('gender', v)} error={detailsErr.gender} options={GENDER_OPTIONS} />
-                <DetailInput label="Roll / Registration No." value={details.roll_no} onChange={v => setDetail('roll_no', v)} error={detailsErr.roll_no} placeholder="Optional" />
-                <DetailSelect label="Medium" value={details.medium} onChange={v => setDetail('medium', v)} error={detailsErr.medium} options={MEDIUM_OPTIONS} />
+                <DetailInput label={t('assessment.invite.details.dob')} type="date" value={details.date_of_birth} onChange={v => setDetail('date_of_birth', v)} error={detailsErr.date_of_birth} />
+                <DetailSelect label={t('assessment.invite.details.gender')} value={details.gender} onChange={v => setDetail('gender', v)} error={detailsErr.gender} options={GENDER_OPTIONS} />
+                <DetailInput label={t('assessment.invite.details.roll')} value={details.roll_no} onChange={v => setDetail('roll_no', v)} error={detailsErr.roll_no} placeholder={t('assessment.invite.details.optional')} />
+                <DetailSelect label={t('assessment.invite.details.medium')} value={details.medium} onChange={v => setDetail('medium', v)} error={detailsErr.medium} options={MEDIUM_OPTIONS} />
               </div>
               <button
                 type="submit"
                 disabled={savingDetails}
                 className="w-full bg-gradient-to-r from-brand-600 to-brand-400 text-white py-3.5 rounded-xl font-semibold hover:from-brand-700 hover:to-brand-500 transition-all shadow-lg shadow-blue-200 active:scale-[0.98] disabled:opacity-60"
               >
-                {savingDetails ? 'Saving…' : 'Submit & Start Assessment'}
+                {savingDetails ? t('assessment.invite.details.saving') : t('assessment.invite.details.submit')}
               </button>
             </form>
           )}
@@ -1260,7 +1264,7 @@ export default function TakeAssessmentPage() {
                 )}
                 <h2 className="font-bold text-gray-900 text-sm truncate">{info?.assessment_title}</h2>
                 <p className="text-xs text-gray-500">
-                  Q {currentQ + 1} of {questions.length}
+                  {t('assessment.invite.header.progress', { current: currentQ + 1, total: questions.length })}
                 </p>
               </div>
             </div>
@@ -1270,7 +1274,7 @@ export default function TakeAssessmentPage() {
               )}
               {tabSwitchCount > 0 && (
                 <span className="hidden sm:inline-flex items-center px-2 py-1 rounded-lg bg-red-50 text-red-600 text-xs font-medium">
-                  Violations: {tabSwitchCount}/{MAX_TAB_SWITCHES}
+                  {t('assessment.invite.header.violations', { count: tabSwitchCount, max: MAX_TAB_SWITCHES })}
                 </span>
               )}
               <button
@@ -1283,7 +1287,7 @@ export default function TakeAssessmentPage() {
               <button
                 onClick={() => setShowCloseConfirm(true)}
                 className="hidden sm:block p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-                title="End & Close"
+                title={t('assessment.invite.header.end_tooltip')}
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -1300,7 +1304,7 @@ export default function TakeAssessmentPage() {
               <div className={hasPassage ? 'grid lg:grid-cols-2 gap-4 sm:gap-5 items-start' : ''}>
                 {hasPassage && (
                   <div className="bg-white rounded-2xl border shadow-sm p-4 sm:p-6 lg:p-7 lg:sticky lg:top-2 lg:max-h-[calc(100vh-150px)] overflow-y-auto order-first">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 mb-2">Passage</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 mb-2">{t('assessment.invite.passage.heading')}</p>
                     {q.passage && <MarkdownText text={q.passage} />}
                     {q.passage_image_url && (
                       <img
@@ -1333,7 +1337,7 @@ export default function TakeAssessmentPage() {
                   disabled={currentQ >= questions.length - 1}
                   className="flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-brand-600 text-white text-xs sm:text-sm font-medium hover:bg-brand-700 disabled:opacity-30 transition-all shadow-sm active:scale-[0.98]"
                 >
-                  Save & Next
+                  {t('assessment.invite.action.save_next')}
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -1364,7 +1368,7 @@ export default function TakeAssessmentPage() {
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-gray-900 truncate">{name || info?.email}</p>
                   {tabSwitchCount > 0 && (
-                    <p className="text-[10px] text-red-500 font-medium">Violations: {tabSwitchCount}/{MAX_TAB_SWITCHES}</p>
+                    <p className="text-[10px] text-red-500 font-medium">{t('assessment.invite.header.violations', { count: tabSwitchCount, max: MAX_TAB_SWITCHES })}</p>
                   )}
                 </div>
               </div>
@@ -1373,15 +1377,15 @@ export default function TakeAssessmentPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                 <div className="text-center py-2 bg-emerald-50 rounded-xl border border-emerald-200">
                   <p className="text-xl font-bold text-emerald-700">{counts.answered + counts.answered_marked}</p>
-                  <p className="text-[10px] font-medium text-emerald-600">Answered</p>
+                  <p className="text-[10px] font-medium text-emerald-600">{t('assessment.invite.stat.answered')}</p>
                 </div>
                 <div className="text-center py-2 bg-slate-50 rounded-xl border border-slate-200">
                   <p className="text-xl font-bold text-slate-700">{counts.not_answered + counts.not_visited}</p>
-                  <p className="text-[10px] font-medium text-slate-500">Remaining</p>
+                  <p className="text-[10px] font-medium text-slate-500">{t('assessment.invite.stat.remaining')}</p>
                 </div>
                 <div className="text-center py-2 bg-amber-50 rounded-xl border border-amber-200">
                   <p className="text-xl font-bold text-amber-700">{counts.marked_review + counts.answered_marked}</p>
-                  <p className="text-[10px] font-medium text-amber-600">Review</p>
+                  <p className="text-[10px] font-medium text-amber-600">{t('assessment.invite.stat.review')}</p>
                 </div>
               </div>
 
@@ -1399,7 +1403,7 @@ export default function TakeAssessmentPage() {
 
               {/* Question grid */}
               <div>
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Questions</p>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">{t('assessment.invite.grid.heading')}</p>
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
                   {questions.map((qItem, i) => {
                     const st = questionStatuses[qItem.id] || 'not_visited';
@@ -1427,22 +1431,22 @@ export default function TakeAssessmentPage() {
 
         {/* Submit confirmation modal */}
         <Modal open={showSubmitModal}>
-          <h3 className="text-lg font-bold text-gray-900 mb-2">Submit Assessment?</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-2">{t('assessment.invite.submit.heading')}</h3>
           <div className="space-y-2 mb-5">
             <div className="flex justify-between text-sm py-1.5 border-b">
-              <span className="text-gray-500">Total Questions</span>
+              <span className="text-gray-500">{t('assessment.invite.submit.total')}</span>
               <span className="font-semibold">{questions.length}</span>
             </div>
             <div className="flex justify-between text-sm py-1.5 border-b">
-              <span className="text-green-600">Answered</span>
+              <span className="text-green-600">{t('assessment.invite.submit.answered')}</span>
               <span className="font-semibold text-green-700">{counts.answered + counts.answered_marked}</span>
             </div>
             <div className="flex justify-between text-sm py-1.5 border-b">
-              <span className="text-red-500">Not Answered</span>
+              <span className="text-red-500">{t('assessment.invite.submit.not_answered')}</span>
               <span className="font-semibold text-red-600">{counts.not_answered + counts.not_visited}</span>
             </div>
             <div className="flex justify-between text-sm py-1.5">
-              <span className="text-amber-500">Marked for Review</span>
+              <span className="text-amber-500">{t('assessment.invite.submit.marked')}</span>
               <span className="font-semibold text-amber-600">{counts.marked_review + counts.answered_marked}</span>
             </div>
           </div>
@@ -1450,8 +1454,7 @@ export default function TakeAssessmentPage() {
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex gap-2 items-start">
               <WarningIcon />
               <p className="text-xs text-amber-800">
-                You have <strong>{counts.not_answered + counts.not_visited}</strong> unanswered question(s).
-                Are you sure you want to submit?
+                <Strong text={t('assessment.invite.submit.unanswered', { count: counts.not_answered + counts.not_visited })} />
               </p>
             </div>
           )}
@@ -1466,7 +1469,7 @@ export default function TakeAssessmentPage() {
               onClick={confirmSubmit}
               className="flex-1 px-4 py-2.5 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-all shadow-sm"
             >
-              Confirm Submit
+              {t('assessment.invite.submit.confirm')}
             </button>
           </div>
         </Modal>
@@ -1477,18 +1480,18 @@ export default function TakeAssessmentPage() {
             <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <WarningIcon />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Tab Switch Detected!</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">{t('assessment.invite.tab.heading')}</h3>
             <p className="text-sm text-gray-600 mb-2">
-              You switched away from the assessment window. This has been recorded.
+              {t('assessment.invite.tab.body')}
             </p>
             <p className="text-sm font-semibold text-red-600 mb-5">
-              Warning {tabSwitchCount} of {MAX_TAB_SWITCHES}. Your assessment will be auto-submitted after {MAX_TAB_SWITCHES} violations.
+              {t('assessment.invite.tab.warning', { count: tabSwitchCount, max: MAX_TAB_SWITCHES })}
             </p>
             <button
               onClick={() => setShowTabWarning(false)}
               className="w-full px-4 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-all"
             >
-              I Understand, Continue Exam
+              {t('assessment.invite.tab.continue')}
             </button>
           </div>
         </Modal>
@@ -1501,19 +1504,19 @@ export default function TakeAssessmentPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">End Assessment & Close?</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">{t('assessment.invite.close.heading')}</h3>
             <p className="text-sm text-gray-600 mb-1">
-              Are you sure you want to end your assessment?
+              {t('assessment.invite.close.question')}
             </p>
             <p className="text-sm text-gray-500 mb-5">
-              Your current answers ({Object.keys(responses).length} of {questions.length} answered) will be submitted automatically and this window will close.
+              {t('assessment.invite.close.body', { answered: Object.keys(responses).length, total: questions.length })}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowCloseConfirm(false)}
                 className="flex-1 px-4 py-2.5 rounded-xl border-2 border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all"
               >
-                Continue Assessment
+                {t('assessment.invite.close.continue')}
               </button>
               <button
                 onClick={() => {
@@ -1523,7 +1526,7 @@ export default function TakeAssessmentPage() {
                 }}
                 className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-all shadow-sm"
               >
-                End & Submit
+                {t('assessment.invite.close.confirm')}
               </button>
             </div>
           </div>
@@ -1544,13 +1547,13 @@ export default function TakeAssessmentPage() {
           <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-5">
             <CheckIcon />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Submitted Successfully!</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('assessment.invite.done.heading')}</h2>
           <p className="text-gray-500 mb-6">
-            Your response has been recorded. Your teacher will review your answers.
+            {t('assessment.invite.done.body')}
           </p>
           <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
             <p className="text-sm text-green-700 font-medium">
-              Thank you for completing the assessment.
+              {t('assessment.invite.done.thanks')}
             </p>
           </div>
           {canRetake && (
@@ -1558,10 +1561,10 @@ export default function TakeAssessmentPage() {
               onClick={handleRetake}
               className="w-full bg-gradient-to-r from-brand-600 to-brand-400 text-white px-6 py-3 rounded-xl font-semibold hover:from-brand-700 hover:to-brand-500 transition-all shadow-lg shadow-blue-200 active:scale-[0.98]"
             >
-              Retake Assessment
+              {t('assessment.invite.done.retake')}
             </button>
           )}
-          <p className="text-xs text-gray-400 mt-5">You may now safely close this window.</p>
+          <p className="text-xs text-gray-400 mt-5">{t('assessment.invite.done.close')}</p>
         </div>
       </div>
     );

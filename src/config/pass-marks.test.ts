@@ -12,6 +12,9 @@ import {
   performanceOf,
   resetPassMarks,
   standingOf,
+  applyPassMarkSettings,
+  parsePassMarkSettings,
+  paperScopeFromTitle,
 } from './pass-marks';
 
 describe('pass marks', () => {
@@ -119,5 +122,69 @@ describe('performanceOf', () => {
     expect(performanceOf(89.9, mark)).toBe('strong');
     expect(performanceOf(90, mark)).toBe('excellent');
     expect(performanceOf(null, mark)).toBeNull();
+  });
+});
+
+describe('pass marks by exam and by assessment', () => {
+  afterEach(() => resetPassMarks());
+
+  const GRAD = 'RRB NTPC CBT-1 (Graduate · English)';
+  const settings = () =>
+    parsePassMarkSettings({
+      exams: {
+        'rrb-ntpc-cbt-1-grad': {
+          simple: { pass: 60, target: 75 },
+          medium: 60,
+          complex: 60,
+          mixed: 60,
+          keytopic: { pass: 75, target: 85 },
+          mock: { pass: 70, target: 80 },
+        },
+      },
+    });
+
+  it('reads each exam’s own table, naming only what it overrides', () => {
+    const s = settings();
+    expect(s.global).toBeNull();
+    expect(s.exams['rrb-ntpc-cbt-1-grad'].mock).toEqual({ pass: 70, target: 80 });
+    expect(s.exams['rrb-ntpc-cbt-1-grad'].section).toBeUndefined();
+  });
+
+  it('an exam’s setting beats the product-wide one; the exam is read off the title', () => {
+    applyPassMarkSettings(settings());
+    // RRB NTPC Graduate: unit papers 60, key topics 75, mock 70
+    expect(passMarkFor({ kind: 'practice', level: 'simple', title: `${GRAD} — Percentage · Simple` }).pass).toBe(60);
+    expect(passMarkFor({ kind: 'practice', level: 'mixed', title: `${GRAD} — Percentage · Mixed` }).pass).toBe(60);
+    expect(passMarkFor({ kind: 'practice', level: 'mixed', title: `${GRAD} — Percentage: Profit and Loss · Mixed` })).toEqual({ pass: 75, target: 85 });
+    expect(passMarkFor({ kind: 'mock', title: `${GRAD} — Full Mock` })).toEqual({ pass: 70, target: 80 });
+    expect(mockPassPercentage('rrb-ntpc-cbt-1-grad')).toBe(70);
+  });
+
+  it('an exam that sets nothing, or a kind it does not name, follows the product-wide table', () => {
+    applyPassMarkSettings(settings());
+    // Under-Graduate CBT-1 is another exam: untouched
+    expect(passMarkFor({ kind: 'practice', level: 'simple', title: 'RRB NTPC CBT-1 (Under-Graduate · English) — Percentage · Simple' }).pass).toBe(70);
+    // the Graduate exam names no section Full Set
+    expect(passMarkFor({ kind: 'practice', title: `${GRAD} — General Awareness · Full Set` })).toEqual({ pass: 60, target: 75 });
+    expect(mockPassPercentage()).toBe(60);
+    expect(mockPassPercentage('group-4')).toBe(60);
+  });
+
+  it('an assessment’s own pass mark beats everything; its aim defaults from the setting, lifted to the pass mark', () => {
+    applyPassMarkSettings(settings());
+    const title = `${GRAD} — Percentage · Simple`;
+    expect(passMarkFor({ kind: 'practice', level: 'simple', title, override: { pass: 80, target: 95 } })).toEqual({ pass: 80, target: 95 });
+    expect(passMarkFor({ kind: 'practice', level: 'simple', title, override: { pass: 80 } })).toEqual({ pass: 80, target: 80 });
+    expect(passMarkFor({ kind: 'practice', level: 'simple', title, override: { pass: 50 } })).toEqual({ pass: 50, target: 75 });
+    // a value that is not a sensible percentage is ignored
+    expect(passMarkFor({ kind: 'practice', level: 'simple', title, override: { pass: 150 } }).pass).toBe(60);
+    expect(passMarkFor({ kind: 'practice', level: 'simple', title, override: { pass: null } }).pass).toBe(60);
+  });
+
+  it('tells a section’s Full Set and a key topic from a unit paper by the title', () => {
+    expect(paperScopeFromTitle('RRB NTPC CBT-1 (Graduate · English) — General Awareness · Full Set')).toBe('section');
+    expect(paperScopeFromTitle('TNPSC Group 4 — Indian Polity: Fundamental Rights · Mixed')).toBe('keytopic');
+    expect(paperScopeFromTitle('TNPSC Group 4 — Indian Polity · Simple')).toBe('unit');
+    expect(paperScopeFromTitle('A paper')).toBeNull();
   });
 });

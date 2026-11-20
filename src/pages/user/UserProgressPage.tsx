@@ -15,8 +15,10 @@ import { NoCopy } from '@/components/user/NoCopy';
 import { resolveExamContext } from '@/lib/exam-report-config';
 import { useTnpscCatalog } from '@/hooks/use-tnpsc';
 import { resolveGroupKey } from '@/hooks/use-progress-trend';
+import { useT } from '@/content/useText';
 
 export default function UserProgressPage() {
+  const t = useT();
   const { user, history, isLoading } = useUserPortal();
   const { groups } = useTnpscCatalog();
 
@@ -68,18 +70,18 @@ export default function UserProgressPage() {
     return (
       <UserShell>
         <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center">
-          <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">Progress Report</h1>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('reports.progress.empty.title')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 max-w-md mx-auto leading-relaxed">
-            This report compares your attempts within one exam over time.{' '}
+            {t('reports.progress.empty.intro')}{' '}
             {excluded > 0
               ? `You have ${excluded} attempt${excluded === 1 ? '' : 's'} recorded, but none in ${exam?.examName ?? 'this exam'} — sit one and the comparison starts.`
-              : 'Submit a test and it starts filling in — a second attempt is what makes the comparison meaningful.'}
+              : t('reports.progress.empty.none')}
           </p>
           <Link
             to="/user/exams"
             className="inline-flex items-center gap-1.5 mt-4 rounded-xl bg-gradient-to-r from-brand-600 to-brand-400 text-white text-xs font-semibold px-3.5 py-2 hover:from-brand-700 hover:to-brand-500 transition-all"
           >
-            Choose an exam
+            {t('reports.progress.empty.cta')}
           </Link>
         </div>
       </UserShell>
@@ -91,7 +93,7 @@ export default function UserProgressPage() {
       {buildingReport && (
         <div className="mb-3 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
           <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
-          Reading {loaded} of {total} attempts…
+          {t('reports.progress.loading', { loaded, total })}
         </div>
       )}
       {model ? (
@@ -106,7 +108,7 @@ export default function UserProgressPage() {
       {(inScope > PROGRESS_WINDOW || excluded > 0) && (
         <p className="text-[11px] text-center text-gray-400 dark:text-gray-500 mt-3">
           {inScope > PROGRESS_WINDOW && (
-            <>Showing your {PROGRESS_WINDOW} most recent {exam?.examName ?? 'exam'} attempts of {inScope}. </>
+            <>{t('reports.progress.window', { window: PROGRESS_WINDOW, exam: exam?.examName ?? 'exam', total: inScope })} </>
           )}
           {excluded > 0 && (
             <>

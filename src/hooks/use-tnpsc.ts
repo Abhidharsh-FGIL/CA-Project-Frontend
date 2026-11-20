@@ -14,6 +14,8 @@ import {
 } from '@/lib/tnpscApi';
 import { ntpcFixedLevel, papersForNtpc, type NtpcPrefs } from '@/lib/ntpc-level';
 import { TNPSC_GROUPS, type TnpscGroup } from '@/config/tnpsc';
+import { levelFromTitle, passMarkFor } from '@/config/pass-marks';
+import { usePassMarks } from '@/hooks/use-pass-marks';
 import {
   catalogForLanguage,
   examLanguageOf,
@@ -85,6 +87,7 @@ function useAttemptSummaries(): AttemptSummary[] {
 export function useTnpscMockTests(groupId?: string, stageId?: string, language?: ExamLanguage | null, ntpc?: NtpcPrefs | null) {
   const attempts = useAttemptSummaries();
   const ntpcPrefs = useNtpcFilter(groupId, ntpc);
+  const passTable = usePassMarks(); // the exam's mock mark, once the server's settings arrive
 
   const query = useQuery<TnpscMockOverview>({
     queryKey: ['tnpsc', 'mock', groupId, stageId],
@@ -98,13 +101,14 @@ export function useTnpscMockTests(groupId?: string, stageId?: string, language?:
     if (!data) return [];
     const pass = effectivePassPercentage(
       data.pass_percentage ?? data.levels.find(l => l.required_percentage != null)?.required_percentage,
+      groupId,
     );
     const withHistory = data.levels.map(l => ({
       ...l,
       tests: applyAttemptHistory(papersForNtpc(ntpcPrefs, papersFor(language ?? null, l.tests ?? [])), attempts, pass),
     }));
     return normaliseLevelGroups(withHistory, pass);
-  }, [query.data, attempts, language, ntpcPrefs]);
+  }, [query.data, attempts, language, ntpcPrefs, groupId, passTable]);
 
   return { ...query, levels };
 }
@@ -117,6 +121,7 @@ export function useTnpscMockTests(groupId?: string, stageId?: string, language?:
 export function useTnpscPracticeTests(groupId?: string, stageId?: string, language?: ExamLanguage | null, ntpc?: NtpcPrefs | null) {
   const attempts = useAttemptSummaries();
   const ntpcPrefs = useNtpcFilter(groupId, ntpc);
+  const passTable = usePassMarks(); // a unit, key-topic or section set is cleared at its own mark, set by the admin
 
   const query = useQuery<TnpscPracticeSubject[]>({
     queryKey: ['tnpsc', 'practice', groupId, stageId],
@@ -132,8 +137,21 @@ export function useTnpscPracticeTests(groupId?: string, stageId?: string, langua
         const own = subjectLanguage(s.subject_id);
         return !language || !own || own === language;
       })
-      .map(s => ({ ...s, tests: applyAttemptHistory(papersForNtpc(ntpcPrefs, papersFor(language ?? null, s.tests)), attempts) }));
-  }, [query.data, attempts, language, ntpcPrefs]);
+      .map(s => ({
+        ...s,
+        tests: applyAttemptHistory(papersForNtpc(ntpcPrefs, papersFor(language ?? null, s.tests)), attempts, t =>
+          passMarkFor({
+            kind: 'practice',
+            level: t.level ?? levelFromTitle(t.title),
+            title: t.title,
+            examKey: groupId ?? null,
+            // A paper tagged to a topic is a key-topic set; a section's Full Set names its section; the rest are unit papers.
+            scope: t.topic_id ? 'keytopic' : t.section_name ? 'section' : undefined,
+            override: { pass: t.pass_percentage, target: t.target_percentage },
+          }).pass,
+        ),
+      }));
+  }, [query.data, attempts, language, ntpcPrefs, groupId, passTable]);
 
   return { ...query, subjects };
 }

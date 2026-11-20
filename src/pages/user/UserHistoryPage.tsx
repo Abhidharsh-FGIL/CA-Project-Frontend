@@ -34,14 +34,18 @@ import { ALL_TIME, DateRangeFilter, inRange, isoDay, type DateRange } from '@/co
 import { TRACK_OPTIONS, useGroupMatcher, type GroupKey, type TrackKey } from '@/hooks/use-progress-trend';
 import { commonMaxMarks, marksLabel, maxMarksOf } from '@/lib/userDashboardApi';
 import { attemptOutcome, durationLabel, isUnfinished, scoreTone, type AttemptOutcome, type ScoreTone } from '@/lib/attempt-history';
+import { useT } from '@/content/useText';
+import type { ContentKey } from '@/content/registry';
 
 type StatusKey = 'all' | 'completed' | 'unfinished';
 
-const STATUS_OPTIONS: FilterOption<StatusKey>[] = [
-  { value: 'all', label: 'All attempts' },
-  { value: 'completed', label: 'Completed', hint: 'Scored and reported' },
-  { value: 'unfinished', label: 'Not submitted', hint: 'Started, never finished' },
-];
+function statusOptions(t: ReturnType<typeof useT>): FilterOption<StatusKey>[] {
+  return [
+    { value: 'all', label: t('reports.history.filter.all') },
+    { value: 'completed', label: t('reports.history.filter.completed'), hint: t('reports.history.filter.completed.hint') },
+    { value: 'unfinished', label: t('reports.history.filter.unfinished'), hint: t('reports.history.filter.unfinished.hint') },
+  ];
+}
 
 /** The attempts table's columns from `md` up; below it each attempt is a small card. Level only where the group has one. */
 const COLUMNS_WITH_LEVEL =
@@ -99,13 +103,14 @@ const LEVEL_CHIP: Record<string, string> = {
 };
 
 /** The groups the list is cut into, in the order they are shown. */
-const GROUPS: Array<{ key: string; label: string; modes: string[] }> = [
-  { key: 'mock', label: 'Mock tests', modes: ['mock'] },
-  { key: 'practice', label: 'Practice tests', modes: ['practice'] },
-  { key: 'other', label: 'Other tests', modes: [] },
+const GROUPS: Array<{ key: string; label: ContentKey; modes: string[] }> = [
+  { key: 'mock', label: 'reports.history.group.mock', modes: ['mock'] },
+  { key: 'practice', label: 'reports.history.group.practice', modes: ['practice'] },
+  { key: 'other', label: 'reports.history.group.other', modes: [] },
 ];
 
 export default function UserHistoryPage() {
+  const t = useT();
   const { history, courses, assessments, refreshHistory } = useUserPortal();
 
   useEffect(() => {
@@ -237,10 +242,10 @@ export default function UserHistoryPage() {
           <div className="relative flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="min-w-0">
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                Test <span className="gradient-text-animated">History</span>
+                {t('reports.history.title.lead')} <span className="gradient-text-animated">{t('reports.history.title.accent')}</span>
               </h1>
               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1.5">
-                All your past attempts and AI reports in one place.
+                {t('reports.history.subtitle')}
               </p>
             </div>
 
@@ -251,13 +256,13 @@ export default function UserHistoryPage() {
                   type="text"
                   value={query}
                   onChange={e => setQuery(e.target.value)}
-                  placeholder="Search tests..."
+                  placeholder={t('reports.history.search.placeholder')}
                   aria-label="Search tests"
                   className="w-full h-9 pl-9 pr-3 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900/40"
                 />
               </div>
               <FilterSelect value={group} options={groupOptions} upcoming={upcomingExams} onChange={v => setGroup(v)} ariaLabel="Exam group" />
-              <FilterSelect value={statusFilter} options={STATUS_OPTIONS} onChange={v => setStatusFilter(v)} ariaLabel="Status" />
+              <FilterSelect value={statusFilter} options={statusOptions(t)} onChange={v => setStatusFilter(v)} ariaLabel="Status" />
               <FilterSelect value={modeFilter} options={TRACK_OPTIONS} onChange={v => setModeFilter(v)} ariaLabel="Test type" />
               <DateRangeFilter value={range} onChange={setRange} />
               {/* Course only exists for the older course-based tests; TNPSC attempts have none. */}
@@ -295,13 +300,13 @@ export default function UserHistoryPage() {
       {/* Stats summary — computed from the filtered set, matching the list below. */}
       {filtersActive && (
         <p className="-mt-2 mb-2 text-[11px] text-gray-500 dark:text-gray-400">
-          Figures below reflect your current filters.
+          {t('reports.history.filtersNote')}
         </p>
       )}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 mb-5">
         <HistoryStat
           icon={Trophy}
-          label="Best Score"
+          label={t('reports.history.stat.best')}
           value={`${stats.bestScore}%`}
           hint={stats.bestMarks}
           tone="violet"
@@ -309,14 +314,14 @@ export default function UserHistoryPage() {
         />
         <HistoryStat
           icon={BarChart3}
-          label="Average Score"
+          label={t('reports.history.stat.average')}
           value={`${stats.avgScore}%`}
           hint={stats.avgMarks}
           tone="blue"
           index={1}
         />
-        <HistoryStat icon={FileText} label="Tests Completed" value={String(stats.totalAttempts)} tone="sky" index={2} />
-        <HistoryStat icon={CalendarDays} label="This Month" value={String(stats.thisMonth)} tone="rose" index={3} />
+        <HistoryStat icon={FileText} label={t('reports.history.stat.completed')} value={String(stats.totalAttempts)} tone="sky" index={2} />
+        <HistoryStat icon={CalendarDays} label={t('reports.history.stat.month')} value={String(stats.thisMonth)} tone="rose" index={3} />
       </div>
 
       {/* ── Unfinished attempts: the one thing on this page that needs an action ── */}
@@ -332,9 +337,7 @@ export default function UserHistoryPage() {
                   {unfinished.length} test{unfinished.length === 1 ? '' : 's'} left unfinished
                 </p>
                 <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed">
-                  You opened {unfinished.length === 1 ? 'this test' : 'these tests'} but never submitted, so no score was
-                  recorded. Unfinished attempts still count against your attempt limit — resume and submit, even with
-                  blanks, to get a score and a report.
+                  {t('reports.history.unfinished.body', { tests: unfinished.length === 1 ? 'this test' : 'these tests' })}
                 </p>
               </div>
             </div>
@@ -343,7 +346,7 @@ export default function UserHistoryPage() {
               onClick={() => setStatusFilter('unfinished')}
               className="self-start sm:self-center flex-shrink-0 h-9 px-3.5 rounded-xl border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors press"
             >
-              Show only unfinished →
+              {t('reports.history.unfinished.cta')}
             </button>
           </div>
         </div>
@@ -351,7 +354,7 @@ export default function UserHistoryPage() {
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">
-          All Attempts <span className="font-semibold text-gray-400 dark:text-gray-500">({filtered.length})</span>
+          {t('reports.history.list.title')} <span className="font-semibold text-gray-400 dark:text-gray-500">({filtered.length})</span>
         </h2>
         {grouped.length > 1 && (
           <div role="tablist" aria-label="Kind of test" className="inline-flex rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
@@ -374,7 +377,7 @@ export default function UserHistoryPage() {
                   )}
                 >
                   <TabIcon className={cn('h-4 w-4', on ? mode.tile.split(' ').filter(x => x.startsWith('text-') || x.startsWith('dark:text-')).join(' ') : '')} />
-                  {g.label}
+                  {t(g.label)}
                   <span
                     className={cn(
                       'rounded-full px-1.5 text-[11px] font-bold tabular-nums',
@@ -398,7 +401,7 @@ export default function UserHistoryPage() {
         <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center animate-fadeIn dark:border-gray-800 dark:bg-gray-900">
           <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3 animate-bounce-soft" />
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {filtersActive ? 'No attempts match your filters.' : 'No attempts yet.'}
+            {filtersActive ? t('reports.history.empty.filtered') : t('reports.history.empty.none')}
           </p>
           {filtersActive && (
             <button
@@ -424,13 +427,13 @@ export default function UserHistoryPage() {
                 activeHasLevel ? COLUMNS_WITH_LEVEL : COLUMNS_NO_LEVEL,
               )}
             >
-              <span>Test</span>
-              <span>Date</span>
-              {activeHasLevel && <span>Level</span>}
-              <span>Score</span>
-              <span>Time</span>
-              <span>Status</span>
-              <span className="text-right">Report</span>
+              <span>{t('reports.history.col.test')}</span>
+              <span>{t('reports.history.col.date')}</span>
+              {activeHasLevel && <span>{t('reports.history.col.level')}</span>}
+              <span>{t('reports.history.col.score')}</span>
+              <span>{t('reports.history.col.time')}</span>
+              <span>{t('reports.history.col.status')}</span>
+              <span className="text-right">{t('reports.history.col.report')}</span>
             </div>
             {/* Under an exam heading when the attempts carry one; the rows then say only the unit. */}
             {(() => {
@@ -440,7 +443,7 @@ export default function UserHistoryPage() {
                 <div key={section.exam ?? 'other'}>
                   {headed && (
                     <div className="flex items-center justify-between gap-3 border-y border-gray-100 bg-gray-50 px-4 py-2 dark:border-gray-800 dark:bg-gray-800/50">
-                      <h3 className="min-w-0 text-[12.5px] font-bold text-gray-800 dark:text-gray-100">{section.exam ?? 'Other tests'}</h3>
+                      <h3 className="min-w-0 text-[12.5px] font-bold text-gray-800 dark:text-gray-100">{section.exam ?? t('reports.history.group.other')}</h3>
                       <span className="flex-shrink-0 rounded-full bg-white px-2 text-[11px] font-bold tabular-nums text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:ring-gray-700">
                         {section.rows.length}
                       </span>
@@ -493,6 +496,7 @@ function AttemptRow({
   const ended = endedAt && !Number.isNaN(endedAt.getTime()) ? endedAt : null;
   const duration = durationLabel(a);
   const flags = Array.isArray(a.malpractice_events) ? a.malpractice_events.length : 0;
+  const t = useT();
   const gateReport = useReportGate();
   const { name, level } = splitLevel(a.test_name);
   const when = outcome === 'unfinished' ? started : (ended ?? started);
@@ -523,23 +527,23 @@ function AttemptRow({
     >
       {/* Test name */}
       <div className="col-span-2 md:col-span-1 min-w-0">
-        <p className="text-[13px] font-bold text-gray-900 dark:text-gray-100 line-clamp-2 leading-snug">{name}{isPromotional(a) && <span className="ml-1.5 align-middle rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">Free test</span>}</p>
+        <p className="text-[13px] font-bold text-gray-900 dark:text-gray-100 line-clamp-2 leading-snug">{name}{isPromotional(a) && <span className="ml-1.5 align-middle rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">{t('reports.history.freeTest')}</span>}</p>
         {courseName && <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 truncate">{courseName}</p>}
       </div>
 
       {/* Date */}
-      <Cell label="Date">
+      <Cell label={t('reports.history.col.date')}>
         <p className="text-[13px] text-gray-700 dark:text-gray-200 leading-tight">
           {when.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
         </p>
         <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight">
-          {outcome === 'unfinished' ? 'Started' : ended ? 'Submitted' : ''} {time}
+          {outcome === 'unfinished' ? t('reports.history.row.started') : ended ? t('reports.history.row.submitted') : ''} {time}
         </p>
       </Cell>
 
       {/* Level */}
       {hasLevel && (
-        <Cell label="Level">
+        <Cell label={t('reports.history.col.level')}>
           {level ? (
             <span className={cn('inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset', LEVEL_CHIP[level] ?? LEVEL_CHIP.Mixed)}>
               {level}
@@ -551,19 +555,19 @@ function AttemptRow({
       )}
 
       {/* Score */}
-      <Cell label="Score">
+      <Cell label={t('reports.history.col.score')}>
         <ScoreBar attempt={a} paperMax={paperMax} />
       </Cell>
 
       {/* Time taken */}
-      <Cell label="Time">
+      <Cell label={t('reports.history.col.time')}>
         <p className={cn('text-[13px]', duration ? 'text-gray-700 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500')}>
           {duration ?? '—'}
         </p>
       </Cell>
 
       {/* Status */}
-      <Cell label="Status">
+      <Cell label={t('reports.history.col.status')}>
         <StatusBadge outcome={outcome} />
         {flags > 0 && (
           <p className="mt-1 flex items-center gap-1 text-[11px] text-red-600 dark:text-red-400">
@@ -580,13 +584,13 @@ function AttemptRow({
               to={`/user/assessment/${resumeTarget}`}
               className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-100 ring-1 ring-inset ring-amber-300 hover:bg-amber-200 dark:text-amber-300 dark:bg-amber-950/30 dark:ring-amber-900 px-3 py-1 rounded-full transition-colors press"
             >
-              <PlayCircle className="w-3.5 h-3.5" /> Resume
+              <PlayCircle className="w-3.5 h-3.5" /> {t('reports.history.row.resume')}
             </Link>
           ) : (
             // No assessment behind it any more — say why rather than offer a
             // button that would 404.
-            <span className="text-[11px] text-gray-400" title="The test behind this attempt is no longer available to you.">
-              Can&apos;t resume
+            <span className="text-[11px] text-gray-400" title={t('reports.history.row.cantResume.tip')}>
+              {t('reports.history.row.cantResume')}
             </span>
           )
         ) : (
@@ -599,7 +603,7 @@ function AttemptRow({
             className="group inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 ring-1 ring-inset ring-blue-200 dark:bg-blue-950/30 dark:ring-blue-900 hover:bg-blue-100 dark:hover:bg-blue-950/50 px-3 py-1 rounded-full transition-colors press"
           >
             <FileText className="w-3.5 h-3.5" />
-            Report
+            {t('reports.history.col.report')}
           </Link>
         )}
       </div>
@@ -637,6 +641,7 @@ function AttemptCard({
   resumeTarget: string | null;
   index: number;
 }) {
+  const t = useT();
   const gateReport = useReportGate();
   const pct = a.percentage;
   const tone = pct === null ? null : SCORE_TONES[scoreTone(pct)];
@@ -679,10 +684,10 @@ function AttemptCard({
           to={`/user/assessment/${resumeTarget}`}
           className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-bold text-white shadow-sm active:scale-95 transition-transform"
         >
-          <PlayCircle className="h-4 w-4" /> Resume
+          <PlayCircle className="h-4 w-4" /> {t('reports.history.row.resume')}
         </Link>
       ) : (
-        <span className="text-[11px] text-gray-400">Can&apos;t resume</span>
+        <span className="text-[11px] text-gray-400">{t('reports.history.row.cantResume')}</span>
       )
     ) : (
       <Link
@@ -691,7 +696,7 @@ function AttemptCard({
         onClick={gateReport(a.test_mode)}
         className="inline-flex items-center gap-1 rounded-xl bg-gray-900 px-3.5 py-2 text-xs font-bold text-white shadow-sm active:scale-95 transition-transform dark:bg-gray-100 dark:text-gray-900"
       >
-        View report <ChevronRight className="h-3.5 w-3.5" />
+        {t('reports.history.card.viewReport')} <ChevronRight className="h-3.5 w-3.5" />
       </Link>
     );
 
@@ -704,7 +709,7 @@ function AttemptCard({
       <div className="flex items-center gap-3">
         {ring}
         <div className="min-w-0 flex-1">
-          <p className="text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-2">{name}{isPromotional(a) && <span className="ml-1.5 align-middle rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">Free test</span>}</p>
+          <p className="text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-2">{name}{isPromotional(a) && <span className="ml-1.5 align-middle rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">{t('reports.history.freeTest')}</span>}</p>
           <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
             {when.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} · {time}
           </p>
@@ -714,7 +719,7 @@ function AttemptCard({
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold', mode.badge)}>
           <ModeIcon className="h-3 w-3" />
-          {a.test_mode === 'mock' ? 'Mock' : a.test_mode === 'practice' ? 'Practice' : 'Test'}
+          {a.test_mode === 'mock' ? t('reports.history.card.mock') : a.test_mode === 'practice' ? t('reports.history.card.practice') : t('reports.history.card.test')}
         </span>
         <StatusBadge outcome={outcome} />
         {duration && (
@@ -742,7 +747,7 @@ function AttemptCard({
               {max != null ? ` / ${max}` : ''} marks
             </>
           ) : (
-            'No score recorded'
+            t('reports.history.card.noScore')
           )}
         </p>
         {action}
@@ -812,32 +817,33 @@ function ScoreBar({ attempt: a, paperMax }: { attempt: ApiAttempt; paperMax: num
   );
 }
 
-const STATUS_BADGES: Record<AttemptOutcome, { label: string; className: string; title?: string }> = {
+const STATUS_BADGES: Record<AttemptOutcome, { label: ContentKey; className: string; title?: ContentKey }> = {
   completed: {
-    label: 'Completed',
+    label: 'reports.history.status.completed',
     className: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900',
   },
   'auto-submitted': {
-    label: 'Auto-submitted',
+    label: 'reports.history.status.auto',
     className: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900',
-    title: 'The timer ended this attempt and it was submitted for you.',
+    title: 'reports.history.status.auto.tip',
   },
   unfinished: {
-    label: 'Not submitted',
+    label: 'reports.history.status.unfinished',
     className: 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-900',
-    title: 'You started this test but never submitted it, so no score was recorded.',
+    title: 'reports.history.status.unfinished.tip',
   },
 };
 
 function StatusBadge({ outcome }: { outcome: AttemptOutcome }) {
+  const t = useT();
   const badge = STATUS_BADGES[outcome];
   return (
     <span
-      title={badge.title}
+      title={badge.title ? t(badge.title) : undefined}
       className={cn('inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold', badge.className)}
     >
       <span className="w-1.5 h-1.5 rounded-full bg-current" />
-      {badge.label}
+      {t(badge.label)}
     </span>
   );
 }

@@ -52,6 +52,8 @@ import {
 } from '@/lib/question-pool';
 import type { QuestionDifficulty } from '@/lib/eval-difficulty';
 import { difficultyLabel, toStored } from '@/lib/eval-difficulty';
+import { passMarkFor } from '@/config/pass-marks';
+import { useAdminPassMarks } from '@/hooks/use-pass-marks';
 import { format } from 'date-fns';
 import { api } from '@/lib/api';
 import { TnpscTagFields } from '@/components/evaluation/TnpscTagFields';
@@ -270,6 +272,9 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
     // Keyed on the placement, not the objects, so re-renders don't fight the admin's edits.
   }, [perSectionAvailable, examStage?.id]);
   const [maxAttempts, setMaxAttempts] = useState<number | undefined>(promotional ? 1 : undefined);
+  /** This assessment's own pass mark and aim, in percent. Empty: it follows its exam's setting, else the default. */
+  const [passInput, setPassInput] = useState('');
+  const [aimInput, setAimInput] = useState('');
   /** A promotional test's window, as `datetime-local` values in the admin's own time. */
   const [startsAtInput, setStartsAtInput] = useState('');
   const [endsAtInput, setEndsAtInput] = useState('');
@@ -718,6 +723,27 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
   // placement is part of step-1 validity rather than an optional extra.
   const tnpscValidation = validateTnpscTag(tnpscTag, effectiveCount || questionCount);
 
+  // The pass mark this paper would have without one of its own: its exam's setting, else the default.
+  useAdminPassMarks();
+  const inheritedMark = passMarkFor({
+    kind: tnpscTag.track === 'mock' ? 'mock' : 'practice',
+    level: tnpscTag.level,
+    scope: tnpscTag.scope === 'topic' ? 'keytopic' : tnpscTag.scope === 'section' ? 'section' : 'unit',
+    examKey: tnpscTag.group_id,
+  });
+  const ownPass = passInput.trim() === '' ? null : Number(passInput);
+  const ownAim = aimInput.trim() === '' ? null : Number(aimInput);
+  const passMarkError =
+    ownPass == null && ownAim == null
+      ? null
+      : ownPass == null
+        ? 'Set the pass mark as well as the aim.'
+        : !Number.isFinite(ownPass) || ownPass < 0 || ownPass > 100 || (ownAim != null && (!Number.isFinite(ownAim) || ownAim < 0 || ownAim > 100))
+          ? 'Enter percentages from 0 to 100.'
+          : ownAim != null && ownAim < ownPass
+            ? 'The aim cannot be below the pass mark.'
+            : null;
+
   // ── Per-step validity ──
   const stepValidity: Record<StepKey, boolean> = {
     basics: !!title.trim() && !!mode && tnpscValidation.ok,
@@ -732,6 +758,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
 
   const canSubmit =
     !scheduleIssue &&
+    !passMarkError &&
     !!title.trim() &&
     tnpscValidation.ok &&
     effectiveCount > 0 &&
@@ -1083,6 +1110,8 @@ Create it anyway?`);
           }))
         : undefined,
       maxAttempts,
+      passPercentage: ownPass ?? undefined,
+      targetPercentage: ownPass != null ? ownAim ?? undefined : undefined,
       shuffleQuestions,
       poolMode: pool.mode,
       poolFilter: pool.filter,
@@ -1833,6 +1862,31 @@ Create it anyway?`);
             </Field>
             </>
             )}
+
+            <Field
+              label="Pass mark"
+              hint={`Optional. Left empty, this follows ${tnpscTag.group_id ? 'its exam’s setting' : 'the default'} — ${inheritedMark.pass}% to pass, ${inheritedMark.target}% to aim for. Set it for this assessment only; the exam-wide marks are under the Pass marks tab.`}
+            >
+              <div className="flex items-center gap-2">
+                <Input
+                  inputMode="decimal"
+                  placeholder={`Pass % (${inheritedMark.pass})`}
+                  value={passInput}
+                  onChange={e => setPassInput(e.target.value)}
+                  className="h-9"
+                  aria-label="Pass mark percentage"
+                />
+                <Input
+                  inputMode="decimal"
+                  placeholder={`Aim % (${inheritedMark.target})`}
+                  value={aimInput}
+                  onChange={e => setAimInput(e.target.value)}
+                  className="h-9"
+                  aria-label="Aim percentage"
+                />
+              </div>
+              {passMarkError && <p className="mt-1.5 text-[11px] text-red-600">{passMarkError}</p>}
+            </Field>
 
             <Field label="Negative Marking">
               <div className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5">

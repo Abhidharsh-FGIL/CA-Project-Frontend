@@ -29,6 +29,7 @@ import { difficultyLabel } from '@/lib/eval-difficulty';
 import { MIXED_LABEL } from '@/config/tnpsc';
 import { PERFORMANCE_LABEL, passMarkFor, performanceOf, standingOf, type PassMark } from '@/config/pass-marks';
 import { usePassMarks } from '@/hooks/use-pass-marks';
+import { useT } from '@/content/useText';
 import { allOptions, answerKeyOf, resolveAnswerLabel } from '@/lib/question-options';
 import {
   langToggleOptions,
@@ -38,15 +39,15 @@ import {
 } from '@/lib/question-language';
 
 /** Short, plain, and tied to the pass mark rather than to a mood. The mark depends on the set's difficulty. */
-function verdictFor(pct: number | null, mark: PassMark) {
+function verdictFor(pct: number | null, mark: PassMark, t: ReturnType<typeof useT>) {
   const standing = standingOf(pct, mark);
-  if (standing == null) return { title: 'Not scored', performance: null, note: 'This attempt has no score recorded.', accent: 'slate' as const };
+  if (standing == null) return { title: t('reports.unit.verdict.unscored'), performance: null, note: t('reports.unit.verdict.unscored.note'), accent: 'slate' as const };
   const performance = performanceOf(pct, mark)!;
   const title = PERFORMANCE_LABEL[performance];
-  if (standing === 'target') return { title, performance, note: `You are at or above the ${mark.target}% target. Try the next difficulty up.`, accent: 'emerald' as const };
-  if (standing === 'pass') return { title, performance, note: `Above the ${mark.pass}% pass mark. Aim for ${mark.target}% to have this unit secure.`, accent: 'emerald' as const };
-  if (standing === 'close') return { title, performance, note: `The pass mark is ${mark.pass}%. Review the ones you missed and sit it again.`, accent: 'amber' as const };
-  return { title, performance, note: `The pass mark is ${mark.pass}%. Work through the concepts before retrying this set.`, accent: 'rose' as const };
+  if (standing === 'target') return { title, performance, note: t('reports.unit.verdict.target.note', { target: mark.target }), accent: 'emerald' as const };
+  if (standing === 'pass') return { title, performance, note: t('reports.unit.verdict.pass.note', { pass: mark.pass, target: mark.target }), accent: 'emerald' as const };
+  if (standing === 'close') return { title, performance, note: t('reports.unit.verdict.close.note', { pass: mark.pass }), accent: 'amber' as const };
+  return { title, performance, note: t('reports.unit.verdict.below.note', { pass: mark.pass }), accent: 'rose' as const };
 }
 
 const BAR_FILL = {
@@ -84,6 +85,7 @@ function PassGap({
   attempted: number;
   total: number;
 }) {
+  const t = useT();
   const pct = percentage == null ? null : Math.round(percentage * 10) / 10;
   const passed = pct != null && pct >= pass;
   // Marks when the paper has them (9 of 60, pass at 42 — 33 to go); otherwise points of percentage.
@@ -92,16 +94,16 @@ function PassGap({
     pct == null
       ? null
       : passMarks != null && score != null
-        ? `${Math.round((passMarks - score) * 100) / 100} more marks`
-        : `${Math.round((pass - pct) * 10) / 10} more points`;
+        ? t('reports.unit.gap.marks', { count: Math.round((passMarks - score) * 100) / 100 })
+        : t('reports.unit.gap.points', { count: Math.round((pass - pct) * 10) / 10 });
 
   return (
     <div className="w-full md:w-[23rem] flex-shrink-0 rounded-xl bg-gray-50 dark:bg-gray-800/50 p-3.5">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Your score vs the pass mark</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{t('reports.unit.gap.title')}</p>
         {pct != null && (
           <p className={cn('text-[11px] font-bold', passed ? 'text-emerald-600 dark:text-emerald-400' : ACCENT[accent as 'rose'].text)}>
-            {passed ? 'Passed' : `${short} to pass`}
+            {passed ? t('reports.unit.gap.passed') : t('reports.unit.gap.toPass', { gap: short })}
           </p>
         )}
       </div>
@@ -115,17 +117,17 @@ function PassGap({
         <div className="absolute -top-1 h-5 w-0.5 rounded bg-slate-700 dark:bg-slate-200" style={{ left: `${pass}%` }} aria-hidden />
       </div>
       <div className="relative mt-1 h-4 text-[10px] tabular-nums">
-        <span className="absolute left-0 font-bold text-gray-700 dark:text-gray-200">You {pct == null ? '—' : `${pct}%`}</span>
+        <span className="absolute left-0 font-bold text-gray-700 dark:text-gray-200">{t('reports.unit.gap.you', { value: pct == null ? '—' : `${pct}%` })}</span>
         <span className="absolute -translate-x-1/2 whitespace-nowrap font-semibold text-gray-500 dark:text-gray-400" style={{ left: `${Math.min(pass, 88)}%` }}>
-          Pass mark {pass}%
+          {t('reports.unit.gap.passMark', { pass })}
         </span>
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2 border-t border-gray-200 dark:border-gray-700 pt-3 text-center">
         {[
-          { label: 'Time taken', value: fmtTime(timeSec) },
-          { label: 'Per question', value: perQuestionSec == null ? '—' : `${Math.round(perQuestionSec)}s` },
-          { label: 'Attempted', value: `${attempted}/${total}` },
+          { label: t('reports.unit.gap.time'), value: fmtTime(timeSec) },
+          { label: t('reports.unit.gap.perQuestion'), value: perQuestionSec == null ? '—' : `${Math.round(perQuestionSec)}s` },
+          { label: t('reports.unit.gap.attempted'), value: `${attempted}/${total}` },
         ].map(c => (
           <div key={c.label}>
             <p className="text-sm font-bold tabular-nums text-gray-900 dark:text-gray-100">{c.value}</p>
@@ -158,6 +160,7 @@ export function UnitPracticeReport({
   retryHref?: string;
   unitHref?: string;
 }) {
+  const t = useT();
   usePassMarks(); // draws again once the server's benchmarks arrive
   const s = model.summary;
 
@@ -165,8 +168,8 @@ export function UnitPracticeReport({
   const subject = model.subjects[0];
   const level = model.meta.testName ? inferLevel(model.meta.testName) : null;
   // Simple is held to 70 %, Medium 60 %, Complex 50 %, a Mixed set 60 % — see config/pass-marks.
-  const mark = passMark ?? passMarkFor({ kind: 'practice', level });
-  const verdict = verdictFor(s.percentage, mark);
+  const mark = passMark ?? passMarkFor({ kind: 'practice', level, title: model.meta.testName });
+  const verdict = verdictFor(s.percentage, mark, t);
 
   return (
     <div id="report-pdf-root" className="space-y-3 sm:space-y-4">
@@ -175,7 +178,7 @@ export function UnitPracticeReport({
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="min-w-0 flex-1">
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400">
-          {examName ? `${examName} · Practice set` : 'Practice set'}
+          {examName ? t('reports.unit.header.examSet', { exam: examName }) : t('reports.unit.header.set')}
         </p>
         <h2 className="mt-0.5 text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
           {bilingualTitle(model.meta.testName) || reportName(subject?.name) || 'Practice'}
@@ -184,7 +187,7 @@ export function UnitPracticeReport({
           {level && (
             <span className={cn('rounded-md px-1.5 py-0.5 text-[10px] font-bold', ACCENT.indigo.chip)}>{level}</span>
           )}
-          <span className="text-[11px] text-gray-500 dark:text-gray-400">{s.totalQuestions} questions</span>
+          <span className="text-[11px] text-gray-500 dark:text-gray-400">{t('reports.unit.header.questions', { count: s.totalQuestions })}</span>
           {submittedLabel(model.meta) && (
             <span className="text-[11px] text-gray-500 dark:text-gray-400">· {submittedLabel(model.meta)}</span>
           )}
@@ -277,6 +280,7 @@ function CategoryBreakdown({
   /** The category for a question that has none of its own. */
   fallback: string | null;
 }) {
+  const t = useT();
   const [selected, setSelected] = useState<string | null>(null);
 
   const categories = useMemo(() => {
@@ -332,7 +336,7 @@ function CategoryBreakdown({
   return (
     <ReportCard>
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Within this unit</p>
+        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{t('reports.unit.categories.title')}</p>
         <p className="text-[11px] text-gray-500 dark:text-gray-400">
           {categories.length} categor{categories.length === 1 ? 'y' : 'ies'} · pick one to see how it went
         </p>
@@ -387,7 +391,7 @@ function CategoryBreakdown({
                 <span className={cn('text-2xl font-extrabold tabular-nums leading-none', pickedTone.text)}>
                   {pickedPct == null ? '—' : `${Math.round(pickedPct)}%`}
                 </span>
-                <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">correct</span>
+                <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{t('reports.unit.categories.correct')}</span>
               </div>
             </div>
             <div className="min-w-0">
@@ -398,10 +402,12 @@ function CategoryBreakdown({
                 {picked.questions === 1 ? '' : 's'}
               </p>
               <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-                Pass mark {passPercentage}% ·{' '}
                 {(pickedPct ?? 0) >= passPercentage
-                  ? 'above it'
-                  : `${Math.ceil((passPercentage / 100) * picked.questions - picked.correct)} more right to reach it`}
+                  ? t('reports.unit.categories.passMark.above', { pass: passPercentage })
+                  : t('reports.unit.categories.passMark.short', {
+                      pass: passPercentage,
+                      count: Math.ceil((passPercentage / 100) * picked.questions - picked.correct),
+                    })}
               </p>
             </div>
           </div>
@@ -409,7 +415,7 @@ function CategoryBreakdown({
           {picked.subs.some(sub => sub.name !== NO_SUBTOPIC) ? (
             <div className="mt-4 border-t border-gray-100 pt-3 dark:border-gray-800">
               <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
-                Sub-categories
+                {t('reports.unit.categories.sub')}
               </p>
               <ul className="space-y-2">
                 {picked.subs.map(sub => {
@@ -430,7 +436,7 @@ function CategoryBreakdown({
             </div>
           ) : (
             <p className="mt-4 border-t border-gray-100 pt-3 text-[11px] text-gray-500 dark:border-gray-800 dark:text-gray-400">
-              These questions are not tagged with a sub-category.
+              {t('reports.unit.categories.noSub')}
             </p>
           )}
         </div>
@@ -440,6 +446,7 @@ function CategoryBreakdown({
 }
 
 function QuestionRecap({ model }: { model: AttemptReportModel }) {
+  const t = useT();
 
   /**
    * The language the paper can be switched into, or null when it carries one.
@@ -473,7 +480,7 @@ function QuestionRecap({ model }: { model: AttemptReportModel }) {
     <ReportCard>
       <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-          All questions <span className="font-normal text-gray-400">({model.questions.length})</span>
+          {t('reports.unit.recap.title')} <span className="font-normal text-gray-400">({model.questions.length})</span>
         </p>
         <div className="flex items-center gap-3">
           {translation && (
@@ -486,7 +493,7 @@ function QuestionRecap({ model }: { model: AttemptReportModel }) {
         <div className="py-6 text-center">
           <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-500" />
           <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">
-            Nothing missed — every question correct.
+            {t('reports.unit.recap.empty')}
           </p>
         </div>
       ) : (
@@ -593,6 +600,7 @@ function AnswerOptions({
   options: unknown;
   explanation: string | null;
 }) {
+  const t = useT();
   const options = useMemo(() => allOptions(rawOptions), [rawOptions]);
   const chosen = answerKeyOf(question.user_answer);
   const right = answerKeyOf(question.correct_answer);
@@ -606,13 +614,13 @@ function AnswerOptions({
       <div className="mt-1.5 space-y-1 text-[13px] leading-relaxed">
         {state === 'incorrect' && question.user_answer && (
           <p className="text-rose-600 dark:text-rose-400">
-            You chose <b>{mine.label}</b>
+            {t('reports.unit.answer.youChose')} <b>{mine.label}</b>
             {mine.text ? ` — ${mine.text}` : ''}
           </p>
         )}
         {question.correct_answer && (
           <p className="font-semibold text-emerald-700 dark:text-emerald-400">
-            Correct answer: <b>{correct.label}</b>
+            {t('reports.unit.answer.correctIs')} <b>{correct.label}</b>
             {correct.text ? ` — ${correct.text}` : ''}
           </p>
         )}
@@ -680,7 +688,7 @@ function AnswerOptions({
                     isRight ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400',
                   )}
                 >
-                  {isRight ? (isMine ? 'Your answer · correct' : 'Correct') : 'You chose'}
+                  {isRight ? (isMine ? t('reports.unit.answer.yourCorrect') : t('reports.unit.answer.correct')) : t('reports.unit.answer.youChose')}
                 </span>
               )}
             </li>
@@ -695,6 +703,7 @@ function AnswerOptions({
 
 /** The why. Shown wherever the question carries one, in the language on screen. */
 function Explanation({ text, tip }: { text: string | null; tip: string | null }) {
+  const t = useT();
   const split = useMemo(() => splitExplanationSteps(text), [text]);
   if (!text && !tip) return null;
   return (
@@ -702,7 +711,7 @@ function Explanation({ text, tip }: { text: string | null; tip: string | null })
       {text && split ? (
         <>
           <p className="text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-brand-300">
-            Why — step by step
+            {t('reports.unit.explain.steps')}
           </p>
           {split.intro && (
             <p className="mt-1.5 text-[13px] leading-relaxed text-gray-700 dark:text-gray-200">
@@ -759,14 +768,14 @@ function Explanation({ text, tip }: { text: string | null; tip: string | null })
       ) : (
         text && (
           <p className="whitespace-pre-line text-[13px] leading-relaxed text-gray-700 dark:text-gray-200">
-            <span className="font-bold text-blue-700 dark:text-brand-300">Why: </span>
+            <span className="font-bold text-blue-700 dark:text-brand-300">{t('reports.unit.explain.why')}{' '}</span>
             <MathText text={normaliseLineBreaks(text)} />
           </p>
         )
       )}
       {tip && (
         <p className="mt-2 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">
-          <span className="font-bold text-blue-700 dark:text-brand-300">Tip: </span>
+          <span className="font-bold text-blue-700 dark:text-brand-300">{t('reports.unit.explain.tip')}{' '}</span>
           <MathText text={normaliseLineBreaks(tip)} />
         </p>
       )}

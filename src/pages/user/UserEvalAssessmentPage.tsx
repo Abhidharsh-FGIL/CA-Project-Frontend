@@ -81,6 +81,8 @@ import {
 import { toast } from 'sonner';
 import { defaultQuestionLanguage, questionsForPaperLanguage } from '@/lib/ntpc-level';
 import { normaliseLineBreaks, normaliseOption, parseOptionRepr, stripInlineOptions } from '@/lib/question-text';
+import { useT } from '@/content/useText';
+import { Strong } from '@/content/strong';
 
 // ─── Option helpers (support text and image options) ────────────────────────────
 type DisplayOption = {
@@ -275,6 +277,7 @@ function ActiveQuestionCard({
   langMode?: LangMode;
   paperTitle?: string | null;
 }) {
+  const t = useT();
   const type = question.type;
 
   const showPrimary = langMode !== 'translation';
@@ -340,7 +343,7 @@ function ActiveQuestionCard({
           <div className="flex flex-wrap items-center gap-1.5 mt-3">
             {negative_marking && negative_mark_value != null && (
               <span className="text-[11px] bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded font-medium">
-                -{negative_mark_value} negative
+                {t('assessment.paper.tag.negative', { marks: negative_mark_value })}
               </span>
             )}
             {/* The chapter the question belongs to, e.g. சொல்லிலக்கணம். */}
@@ -434,7 +437,7 @@ function ActiveQuestionCard({
           type="text"
           value={answer ?? ''}
           onChange={e => onChange(e.target.value)}
-          placeholder="Type your answer here…"
+          placeholder={t('assessment.paper.placeholder.short')}
           className="w-full ml-[52px] px-4 py-3 border-2 border-gray-200 bg-white text-gray-900 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none text-sm"
         />
       )}
@@ -445,7 +448,7 @@ function ActiveQuestionCard({
           value={answer ?? ''}
           onChange={e => onChange(e.target.value)}
           rows={5}
-          placeholder="Write your answer here…"
+          placeholder={t('assessment.paper.placeholder.long')}
           className="w-full ml-[52px] px-4 py-3 border-2 border-gray-200 bg-white text-gray-900 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-y text-sm"
         />
       )}
@@ -721,6 +724,7 @@ export function UserEvalAssessmentPage() {
   const { assessmentId } = useParams<{ assessmentId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const t = useT();
   /**
    * Back goes to the page the paper was opened from. Without one (a link that did not record it), it goes
    * to the stage the paper belongs to, which is where a paper is always reached from.
@@ -1311,7 +1315,12 @@ export function UserEvalAssessmentPage() {
     const totalLeft = serverUsage ? serverUsage.left : allowance?.left == null ? null : allowance.left + topUpLeft;
     // The paper's own difficulty decides a practice set's pass mark; a mock has one of its own.
     const copy = instructionCopy(instructionLang(assessment.title));
-    const passMark = passMarkFor({ kind: isMock ? 'mock' : 'practice', level: levelFromTitle(assessment.title) ?? assessment.difficulty });
+    const passMark = passMarkFor({
+      kind: isMock ? 'mock' : 'practice',
+      level: levelFromTitle(assessment.title) ?? assessment.difficulty,
+      title: assessment.title,
+      override: { pass: assessment.pass_percentage, target: assessment.target_percentage },
+    });
     const passMarksOut = passMarks(passMark, assessment.max_score);
 
     return (
@@ -1340,7 +1349,7 @@ export function UserEvalAssessmentPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-3 flex-wrap">
                     <span className="text-[10px] font-bold uppercase tracking-[0.25em] bg-white/20 backdrop-blur border border-white/30 text-white px-2.5 py-1 rounded-full whitespace-nowrap">
-                      {isMock ? '★ Mock Exam' : 'Practice Mode'}
+                      {isMock ? t('assessment.paper.badge.mock') : t('assessment.paper.badge.practice')}
                     </span>
                     {assessment.difficulty && (
                       <span className="text-[10px] font-semibold uppercase tracking-wider opacity-90">
@@ -1353,21 +1362,21 @@ export function UserEvalAssessmentPage() {
                   </h1>
                   <p className="text-xs sm:text-sm opacity-90 mt-2 font-serif italic">
                     {isMock
-                      ? 'Full-length, time-bound simulation. Treat it like the real thing.'
-                      : 'Practice freely — no rank, just learning.'}
+                      ? t('assessment.paper.tagline.mock')
+                      : t('assessment.paper.tagline.practice')}
                   </p>
                 </div>
 
                 <div className="flex-shrink-0 self-start bg-white/15 backdrop-blur border border-white/25 rounded-xl px-3 py-2 text-right">
-                  <p className="text-[9px] uppercase tracking-widest opacity-80">Attempts</p>
+                  <p className="text-[9px] uppercase tracking-widest opacity-80">{t('assessment.paper.attempts.label')}</p>
                   {promotional ? (
                     // Free, and outside the plan: it is not one of the plan's tests.
                     <>
-                      <p className="text-lg font-bold leading-tight">Free</p>
-                      <p className="text-[10px] opacity-80 leading-tight mt-0.5">Not counted in your plan</p>
+                      <p className="text-lg font-bold leading-tight">{t('assessment.paper.attempts.free')}</p>
+                      <p className="text-[10px] opacity-80 leading-tight mt-0.5">{t('assessment.paper.attempts.free_note')}</p>
                     </>
                   ) : totalLeft == null || (!serverUsage && allowance?.limit == null) ? (
-                    <p className="text-lg font-bold leading-tight">Unlimited</p>
+                    <p className="text-lg font-bold leading-tight">{t('assessment.paper.attempts.unlimited')}</p>
                   ) : (
                     <>
                       {/* Taken of everything they could take: the plan's tests, plus top-up tests used or still saved. */}
@@ -1377,7 +1386,11 @@ export function UserEvalAssessmentPage() {
                           : `${allowance!.used} of ${allowance!.limit! + topUpLeft + Math.max(0, allowance!.used - allowance!.limit!)}`}
                       </p>
                       <p className="text-[10px] opacity-80 leading-tight mt-0.5">
-                        {totalLeft} left{topUpLeft > 0 ? ` · incl. ${topUpLeft} top-up` : plan ? ` on ${plan.name}` : ''}
+                        {topUpLeft > 0
+                          ? t('assessment.paper.attempts.left_topup', { left: totalLeft, topup: topUpLeft })
+                          : plan
+                            ? t('assessment.paper.attempts.left_plan', { left: totalLeft, plan: plan.name })
+                            : t('assessment.paper.attempts.left', { left: totalLeft })}
                       </p>
                     </>
                   )}
@@ -1389,38 +1402,38 @@ export function UserEvalAssessmentPage() {
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <AssessmentInfoTile
                   icon={<FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
-                  label="Questions"
+                  label={t('assessment.paper.tile.questions')}
                   value={String(assessment.question_count)}
                 />
                 <AssessmentInfoTile
                   icon={<Clock className="w-4 h-4 text-rose-600 dark:text-rose-400" />}
-                  label="Time Limit"
-                  value={assessment.time_limit_minutes ? `${assessment.time_limit_minutes} min` : 'Untimed'}
+                  label={t('assessment.paper.tile.time')}
+                  value={assessment.time_limit_minutes ? t('assessment.paper.tile.minutes', { minutes: assessment.time_limit_minutes }) : t('assessment.paper.tile.untimed')}
                 />
                 <AssessmentInfoTile
                   icon={<Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
-                  label="Total Marks"
+                  label={t('assessment.paper.tile.marks')}
                   value={String(assessment.max_score)}
                 />
                 {/* The MyGovExams benchmark for this kind of paper (config/pass-marks); not an official TNPSC cut-off. */}
                 <AssessmentInfoTile
                   icon={<Target className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
-                  label="Pass Mark"
+                  label={t('assessment.paper.tile.pass')}
                   value={`${passMark.pass}%`}
                   hint={`${passMarksOut ? `${passMarksOut.pass} of ${assessment.max_score} marks · ` : ''}aim ${passMark.target}%`}
                 />
                 <AssessmentInfoTile
                   icon={<AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />}
-                  label="Negative Marking"
+                  label={t('assessment.paper.tile.negative')}
                   value={
                     // A paper can penalise its sections differently — GAT-B takes
                     // 0.5 in Section A and 1 in Section B — so quoting the single
                     // assessment-level figure understates half the paper.
                     sectionNegatives.length > 1
-                      ? `Yes (${sectionNegatives.map(n => `-${n.value}`).join(' / ')})`
+                      ? t('assessment.paper.tile.negative_yes', { value: sectionNegatives.map(n => `-${n.value}`).join(' / ') })
                       : assessment.negative_marking && assessment.negative_mark_value != null
-                        ? `Yes (-${assessment.negative_mark_value})`
-                        : 'No'
+                        ? t('assessment.paper.tile.negative_yes', { value: `-${assessment.negative_mark_value}` })
+                        : t('assessment.paper.tile.negative_no')
                   }
                 />
               </div>
@@ -1457,9 +1470,10 @@ export function UserEvalAssessmentPage() {
                   onClick={() => showPlanNotice(attemptsUsed(assessment.max_attempts))}
                   className="mt-5 w-full text-sm text-red-600 dark:text-red-400 text-center font-medium bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg py-3 hover:bg-red-100 dark:hover:bg-red-950/40 transition-colors"
                 >
-                  You have used all {assessment.max_attempts} attempt
-                  {assessment.max_attempts !== 1 ? 's' : ''} for this assessment.{' '}
-                  <span className="underline underline-offset-2">See plans</span>
+                  {assessment.max_attempts !== 1
+                    ? t('assessment.paper.spent.many', { count: assessment.max_attempts })
+                    : t('assessment.paper.spent.one', { count: assessment.max_attempts })}{' '}
+                  <span className="underline underline-offset-2">{t('assessment.paper.spent.plans')}</span>
                 </button>
               )}
 
@@ -1484,10 +1498,10 @@ export function UserEvalAssessmentPage() {
               >
                 <span className="inline-flex items-center justify-center gap-2">
                   {attemptsSpent
-                    ? 'No attempts left — see plans'
+                    ? t('assessment.paper.begin.spent')
                     : assessment.in_progress_attempt_id
-                      ? 'Resume Test'
-                      : 'Begin Test'}
+                      ? t('assessment.paper.begin.resume')
+                      : t('assessment.paper.begin.start')}
                   {!attemptsSpent && !assessment.in_progress_attempt_id && (
                     <Sparkles className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                   )}
@@ -1507,7 +1521,7 @@ export function UserEvalAssessmentPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-gray-50 dark:bg-gray-950">
         <div className="w-8 h-8 border-4 border-blue-200 border-t-brand-600 rounded-full animate-spin" />
-        <p className="text-sm text-gray-500 dark:text-gray-400">Submitting your answers…</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t('assessment.paper.submitting')}</p>
       </div>
     );
   }
@@ -1765,26 +1779,26 @@ export function UserEvalAssessmentPage() {
       <div className="grid grid-cols-3 gap-2 mb-4">
         <div className="text-center p-2.5 bg-white rounded-xl border border-gray-200">
           <p className="text-xl font-bold text-emerald-600">{answeredCount}</p>
-          <p className="text-[10px] text-emerald-600 font-semibold">Answered</p>
+          <p className="text-[10px] text-emerald-600 font-semibold">{t('assessment.paper.stat.answered')}</p>
         </div>
         <div className="text-center p-2.5 bg-white rounded-xl border border-gray-200">
           <p className="text-xl font-bold text-gray-900">{remaining}</p>
-          <p className="text-[10px] text-gray-500 font-semibold">Remaining</p>
+          <p className="text-[10px] text-gray-500 font-semibold">{t('assessment.paper.stat.remaining')}</p>
         </div>
         <div className="text-center p-2.5 bg-white rounded-xl border border-gray-200">
           <p className="text-xl font-bold text-amber-500">{reviewCount}</p>
-          <p className="text-[10px] text-amber-500 font-semibold">Review</p>
+          <p className="text-[10px] text-amber-500 font-semibold">{t('assessment.paper.stat.review')}</p>
         </div>
       </div>
 
       {/* Legend */}
       <div className="bg-white rounded-xl border border-gray-200 p-3 mb-4 space-y-1.5">
         {[
-          { cls: 'bg-white border border-gray-300', label: 'Not Visited' },
-          { cls: 'bg-pink-200 border border-pink-300', label: 'Not Answered' },
-          { cls: 'bg-emerald-500', label: 'Answered' },
-          { cls: 'bg-amber-400', label: 'Marked for Review' },
-          { cls: 'bg-blue-500', label: 'Answered & Marked' },
+          { cls: 'bg-white border border-gray-300', label: t('assessment.paper.legend.not_visited') },
+          { cls: 'bg-pink-200 border border-pink-300', label: t('assessment.paper.legend.not_answered') },
+          { cls: 'bg-emerald-500', label: t('assessment.paper.legend.answered') },
+          { cls: 'bg-amber-400', label: t('assessment.paper.legend.marked') },
+          { cls: 'bg-blue-500', label: t('assessment.paper.legend.answered_marked') },
         ].map(({ cls, label }) => (
           <div key={label} className="flex items-center gap-2">
             <div className={`w-3.5 h-3.5 rounded flex-shrink-0 ${cls}`} />
@@ -1797,7 +1811,7 @@ export function UserEvalAssessmentPage() {
       {(sectionOptions.length > 1 || subjectOptions.length > 1) && (
         <div className="bg-white rounded-xl border border-gray-200 p-3 mb-4 space-y-2.5">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Filter</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t('assessment.paper.filter.heading')}</p>
             {filtersActive && (
               <button
                 onClick={() => applyFilter('all', 'all')}
@@ -1811,7 +1825,7 @@ export function UserEvalAssessmentPage() {
           {sectionOptions.length > 1 && (
             <div className="rounded-lg border border-gray-200 overflow-hidden divide-y divide-gray-100">
               <FilterRow
-                label="All sections"
+                label={t('assessment.paper.filter.all_sections')}
                 count={`${totalQ}`}
                 active={filterSection === 'all'}
                 onClick={() => applyFilter('all', 'all')}
@@ -1835,7 +1849,7 @@ export function UserEvalAssessmentPage() {
               onChange={e => applyFilter(filterSection, e.target.value)}
               className="w-full text-[11px] rounded-lg border border-gray-200 px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
             >
-              <option value="all">All units</option>
+              <option value="all">{t('assessment.paper.filter.all_units')}</option>
               {subjectOptions.map(([key, { label, count }]) => (
                 <option key={key} value={key}>
                   {/* An RRB NTPC paper names its units in the one language it is read in — English unless shown in its Tamil or Hindi translation. */}
@@ -1858,17 +1872,17 @@ export function UserEvalAssessmentPage() {
       <div className="bg-white rounded-xl border border-gray-200 p-3">
         <div className="flex items-center justify-between mb-2.5">
           <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-            QUESTIONS
+            {t('assessment.paper.grid.heading')}
           </p>
           {filtersActive && (
             <p className="text-[10px] font-semibold text-blue-600">
-              {visibleQuestions.length} of {totalQ}
+              {t('assessment.paper.grid.count', { count: visibleQuestions.length, total: totalQ })}
             </p>
           )}
         </div>
         {visibleQuestions.length === 0 ? (
           <p className="text-[11px] text-gray-400 py-3 text-center">
-            No questions match this filter.
+            {t('assessment.paper.grid.empty')}
           </p>
         ) : (
         <div className="grid grid-cols-6 gap-1.5">
@@ -1908,13 +1922,13 @@ export function UserEvalAssessmentPage() {
               {studentTitle(assessment?.title)}
             </p>
             <p className="text-[11px] text-gray-400 mt-0.5">
-              Q {currentIdx + 1} of {totalQ}
+              {t('assessment.paper.header.progress', { current: currentIdx + 1, total: totalQ })}
               {/* Without this, running off the end of a filtered set just looks like
                   a dead Next button. */}
               {filtersActive && filteredPos !== -1 && (
                 <span className="text-brand-300">
                   {' · '}
-                  {filteredPos + 1} of {visibleQuestions.length} filtered
+                  {t('assessment.paper.header.filtered', { position: filteredPos + 1, total: visibleQuestions.length })}
                 </span>
               )}
             </p>
@@ -1970,7 +1984,7 @@ export function UserEvalAssessmentPage() {
               {paperTranslationLang && defaultQuestionLanguage(assessment?.title, (assessment as any)?.language) !== 'primary' && (
                 <div className="flex justify-end mb-3">
                   <label className="inline-flex items-center gap-2">
-                    <span className="text-xs font-medium text-gray-500">Language</span>
+                    <span className="text-xs font-medium text-gray-500">{t('assessment.paper.language.label')}</span>
                     <select
                       value={langMode}
                       onChange={e => setLangMode(e.target.value as LangMode)}
@@ -2027,7 +2041,7 @@ export function UserEvalAssessmentPage() {
                     isLastQuestion ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-brand-600 hover:bg-brand-700'
                   }`}
                 >
-                  {isLastQuestion ? 'Submit' : 'Save & Next'}
+                  {isLastQuestion ? 'Submit' : t('assessment.paper.action.save_next')}
                   {!isLastQuestion && (
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -2048,8 +2062,8 @@ export function UserEvalAssessmentPage() {
                   }`}
                 >
                   {markedForReview.has(currentQ.question_id)
-                    ? 'Unmark & Next'
-                    : 'Mark for Review & Next'}
+                    ? t('assessment.paper.action.unmark_next')
+                    : t('assessment.paper.action.mark_next')}
                 </button>
                 {hasCurrentAnswer && (
                   <button
@@ -2062,7 +2076,7 @@ export function UserEvalAssessmentPage() {
                     }
                     className="flex-1 sm:flex-none border border-red-400 bg-white text-red-600 hover:bg-red-50 text-xs sm:text-sm font-semibold px-2.5 sm:px-4 py-2 rounded-xl transition-colors"
                   >
-                    Clear response
+                    {t('assessment.paper.action.clear')}
                   </button>
                 )}
               </div>
@@ -2085,7 +2099,7 @@ export function UserEvalAssessmentPage() {
           />
           <aside className="fixed inset-y-0 right-0 z-50 w-80 bg-slate-100 overflow-y-auto p-4 flex flex-col lg:hidden shadow-2xl">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-bold text-gray-900">Questions</p>
+              <p className="text-sm font-bold text-gray-900">{t('assessment.paper.panel.heading')}</p>
               <button
                 onClick={() => setPanelOpen(false)}
                 className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg"
@@ -2104,15 +2118,15 @@ export function UserEvalAssessmentPage() {
       {showConfirmSubmit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Submit Assessment?</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">{t('assessment.paper.confirm.heading')}</h3>
 
             {/* Stats table */}
             <div className="border border-gray-200 rounded-xl overflow-hidden mb-4">
               {[
-                { label: 'Total Questions', value: totalQ, cls: 'text-gray-900' },
-                { label: 'Answered', value: answeredCount, cls: 'text-emerald-600' },
-                { label: 'Not Answered', value: totalQ - answeredCount, cls: 'text-red-600' },
-                { label: 'Marked for Review', value: reviewCount, cls: 'text-amber-600' },
+                { label: t('assessment.paper.confirm.total'), value: totalQ, cls: 'text-gray-900' },
+                { label: t('assessment.paper.confirm.answered'), value: answeredCount, cls: 'text-emerald-600' },
+                { label: t('assessment.paper.confirm.not_answered'), value: totalQ - answeredCount, cls: 'text-red-600' },
+                { label: t('assessment.paper.confirm.marked'), value: reviewCount, cls: 'text-amber-600' },
               ].map(({ label, value, cls }, i, arr) => (
                 <div
                   key={label}
@@ -2131,7 +2145,7 @@ export function UserEvalAssessmentPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                 </svg>
                 <p className="text-xs text-amber-800 leading-relaxed">
-                  You have <strong>{totalQ - answeredCount}</strong> unanswered question(s). Are you sure you want to submit?
+                  <Strong text={t('assessment.paper.confirm.unanswered', { count: totalQ - answeredCount })} />
                 </p>
               </div>
             )}
@@ -2148,7 +2162,7 @@ export function UserEvalAssessmentPage() {
                 onClick={() => handleSubmit('manual')}
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl font-semibold transition-colors text-sm"
               >
-                Confirm Submit
+                {t('assessment.paper.confirm.submit')}
               </button>
             </div>
           </div>
@@ -2169,16 +2183,13 @@ export function UserEvalAssessmentPage() {
               <CheckCircle2 className="w-7 h-7 text-blue-600" />
             </div>
             <h3 className="text-lg font-bold text-gray-900 mb-1.5">
-              {sectionShort(quotaReached.name)} complete
+              {t('assessment.paper.quota.heading', { section: sectionShort(quotaReached.name) })}
             </h3>
             <p className="text-sm text-gray-600 leading-relaxed mb-2">
-              You have answered the <strong>{quotaReached.attempt}</strong> questions this
-              section asks for.
+              <Strong text={t('assessment.paper.quota.body', { count: quotaReached.attempt })} />
             </p>
             <p className="text-xs text-gray-500 leading-relaxed mb-4">
-              Only {quotaReached.attempt} of its {quotaReached.questions} questions count
-              towards your score. You can review these answers or move on to the rest of
-              the paper.
+              {t('assessment.paper.quota.note', { attempt: quotaReached.attempt, total: quotaReached.questions })}
             </p>
             <button
               onClick={() => setQuotaReached(null)}
@@ -2197,18 +2208,16 @@ export function UserEvalAssessmentPage() {
               <AlertTriangle className="w-7 h-7 text-red-500" />
             </div>
             <h3 className="text-lg font-bold text-gray-900 mb-1.5">
-              Don't leave the test
+              {t('assessment.paper.tabwarn.heading')}
             </h3>
             <p className="text-sm text-gray-600 leading-relaxed mb-4">
-              Switching tabs or leaving this window is not allowed during the
-              assessment. This is <strong>warning {tabSwitchCount} of {MAX_TAB_SWITCHES}</strong>.
-              After {MAX_TAB_SWITCHES} violations your test will be auto-submitted.
+              <Strong text={t('assessment.paper.tabwarn.body', { count: tabSwitchCount, max: MAX_TAB_SWITCHES })} />
             </p>
             <button
               onClick={() => setShowTabWarning(false)}
               className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl font-semibold transition-colors text-sm"
             >
-              I understand, continue
+              {t('assessment.paper.tabwarn.continue')}
             </button>
           </div>
         </div>

@@ -32,7 +32,7 @@ import {
 } from '@/config/tnpsc';
 import { fromWireRow, fromWireSubject, toWireStage } from '@/config/rrb-ntpc';
 import { withTitlePlacement } from '@/lib/tnpsc-title-placement';
-import { mockPassPercentage, parsePassMarks, type PassMarkTable } from '@/config/pass-marks';
+import { mockPassPercentage, parsePassMarkSettings, parsePassMarks, type PassMarkSettings, type PassMarkTable } from '@/config/pass-marks';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -97,6 +97,12 @@ export interface TnpscTest {
   best_percentage: number | null;
   /** true when the aspirant has a submitted attempt that met the pass mark. */
   is_completed: boolean;
+  /**
+   * This paper's own pass mark and aim, in percent, as the server resolved them (the assessment's own setting, else its
+   * exam's, else the product's) — BACKEND_PASS_MARKS.md. When absent the portal resolves them from its copy of the settings.
+   */
+  pass_percentage?: number | null;
+  target_percentage?: number | null;
 }
 
 export interface TnpscLevelGroup {
@@ -401,10 +407,10 @@ export async function getTnpscMockOverview(
  * The pass mark actually applied, in percent: the server's, when it reports one, so the UI never offers a
  * level the server would refuse to start.
  */
-export function effectivePassPercentage(serverRequired?: number | null): number {
+export function effectivePassPercentage(serverRequired?: number | null, examKey?: string | null): number {
   // The server's own mark wins: the pass marks now come from it (see getPassMarks), so the bundled
-  // figure is only the answer when the server says nothing.
-  return serverRequired != null && serverRequired > 0 ? serverRequired : mockPassPercentage();
+  // figure is only the answer when the server says nothing. The exam's own mock mark beats the product-wide one.
+  return serverRequired != null && serverRequired > 0 ? serverRequired : mockPassPercentage(examKey);
 }
 
 /**
@@ -415,6 +421,20 @@ export async function getPassMarks(): Promise<PassMarkTable | null> {
   try {
     const res = await userApi.get<unknown>('/api/v1/user/tnpsc/pass-marks');
     return parsePassMarks(res);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * GET /api/v1/user/tnpsc/pass-marks — the same endpoint read whole: the product-wide table and each exam's own settings
+ * (`exams: { "<group id>": { mock, keytopic, … } }`). Resolves to null when the endpoint is absent.
+ */
+export async function getPassMarkSettings(): Promise<PassMarkSettings | null> {
+  try {
+    const res = await userApi.get<unknown>('/api/v1/user/tnpsc/pass-marks');
+    const settings = parsePassMarkSettings(res);
+    return settings.global || Object.keys(settings.exams).length > 0 ? settings : null;
   } catch {
     return null;
   }
@@ -736,7 +756,8 @@ export interface AttemptSummary {
 export function applyAttemptHistory(
   tests: TnpscTest[],
   attempts: AttemptSummary[],
-  pass = mockPassPercentage(),
+  /** What clears a paper: one mark for all (a mock level), or each paper's own (a unit, key-topic or section set). */
+  pass: number | ((t: TnpscTest) => number) = mockPassPercentage(),
 ): TnpscTest[] {
   const byTest = new Map<string, { count: number; best: number | null }>();
   for (const at of attempts) {
@@ -764,7 +785,7 @@ export function applyAttemptHistory(
       best_percentage: best,
       // A known score is decisive in both directions: reaching the pass mark clears
       // the paper, falling short leaves it uncleared however it arrived flagged.
-      is_completed: isTestCleared({ ...t, attempts_used: attempts, best_percentage: best }, pass),
+      is_completed: isTestCleared({ ...t, attempts_used: attempts, best_percentage: best }, typeof pass === 'function' ? pass(t) : pass),
     };
   });
 }

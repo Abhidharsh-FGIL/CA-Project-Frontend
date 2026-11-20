@@ -28,6 +28,7 @@ import { format } from 'date-fns';
 import { difficultyLabel } from '@/lib/eval-difficulty';
 import { attemptsUsed as attemptsUsedFacts } from '@/lib/plan-notice';
 import { showPlanNotice } from '@/lib/plan-notice-bus';
+import { useT } from '@/content/useText';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ const DEFAULT_MAX_ATTEMPTS: Record<string, number> = { practice: 3, mock: 1 };
 export default function CourseDetailPage() {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
+  const t = useT();
   const { courses, history } = useUserPortal();
 
   const [tab, setTab] = useState<'practice' | 'mock'>('practice');
@@ -130,7 +132,7 @@ export default function CourseDetailPage() {
         className="group inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 mb-4 transition-colors animate-fadeIn"
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-        Back to Courses
+        {t('account.course.back')}
       </button>
 
       {/* Course header */}
@@ -158,11 +160,11 @@ export default function CourseDetailPage() {
             <div className="flex gap-2 text-xs flex-shrink-0">
               <div className="bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900/40 rounded-lg px-3 py-1.5 text-center">
                 <p className="font-bold text-base text-gray-900 dark:text-gray-100 leading-tight">{practiceCount}</p>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400">Practice</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">{t('account.course.tab_practice')}</p>
               </div>
               <div className="bg-white dark:bg-gray-900 border border-blue-100 dark:border-blue-900/40 rounded-lg px-3 py-1.5 text-center">
                 <p className="font-bold text-base text-gray-900 dark:text-gray-100 leading-tight">{mockCount}</p>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400">Mock</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">{t('account.course.tab_mock')}</p>
               </div>
             </div>
           )}
@@ -171,28 +173,28 @@ export default function CourseDetailPage() {
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 dark:border-gray-800 mb-5">
-        {(['practice', 'mock'] as const).map(t => (
+        {(['practice', 'mock'] as const).map(kind => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={kind}
+            onClick={() => setTab(kind)}
             className={cn(
               'px-5 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-all duration-300',
-              tab === t
+              tab === kind
                 ? 'border-brand-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
                 : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
             )}
           >
-            {t === 'practice' ? 'Practice' : 'Mock'}
+            {kind === 'practice' ? t('account.course.tab_practice') : t('account.course.tab_mock')}
             {!loading && (
               <span
                 className={cn(
                   'ml-2 text-xs px-1.5 py-0.5 rounded transition-all',
-                  tab === t
+                  tab === kind
                     ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-brand-300'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
                 )}
               >
-                {t === 'practice' ? practiceCount : mockCount}
+                {kind === 'practice' ? practiceCount : mockCount}
               </span>
             )}
           </button>
@@ -203,13 +205,13 @@ export default function CourseDetailPage() {
       {loading ? (
         <div className="flex items-center justify-center py-20 gap-3 text-gray-400 dark:text-gray-500 animate-fadeIn">
           <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-          <span className="text-sm">Loading assessments…</span>
+          <span className="text-sm">{t('account.course.loading')}</span>
         </div>
       ) : hasError ? (
         <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-xl p-8 text-center animate-fadeIn">
           <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-3" />
           <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-1">
-            Could not load assessments
+            {t('account.course.load_failed')}
           </p>
           <p className="text-xs text-red-500 dark:text-red-500 mb-4">
             {testsError || evalError}
@@ -219,14 +221,14 @@ export default function CourseDetailPage() {
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-900 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            Try again
+            {t('account.course.try_again')}
           </button>
         </div>
       ) : isEmpty ? (
         <div className="text-center py-16 animate-fadeIn">
           <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
           <p className="text-sm text-gray-400 dark:text-gray-500">
-            No {tab} assessments available for this course yet.
+            {t('account.course.empty', { kind: tab })}
           </p>
         </div>
       ) : (
@@ -237,8 +239,8 @@ export default function CourseDetailPage() {
             <section>
               <SectionHeader
                 icon={<BookOpen className="w-3.5 h-3.5" />}
-                label="Tests"
-                subtitle="Take anytime, at your own pace"
+                label={t('account.course.section_tests')}
+                subtitle={t('account.course.section_tests_sub')}
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                 {visibleTests.map((t, i) => (
@@ -259,8 +261,8 @@ export default function CourseDetailPage() {
             <section>
               <SectionHeader
                 icon={<Zap className="w-3.5 h-3.5" />}
-                label="Free Assessments"
-                subtitle="Take anytime — no invitation needed"
+                label={t('account.course.section_free')}
+                subtitle={t('account.course.section_free_sub')}
                 accent
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
@@ -280,8 +282,8 @@ export default function CourseDetailPage() {
             <section>
               <SectionHeader
                 icon={<CalendarCheck className="w-3.5 h-3.5" />}
-                label="Scheduled Assessments"
-                subtitle="Administered assessments — invitation required"
+                label={t('account.course.section_scheduled')}
+                subtitle={t('account.course.section_scheduled_sub')}
                 accent
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
@@ -347,6 +349,7 @@ function TestCard({
   maxAttempts: number;
 }) {
   const navigate = useNavigate();
+  const t = useT();
   const attemptsLeft = Math.max(0, maxAttempts - attemptsUsed);
   const exhausted = attemptsLeft === 0;
   const attempted = attemptsUsed > 0;
@@ -367,12 +370,12 @@ function TestCard({
     >
       {test.is_new && !attempted && (
         <span className="absolute top-3 right-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow animate-bounce-soft">
-          NEW
+          {t('account.course.new_badge')}
         </span>
       )}
       {attempted && (
         <span className="absolute top-3 right-3 inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-          <CheckCircle2 className="w-3 h-3" /> Attempted
+          <CheckCircle2 className="w-3 h-3" /> {t('account.course.attempted')}
         </span>
       )}
 
@@ -411,7 +414,7 @@ function TestCard({
       <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2">
         <div className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-2 flex-wrap">
           <span>
-            Requires{' '}
+            {t('account.course.requires')}{' '}
             <span className="font-semibold text-gray-700 dark:text-gray-200">
               {TIER_LABEL[test.required_tier ?? 'free'] ?? test.required_tier ?? 'Free'}
             </span>
@@ -422,7 +425,7 @@ function TestCard({
             </span>
           ) : (
             <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
-              FREE
+              {t('account.course.free')}
             </span>
           )}
         </div>
@@ -432,7 +435,7 @@ function TestCard({
             onClick={e => { e.stopPropagation(); navigate('/user/subscription'); }}
             className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
           >
-            <Lock className="w-3 h-3" /> Upgrade <Sparkles className="w-3 h-3" />
+            <Lock className="w-3 h-3" /> {t('account.course.upgrade')} <Sparkles className="w-3 h-3" />
           </button>
         ) : exhausted ? (
           <button
@@ -440,7 +443,7 @@ function TestCard({
             onClick={e => { e.stopPropagation(); showPlanNotice(attemptsUsedFacts(maxAttempts)); }}
             className="inline-flex items-center gap-1 text-xs font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-700 dark:hover:text-amber-300 transition-colors"
           >
-            <Lock className="w-3 h-3" /> No attempts left
+            <Lock className="w-3 h-3" /> {t('account.course.no_attempts')}
           </button>
         ) : (
           <Link
@@ -448,7 +451,7 @@ function TestCard({
             className={cn('text-xs font-semibold px-3 py-1.5 rounded-lg transition-all', test.mode === 'mock' ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-emerald-600 text-white hover:bg-emerald-700')}
             onClick={e => e.stopPropagation()}
           >
-            {test.mode === 'mock' ? 'Start Mock' : 'Practice'}
+            {test.mode === 'mock' ? t('account.course.start_mock') : t('account.course.practice')}
           </Link>
         )}
       </div>
@@ -469,6 +472,7 @@ function useHasOpenAttempt(a: ApiEvalAssessment): boolean {
 
 function FreeAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }) {
   const navigate = useNavigate();
+  const t = useT();
   const pastDue = !!a.due_date && new Date(a.due_date) < new Date();
   // The due date only stops a new start. An attempt begun in time can still be resumed and submitted after it
   // (its own timer still applies), so a card with an open attempt is not "expired" for the person who has one.
@@ -487,7 +491,7 @@ function FreeAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
     >
       {/* Free badge */}
       <span className="absolute top-3 right-3 inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-        FREE
+        {t('account.course.free')}
       </span>
 
       {/* Title */}
@@ -496,7 +500,7 @@ function FreeAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
           {a.title}
         </p>
         <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mt-0.5">
-          Free Assessment
+          {t('account.course.free_assessment')}
         </p>
       </div>
 
@@ -533,13 +537,13 @@ function FreeAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
           )}
         >
           {a.due_date
-            ? `${pastDue ? 'Expired' : 'Due'}: ${new Date(a.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
-            : 'No deadline'}
+            ? t(pastDue ? 'account.course.expired_on' : 'account.course.due_on', { date: new Date(a.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) })
+            : t('account.course.no_deadline')}
         </p>
 
         {isExpired ? (
           <span className="text-xs font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg">
-            Expired
+            {t('account.course.expired')}
           </span>
         ) : (
           <button
@@ -554,7 +558,7 @@ function FreeAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
                 : 'bg-emerald-600 text-white hover:bg-emerald-700',
             )}
           >
-            {hasOpenAttempt ? 'Resume' : a.mode === 'mock' ? 'Start Mock' : 'Start Practice'}
+            {hasOpenAttempt ? t('account.course.resume') : a.mode === 'mock' ? t('account.course.start_mock') : t('account.course.start_practice')}
           </button>
         )}
       </div>
@@ -566,6 +570,7 @@ function FreeAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
 
 function EvalAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }) {
   const navigate = useNavigate();
+  const t = useT();
   const pastDue = !!a.due_date && new Date(a.due_date) < new Date();
   // Past the due date a new attempt cannot be started, but one already open can be resumed and submitted.
   const hasOpenAttempt = useHasOpenAttempt(a);
@@ -593,7 +598,7 @@ function EvalAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
       {/* Invitation badge */}
       {a.has_invitation && (
         <span className="absolute top-3 right-3 inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-          <CheckCircle2 className="w-3 h-3" /> Invited
+          <CheckCircle2 className="w-3 h-3" /> {t('account.course.invited')}
         </span>
       )}
 
@@ -603,7 +608,7 @@ function EvalAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
           {a.title}
         </p>
         <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mt-0.5">
-          Scheduled Assessment
+          {t('account.course.scheduled_assessment')}
         </p>
       </div>
 
@@ -632,8 +637,8 @@ function EvalAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
       <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2">
         <p className={cn('text-[11px]', pastDue ? 'text-red-500 font-medium' : 'text-gray-400 dark:text-gray-500')}>
           {a.due_date
-            ? `${pastDue ? 'Expired' : 'Due'}: ${format(new Date(a.due_date), 'dd MMM yyyy')}`
-            : 'No deadline'}
+            ? t(pastDue ? 'account.course.expired_on' : 'account.course.due_on', { date: format(new Date(a.due_date), 'dd MMM yyyy') })
+            : t('account.course.no_deadline')}
         </p>
 
         {canStart ? (
@@ -646,11 +651,11 @@ function EvalAssessmentCard({ assessment: a }: { assessment: ApiEvalAssessment }
                 : 'bg-emerald-600 text-white hover:bg-emerald-700',
             )}
           >
-            {hasOpenAttempt ? 'Resume' : a.mode === 'mock' ? 'Start Mock' : 'Start Practice'}
+            {hasOpenAttempt ? t('account.course.resume') : a.mode === 'mock' ? t('account.course.start_mock') : t('account.course.start_practice')}
           </button>
         ) : isExpired ? (
           <span className="text-xs font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg">
-            Expired
+            {t('account.course.expired')}
           </span>
         ) : null}
       </div>

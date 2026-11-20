@@ -18,6 +18,7 @@ import { StudyPlanGenerating } from '@/components/user/study-plan/StudyPlanGener
 import { StudyPlanUnavailable } from '@/components/user/study-plan/plan-ui';
 import { useActiveStudyPlan, useStudyPlan, planKeys } from '@/hooks/use-study-plan';
 import { useQueryClient } from '@tanstack/react-query';
+import { useT } from '@/content/useText';
 import {
   pollPlanGeneration,
   revisePlan,
@@ -26,6 +27,7 @@ import {
 } from '@/lib/studyPlanApi';
 
 function UserStudyPlanPageBody() {
+  const t = useT();
   const { planId } = useParams<{ planId: string }>();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -148,7 +150,7 @@ function UserStudyPlanPageBody() {
     return (
       <UserShell>
         <ReportCard>
-          <SectionHeader icon={<RefreshCw className="w-4 h-4" />} title="Your plan could not be loaded" accent="rose" />
+          <SectionHeader icon={<RefreshCw className="w-4 h-4" />} title={t('reports.plan.loadError.title')} accent="rose" />
           <p className="text-[14px] text-gray-500 dark:text-gray-400">{error.message}</p>
         </ReportCard>
       </UserShell>
@@ -209,6 +211,7 @@ function UserStudyPlanPageBody() {
 }
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
+  const t = useT();
   return (
     <ReportCard>
       <div className="py-10 text-center">
@@ -216,19 +219,17 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
           <Wand2 className="w-6 h-6 text-blue-500" />
         </span>
         <p className="text-[15px] font-bold text-gray-900 dark:text-gray-100">
-          You don't have a study plan yet
+          {t('reports.plan.empty.title')}
         </p>
         <p className="mx-auto mt-1.5 max-w-md text-[14px] leading-relaxed text-gray-500 dark:text-gray-400">
-          Tell us how long you have before the exam, which days you study and for how long. We'll
-          turn the whole syllabus into a dated, day-by-day plan — weighted towards whatever your
-          mock tests show you need most, with spaced revision and mocks built in.
+          {t('reports.plan.empty.body')}
         </p>
         <button
           type="button"
           onClick={onCreate}
           className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2.5 text-[13px] font-bold text-white hover:bg-brand-700"
         >
-          <Sparkles className="w-4 h-4" /> Build my study plan
+          <Sparkles className="w-4 h-4" /> {t('reports.plan.empty.cta')}
         </button>
       </div>
     </ReportCard>

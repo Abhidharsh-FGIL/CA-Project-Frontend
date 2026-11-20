@@ -19,6 +19,8 @@ import {
 import { cn } from '@/lib/utils';
 import { ACCENT, type Accent } from '@/components/user/report-ui';
 import type { DayStatus, TaskKind, Verdict } from '@/lib/studyPlanApi';
+import { useT } from '@/content/useText';
+import type { ContentKey } from '@/content/registry';
 
 // ─── Panel header ─────────────────────────────────────────────────────────────
 
@@ -145,21 +147,22 @@ export const DAY_STATUS: Record<DayStatus, { label: string; accent: Accent }> = 
 
 // ─── Feasibility ──────────────────────────────────────────────────────────────
 
-export const VERDICT: Record<Verdict, { label: string; accent: Accent; blurb: string }> = {
+/** `blurb` is the key of the sentence under the verdict — read it with `t(VERDICT[v].blurb)`. */
+export const VERDICT: Record<Verdict, { label: string; accent: Accent; blurb: ContentKey }> = {
   comfortable: {
     label: 'Comfortable',
     accent: 'emerald',
-    blurb: 'This fits the syllabus with room for revision.',
+    blurb: 'reports.plan.verdict.comfortable',
   },
   tight: {
     label: 'Tight',
     accent: 'amber',
-    blurb: 'This covers the syllabus once, with little slack.',
+    blurb: 'reports.plan.verdict.tight',
   },
   not_feasible: {
     label: "Won't fit",
     accent: 'rose',
-    blurb: 'There is not enough time here to cover the syllabus.',
+    blurb: 'reports.plan.verdict.notFeasible',
   },
 };
 
@@ -188,6 +191,7 @@ export function VerdictPill({ verdict }: { verdict: Verdict }) {
  * finds this page early should see an explanation, not a stack trace.
  */
 export function StudyPlanUnavailable({ compact }: { compact?: boolean }) {
+  const t = useT();
   return (
     <div
       className={cn(
@@ -199,11 +203,10 @@ export function StudyPlanUnavailable({ compact }: { compact?: boolean }) {
         <CalendarOff className="w-5 h-5 text-gray-400" />
       </span>
       <p className="text-[15px] font-semibold text-gray-700 dark:text-gray-200">
-        Study plans are not enabled on this account yet
+        {t('reports.plan.unavailable.title')}
       </p>
       <p className="mt-1 text-[14px] text-gray-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">
-        Your plan is built on our servers from your syllabus and your mock-test results. The
-        feature is on its way — nothing is wrong with your account.
+        {t('reports.plan.unavailable.body')}
       </p>
     </div>
   );

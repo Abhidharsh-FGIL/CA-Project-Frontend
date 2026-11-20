@@ -12,16 +12,24 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { GOOGLE_CLIENT_ID, GOOGLE_ENABLED } from '@/config/google';
+import { useT } from '@/content/useText';
 import { loadGoogleIdentity, type GoogleButtonOptions } from '@/lib/google-identity';
 
 type Text = NonNullable<GoogleButtonOptions['text']>;
 
-const LABEL: Record<Text, string> = {
-  signin_with: 'Sign in with Google',
-  signup_with: 'Sign up with Google',
-  continue_with: 'Continue with Google',
-  signin: 'Sign in',
-};
+/** The button's words. The two the pages use are editable; the others are Google's own variants, not used here. */
+function labelFor(text: Text, t: ReturnType<typeof useT>): string {
+  switch (text) {
+    case 'signup_with':
+      return t('auth.google.signup_with');
+    case 'continue_with':
+      return t('auth.google.continue_with');
+    case 'signin_with':
+      return 'Sign in with Google';
+    default:
+      return 'Sign in';
+  }
+}
 
 /** The height of the button's face — the same as the page's primary buttons. */
 const FACE_HEIGHT = 54;
@@ -48,6 +56,7 @@ export function GoogleButton({
   /** Called with the Google ID token when the person picks an account. */
   onCredential: (credential: string) => void;
 }) {
+  const t = useT();
   const box = useRef<HTMLDivElement>(null);
   const hit = useRef<HTMLDivElement>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -94,7 +103,7 @@ export function GoogleButton({
       <div ref={box} className="mge-gbtn" style={{ height: FACE_HEIGHT }}>
         <div className="mge-gbtn-face" aria-hidden="true">
           <GoogleG />
-          <span>{LABEL[text]}</span>
+          <span>{labelFor(text, t)}</span>
         </div>
         {/* Google's real button: invisible, on top, and the thing that actually gets clicked. */}
         <div ref={hit} className="mge-gbtn-hit" />

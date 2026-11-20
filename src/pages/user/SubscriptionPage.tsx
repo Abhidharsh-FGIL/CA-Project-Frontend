@@ -39,6 +39,7 @@ import { openCheckout } from '@/lib/razorpay';
 import type { ApiAttempt, ApiEvalAssessment } from '@/lib/userPortalApi';
 import { billingCycleOf, planAllowance, planCardState } from '@/lib/plan-allowance';
 import type { PurchaseOutcome } from '@/lib/purchase';
+import { Rich, useT } from '@/content/useText';
 
 type Billing = 'monthly' | 'yearly';
 
@@ -48,6 +49,7 @@ type Billing = 'monthly' | 'yearly';
  * the packs and balances from `/user/topup/*`, the end date from `/user/subscription/current`.
  */
 export default function SubscriptionPage() {
+  const t = useT();
   const { user, plans, history, assessments, upgradeSubscription, payForSubscription } = useUserPortal();
   const [checkout, setCheckout] = useState<{ plan: SubscriptionPlanInfo; billing: Billing } | null>(null);
 
@@ -79,20 +81,19 @@ export default function SubscriptionPage() {
     <UserShell>
       <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between animate-fadeIn">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
-            Choose your <span className="text-orange-600 dark:text-orange-400">plan</span>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-gray-100 [&_span]:text-orange-600 dark:[&_span]:text-orange-400">
+            <Rich text={t('account.subscription.title')} />
           </h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Start free. Upgrade when you want more tests and detailed reports.
+            {t('account.subscription.subtitle')}
           </p>
         </div>
       </div>
 
       {/* A retired plan is not on the page, so say where its holder stands. */}
       {getPlan(user.subscription_tier)?.legacy && (
-        <div className="mb-5 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/70 dark:bg-amber-950/30 px-4 py-3 text-xs leading-relaxed text-amber-800 dark:text-amber-200">
-          You are on <b>{getPlan(user.subscription_tier).name}</b>, which is no longer sold. It stays active, with
-          everything it includes, until it expires — after that you can choose any of the plans below.
+        <div className="mb-5 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/70 dark:bg-amber-950/30 px-4 py-3 text-xs leading-relaxed text-amber-800 dark:text-amber-200 [&_span]:font-bold">
+          <Rich text={t('account.subscription.legacy_notice', { name: getPlan(user.subscription_tier).name })} />
         </div>
       )}
 
@@ -124,16 +125,16 @@ export default function SubscriptionPage() {
         <div className="flex items-start gap-3">
           <Tag className="w-5 h-5 text-amber-700 dark:text-amber-400 mt-0.5 flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-amber-900 dark:text-amber-200">Have a promo code? Apply it at checkout.</p>
+            <p className="text-sm font-bold text-amber-900 dark:text-amber-200">{t('account.subscription.promo_hint.title')}</p>
             <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
-              Choose a plan to open checkout, then enter your code for instant discount.
+              {t('account.subscription.promo_hint.body')}
             </p>
           </div>
         </div>
       </div>
 
       <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-8">
-        Payments are processed securely by Razorpay. We never see or store your card details.
+        {t('account.subscription.secure_note')}
       </p>
 
       {checkout && (
@@ -187,6 +188,7 @@ function OptionCard({
   bestValue: boolean;
   onChoose: () => void;
 }) {
+  const t = useT();
   const cycle = cycleShown(plan, billing);
   const card = cardFor(plan, billing);
   const isFree = plan.price_monthly === 0;
@@ -207,21 +209,24 @@ function OptionCard({
   const buyLabel =
     state === 'switch'
       ? billing === 'yearly'
-        ? `Upgrade to Yearly — ${fmt(price)}`
-        : `Switch to Monthly — ${fmt(price)}`
-      : (card?.cta || (billing === 'yearly' ? `${holds ? 'Renew' : 'Get'} Yearly — ${fmt(price)}` : `${holds ? 'Extend' : 'Choose'} Monthly — ${fmt(price)}`));
-  const buttonText = isCurrent ? '✓ Current Plan' : buyLabel;
+        ? t('account.subscription.card.upgrade_yearly', { price: fmt(price) })
+        : t('account.subscription.card.switch_monthly', { price: fmt(price) })
+      : (card?.cta ||
+          (billing === 'yearly'
+            ? t(holds ? 'account.subscription.card.renew_yearly' : 'account.subscription.card.get_yearly', { price: fmt(price) })
+            : t(holds ? 'account.subscription.card.extend_monthly' : 'account.subscription.card.choose_monthly', { price: fmt(price) })));
+  const buttonText = isCurrent ? t('account.subscription.card.current') : buyLabel;
 
   return (
     <div className="relative flex flex-col">
       {showYourPlan && (
         <span className="absolute right-4 top-4 z-10 rounded-full bg-emerald-600 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-white shadow">
-          Your plan
+          {t('account.subscription.card.your_plan')}
         </span>
       )}
       {bestValue && months && priceOfMonths && (
         <span className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap rounded-full bg-orange-500 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-white shadow">
-          Best Value · {months} Months for the Price of {priceOfMonths}
+          {t('account.subscription.card.best_value', { months, priceOfMonths })}
         </span>
       )}
       <div
@@ -240,18 +245,18 @@ function OptionCard({
             <Icon className="h-5 w-5" aria-hidden />
           </span>
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-            {isFree ? plan.name : `${plan.name} ${billing === 'yearly' ? 'Yearly' : 'Monthly'}`}
+            {isFree ? plan.name : t(billing === 'yearly' ? 'account.subscription.card.title_yearly' : 'account.subscription.card.title_monthly', { name: plan.name })}
           </h2>
         </div>
 
         <p className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
           {fmt(price)}
-          {!isFree && <span className="ml-1 text-sm font-semibold text-gray-500 dark:text-gray-400">/ {billing === 'yearly' ? 'year' : 'month'}</span>}
+          {!isFree && <span className="ml-1 text-sm font-semibold text-gray-500 dark:text-gray-400">{t(billing === 'yearly' ? 'account.subscription.card.per_year' : 'account.subscription.card.per_month')}</span>}
           {!isFree && <span className="ml-1.5 text-sm font-semibold text-gray-500 dark:text-gray-400">{GST_LABEL}</span>}
         </p>
         {bestValue && monthlyCost !== null && saving > 0 && (
           <p className="mt-2 inline-block rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-            Just {fmt(monthlyCost)} per month — save {fmt(saving)} compared to the Monthly Plan.
+            {t('account.subscription.card.saving', { monthly: fmt(monthlyCost), saving: fmt(saving) })}
           </p>
         )}
 
@@ -261,7 +266,7 @@ function OptionCard({
         {card ? (
           <>
             {card.included.length > 0 && (
-              <p className="mt-5 text-[11px] font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400">What’s included</p>
+              <p className="mt-5 text-[11px] font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('account.subscription.card.included')}</p>
             )}
             <ul className="mt-3 flex-1 space-y-3">
               {card.included.map(item => (
@@ -294,7 +299,7 @@ function OptionCard({
 
         {card?.best_for && (
           <p className="mt-5 rounded-xl bg-gray-50 dark:bg-gray-800/60 px-3.5 py-3 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
-            <strong className="text-gray-900 dark:text-gray-100">Best for:</strong> {card.best_for}
+            <strong className="text-gray-900 dark:text-gray-100">{t('account.subscription.card.best_for')}</strong> {card.best_for}
           </p>
         )}
 
@@ -334,6 +339,7 @@ function packContents(p: TopUpPack): string {
  * out while the packs are loading or cannot be fetched, rather than showing a made-up list.
  */
 function TopUpSection({ customer }: { customer: { name: string; email: string; contact?: string | null } }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const { data } = useQuery({ queryKey: ['topup', 'packs'], queryFn: getTopUpPacks, staleTime: 60 * 1000 });
   const [picked, setPicked] = useState<string | null>(null);
@@ -358,10 +364,10 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
   const practicePacks = data.packs.filter(p => p.practice > 0 && p.mock === 0);
   const other = data.packs.filter(p => p.mock === 0 && p.practice === 0);
   const columns = [
-    { title: 'Combo packs', packs: combo },
-    { title: 'Mock test packs', packs: mockPacks },
-    { title: 'Practice test packs', packs: practicePacks },
-    ...(other.length ? [{ title: 'Other packs', packs: other }] : []),
+    { title: t('account.subscription.topup.col_combo'), packs: combo },
+    { title: t('account.subscription.topup.col_mock'), packs: mockPacks },
+    { title: t('account.subscription.topup.col_practice'), packs: practicePacks },
+    ...(other.length ? [{ title: t('account.subscription.topup.col_other'), packs: other }] : []),
   ].filter(c => c.packs.length > 0);
 
   // The best-value combo is the pack with the lowest price per test, when there is more than one combo to compare.
@@ -435,9 +441,9 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
 
   return (
     <section ref={section} id="top-ups" className="mt-12 animate-fadeIn scroll-mt-24">
-      <h2 className="border-l-4 border-orange-500 pl-3 text-2xl font-extrabold text-gray-900 dark:text-gray-100">Need more tests?</h2>
+      <h2 className="border-l-4 border-orange-500 pl-3 text-2xl font-extrabold text-gray-900 dark:text-gray-100">{t('account.subscription.topup.title')}</h2>
       <p className="mt-1 max-w-xl text-sm text-gray-600 dark:text-gray-400">
-        Add a top-up to your Monthly or Yearly plan. Unused top-up tests are saved and carried forward when you renew your subscription.
+        {t('account.subscription.topup.intro')}
       </p>
 
       {!data.can_purchase && data.reason && (
@@ -496,7 +502,7 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
                           {pack.name}
                           {best && (
                             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                              Best value
+                              {t('account.subscription.topup.best_value')}
                             </span>
                           )}
                         </p>
@@ -504,12 +510,12 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                           {pack.mock > 0 && (
                             <span className="rounded-md bg-violet-50 px-2 py-0.5 text-xs font-bold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
-                              {pack.mock} Mock
+                              {t('account.subscription.topup.mock_badge', { count: pack.mock })}
                             </span>
                           )}
                           {pack.practice > 0 && (
                             <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                              {pack.practice} Practice
+                              {t('account.subscription.topup.practice_badge', { count: pack.practice })}
                             </span>
                           )}
                         </div>
@@ -530,7 +536,7 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
       {/* The pay bar stays in view while the packs are read, as the design has it at the foot of the screen. */}
       <div className="mt-6 flex flex-col gap-3 rounded-2xl bg-gray-900 px-5 py-4 text-white shadow-xl sm:flex-row sm:items-center sm:justify-between lg:sticky lg:bottom-4 lg:z-20">
         <div className="min-w-0">
-          <p className="text-[11px] uppercase tracking-wider text-gray-400">Selected top-up</p>
+          <p className="text-[11px] uppercase tracking-wider text-gray-400">{t('account.subscription.topup.selected')}</p>
           <p className="truncate text-sm font-bold">
             {chosen.name} <span className="font-normal text-gray-300">· {packContents(chosen)}</span>
           </p>
@@ -544,7 +550,7 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
                 {promo.quote.discount_amount ? ` · −₹${promo.quote.discount_amount.toLocaleString('en-IN')}` : ''}
               </span>
               <button type="button" onClick={clearPromo} className="font-semibold uppercase tracking-wider text-gray-400 hover:text-red-400">
-                Remove
+                {t('account.subscription.topup.remove')}
               </button>
             </div>
           ) : (
@@ -556,7 +562,7 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
                 onKeyDown={e => {
                   if (e.key === 'Enter') applyPromo();
                 }}
-                placeholder="Promo code"
+                placeholder={t('account.subscription.topup.promo_placeholder')}
                 aria-label="Promo code"
                 className="w-36 rounded-lg border border-orange-400/40 bg-white/10 px-3 py-2 text-xs uppercase tracking-wide text-white placeholder:normal-case placeholder:text-gray-300 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/60"
               />
@@ -566,7 +572,7 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
                 disabled={checkingPromo || !promoInput.trim()}
                 className="rounded-lg bg-orange-500 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-orange-400 disabled:bg-white/10 disabled:text-gray-400"
               >
-                {checkingPromo ? 'Checking…' : 'Apply'}
+                {checkingPromo ? t('account.subscription.checking') : t('account.subscription.apply')}
               </button>
             </div>
           )}
@@ -574,7 +580,7 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
             {promo && payable < chosen.price && (
               <span className="mr-2 text-sm font-semibold text-gray-400 line-through">₹{chosen.price.toLocaleString('en-IN')}</span>
             )}
-            {payable === 0 ? 'Free' : `₹${payable.toLocaleString('en-IN')}`}
+            {payable === 0 ? t('account.subscription.topup.free') : `₹${payable.toLocaleString('en-IN')}`}
           </p>
           <button
             type="button"
@@ -582,7 +588,7 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
             disabled={!data.can_purchase || buying}
             className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {buying ? 'Opening…' : payable === 0 ? 'Add pack' : 'Pay now'}
+            {buying ? t('account.subscription.topup.opening') : payable === 0 ? t('account.subscription.topup.add_pack') : t('account.subscription.topup.pay_now')}
           </button>
         </div>
       </div>
@@ -594,15 +600,16 @@ function TopUpSection({ customer }: { customer: { name: string; email: string; c
 
 /** The four steps, as the design sets them out. */
 function HowTopUpsWork() {
+  const t = useT();
   const steps = [
-    "Buy a Monthly or Yearly plan first. Top-ups can't be added to Free.",
-    "Your plan's tests are used first. Top-up tests are used after.",
-    "When your plan ends, unused top-up tests are saved. Plan tests expire with the plan.",
-    "Renew any plan and your saved tests unlock again.",
+    t('account.subscription.how.step1'),
+    t('account.subscription.how.step2'),
+    t('account.subscription.how.step3'),
+    t('account.subscription.how.step4'),
   ];
   return (
     <div className="mt-10 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 sm:p-6">
-      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">How top-ups work</h3>
+      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('account.subscription.how.title')}</h3>
       <ol className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map((step, i) => (
           <li key={step} className="flex items-start gap-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
@@ -614,7 +621,7 @@ function HowTopUpsWork() {
         ))}
       </ol>
       <p className="mt-5 text-[11px] text-gray-500 dark:text-gray-400">
-        Top-ups are non-refundable and non-transferable. Terms apply.
+        {t('account.subscription.how.footnote')}
       </p>
     </div>
   );
@@ -632,6 +639,7 @@ interface CheckoutModalProps {
 }
 
 function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onConfirm }: CheckoutModalProps) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [promoInput, setPromoInput] = useState('');
   /** The server's priced answer for the code, when it gave GST figures — what the summary shows. */
@@ -757,14 +765,16 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
           </button>
 
           <div className="relative">
-            <p className="text-[10px] uppercase tracking-[0.25em] font-bold opacity-90">Checkout</p>
+            <p className="text-[10px] uppercase tracking-[0.25em] font-bold opacity-90">{t('account.subscription.checkout.eyebrow')}</p>
             <h2 className="text-xl font-bold mt-1 flex items-center gap-2">
               {plan.tier === 'premium' && <Crown className="w-5 h-5" />}
               {plan.name}
               <span className="rounded-full bg-white/25 px-2.5 py-0.5 text-xs font-bold capitalize">{billing}</span>
             </h2>
             <p className="text-xs opacity-90 mt-0.5 capitalize">
-              {billing} billing · {plan.tier === currentTier ? `switching your ${currentTier} plan` : `upgrading from ${currentTier}`}
+              {plan.tier === currentTier
+                ? t('account.subscription.checkout.switching', { billing, tier: currentTier })
+                : t('account.subscription.checkout.upgrading', { billing, tier: currentTier })}
             </p>
           </div>
         </div>
@@ -772,7 +782,7 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
           {/* Plan summary */}
           <div className="bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-xl p-3 mb-4">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 mb-1">What you get</p>
+            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 mb-1">{t('account.subscription.checkout.what_you_get')}</p>
             <ul className="space-y-1">
               {shownPerks.map((p, i) => (
                 <li key={i} className="flex items-start gap-1.5 text-xs text-gray-700 dark:text-gray-300">
@@ -780,7 +790,7 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
                   {p}
                 </li>
               ))}
-              {hiddenPerks > 0 && <li className="text-[11px] text-gray-500 dark:text-gray-400 italic pl-4">+ {hiddenPerks} more perks</li>}
+              {hiddenPerks > 0 && <li className="text-[11px] text-gray-500 dark:text-gray-400 italic pl-4">{t('account.subscription.checkout.more_perks', { count: hiddenPerks })}</li>}
             </ul>
           </div>
 
@@ -788,7 +798,7 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
           <div className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/60 dark:bg-amber-950/30 p-3 sm:p-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <Tag className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-              <p className="text-xs font-bold text-amber-900 dark:text-amber-200">Promo code</p>
+              <p className="text-xs font-bold text-amber-900 dark:text-amber-200">{t('account.subscription.checkout.promo_title')}</p>
             </div>
 
             {appliedPromo ? (
@@ -797,7 +807,7 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                      {appliedPromo.code} · {appliedPromo.discount_pct}% off
+                      {t('account.subscription.checkout.promo_applied', { code: appliedPromo.code, pct: appliedPromo.discount_pct })}
                     </p>
                     <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5 truncate">{appliedPromo.label}</p>
                   </div>
@@ -806,7 +816,7 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
                   onClick={handleClearPromo}
                   className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 uppercase tracking-wider flex-shrink-0"
                 >
-                  Remove
+                  {t('account.subscription.topup.remove')}
                 </button>
               </div>
             ) : (
@@ -818,7 +828,7 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
                   onKeyDown={e => {
                     if (e.key === 'Enter') handleApply();
                   }}
-                  placeholder="Enter promo code"
+                  placeholder={t('account.subscription.checkout.promo_placeholder')}
                   className="flex-1 px-3 py-2 border border-amber-200 dark:border-amber-900 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-amber-400/60 dark:placeholder:text-amber-300/40 rounded-lg text-sm uppercase tracking-wide focus:outline-none focus:ring-2 focus:ring-amber-300 dark:focus:ring-amber-700"
                 />
                 <button
@@ -826,73 +836,73 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
                   disabled={checkingPromo}
                   className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-amber-700 transition-colors press disabled:opacity-60"
                 >
-                  {checkingPromo ? 'Checking…' : 'Apply'}
+                  {checkingPromo ? t('account.subscription.checking') : t('account.subscription.apply')}
                 </button>
               </div>
             )}
 
-            <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-2">The final amount is confirmed when you pay.</p>
+            <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-2">{t('account.subscription.checkout.promo_note')}</p>
           </div>
 
           {/* Price breakdown */}
           <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <p className="text-xs font-bold text-gray-900 dark:text-gray-100">Order Summary</p>
+              <p className="text-xs font-bold text-gray-900 dark:text-gray-100">{t('account.subscription.checkout.summary_title')}</p>
             </div>
 
             {breakdown && isGstInclusive(breakdown) ? (
               // GST is inside the price: price, less any discount, is the total; the tax is shown as what it contains.
               <div className="space-y-1.5 text-sm">
                 <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
-                  <span>Plan price (incl. GST)</span>
+                  <span>{t('account.subscription.checkout.plan_price_gst')}</span>
                   <span className="tabular-nums">{rs(breakdown.base_amount)}</span>
                 </div>
                 {breakdown.discount_amount > 0 && (
                   <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 font-medium">
                     <span className="inline-flex items-center gap-1">
                       <BadgePercent className="w-3.5 h-3.5" />
-                      Discount ({appliedPromo?.code})
+                      {t('account.subscription.checkout.discount', { code: appliedPromo?.code })}
                     </span>
                     <span className="tabular-nums">−{rs(breakdown.discount_amount)}</span>
                   </div>
                 )}
                 <div className="border-t border-blue-100 dark:border-blue-900 my-2" />
                 <div className="flex items-center justify-between text-base font-bold text-gray-900 dark:text-gray-100">
-                  <span>Total</span>
+                  <span>{t('account.subscription.checkout.total')}</span>
                   <span className="tabular-nums">{rs(breakdown.final_amount)}</span>
                 </div>
                 <p className="pt-1 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 tabular-nums">
-                  Includes taxable value {rs(breakdown.taxable_amount)} and GST @ {breakdown.gst_percent}% {rs(breakdown.gst_amount)}.
+                  {t('account.subscription.checkout.gst_included', { taxable: rs(breakdown.taxable_amount), percent: breakdown.gst_percent, gst: rs(breakdown.gst_amount) })}
                 </p>
               </div>
             ) : breakdown ? (
               // GST on top of the price (a server that has not changed over yet): the server's figures as they come.
               <div className="space-y-1.5 text-sm">
                 <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
-                  <span>Plan price</span>
+                  <span>{t('account.subscription.checkout.plan_price')}</span>
                   <span className="tabular-nums">{rs(breakdown.base_amount)}</span>
                 </div>
                 {breakdown.discount_amount > 0 && (
                   <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 font-medium">
                     <span className="inline-flex items-center gap-1">
                       <BadgePercent className="w-3.5 h-3.5" />
-                      Discount ({appliedPromo?.code})
+                      {t('account.subscription.checkout.discount', { code: appliedPromo?.code })}
                     </span>
                     <span className="tabular-nums">−{rs(breakdown.discount_amount)}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
-                  <span>Taxable value</span>
+                  <span>{t('account.subscription.checkout.taxable')}</span>
                   <span className="tabular-nums">{rs(breakdown.taxable_amount)}</span>
                 </div>
                 <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
-                  <span>GST @ {breakdown.gst_percent}%</span>
+                  <span>{t('account.subscription.checkout.gst_line', { percent: breakdown.gst_percent })}</span>
                   <span className="tabular-nums">{rs(breakdown.gst_amount)}</span>
                 </div>
                 <div className="border-t border-blue-100 dark:border-blue-900 my-2" />
                 <div className="flex items-center justify-between text-base font-bold text-gray-900 dark:text-gray-100">
-                  <span>Total</span>
+                  <span>{t('account.subscription.checkout.total')}</span>
                   <span className="tabular-nums">{rs(breakdown.final_amount)}</span>
                 </div>
               </div>
@@ -900,7 +910,7 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
               <div className="space-y-1.5 text-sm">
                 <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
                   <span>
-                    {plan.name} · {billing === 'monthly' ? '1 month' : '1 year'}
+                    {t(billing === 'monthly' ? 'account.subscription.checkout.line_month' : 'account.subscription.checkout.line_year', { name: plan.name })}
                   </span>
                   <span className="tabular-nums">₹{basePrice.toLocaleString('en-IN')}</span>
                 </div>
@@ -909,7 +919,7 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
                   <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 font-medium">
                     <span className="inline-flex items-center gap-1">
                       <BadgePercent className="w-3.5 h-3.5" />
-                      Promo ({appliedPromo.discount_pct}%)
+                      {t('account.subscription.checkout.promo_line', { pct: appliedPromo.discount_pct })}
                     </span>
                     <span className="tabular-nums">−₹{discount.toLocaleString('en-IN')}</span>
                   </div>
@@ -918,10 +928,10 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
                 <div className="border-t border-blue-100 dark:border-blue-900 my-2" />
 
                 <div className="flex items-center justify-between text-base font-bold text-gray-900 dark:text-gray-100">
-                  <span>{finalPrice === 0 ? 'Total' : 'Price'}</span>
+                  <span>{finalPrice === 0 ? t('account.subscription.checkout.total') : t('account.subscription.checkout.price')}</span>
                   <span className="inline-flex items-baseline gap-1.5 tabular-nums">
                     {finalPrice === 0 ? (
-                      <span className="text-emerald-600 dark:text-emerald-400">FREE</span>
+                      <span className="text-emerald-600 dark:text-emerald-400">{t('account.subscription.checkout.free')}</span>
                     ) : (
                       <>
                         <span className="inline-flex items-center">
@@ -933,7 +943,7 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
                   </span>
                 </div>
                 {finalPrice > 0 && (
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400">Price is inclusive of GST.</p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">{t('account.subscription.checkout.gst_note')}</p>
                 )}
               </div>
             )}
@@ -954,17 +964,17 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
               {paying ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Processing payment…
+                  {t('account.subscription.checkout.processing')}
                 </>
               ) : finalPrice === 0 ? (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  Activate Plan (Free)
+                  {t('account.subscription.checkout.activate_free')}
                 </>
               ) : (
                 <>
                   <CreditCard className="w-4 h-4" />
-                  {breakdown ? `Pay ${rs(breakdown.final_amount)} & Subscribe` : 'Pay & Subscribe'}
+                  {breakdown ? t('account.subscription.checkout.pay_amount', { amount: rs(breakdown.final_amount) }) : t('account.subscription.checkout.pay')}
                 </>
               )}
             </span>
@@ -973,7 +983,7 @@ function CheckoutModal({ plan, billing, currentTier, alreadyHeld, onClose, onCon
           <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
             <ShieldCheck className="w-3 h-3" />
             {plan.plan_id
-              ? 'Secure payment by Razorpay — card, UPI and net banking.'
+              ? t('account.subscription.checkout.secure')
               : 'Plans have not loaded from the server, so this cannot be bought right now. Refresh the page.'}
           </p>
         </div>

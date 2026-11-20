@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Award, PartyPopper, Trophy } from 'lucide-react';
 import { PERFORMANCE_LABEL, type Performance } from '@/config/pass-marks';
+import { useT } from '@/content/useText';
 
 const COLORS = ['#f97316', '#10b981', '#3b82f6', '#a855f7', '#f43f5e', '#eab308', '#06b6d4'];
 
@@ -9,6 +10,7 @@ const COLORS = ['#f97316', '#10b981', '#3b82f6', '#a855f7', '#f43f5e', '#eab308'
  * Nothing in it can be clicked except the card, which dismisses it; the confetti never blocks the page.
  */
 export function PassCelebration({ performance, percent, onDone }: { performance: Performance; percent: number; onDone: () => void }) {
+  const t = useT();
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
@@ -37,7 +39,12 @@ export function PassCelebration({ performance, percent, onDone }: { performance:
   );
 
   const Icon = performance === 'excellent' ? Trophy : performance === 'strong' ? Award : PartyPopper;
-  const headline = performance === 'excellent' ? 'Outstanding!' : performance === 'strong' ? 'Great work!' : 'Congratulations!';
+  const headline =
+    performance === 'excellent'
+      ? t('reports.celebration.excellent')
+      : performance === 'strong'
+        ? t('reports.celebration.strong')
+        : t('reports.celebration.pass');
 
   return (
     <>
@@ -72,7 +79,7 @@ export function PassCelebration({ performance, percent, onDone }: { performance:
         <p className="mt-1 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
           {PERFORMANCE_LABEL[performance]} · {Math.round(percent * 10) / 10}%
         </p>
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">You cleared the benchmark. Keep it going!</p>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('reports.celebration.message')}</p>
       </div>
     </>
   );

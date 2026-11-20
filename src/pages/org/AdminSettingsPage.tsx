@@ -14,18 +14,23 @@ import {
   AlertTriangle,
   Sparkles,
   Loader2,
+  Globe,
 } from 'lucide-react';
+import { LandingSettings } from '@/components/evaluation/LandingSettings';
+import { SiteContentSettings } from '@/components/admin/SiteContentSettings';
+import { AppConfigSettings } from '@/components/admin/AppConfigSettings';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAdminSettings, useAdminSettingsActions } from '@/hooks/use-admin-settings';
 
-type Tab = 'profile' | 'security' | 'policy' | 'notifications';
+type Tab = 'profile' | 'security' | 'policy' | 'notifications' | 'landing';
 
 const TABS: { key: Tab; label: string; icon: typeof User }[] = [
   { key: 'profile', label: 'Profile', icon: User },
   { key: 'security', label: 'Security', icon: Lock },
   { key: 'policy', label: 'System Policy', icon: ShieldCheck },
   { key: 'notifications', label: 'Notifications', icon: Bell },
+  { key: 'landing', label: 'Site content', icon: Globe },
 ];
 
 export default function AdminSettingsPage() {
@@ -295,6 +300,14 @@ export default function AdminSettingsPage() {
                 />
                 <ActionButton onClick={savePolicy}>Save Session Policy</ActionButton>
               </SettingsCard>
+            </>
+          )}
+
+          {tab === 'landing' && (
+            <>
+              <LandingSettings />
+              <AppConfigSettings />
+              <SiteContentSettings />
             </>
           )}
 

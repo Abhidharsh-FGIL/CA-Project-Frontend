@@ -7,6 +7,7 @@ import { NTPC_LANGUAGES, NTPC_LANGUAGE_NATIVE, isNtpcGroup, useNtpcPrefs, type N
 import { examLanguageOf } from '@/lib/exam-language';
 import { examLogo } from '@/lib/exam-logo';
 import { cn } from '@/lib/utils';
+import { useT } from '@/content/useText';
 import type { TnpscGroup } from '@/config/tnpsc';
 import { useOpenExamIds } from '@/hooks/use-exam-availability';
 import { EXAM_CARD_ORDER, UPCOMING_EXAMS, examEntryPath, splitExams, type UpcomingExam } from '@/lib/exam-listing';
@@ -187,10 +188,11 @@ const MUTED: Tone = {
 
 /** The tag on a card that is not open yet. */
 function ComingSoonTag() {
+  const t = useT();
   return (
     <span className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 px-2.5 py-1 text-[11px] font-bold text-gray-500 dark:text-gray-400">
       <Clock3 className="w-3 h-3" />
-      Coming soon
+      {t('exams.card.comingSoon')}
     </span>
   );
 }
@@ -216,6 +218,7 @@ function CardFrame({
   /** Called before the card is followed; calling `preventDefault` keeps the aspirant on this page. */
   onOpen?: (e: React.MouseEvent) => void;
 }) {
+  const t = useT();
   // A fixed width, so the row has cards to scroll through: most of a phone's width, a set width from there up.
   const base =
     'relative flex flex-col overflow-hidden rounded-xl border bg-white dark:bg-gray-900 animate-slideUp shrink-0 snap-start w-[86%] sm:w-[22.5rem] lg:w-[24rem]';
@@ -225,7 +228,7 @@ function CardFrame({
     return (
       <div
         aria-disabled="true"
-        title="Coming soon"
+        title={t('exams.card.comingSoon')}
         className={cn(
           base,
           'border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/60 opacity-70 grayscale cursor-not-allowed select-none',
@@ -270,6 +273,7 @@ function negativeMark(group: TnpscGroup): number | null {
 }
 
 function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; index: number; comingSoon?: boolean }) {
+  const t = useT();
   const activeStages = group.stages.filter(s => s.status === 'active');
   // RRB NTPC is sat at two levels: the first time it is opened the aspirant is asked which, and can change it after.
   const ntpc = isNtpcGroup(group.id) && !comingSoon;
@@ -326,12 +330,12 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
               <div className="mb-2 flex flex-wrap items-center gap-x-2.5 gap-y-1">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
                   <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-                  Open now
+                  {t('exams.card.openNow')}
                 </span>
                 {/* The one line on the page that is meant to be noticed: it glides in, then a light keeps sweeping across it. */}
                 <span className="mge-journey inline-flex items-center gap-1 text-[12px] font-extrabold tracking-wide">
                   <Sparkles className="mge-journey-spark h-3.5 w-3.5 text-amber-500" aria-hidden />
-                  <span className="mge-journey-text">Your Success Journey Begins!</span>
+                  <span className="mge-journey-text">{t('exams.card.journey')}</span>
                 </span>
               </div>
             )}
@@ -387,7 +391,7 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
                       : 'text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-blue-950/30',
                   )}
                 >
-                  {showAll ? 'Show less' : `+${hiddenSubjects} more`}
+                  {showAll ? t('exams.card.showLess') : t('exams.card.more', { count: hiddenSubjects })}
                 </button>
               )}
             </div>
@@ -403,7 +407,7 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
             )}
           >
             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold">
-              <Languages className="h-4 w-4" aria-hidden /> Available in
+              <Languages className="h-4 w-4" aria-hidden /> {t('exams.card.languages')}
             </span>
             {examLanguages(group.id).map(name => (
               <span
@@ -437,7 +441,7 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
               >
                 {live ? <CheckCircle2 className="w-3 h-3" /> : <Clock3 className="w-3 h-3" />}
                 {s.short_name}
-                {!live && <span className="font-medium opacity-70">Soon</span>}
+                {!live && <span className="font-medium opacity-70">{t('exams.card.stageSoon')}</span>}
               </span>
             );
           })}
@@ -451,7 +455,7 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
                   : 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300',
               )}
             >
-              −{negativeMark(group)} per wrong answer
+              {t('exams.card.negative', { mark: negativeMark(group) })}
             </span>
           )}
         </div>
@@ -470,12 +474,12 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
           <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 font-medium">
             <Layers className="w-3.5 h-3.5 text-gray-400" />
             {comingSoon
-              ? `${group.stages.length} stage${group.stages.length !== 1 ? 's' : ''} · opening soon`
-              : `${group.stages.length} stage${group.stages.length !== 1 ? 's' : ''} · ${activeStages.length} open now`}
+              ? t('exams.card.stages.soon', { stages: `${group.stages.length} stage${group.stages.length !== 1 ? 's' : ''}` })
+              : t('exams.card.stages.open', { stages: `${group.stages.length} stage${group.stages.length !== 1 ? 's' : ''}`, open: activeStages.length })}
           </span>
           {!comingSoon && (
             <span className="inline-flex items-center gap-1.5 h-10 px-5 rounded-lg bg-brand-500 group-hover:bg-brand-600 text-white text-sm font-bold shadow-md shadow-orange-200/60 dark:shadow-none transition-colors">
-              Explore <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              {t('exams.card.explore')} <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </span>
           )}
         </div>
@@ -488,6 +492,7 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
 
 /** An announced examination: a name and a line about it, and nothing behind it yet. */
 function UpcomingCard({ exam, index }: { exam: UpcomingExam; index: number }) {
+  const t = useT();
   return (
     <CardFrame disabled index={index}>
       <div className={cn('h-[3px] w-full', MUTED.bar)} />
@@ -522,7 +527,7 @@ function UpcomingCard({ exam, index }: { exam: UpcomingExam; index: number }) {
 
         <div className="mt-auto pt-5 flex items-center gap-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">
           <Layers className="w-3.5 h-3.5 text-gray-400" />
-          Opening soon on the portal
+          {t('exams.card.upcoming')}
         </div>
       </div>
     </CardFrame>

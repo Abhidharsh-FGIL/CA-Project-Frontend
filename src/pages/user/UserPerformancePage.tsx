@@ -47,9 +47,11 @@ import {
   type UserDashboardAnalytics,
 } from '@/lib/userDashboardApi';
 import { cn } from '@/lib/utils';
+import { useT } from '@/content/useText';
 
 /** The "View detailed report" destination — trend, subject breakdown, every attempt. */
 export default function UserPerformancePage() {
+  const t = useT();
   const { user, assessments, history, isLoading } = useUserPortal();
   const gateReport = useReportGate();
   // The dashboard's link carries the exam, test type and range it was showing; start on those.
@@ -194,9 +196,15 @@ export default function UserPerformancePage() {
     if (rangeBars.length === 0) return null;
     const best = rangeBars.reduce((hi, d) => (d.value > hi.value ? d : hi), rangeBars[0]);
     const worst = rangeBars.reduce((lo, d) => (d.value < lo.value ? d : lo), rangeBars[0]);
-    if (rangeBars.length === 1) return `One active day: ${best.day} at ${best.value}%.`;
-    return `${rangeBars.length} active days shown. Best ${best.day} at ${best.value}%, lowest ${worst.day} at ${worst.value}%.`;
-  }, [rangeBars]);
+    if (rangeBars.length === 1) return t('reports.performance.activity.note.one', { day: best.day, value: best.value });
+    return t('reports.performance.activity.note.many', {
+      count: rangeBars.length,
+      bestDay: best.day,
+      bestValue: best.value,
+      worstDay: worst.day,
+      worstValue: worst.value,
+    });
+  }, [rangeBars, t]);
 
   // After every hook above: returning earlier changes how many hooks run between renders.
   if (isLoading) {
@@ -213,9 +221,9 @@ export default function UserPerformancePage() {
     <UserShell>
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4 sm:mb-5">
         <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Performance</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{t('reports.performance.title')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            How your scores are moving, and every attempt behind them.
+            {t('reports.performance.subtitle')}
           </p>
         </div>
         {/* One filter bar for the page — scores, curve and attempts all obey it. */}
@@ -244,21 +252,21 @@ export default function UserPerformancePage() {
         <Tile
           icon={BarChart3}
           tone="orange"
-          label="Average Score"
+          label={t('reports.performance.tile.average')}
           value={`${averageValue}%`}
-          hint={marksLabel(averageMarks, paperMax) ?? 'of all marks'}
+          hint={marksLabel(averageMarks, paperMax) ?? t('reports.performance.tile.average.hint')}
         />
         <Tile
           icon={Trophy}
           tone="green"
-          label="Best Score"
+          label={t('reports.performance.tile.best')}
           value={`${Math.round(best)}%`}
           hint={bestAttempt ? marksLabel(bestAttempt.score, maxMarksOf(bestAttempt) ?? paperMax) ?? undefined : undefined}
         />
         <Tile
           icon={FileText}
           tone="purple"
-          label={`${trackNoun}s Taken`}
+          label={t('reports.performance.tile.taken', { noun: trackNoun })}
           value={done.length}
           className="col-span-2 lg:col-span-1"
         />
@@ -271,12 +279,10 @@ export default function UserPerformancePage() {
             <Info className="w-5 h-5 mt-px text-blue-500 dark:text-blue-400 flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                You answered {totals.attempted} of {totals.questions} questions ({totals.attemptRate}%)
+                {t('reports.performance.insight.title', { attempted: totals.attempted, questions: totals.questions, rate: totals.attemptRate })}
               </p>
               <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed">
-                Of the ones you did answer, {totals.accuracy}% were right — but your average score is{' '}
-                {averageValue}%, because unanswered questions score zero. Attempting more
-                is worth more marks right now than getting more of them right.
+                {t('reports.performance.insight.body', { accuracy: totals.accuracy, average: averageValue })}
               </p>
 
               <div className="flex items-center gap-[2px] h-3 mt-3">
@@ -285,11 +291,11 @@ export default function UserPerformancePage() {
                 <div className="h-full flex-1 rounded-r-full bg-gray-200 dark:bg-gray-700" />
               </div>
               <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1.5">
-                <Dot color="#10b981" /> {totals.correct} correct
+                <Dot color="#10b981" /> {t('reports.performance.insight.correct', { count: totals.correct })}
                 <span className="mx-1.5">·</span>
-                <Dot color="#f43f5e" /> {totals.wrong} wrong
+                <Dot color="#f43f5e" /> {t('reports.performance.insight.wrong', { count: totals.wrong })}
                 <span className="mx-1.5">·</span>
-                <Dot className="bg-gray-300 dark:bg-gray-600" /> {totals.blank} not answered
+                <Dot className="bg-gray-300 dark:bg-gray-600" /> {t('reports.performance.insight.blank', { count: totals.blank })}
               </p>
             </div>
           </div>
@@ -304,11 +310,11 @@ export default function UserPerformancePage() {
           </div>
         ) : !perfReport.model ? (
           <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Unit-wise performance</p>
+            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{t('reports.performance.units.title')}</p>
             <p className="py-8 text-center text-xs text-gray-400">
               {done.length === 0
-                ? `Take a ${groupLabel} ${trackNoun.toLowerCase()} to see where your marks are coming from.`
-                : 'No unit data for the attempts in this selection.'}
+                ? t('reports.performance.units.empty', { group: groupLabel, noun: trackNoun.toLowerCase() })
+                : t('reports.performance.units.noData')}
             </p>
           </div>
         ) : (
@@ -317,8 +323,8 @@ export default function UserPerformancePage() {
             expanded={openUnit}
             onToggle={id => setOpenUnit(cur => (cur === id ? null : id))}
             categoriesOnly
-            title="Unit-wise performance"
-            subtitle={`Open a subject for its units, then a unit for its categories and sub-categories. ${groupLabel} · ${trackNoun.toLowerCase()}s · ${rangeLabel(range).toLowerCase()} — ${perfReport.attemptCount} ${perfReport.attemptCount === 1 ? 'attempt' : 'attempts'}${perfReport.truncated ? ' (the most recent)' : ''}.`}
+            title={t('reports.performance.units.title')}
+            subtitle={`${t('reports.performance.units.hint')} ${groupLabel} · ${trackNoun.toLowerCase()}s · ${rangeLabel(range).toLowerCase()} — ${perfReport.attemptCount} ${perfReport.attemptCount === 1 ? 'attempt' : 'attempts'}${perfReport.truncated ? ' (the most recent)' : ''}.`}
             footnote={
               perfReport.untagged > 0 ? (
                 <p className="mt-2 text-[11px] text-gray-400">
@@ -344,9 +350,9 @@ export default function UserPerformancePage() {
         <div className="lg:col-span-2 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
           <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
             <div className="min-w-0">
-              <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Daily Test Activity</p>
+              <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{t('reports.performance.activity.title')}</p>
               <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                Tests taken each day · {groupLabel} · {trackNoun.toLowerCase()}s
+                {t('reports.performance.activity.subtitle', { group: groupLabel, noun: trackNoun.toLowerCase() })}
               </p>
             </div>
           </div>
@@ -362,8 +368,8 @@ export default function UserPerformancePage() {
               <TrendingUp className="w-5 h-5 text-gray-300" />
               <p className="text-xs text-gray-400">
                 {rangeNarrowed
-                  ? `No ${trackNoun.toLowerCase()}s in ${groupLabel} over this period.`
-                  : `Take a ${groupLabel} ${trackNoun.toLowerCase()} to start the curve.`}
+                  ? t('reports.performance.activity.emptyRange', { noun: trackNoun.toLowerCase(), group: groupLabel })
+                  : t('reports.performance.activity.empty', { group: groupLabel, noun: trackNoun.toLowerCase() })}
               </p>
               {rangeNarrowed ? (
                 <button
@@ -371,11 +377,11 @@ export default function UserPerformancePage() {
                   onClick={() => setRange(ALL_TIME)}
                   className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  Show all time
+                  {t('reports.performance.activity.showAll')}
                 </button>
               ) : (
                 <Link to={trackHref} className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
-                  Take a {trackNoun.toLowerCase()}
+                  {t('reports.performance.activity.take', { noun: trackNoun.toLowerCase() })}
                 </Link>
               )}
             </div>
@@ -383,7 +389,7 @@ export default function UserPerformancePage() {
         </div>
 
         <div className={cn('rounded-2xl p-4 text-gray-900 dark:text-gray-100', PANEL_SURFACE)}>
-          <p className="text-sm font-bold mb-3">{rangeNarrowed ? rangeLabel(range) : 'Last 7 active days'}</p>
+          <p className="text-sm font-bold mb-3">{rangeNarrowed ? rangeLabel(range) : t('reports.performance.panel.title')}</p>
           <div className="flex items-center gap-4 mb-3">
             <div>
               <p className="text-2xl font-bold leading-none">{averageValue}%</p>
@@ -395,7 +401,7 @@ export default function UserPerformancePage() {
           <div className="h-40">
             {rangeBars.length === 0 ? (
               <div className="h-full flex items-center justify-center text-[11px] text-gray-500 dark:text-gray-400">
-                No attempts in this range.
+                {t('reports.performance.panel.empty')}
               </div>
             ) : (
             <ResponsiveContainer width="100%" height="100%">
@@ -431,18 +437,18 @@ export default function UserPerformancePage() {
       <div className="mt-3 sm:mt-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
         <div className="flex items-center justify-between mb-3">
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-            All attempts{' '}
+            {t('reports.performance.attempts.title')}{' '}
             <span className="font-normal text-gray-400">
               ({attempts.length} of {done.length})
             </span>
           </p>
           <Link to="/user/history" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
-            Full history
+            {t('reports.performance.attempts.history')}
           </Link>
         </div>
         {done.length === 0 ? (
           <p className="py-8 text-center text-xs text-gray-400">
-            No {trackNoun.toLowerCase()}s attempted in {groupLabel} over this period.
+            {t('reports.performance.attempts.empty', { noun: trackNoun.toLowerCase(), group: groupLabel })}
           </p>
         ) : (
           <>
@@ -507,7 +513,7 @@ export default function UserPerformancePage() {
                 onClick={() => setShowAllAttempts(v => !v)}
                 className="mt-3 w-full py-2 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
               >
-                {showAllAttempts ? 'Show fewer' : `Show all ${done.length} attempts`}
+                {showAllAttempts ? 'Show fewer' : t('reports.performance.attempts.showAll', { count: done.length })}
               </button>
             )}
           </>

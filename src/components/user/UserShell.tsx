@@ -21,7 +21,9 @@ import {
 } from 'lucide-react';
 import { LogoMark, LogoTile, Wordmark } from '@/components/brand/Brand';
 import { SHOW_STUDY_PLAN } from '@/config/features';
-import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_LINK } from '@/config/support';
+import { useSupport } from '@/content/support';
+import { useT } from '@/content/useText';
+import type { ContentKey } from '@/content/registry';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { useNtpcPrefs } from '@/lib/ntpc-level';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -38,22 +40,23 @@ interface UserShellProps {
 
 interface NavItem {
   to: string;
-  label: string;
+  /** The editable text for the label (see `content/dashboard.ts`). */
+  label: ContentKey;
   /** Used by the phone bar, where a fifth of the width cannot hold two words. */
-  short?: string;
+  short?: ContentKey;
   icon: typeof Home;
 }
 
 const NAV: NavItem[] = [
-  { to: '/user/dashboard', label: 'Dashboard', icon: Home },
-  { to: '/user/exams', label: 'Exams', icon: ClipboardList },
-  { to: '/user/performance', label: 'Performance', icon: LineChart },
+  { to: '/user/dashboard', label: 'nav.item.dashboard', icon: Home },
+  { to: '/user/exams', label: 'nav.item.exams', icon: ClipboardList },
+  { to: '/user/performance', label: 'nav.item.performance', icon: LineChart },
   ...(SHOW_STUDY_PLAN
-    ? [{ to: '/user/study-plan', label: 'Study Plan', short: 'Plan', icon: CalendarCheck }]
+    ? ([{ to: '/user/study-plan', label: 'nav.item.studyplan', short: 'nav.item.studyplan.short', icon: CalendarCheck }] satisfies NavItem[])
     : []),
-  { to: '/user/history', label: 'History', icon: HistoryIcon },
+  { to: '/user/history', label: 'nav.item.history', icon: HistoryIcon },
   // Plans and billing. It is also in the profile menu; this puts it on the bar itself, one click away.
-  { to: '/user/subscription', label: 'Plans', short: 'Plans', icon: Sparkles },
+  { to: '/user/subscription', label: 'nav.item.plans', short: 'nav.item.plans.short', icon: Sparkles },
   // Progress is hidden. /user/progress still resolves and the page is untouched;
   // it is only off the bar.
   //
@@ -133,6 +136,8 @@ function HeaderAiCoach() {
 }
 
 export function UserShell({ children, headerAction }: UserShellProps) {
+  const support = useSupport();
+  const t = useT();
   const { user, isAuthenticated, logout } = useUserPortal();
   useNtpcPrefs(user?.user_id); // keeps NTPC titles in the aspirant's chosen language
   const { theme, toggleMode } = useTheme();
@@ -172,7 +177,7 @@ export function UserShell({ children, headerAction }: UserShellProps) {
           <Wordmark />
         </p>
         <p className="hidden xs:block text-[9px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-[0.14em] whitespace-nowrap truncate">
-          Practice · Prepare · Succeed
+          {t('nav.brand.tagline')}
         </p>
       </div>
     </Link>
@@ -187,7 +192,7 @@ export function UserShell({ children, headerAction }: UserShellProps) {
           <Wordmark onDark />
         </p>
         <p className="text-[9px] font-semibold text-white/85 uppercase tracking-[0.14em] whitespace-nowrap">
-          Practice · Prepare · Succeed
+          {t('nav.brand.tagline')}
         </p>
       </div>
     </Link>
@@ -212,7 +217,7 @@ export function UserShell({ children, headerAction }: UserShellProps) {
               <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-brand-600 dark:bg-blue-400" />
             )}
             <Icon className="w-[18px] h-[18px] flex-shrink-0" />
-            <span className="truncate">{label}</span>
+            <span className="truncate">{t(label)}</span>
           </Link>
         );
       })}
@@ -221,15 +226,15 @@ export function UserShell({ children, headerAction }: UserShellProps) {
 
   const planCard = isFree && (
     <div className="m-3 rounded-2xl bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/60 dark:to-purple-950/50 border border-blue-100 dark:border-blue-900 p-4">
-      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Free Plan</p>
+      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{t('nav.plan.free.title')}</p>
       <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5 leading-snug">
-        Mock tests not included in this plan.
+        {t('nav.plan.free.note')}
       </p>
       <Link
         to="/user/subscription"
         className="mt-3 flex items-center justify-center gap-1.5 w-full rounded-xl bg-gradient-to-r from-brand-600 to-brand-400 text-white text-xs font-semibold py-2 hover:from-brand-700 hover:to-brand-500 transition-all"
       >
-        <Sparkles className="w-3.5 h-3.5" /> Upgrade Now
+        <Sparkles className="w-3.5 h-3.5" /> {t('nav.plan.upgradeNow')}
       </Link>
     </div>
   );
@@ -257,7 +262,7 @@ export function UserShell({ children, headerAction }: UserShellProps) {
             )}
           >
             <Icon className="w-4 h-4 flex-shrink-0" />
-            {label}
+            {t(label)}
           </Link>
         );
       })}
@@ -310,14 +315,14 @@ export function UserShell({ children, headerAction }: UserShellProps) {
                   to="/user/subscription"
                   className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-white text-brand-700 text-xs font-semibold px-3.5 py-2 hover:bg-white/90 transition-all"
                 >
-                  <Sparkles className="w-3.5 h-3.5" /> Upgrade
+                  <Sparkles className="w-3.5 h-3.5" /> {t('nav.plan.upgrade')}
                 </Link>
               )}
 
               {/* Beside the theme toggle, off the main bar: a reward, not a place to study. Icon only until there is room. */}
               <Link
                 to="/user/referral"
-                title="Refer & Earn"
+                title={t('nav.referral.label')}
                 aria-label="Refer & Earn"
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-full text-[13px] font-semibold ring-1 transition-all whitespace-nowrap p-2 xl:px-3.5 xl:py-1.5',
@@ -327,14 +332,14 @@ export function UserShell({ children, headerAction }: UserShellProps) {
                 )}
               >
                 <Gift className="w-[18px] h-[18px] flex-shrink-0 xl:w-4 xl:h-4" />
-                <span className="hidden xl:inline">Refer &amp; Earn</span>
+                <span className="hidden xl:inline">{t('nav.referral.label')}</span>
               </Link>
 
               <button
                 onClick={toggleMode}
                 className="p-2 rounded-full text-white bg-white/15 ring-1 ring-white/25 hover:bg-white/25 transition-colors"
                 aria-label="Toggle theme"
-                title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                title={isDark ? t('nav.theme.toLight') : t('nav.theme.toDark')}
               >
                 {isDark ? <Moon className="w-[18px] h-[18px]" /> : <Sun className="w-[18px] h-[18px]" />}
               </button>
@@ -359,39 +364,39 @@ export function UserShell({ children, headerAction }: UserShellProps) {
                       <p className="text-sm font-semibold">{user.name}</p>
                       <p className="text-xs text-gray-500 truncate">{user.email}</p>
                     </div>
-                    {[
-                      { to: '/user/profile', label: 'Profile', icon: User },
-                      { to: '/user/subscription', label: 'Plans', icon: Sparkles },
-                      { to: '/user/referral', label: 'Refer & Earn', icon: Gift },
-      { to: '/user/billing', label: 'Payment History', icon: Receipt },
-                      { to: '/user/feedback', label: 'Feedback', icon: MessageSquareHeart },
-                      { to: '/user/about', label: 'About Us', icon: Info },
-                    ].map(({ to, label, icon: Icon }) => (
+                    {([
+                      { to: '/user/profile', labelKey: 'nav.menu.profile', icon: User },
+                      { to: '/user/subscription', labelKey: 'nav.menu.plans', icon: Sparkles },
+                      { to: '/user/referral', labelKey: 'nav.menu.referral', icon: Gift },
+      { to: '/user/billing', labelKey: 'nav.menu.billing', icon: Receipt },
+                      { to: '/user/feedback', labelKey: 'nav.menu.feedback', icon: MessageSquareHeart },
+                      { to: '/user/about', labelKey: 'nav.menu.about', icon: Info },
+                    ] satisfies Array<{ to: string; labelKey: ContentKey; icon: typeof User }>).map(({ to, labelKey, icon: Icon }) => (
                       <Link
-                        key={label}
+                        key={to}
                         to={to}
                         onClick={() => setMenuOpen(false)}
                         className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60"
                       >
-                        <Icon className="w-4 h-4 text-gray-400" /> {label}
+                        <Icon className="w-4 h-4 text-gray-400" /> {t(labelKey)}
                       </Link>
                     ))}
                     {/* Support: where to reach a person, in the menu where Settings used to be. */}
                     <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-2.5">
                       <p className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                        <Headset className="w-4 h-4 text-gray-400" /> Contact Support
+                        <Headset className="w-4 h-4 text-gray-400" /> {t('nav.menu.support')}
                       </p>
                       <a
-                        href={`mailto:${SUPPORT_EMAIL}`}
+                        href={`mailto:${support.email}`}
                         className="mt-1 block pl-6 text-xs text-blue-600 dark:text-blue-400 hover:underline break-all"
                       >
-                        {SUPPORT_EMAIL}
+                        {support.email}
                       </a>
                       <a
-                        href={`tel:${SUPPORT_PHONE_LINK}`}
+                        href={`tel:${support.phoneLink}`}
                         className="mt-0.5 block pl-6 text-xs text-blue-600 dark:text-blue-400 hover:underline"
                       >
-                        {SUPPORT_PHONE}
+                        {support.phone}
                       </a>
                     </div>
                     <button
@@ -403,7 +408,7 @@ export function UserShell({ children, headerAction }: UserShellProps) {
                       }}
                       className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 border-t border-gray-100 dark:border-gray-800"
                     >
-                      <LogOut className="w-4 h-4" /> Logout
+                      <LogOut className="w-4 h-4" /> {t('nav.menu.logout')}
                     </button>
                   </div>
                 )}
@@ -417,13 +422,13 @@ export function UserShell({ children, headerAction }: UserShellProps) {
           <main className="min-w-0 px-3 sm:px-5 py-5 pb-24 lg:pb-6">{children}</main>
 
           <footer data-no-print className="hidden lg:flex items-center justify-between px-5 py-4 text-[11px] text-gray-400 dark:text-gray-600 border-t border-gray-100 dark:border-gray-800">
-          <span>© 2026 MyGovExams. All rights reserved.</span>
+          <span>{t('nav.footer.copyright')}</span>
           <span className="flex items-center divide-x divide-gray-200 dark:divide-gray-800">
-            <Link to="/terms" target="_blank" rel="noopener noreferrer" className="px-3 hover:text-gray-600 dark:hover:text-gray-400">Terms &amp; Conditions</Link>
-            <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="px-3 hover:text-gray-600 dark:hover:text-gray-400">Privacy Policy</Link>
-            <Link to="/refund" target="_blank" rel="noopener noreferrer" className="px-3 hover:text-gray-600 dark:hover:text-gray-400">Refund Policy</Link>
-            <a href={`mailto:${SUPPORT_EMAIL}`} className="px-3 hover:text-gray-600 dark:hover:text-gray-400">{SUPPORT_EMAIL}</a>
-            <a href={`tel:${SUPPORT_PHONE_LINK}`} className="pl-3 hover:text-gray-600 dark:hover:text-gray-400">{SUPPORT_PHONE}</a>
+            <Link to="/terms" target="_blank" rel="noopener noreferrer" className="px-3 hover:text-gray-600 dark:hover:text-gray-400">{t('nav.footer.terms')}</Link>
+            <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="px-3 hover:text-gray-600 dark:hover:text-gray-400">{t('nav.footer.privacy')}</Link>
+            <Link to="/refund" target="_blank" rel="noopener noreferrer" className="px-3 hover:text-gray-600 dark:hover:text-gray-400">{t('nav.footer.refund')}</Link>
+            <a href={`mailto:${support.email}`} className="px-3 hover:text-gray-600 dark:hover:text-gray-400">{support.email}</a>
+            <a href={`tel:${support.phoneLink}`} className="pl-3 hover:text-gray-600 dark:hover:text-gray-400">{support.phone}</a>
             </span>
           </footer>
         </div>
@@ -444,7 +449,7 @@ export function UserShell({ children, headerAction }: UserShellProps) {
             >
               <Icon className={cn('w-[18px] h-[18px] transition-transform', active && 'scale-110')} />
               <span className={cn('text-[10px] leading-tight', active ? 'font-bold' : 'font-medium')}>
-                {short ?? label}
+                {t(short ?? label)}
               </span>
             </Link>
           );

@@ -21,6 +21,7 @@ import {
   parseIdentifier,
   secondsToWait,
 } from '@/lib/login-otp';
+import { useT } from '@/content/useText';
 import { AuthField } from './AuthShell';
 
 type Step = 'identify' | 'code';
@@ -38,6 +39,7 @@ export function LoginOtpForm({
   onUsePassword?: () => void;
 }) {
   const navigate = useNavigate();
+  const t = useT();
   const { sendLoginOtp, loginWithOtp } = useUserPortal();
 
   const [step, setStep] = useState<Step>('identify');
@@ -104,7 +106,7 @@ export function LoginOtpForm({
     const result = await ask(parsed.identifier);
     if (result === 'refused') return;
     setIdentifier(parsed.identifier);
-    if (result === 'already-sent') setSentNote('An OTP was sent a moment ago. Check your inbox and enter it below.');
+    if (result === 'already-sent') setSentNote(t('auth.otp.already_sent'));
     setStep('code');
   };
 
@@ -148,7 +150,7 @@ export function LoginOtpForm({
   if (step === 'identify') {
     return (
       <>
-        <p className="mge-auth-sub">Enter your registered email ID to get a one-time password</p>
+        <p className="mge-auth-sub">{t('auth.otp.identify_sub')}</p>
 
         {error && (
           <div className="mge-auth-alert" role="alert">
@@ -164,24 +166,24 @@ export function LoginOtpForm({
               setTyped(v);
               setTypedError('');
             }}
-            placeholder="Email ID"
+            placeholder={t('auth.otp.identify_placeholder')}
             error={typedError}
             autoComplete="email"
           />
           <button type="submit" disabled={busy} className="mge-btn mge-btn-primary mge-auth-submit">
             {busy ? (
               <>
-                <span className="mge-spinner" /> Sending OTP...
+                <span className="mge-spinner" /> {t('auth.otp.sending')}
               </>
             ) : (
               <>
-                Send OTP <ArrowRight size={19} />
+                {t('auth.otp.send')} <ArrowRight size={19} />
               </>
             )}
           </button>
           {onUsePassword && (
             <button type="button" className="mge-modal-text-btn" onClick={onUsePassword}>
-              Login with Password
+              {t('auth.otp.use_password')}
             </button>
           )}
         </form>
@@ -244,10 +246,10 @@ export function LoginOtpForm({
           />
           <div className="mge-otp-row">
             <span className={expired ? 'mge-expired' : undefined}>
-              {expired ? 'OTP expired' : `Expires in ${clock(expiresIn)}`}
+              {expired ? t('auth.otp.expired') : t('auth.otp.expires_in', { time: clock(expiresIn) })}
             </span>
             <button type="button" className="mge-link-btn" onClick={resend} disabled={cooldown > 0 || busy}>
-              {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend OTP'}
+              {cooldown > 0 ? t('auth.otp.resend_in', { seconds: cooldown }) : t('auth.otp.resend')}
             </button>
           </div>
         </div>
@@ -259,16 +261,16 @@ export function LoginOtpForm({
         >
           {busy ? (
             <>
-              <span className="mge-spinner" /> Verifying...
+              <span className="mge-spinner" /> {t('auth.otp.verifying')}
             </>
           ) : (
             <>
-              Verify &amp; Login <ArrowRight size={19} />
+              {t('auth.otp.verify')} <ArrowRight size={19} />
             </>
           )}
         </button>
         <button type="button" className="mge-modal-text-btn" onClick={changeIdentifier}>
-          Change email ID
+          {t('auth.otp.change_email')}
         </button>
       </form>
     </>

@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { startTestAttempt, type TestDetail } from '@/lib/userPortalApi';
 import { toast } from 'sonner';
+import { useT } from '@/content/useText';
+import { Strong } from '@/content/strong';
 
 interface ReadyState {
   test: TestDetail;
@@ -16,6 +18,7 @@ export default function TestReadyPage() {
   const state = location.state as ReadyState | null;
 
   const [starting, setStarting] = useState(false);
+  const t = useT();
 
   if (!state?.test || !testId) {
     navigate('/user/courses', { replace: true });
@@ -92,24 +95,24 @@ export default function TestReadyPage() {
                 ? 'text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800'
                 : 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800'
             }`}>
-              {isMock ? 'Mock Exam' : 'Practice Mode'}
+              {isMock ? t('assessment.ready.badge.mock') : t('assessment.ready.badge.practice')}
             </span>
           </div>
 
           {/* Stats */}
           <div className="divide-y divide-gray-100 dark:divide-gray-800 border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden mb-5">
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Total Questions</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">{t('assessment.ready.stat.questions')}</span>
               <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{test.question_count}</span>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Time Limit</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">{t('assessment.ready.stat.time')}</span>
               <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                {test.time_limit > 0 ? `${test.time_limit} minutes` : 'No limit'}
+                {test.time_limit > 0 ? `${test.time_limit} minutes` : t('assessment.ready.stat.nolimit')}
               </span>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Negative Marking</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">{t('assessment.ready.stat.negative')}</span>
               <span className={`text-sm font-bold ${test.negative_marking ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
                 {test.negative_marking ? `Yes (-${test.negative_marking_fraction})` : 'No'}
               </span>
@@ -122,7 +125,7 @@ export default function TestReadyPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
             </svg>
             <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-              <strong>Important:</strong> Do not switch tabs or leave this page during the assessment. You will receive warnings for tab switching. After 3 violations, your assessment will be auto-submitted.
+              <Strong text={t('assessment.ready.warning')} />
             </p>
           </div>
 
@@ -138,10 +141,10 @@ export default function TestReadyPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                 </svg>
-                Starting…
+                {t('assessment.ready.starting')}
               </span>
             ) : (
-              'Start Assessment'
+              t('assessment.ready.start')
             )}
           </button>
         </div>

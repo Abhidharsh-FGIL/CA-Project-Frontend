@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { UserShell } from '@/components/user/UserShell';
+import { useT } from '@/content/useText';
 import { getMyLeaderboard, getMyPromotional } from '@/lib/promotionalApi';
 
 /**
@@ -19,6 +20,7 @@ export default function PromotionalResultPage() {
 
   const promo = promoQ.data;
   const board = boardQ.data;
+  const t = useT();
 
   if (promoQ.isLoading || boardQ.isLoading) {
     return (
@@ -37,17 +39,17 @@ export default function PromotionalResultPage() {
     <UserShell>
       <div className="mx-auto max-w-3xl space-y-5">
         <div className="overflow-hidden rounded-3xl bg-gradient-to-br from-orange-500 via-rose-500 to-fuchsia-600 p-6 text-white shadow-lg sm:p-8">
-          <p className="text-[11px] font-bold uppercase tracking-widest opacity-90">Free test · results</p>
-          <h1 className="mt-1 text-2xl font-extrabold leading-tight sm:text-3xl">{promo?.title ?? board?.title ?? 'Promotional test'}</h1>
+          <p className="text-[11px] font-bold uppercase tracking-widest opacity-90">{t('assessment.promo.result.badge')}</p>
+          <h1 className="mt-1 text-2xl font-extrabold leading-tight sm:text-3xl">{promo?.title ?? board?.title ?? t('assessment.promo.result.fallback_title')}</h1>
 
           {me ? (
             <div className="mt-5 flex flex-wrap items-center gap-4">
               <div className="flex h-20 w-20 flex-col items-center justify-center rounded-2xl bg-white/20 backdrop-blur">
                 <CheckCircle2 className="h-5 w-5" />
-                <span className="text-sm font-bold">Submitted</span>
+                <span className="text-sm font-bold">{t('assessment.promo.result.submitted')}</span>
               </div>
               <div>
-                <p className="text-lg font-bold">Your score</p>
+                <p className="text-lg font-bold">{t('assessment.promo.result.score')}</p>
                 <p className="text-2xl font-extrabold tabular-nums">
                   {me.score}
                   {me.max_score ? <span className="text-base font-semibold opacity-90"> / {me.max_score}</span> : null}
@@ -55,7 +57,7 @@ export default function PromotionalResultPage() {
               </div>
             </div>
           ) : (
-            <p className="mt-4 text-sm opacity-90">{board ? 'You did not take this test.' : 'Your test has been submitted.'}</p>
+            <p className="mt-4 text-sm opacity-90">{board ? t('assessment.promo.result.not_taken') : t('assessment.promo.result.just_submitted')}</p>
           )}
         </div>
 
@@ -68,11 +70,11 @@ export default function PromotionalResultPage() {
         <div className="flex flex-wrap gap-3">
           {reportId && (
             <Button asChild>
-              <Link to={`/user/report/${encodeURIComponent(reportId)}`}>View my report</Link>
+              <Link to={`/user/report/${encodeURIComponent(reportId)}`}>{t('assessment.promo.result.report')}</Link>
             </Button>
           )}
           <Button asChild variant="outline">
-            <Link to="/user/dashboard">Go to dashboard</Link>
+            <Link to="/user/dashboard">{t('assessment.promo.result.dashboard')}</Link>
           </Button>
         </div>
       </div>

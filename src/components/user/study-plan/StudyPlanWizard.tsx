@@ -41,6 +41,8 @@ import { useFeasibility } from '@/hooks/use-study-plan';
 import { useExamLanguage } from '@/hooks/use-exam-language';
 import { subjectLanguage, type ExamLanguage } from '@/lib/exam-language';
 import { PanelHeader, VERDICT, VerdictPill, fmtDate, fmtHours, fmtMinutes, todayISO } from './plan-ui';
+import { useT } from '@/content/useText';
+import type { ContentKey } from '@/content/registry';
 
 /** The selected-state ring shared by the wizard's choice cards. */
 const CHOSEN = 'border-blue-300 bg-blue-50/70 ring-1 ring-blue-100 dark:border-blue-700 dark:bg-blue-950/30 dark:ring-blue-900/50';
@@ -48,11 +50,11 @@ const UNCHOSEN = 'border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900
 
 type Step = 0 | 1 | 2 | 3;
 
-const STEPS: Array<{ title: string; blurb: string }> = [
-  { title: 'How long', blurb: 'The runway you have before the exam' },
-  { title: 'Your week', blurb: 'Which days you study, and for how long' },
-  { title: 'Starting point', blurb: 'What we build the plan around' },
-  { title: 'Check it fits', blurb: 'Before we build anything' },
+const STEPS: Array<{ title: ContentKey; blurb: ContentKey }> = [
+  { title: 'reports.wizard.step1.title', blurb: 'reports.wizard.step1.blurb' },
+  { title: 'reports.wizard.step2.title', blurb: 'reports.wizard.step2.blurb' },
+  { title: 'reports.wizard.step3.title', blurb: 'reports.wizard.step3.blurb' },
+  { title: 'reports.wizard.step4.title', blurb: 'reports.wizard.step4.blurb' },
 ];
 
 /**
@@ -75,10 +77,10 @@ const FALLBACK_HORIZONS: HorizonChoice[] = [
   { mode: 'months', value: 12, label: '1 year' },
 ];
 
-const INTENSITY: Array<{ value: RevisionIntensity; label: string; blurb: string }> = [
-  { value: 'light', label: 'Light', blurb: 'Two revisits per topic' },
-  { value: 'balanced', label: 'Balanced', blurb: 'Three revisits — recommended' },
-  { value: 'heavy', label: 'Heavy', blurb: 'Four revisits, less new ground' },
+const INTENSITY: Array<{ value: RevisionIntensity; label: ContentKey; blurb: ContentKey }> = [
+  { value: 'light', label: 'reports.wizard.intensity.light', blurb: 'reports.wizard.intensity.light.blurb' },
+  { value: 'balanced', label: 'reports.wizard.intensity.balanced', blurb: 'reports.wizard.intensity.balanced.blurb' },
+  { value: 'heavy', label: 'reports.wizard.intensity.heavy', blurb: 'reports.wizard.intensity.heavy.blurb' },
 ];
 
 export function StudyPlanWizard({
@@ -96,6 +98,7 @@ export function StudyPlanWizard({
   submitting?: boolean;
   onCancel?: () => void;
 }) {
+  const t = useT();
   const [step, setStep] = useState<Step>(0);
 
   // ── Answers ────────────────────────────────────────────────────────────────
@@ -209,10 +212,10 @@ export function StudyPlanWizard({
         </span>
         <div className="min-w-0">
           <h1 className="text-xl font-bold leading-tight text-gray-900 dark:text-gray-100 sm:text-2xl">
-            Build your study plan
+            {t('reports.wizard.title')}
           </h1>
           <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-            {options?.stage_name ?? 'Answer four questions and we build the rest'}
+            {options?.stage_name ?? t('reports.wizard.subtitle')}
           </p>
         </div>
       </div>
@@ -298,7 +301,7 @@ export function StudyPlanWizard({
               </>
             ) : (
               <>
-                <Sparkles className="h-4 w-4" /> Build my plan
+                <Sparkles className="h-4 w-4" /> {t('reports.wizard.build')}
               </>
             )}
           </button>
@@ -311,6 +314,7 @@ export function StudyPlanWizard({
 // ─── Step rail ────────────────────────────────────────────────────────────────
 
 function StepRail({ step, onPick }: { step: Step; onPick: (s: Step) => void }) {
+  const t = useT();
   return (
     <ol className="grid grid-cols-4 gap-2 sm:gap-3">
       {STEPS.map((s, i) => {
@@ -347,14 +351,14 @@ function StepRail({ step, onPick }: { step: Step; onPick: (s: Step) => void }) {
                     state === 'current' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-100',
                   )}
                 >
-                  {s.title}
+                  {t(s.title)}
                 </span>
                 {/* A finished step keeps its title and a quiet line; the blurb is for what is ahead. */}
                 {state === 'done' ? (
                   <span className="mt-2 hidden h-1 rounded-full bg-emerald-200/80 dark:bg-emerald-800/60 sm:block" />
                 ) : (
                   <span className="mt-0.5 hidden text-[12px] leading-snug text-gray-400 dark:text-gray-500 sm:block">
-                    {s.blurb}
+                    {t(s.blurb)}
                   </span>
                 )}
               </span>
@@ -385,14 +389,15 @@ function HorizonStep({
   onValue: (v: number) => void;
   onExamDate: (d: string) => void;
 }) {
+  const t = useT();
   const horizons: HorizonChoice[] = options?.suggested_horizons ?? FALLBACK_HORIZONS;
 
   return (
     <ReportCard className="sm:p-6">
       <PanelHeader
         icon={<CalendarDays className="w-4 h-4" />}
-        title="How long do you have?"
-        subtitle="Pick a length, or give us the exam date and we work backwards"
+        title={t('reports.wizard.horizon.title')}
+        subtitle={t('reports.wizard.horizon.subtitle')}
       />
 
       <div className={cn('grid gap-3', horizons.length === 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4')}>
@@ -430,14 +435,14 @@ function HorizonStep({
       <div className="mt-5 grid sm:grid-cols-2 gap-5">
         <label className="block">
           <span className="text-[14px] font-semibold text-gray-700 dark:text-gray-200">
-            Or an exact number of days
+            {t('reports.wizard.horizon.days')}
           </span>
           <input
             type="number"
             min={7}
             max={730}
             value={mode === 'days' ? value : ''}
-            placeholder="e.g. 45"
+            placeholder={t('reports.wizard.horizon.days.placeholder')}
             onChange={e => {
               const n = Number(e.target.value);
               if (!Number.isNaN(n)) {
@@ -451,7 +456,7 @@ function HorizonStep({
 
         <label className="block">
           <span className="text-[14px] font-semibold text-gray-700 dark:text-gray-200">
-            Exam date <span className="font-normal text-gray-400">(optional)</span>
+            {t('reports.wizard.horizon.examDate')} <span className="font-normal text-gray-400">{t('reports.wizard.horizon.optional')}</span>
           </span>
           <input
             type="date"
@@ -460,17 +465,20 @@ function HorizonStep({
             className="mt-1.5 h-12 w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 text-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40"
           />
           <span className="mt-1 block text-[13px] text-gray-400 leading-snug">
-            Given a date, the last phase becomes a final sprint that ends on it — and nothing is
-            scheduled after it.
+            {t('reports.wizard.horizon.examHint')}
           </span>
         </label>
       </div>
 
       {options && (
         <p className="mt-5 pt-4 border-t border-gray-100 dark:border-gray-800 text-[13px] text-gray-400 leading-relaxed">
-          {options.stage_name} has {options.subject_count} subjects and {options.topic_count} topics,
-          worth {options.total_marks} marks. We estimate{' '}
-          {fmtHours(options.estimated_syllabus_minutes)} of study to cover it once.
+          {t('reports.wizard.horizon.summary', {
+            stage: options.stage_name,
+            subjects: options.subject_count,
+            topics: options.topic_count,
+            marks: options.total_marks,
+            hours: fmtHours(options.estimated_syllabus_minutes),
+          })}
         </p>
       )}
     </ReportCard>
@@ -504,13 +512,14 @@ function ScheduleStep({
   onIntensity: (i: RevisionIntensity) => void;
   onIncludeMocks: (b: boolean) => void;
 }) {
+  const t = useT();
   return (
     <div className="space-y-3 sm:space-y-4">
       <ReportCard className="sm:p-6">
         <PanelHeader
           icon={<CalendarDays className="w-4 h-4" />}
-          title="Which days will you study?"
-          subtitle="Days you leave out become rest days — the plan never schedules work on them"
+          title={t('reports.wizard.schedule.days.title')}
+          subtitle={t('reports.wizard.schedule.days.subtitle')}
         />
 
         <div className="grid grid-cols-7 gap-2 sm:gap-2.5">
@@ -549,8 +558,8 @@ function ScheduleStep({
       <ReportCard className="sm:p-6">
         <PanelHeader
           icon={<Clock className="w-4 h-4" />}
-          title="How long each day?"
-          subtitle="Be honest — a plan you meet beats one you abandon"
+          title={t('reports.wizard.schedule.length.title')}
+          subtitle={t('reports.wizard.schedule.length.subtitle')}
         />
 
         <input
@@ -575,7 +584,7 @@ function ScheduleStep({
         <div className="mt-2 flex items-center justify-between text-[13px] text-gray-400">
           <span>30m</span>
           <span className="text-[15px] font-bold text-blue-600 dark:text-blue-400">
-            {fmtMinutes(minutesPerDay)} a day
+            {t('reports.wizard.schedule.perDay', { time: fmtMinutes(minutesPerDay) })}
           </span>
           <span>10h</span>
         </div>
@@ -583,20 +592,20 @@ function ScheduleStep({
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatTile
             value={studyDays.length}
-            label="Study days a week"
+            label={t('reports.wizard.schedule.stat.days')}
             accent="indigo"
             align="left"
           />
-          <StatTile value={fmtMinutes(weeklyMinutes)} label="Each week" accent="slate" align="left" />
+          <StatTile value={fmtMinutes(weeklyMinutes)} label={t('reports.wizard.schedule.stat.week')} accent="slate" align="left" />
           <StatTile
             value={fmtHours(weeklyMinutes * 4.33)}
-            label="Each month"
+            label={t('reports.wizard.schedule.stat.month')}
             accent="slate"
             align="left"
           />
           <StatTile
-            value={includeMocks ? 'Included' : 'Excluded'}
-            label="Full mocks"
+            value={includeMocks ? t('reports.wizard.schedule.included') : t('reports.wizard.schedule.excluded')}
+            label={t('reports.wizard.schedule.stat.mocks')}
             accent="rose"
             align="left"
           />
@@ -606,7 +615,7 @@ function ScheduleStep({
         <details className="mt-4 group">
           <summary className="flex cursor-pointer list-none items-center gap-1 text-[14px] font-semibold text-blue-600 dark:text-blue-400 [&::-webkit-details-marker]:hidden">
             <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" />
-            Set a different length for some days
+            {t('reports.wizard.schedule.override')}
           </summary>
           <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
             {studyDays.map(d => (
@@ -639,8 +648,8 @@ function ScheduleStep({
       <ReportCard className="sm:p-6">
         <PanelHeader
           icon={<Target className="w-4 h-4" />}
-          title="How much revision?"
-          subtitle="Each topic comes back on a spaced schedule — this sets how often"
+          title={t('reports.wizard.schedule.revision.title')}
+          subtitle={t('reports.wizard.schedule.revision.subtitle')}
         />
         <div className="grid sm:grid-cols-3 gap-2">
           {INTENSITY.map(o => {
@@ -663,9 +672,9 @@ function ScheduleStep({
                     active ? ACCENT.violet.text : 'text-gray-800 dark:text-gray-100',
                   )}
                 >
-                  {o.label}
+                  {t(o.label)}
                 </p>
-                <p className="mt-0.5 text-[13px] text-gray-400 leading-snug">{o.blurb}</p>
+                <p className="mt-0.5 text-[13px] text-gray-400 leading-snug">{t(o.blurb)}</p>
               </button>
             );
           })}
@@ -679,9 +688,9 @@ function ScheduleStep({
             className="mt-0.5 accent-brand-600"
           />
           <span className="text-[14px] text-gray-700 dark:text-gray-200">
-            Schedule full-length mocks at the end of each phase
+            {t('reports.wizard.schedule.mocks.label')}
             <span className="block text-[13px] text-gray-400">
-              Timed, under exam conditions, with the next day set aside to mark it.
+              {t('reports.wizard.schedule.mocks.hint')}
             </span>
           </span>
         </label>
@@ -709,6 +718,7 @@ function BasisStep({
   onAttempt: (id: string | null) => void;
   onOptionalSubjects: (ids: string[]) => void;
 }) {
+  const t = useT();
   const attempts = options?.attempts_available ?? 0;
   const latest = options?.latest_attempt ?? null;
 
@@ -726,24 +736,26 @@ function BasisStep({
   }> = [
     {
       kind: 'progress',
-      label: 'All my recent mocks',
-      blurb:
-        'Weights the plan by weaknesses that persist across attempts, so one bad day does not distort it.',
+      label: t('reports.wizard.basis.progress.label'),
+      blurb: t('reports.wizard.basis.progress.blurb'),
       disabled: attempts < 2,
     },
     {
       kind: 'attempt',
-      label: latest ? `My last mock — ${bilingualTitle(latest.test_name) || 'most recent'}` : 'My last mock',
+      label: latest
+        ? t('reports.wizard.basis.attempt.labelNamed', { name: bilingualTitle(latest.test_name) || 'most recent' })
+        : t('reports.wizard.basis.attempt.label'),
       blurb: latest
-        ? `${fmtDate(latest.date)}${latest.percentage != null ? ` · ${latest.percentage}%` : ''}. Targets exactly what that paper exposed.`
-        : 'Targets exactly what your most recent paper exposed.',
+        ? t('reports.wizard.basis.attempt.blurbDated', {
+            when: `${fmtDate(latest.date)}${latest.percentage != null ? ` · ${latest.percentage}%` : ''}`,
+          })
+        : t('reports.wizard.basis.attempt.blurb'),
       disabled: attempts < 1,
     },
     {
       kind: 'cold_start',
-      label: 'Start fresh',
-      blurb:
-        'No mock needed. We weight by the exam’s own mark distribution and open with short diagnostics, then re-tune the plan once results arrive.',
+      label: t('reports.wizard.basis.fresh.label'),
+      blurb: t('reports.wizard.basis.fresh.blurb'),
     },
   ];
 
@@ -752,8 +764,8 @@ function BasisStep({
       <ReportCard className="sm:p-6">
         <PanelHeader
           icon={<Flag className="w-4 h-4" />}
-          title="What should we build the plan around?"
-          subtitle="This decides which subjects get the most of your time"
+          title={t('reports.wizard.basis.title')}
+          subtitle={t('reports.wizard.basis.subtitle')}
         />
 
         <div className="space-y-2.5">
@@ -786,7 +798,7 @@ function BasisStep({
                   </span>
                 </span>
                 <span className="mt-1 block pl-8 text-[13px] text-gray-500 dark:text-gray-400 leading-relaxed">
-                  {c.disabled ? 'Available once you have sat a mock test.' : c.blurb}
+                  {c.disabled ? t('reports.wizard.basis.disabled') : c.blurb}
                 </span>
               </button>
             );
@@ -796,8 +808,7 @@ function BasisStep({
         {basisKind === 'cold_start' && attempts > 0 && (
           <p className="mt-2.5 text-[13px] text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
             <AlertTriangle className="w-3 h-3 mt-px flex-shrink-0" />
-            You have {attempts} mock{attempts === 1 ? '' : 's'} on record. Using them makes the plan
-            noticeably sharper than starting fresh.
+            {t('reports.wizard.basis.warn', { count: attempts, mocks: attempts === 1 ? 'mock' : 'mocks' })}
           </p>
         )}
       </ReportCard>
@@ -808,8 +819,8 @@ function BasisStep({
         <ReportCard className="sm:p-6">
           <PanelHeader
             icon={<Target className="w-4 h-4" />}
-            title="Which optional subject do you sit?"
-            subtitle="The one you do not choose is left out of the plan entirely"
+            title={t('reports.wizard.basis.optional.title')}
+            subtitle={t('reports.wizard.basis.optional.subtitle')}
           />
           {askedGroups.map((g, gi) => (
             <div key={gi} className="grid sm:grid-cols-2 gap-2">
@@ -858,12 +869,13 @@ function FeasibilityStep({
   onApply: (patch: Partial<StudyPlanIntake>) => void;
   onRecheck: () => void;
 }) {
+  const t = useT();
   if (feas.isChecking) {
     return (
       <ReportCard className="sm:p-6">
         <div className="flex items-center justify-center gap-2 py-10 text-[13px] text-gray-500">
           <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-          Checking whether this fits the syllabus…
+          {t('reports.wizard.check.loading')}
         </div>
       </ReportCard>
     );
@@ -876,13 +888,12 @@ function FeasibilityStep({
       <ReportCard className="sm:p-6">
         <PanelHeader
           icon={<AlertTriangle className="w-4 h-4" />}
-          title="We can't check the fit yet"
-          subtitle="Your answers are complete — go ahead and build"
+          title={t('reports.wizard.check.unavailable.title')}
+          subtitle={t('reports.wizard.check.unavailable.subtitle')}
           accent="amber"
         />
         <p className="text-[14px] text-gray-500 dark:text-gray-400 leading-relaxed">
-          The feasibility check runs on our servers and is not available on this account yet. Your
-          plan will still be built from the answers you gave.
+          {t('reports.wizard.check.unavailable.body')}
         </p>
         <IntakeRecap intake={intake} />
       </ReportCard>
@@ -894,7 +905,7 @@ function FeasibilityStep({
       <ReportCard className="sm:p-6">
         <PanelHeader
           icon={<AlertTriangle className="w-4 h-4" />}
-          title="The check failed"
+          title={t('reports.wizard.check.failed.title')}
           accent="rose"
           action={
             <button
@@ -928,8 +939,8 @@ function FeasibilityStep({
       <ReportCard className="sm:p-6">
         <PanelHeader
           icon={<Target className="w-4 h-4" />}
-          title="Does this fit?"
-          subtitle={v.blurb}
+          title={t('reports.wizard.check.fit.title')}
+          subtitle={t(v.blurb)}
           accent={v.accent}
           action={<VerdictPill verdict={r.verdict} />}
         />
@@ -937,26 +948,26 @@ function FeasibilityStep({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatTile
             value={fmtHours(r.available_minutes)}
-            label="You have"
-            hint={`${r.study_day_count} study days`}
+            label={t('reports.wizard.check.have')}
+            hint={t('reports.wizard.check.have.hint', { count: r.study_day_count })}
             accent={v.accent}
             emphasis
           />
           <StatTile
             value={fmtHours(r.required_minutes)}
-            label="Syllabus needs"
-            hint="To cover it properly"
+            label={t('reports.wizard.check.needs')}
+            hint={t('reports.wizard.check.needs.hint')}
           />
           <StatTile
-            value={r.shortfall_minutes > 0 ? fmtHours(r.shortfall_minutes) : 'None'}
-            label="Shortfall"
-            hint={r.shortfall_pct > 0 ? `${r.shortfall_pct}% short` : 'Fits as planned'}
+            value={r.shortfall_minutes > 0 ? fmtHours(r.shortfall_minutes) : t('reports.wizard.check.none')}
+            label={t('reports.wizard.check.shortfall')}
+            hint={r.shortfall_pct > 0 ? t('reports.wizard.check.short', { pct: r.shortfall_pct }) : t('reports.wizard.check.fits')}
             accent={r.shortfall_minutes > 0 ? 'rose' : 'emerald'}
           />
           <StatTile
             value={fmtMinutes(intake.minutes_per_day)}
-            label="Each study day"
-            hint={`${intake.study_days.length} days a week`}
+            label={t('reports.wizard.check.eachDay')}
+            hint={t('reports.wizard.check.daysPerWeek', { count: intake.study_days.length })}
             accent="indigo"
           />
         </div>
@@ -970,8 +981,8 @@ function FeasibilityStep({
         <ReportCard className="sm:p-6">
           <PanelHeader
             icon={<Wand2 className="w-4 h-4" />}
-            title="Ways to make it fit"
-            subtitle="Tap one to apply it and re-check"
+            title={t('reports.wizard.check.ways.title')}
+            subtitle={t('reports.wizard.check.ways.subtitle')}
             accent="amber"
           />
           <div className="grid sm:grid-cols-2 gap-2">
@@ -992,11 +1003,10 @@ function FeasibilityStep({
       {r.verdict === 'not_feasible' && (
         <div className="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50/70 dark:bg-rose-950/30 p-4">
           <p className="text-[14px] font-bold text-rose-700 dark:text-rose-300 flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5" /> This plan will not cover the syllabus
+            <AlertTriangle className="w-3.5 h-3.5" /> {t('reports.wizard.check.warn.title')}
           </p>
           <p className="mt-1 text-[14px] leading-relaxed text-rose-600 dark:text-rose-400">
-            You can still build it — we will prioritise the highest-scoring material and say plainly
-            what has been left out. Adjusting the time above is the better option if you can.
+            {t('reports.wizard.check.warn.body')}
           </p>
         </div>
       )}
@@ -1020,15 +1030,16 @@ function Radio({ on }: { on: boolean }) {
 }
 
 function IntakeRecap({ intake }: { intake: StudyPlanIntake }) {
+  const t = useT();
   return (
     <dl className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 grid grid-cols-2 gap-2 text-[14px]">
       {[
-        ['Length', `${intake.horizon.value} ${intake.horizon.mode.replace('_', ' ')}`],
-        ['Study days', intake.study_days.map(d => WEEKDAY_SHORT[d]).join(', ')],
-        ['Each day', fmtMinutes(intake.minutes_per_day)],
-        ['Exam date', intake.exam_date ? fmtDate(intake.exam_date) : 'Not set'],
-        ['Revision', intake.revision_intensity],
-        ['Built from', intake.basis.kind.replace('_', ' ')],
+        [t('reports.wizard.recap.length'), `${intake.horizon.value} ${intake.horizon.mode.replace('_', ' ')}`],
+        [t('reports.wizard.recap.studyDays'), intake.study_days.map(d => WEEKDAY_SHORT[d]).join(', ')],
+        [t('reports.wizard.recap.eachDay'), fmtMinutes(intake.minutes_per_day)],
+        [t('reports.wizard.recap.examDate'), intake.exam_date ? fmtDate(intake.exam_date) : t('reports.wizard.recap.notSet')],
+        [t('reports.wizard.recap.revision'), intake.revision_intensity],
+        [t('reports.wizard.recap.builtFrom'), intake.basis.kind.replace('_', ' ')],
       ].map(([k, v]) => (
         <div key={k}>
           <dt className="text-gray-400">{k}</dt>

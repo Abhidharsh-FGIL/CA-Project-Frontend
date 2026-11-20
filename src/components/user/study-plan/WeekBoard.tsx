@@ -38,6 +38,7 @@ import {
   fmtRange,
   todayISO,
 } from './plan-ui';
+import { useT } from '@/content/useText';
 
 /**
  * The week being looked at and the day picked within it — one selection, shared by the Overview
@@ -101,13 +102,14 @@ export function WeekBoard({ plan }: { plan: StudyPlan }) {
 
 /** The week as seven day tiles, with the arrows that move between weeks. */
 export function WeekStrip({ sel }: { sel: WeekSelection }) {
+  const t = useT();
   const { today, win, days, outlineFrom, isLoading, error, selected, setSelected, weekNo, weekMeta, planned, completed } = sel;
 
   return (
     <ReportCard className="sm:p-6">
       <PanelHeader
         icon={<CalendarClock className="w-4 h-4" />}
-        title={weekNo != null ? `Week ${weekNo}` : 'This week'}
+        title={weekNo != null ? t('reports.plan.week.title', { week: weekNo }) : t('reports.plan.week.thisWeek')}
         subtitle={weekMeta?.theme ?? fmtRange(win.from, win.to)}
         action={
           <div className="flex items-center gap-1.5">
@@ -156,8 +158,8 @@ export function WeekStrip({ sel }: { sel: WeekSelection }) {
         <NotAvailable
           reason={
             outlineFrom
-              ? `This week is planned in outline only — detailed tasks are filled in nearer the time (from ${fmtDate(outlineFrom)}).`
-              : 'This week falls outside your plan.'
+              ? t('reports.plan.week.outlineOnly', { date: fmtDate(outlineFrom) })
+              : t('reports.plan.week.outside')
           }
         />
       ) : (
@@ -177,7 +179,7 @@ export function WeekStrip({ sel }: { sel: WeekSelection }) {
           <div className="mt-4 flex items-center justify-between text-[14px]">
             <span className="text-gray-500 dark:text-gray-400">{fmtRange(win.from, win.to)}</span>
             <span className="tabular-nums font-semibold text-gray-700 dark:text-gray-200">
-              {fmtMinutes(completed)} of {fmtMinutes(planned)} done
+              {t('reports.plan.week.progress', { done: fmtMinutes(completed), planned: fmtMinutes(planned) })}
             </span>
           </div>
         </>
@@ -185,9 +187,7 @@ export function WeekStrip({ sel }: { sel: WeekSelection }) {
 
       {outlineFrom && days.length > 0 && (
         <p className="mt-2 text-[13px] text-gray-400 leading-snug">
-          Days from {fmtDate(outlineFrom)} are planned in outline. They are filled in with
-          day-level tasks nearer the time, so they can take account of the mocks you sit between
-          now and then.
+          {t('reports.plan.week.outlineNote', { date: fmtDate(outlineFrom) })}
         </p>
       )}
     </ReportCard>
@@ -270,16 +270,17 @@ export function DayDetail({
   stageId?: string;
   day: PlanDay;
 }) {
+  const t = useT();
   if (day.is_rest) {
     return (
       <ReportCard>
         <div className="py-6 text-center">
           <Moon className="w-6 h-6 mx-auto text-gray-300 dark:text-gray-600" />
           <p className="mt-2 text-[13px] font-semibold text-gray-700 dark:text-gray-200">
-            {fmtDate(day.date, 'EEEE d MMMM')} — rest day
+            {t('reports.plan.day.rest', { date: fmtDate(day.date, 'EEEE d MMMM') })}
           </p>
           <p className="mt-0.5 text-[14px] text-gray-400">
-            You left this day out of your week. Nothing is scheduled.
+            {t('reports.plan.day.restNote')}
           </p>
         </div>
       </ReportCard>
@@ -294,17 +295,17 @@ export function DayDetail({
         subtitle={`${day.tasks.length} task${day.tasks.length === 1 ? '' : 's'} · ${fmtMinutes(day.planned_minutes)} planned`}
         action={
           <span className="text-[14px] tabular-nums font-semibold text-gray-600 dark:text-gray-300">
-            {fmtMinutes(day.completed_minutes)} done
+            {t('reports.plan.day.done', { time: fmtMinutes(day.completed_minutes) })}
           </span>
         }
       />
 
       {day.tasks.length === 0 ? (
-        <NotAvailable reason="No tasks are scheduled for this day yet." />
+        <NotAvailable reason={t('reports.plan.day.none')} />
       ) : (
         <ul className="space-y-2">
-          {day.tasks.map(t => (
-            <TaskRow key={t.task_id} planId={planId} groupId={groupId} stageId={stageId} task={t} />
+          {day.tasks.map(task => (
+            <TaskRow key={task.task_id} planId={planId} groupId={groupId} stageId={stageId} task={task} />
           ))}
         </ul>
       )}
@@ -332,6 +333,7 @@ export function TaskRow({
   stageId?: string;
   task: PlanTask;
 }) {
+  const t = useT();
   const toggle = useTaskToggle(planId);
   const { groups } = useTnpscCatalog();
   const syllabus = syllabusForTask(findStage(groupId, stageId, groups)?.stage, task);
@@ -400,7 +402,7 @@ export function TaskRow({
             </span>
             {task.question_target > 0 && (
               <span className="text-[13px] tabular-nums text-gray-400">
-                {task.question_target} questions
+                {t('reports.plan.task.questions', { count: task.question_target })}
               </span>
             )}
           </div>
@@ -415,7 +417,7 @@ export function TaskRow({
 
           {task.success_criterion && (
             <p className="mt-1 text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">
-              <span className="font-semibold">Done when: </span>
+              <span className="font-semibold">{t('reports.plan.task.doneWhen')} </span>
               {task.success_criterion}
             </p>
           )}
@@ -428,7 +430,7 @@ export function TaskRow({
                 to={href}
                 className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-2 py-1 text-[13px] font-bold text-white hover:bg-brand-700"
               >
-                <PlayCircle className="w-3 h-3" /> Start this test
+                <PlayCircle className="w-3 h-3" /> {t('reports.plan.task.start')}
               </Link>
             )}
             {!done && !skipped && (
@@ -461,6 +463,7 @@ const TOPICS_SHOWN = 5;
  * has to guess which part of the syllabus that is.
  */
 function SyllabusBlock({ syllabus }: { syllabus: TaskSyllabus }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const { topics } = syllabus;
   const shown = open ? topics : topics.slice(0, TOPICS_SHOWN);
@@ -470,13 +473,13 @@ function SyllabusBlock({ syllabus }: { syllabus: TaskSyllabus }) {
       <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-200">
         {syllabus.unitLabel ? `Unit ${syllabus.unitLabel} — ` : ''}
         {bilingual(syllabus.unitName, syllabus.unitNameTa)}
-        <span className="font-normal text-gray-400"> · {syllabus.questions} questions in the paper</span>
+        <span className="font-normal text-gray-400"> · {t('reports.plan.task.paperQuestions', { count: syllabus.questions })}</span>
       </p>
       <ul className="mt-1 space-y-0.5">
-        {shown.map(t => (
-          <li key={t.id} className="flex gap-1.5 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">
+        {shown.map(topic => (
+          <li key={topic.id} className="flex gap-1.5 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">
             <span aria-hidden className="text-gray-300 dark:text-gray-600">•</span>
-            <span>{bilingual(t.name)}</span>
+            <span>{bilingual(topic.name)}</span>
           </li>
         ))}
       </ul>
@@ -486,7 +489,7 @@ function SyllabusBlock({ syllabus }: { syllabus: TaskSyllabus }) {
           onClick={() => setOpen(o => !o)}
           className="mt-1 text-[13px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
         >
-          {open ? 'Show fewer' : `Show all ${topics.length} topics`}
+          {open ? 'Show fewer' : t('reports.plan.task.showAll', { count: topics.length })}
         </button>
       )}
     </div>

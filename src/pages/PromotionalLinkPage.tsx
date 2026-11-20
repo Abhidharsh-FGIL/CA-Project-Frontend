@@ -13,6 +13,7 @@ import {
   type PromotionalAssessment,
 } from '@/lib/promotionalApi';
 import { Countdown, useNow } from '@/components/promotional/Countdown';
+import { useT } from '@/content/useText';
 
 /** Seconds an expired link waits before sending the visitor to the landing page. */
 export const EXPIRED_REDIRECT_SECONDS = 5;
@@ -48,6 +49,7 @@ export default function PromotionalLinkPage() {
 }
 
 function LinkBody({ promo }: { promo: PromotionalAssessment }) {
+  const t = useT();
   const offset = useMemo(() => clockOffset(promo.server_time), [promo.server_time]);
   const now = useNow(offset);
   const phase = promotionalPhase(promo, now);
@@ -60,20 +62,20 @@ function LinkBody({ promo }: { promo: PromotionalAssessment }) {
       <div className="overflow-hidden rounded-3xl bg-white shadow-xl dark:bg-slate-900">
         <div className="bg-gradient-to-br from-orange-500 via-rose-500 to-fuchsia-600 p-6 text-center text-white sm:p-8">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest">
-            <Gift className="h-3.5 w-3.5" /> Free test
+            <Gift className="h-3.5 w-3.5" /> {t('assessment.promo.link.badge')}
           </span>
           <h1 className="mt-3 text-2xl font-extrabold leading-tight sm:text-3xl">{promo.title}</h1>
           {promo.description && <p className="mx-auto mt-2 max-w-md text-sm opacity-90">{promo.description}</p>}
           <div className="mt-5">
             {phase === 'upcoming' ? (
               <>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-widest opacity-90">Starts in</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-widest opacity-90">{t('assessment.promo.countdown.starts_in')}</p>
                 <Countdown to={promo.starts_at} now={now} tone="dark" />
               </>
             ) : (
               <>
                 <p className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-300" /> Live now · closes in
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-300" /> {t('assessment.promo.link.live')}
                 </p>
                 <Countdown to={promo.ends_at} now={now} tone="dark" />
               </>
@@ -84,19 +86,18 @@ function LinkBody({ promo }: { promo: PromotionalAssessment }) {
         <div className="space-y-5 p-6 sm:p-8">
           <ul className="grid grid-cols-1 gap-2 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-3">
             <li className="flex items-center gap-2"><CalendarClock className="h-4 w-4 text-orange-500" /> {whenLabel(promo.starts_at)}</li>
-            {promo.question_count ? <li className="flex items-center gap-2"><FileText className="h-4 w-4 text-orange-500" /> {promo.question_count} questions</li> : null}
-            {minutes ? <li className="flex items-center gap-2"><Clock className="h-4 w-4 text-orange-500" /> {minutes} minutes</li> : null}
+            {promo.question_count ? <li className="flex items-center gap-2"><FileText className="h-4 w-4 text-orange-500" /> {t('assessment.promo.meta.questions', { count: promo.question_count })}</li> : null}
+            {minutes ? <li className="flex items-center gap-2"><Clock className="h-4 w-4 text-orange-500" /> {t('assessment.promo.meta.minutes', { minutes })}</li> : null}
           </ul>
           <p className="text-sm text-slate-600 dark:text-slate-300">
-            Sign in or create a free account. You will be taken straight to the test
-            {phase === 'upcoming' ? ' — it starts on its own when the countdown ends' : ''}. You will see your score as soon as you submit.
+            {phase === 'upcoming' ? t('assessment.promo.link.intro.upcoming') : t('assessment.promo.link.intro.live')}
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Button asChild size="lg" className="bg-orange-600 hover:bg-orange-700">
-              <Link to="/user/login">I have an account — Log in</Link>
+              <Link to="/user/login">{t('assessment.promo.link.login')}</Link>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <Link to="/user/register">New here? Sign up free</Link>
+              <Link to="/user/register">{t('assessment.promo.link.register')}</Link>
             </Button>
           </div>
         </div>
@@ -108,17 +109,18 @@ function LinkBody({ promo }: { promo: PromotionalAssessment }) {
 /** "This test has ended", then the landing page. Shared with the signed-in page. */
 export function ExpiredNotice({ title, home = '/' }: { title?: string; home?: string }) {
   const navigate = useNavigate();
+  const t = useT();
   useEffect(() => {
-    const t = setTimeout(() => navigate(home, { replace: true }), EXPIRED_REDIRECT_SECONDS * 1000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => navigate(home, { replace: true }), EXPIRED_REDIRECT_SECONDS * 1000);
+    return () => clearTimeout(timer);
   }, [navigate, home]);
   return (
     <Screen>
       <div className="rounded-3xl bg-white p-8 text-center shadow-xl dark:bg-slate-900">
         <TimerOff className="mx-auto h-12 w-12 text-rose-500" />
-        <h1 className="mt-4 text-2xl font-bold text-slate-900 dark:text-slate-100">This test has expired</h1>
+        <h1 className="mt-4 text-2xl font-bold text-slate-900 dark:text-slate-100">{t('assessment.promo.expired.heading')}</h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-          {title ? <>“{title}” is closed.</> : 'This test is closed.'} Taking you to the home page…
+          {title ? t('assessment.promo.expired.named', { title }) : t('assessment.promo.expired.plain')}
         </p>
         <Button className="mt-6" onClick={() => navigate(home, { replace: true })}>
           Go now
@@ -129,11 +131,12 @@ export function ExpiredNotice({ title, home = '/' }: { title?: string; home?: st
 }
 
 function InvalidLink() {
+  const t = useT();
   return (
     <Screen>
       <div className="rounded-3xl bg-white p-8 text-center shadow-xl dark:bg-slate-900">
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">This test link is not valid</h1>
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Check the link you were sent, or explore the free tests on MyGovExams.</p>
+        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">{t('assessment.promo.invalid.heading')}</h1>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{t('assessment.promo.invalid.body')}</p>
         <Button asChild className="mt-6">
           <Link to="/">Go to home</Link>
         </Button>

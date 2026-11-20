@@ -6,23 +6,26 @@ import { usePromotionalToShow } from '@/hooks/use-promotional-to-show';
 import { promotionalPhase, whenLabel, type PromotionalAssessment } from '@/lib/promotionalApi';
 import { promotionalResultPath, promotionalTestPath } from '@/pages/user/PromotionalTestPage';
 import { shortCountdown } from '@/components/promotional/Countdown';
+import { useT } from '@/content/useText';
+
+type T = ReturnType<typeof useT>;
 
 /** Where the button of a free test leads, what it says, and the status pill beside the title. */
-function actionFor(p: PromotionalAssessment, now: number) {
+function actionFor(p: PromotionalAssessment, now: number, t: T) {
   const phase = promotionalPhase(p, now);
   const done = !!p.attempted && !p.in_progress_attempt_id;
-  if (done) return { to: promotionalResultPath(p.id), label: 'Your result', live: false, pill: 'Completed', pillTone: 'done' as const };
-  if (phase === 'live') return { to: promotionalTestPath(p.id), label: 'Start now', live: true, pill: 'Live', pillTone: 'live' as const };
-  if (phase === 'upcoming') return { to: promotionalTestPath(p.id), label: 'Get ready', live: false, pill: 'Upcoming', pillTone: 'upcoming' as const };
-  return { to: promotionalTestPath(p.id), label: 'Details', live: false, pill: 'Closed', pillTone: 'done' as const };
+  if (done) return { to: promotionalResultPath(p.id), label: t('exams.free.btn.result'), live: false, pill: t('exams.free.pill.done'), pillTone: 'done' as const };
+  if (phase === 'live') return { to: promotionalTestPath(p.id), label: t('exams.free.btn.start'), live: true, pill: t('exams.free.pill.live'), pillTone: 'live' as const };
+  if (phase === 'upcoming') return { to: promotionalTestPath(p.id), label: t('exams.free.btn.ready'), live: false, pill: t('exams.free.pill.upcoming'), pillTone: 'upcoming' as const };
+  return { to: promotionalTestPath(p.id), label: t('exams.free.btn.details'), live: false, pill: t('exams.free.pill.closed'), pillTone: 'done' as const };
 }
 
 /** "Tue, 17 Nov, 6:00 pm · starts in 5h 52m", "… · closes in 41m", or "Closed 17 Nov, 8:00 pm". */
-function clockLine(p: PromotionalAssessment, now: number): string {
+function clockLine(p: PromotionalAssessment, now: number, t: T): string {
   const phase = promotionalPhase(p, now);
-  if (phase === 'upcoming') return `${whenLabel(p.starts_at)} · starts in ${shortCountdown(Date.parse(p.starts_at) - now)}`;
-  if (phase === 'live') return `${whenLabel(p.starts_at)} · closes in ${shortCountdown(Date.parse(p.ends_at) - now)}`;
-  return `Closed ${whenLabel(p.ends_at)}`;
+  if (phase === 'upcoming') return t('exams.free.clock.upcoming', { when: whenLabel(p.starts_at), left: shortCountdown(Date.parse(p.starts_at) - now) });
+  if (phase === 'live') return t('exams.free.clock.live', { when: whenLabel(p.starts_at), left: shortCountdown(Date.parse(p.ends_at) - now) });
+  return t('exams.free.clock.closed', { when: whenLabel(p.ends_at) });
 }
 
 const PILL: Record<'live' | 'upcoming' | 'done', string> = {
@@ -32,7 +35,8 @@ const PILL: Record<'live' | 'upcoming' | 'done', string> = {
 };
 
 function TestRow({ p, now }: { p: PromotionalAssessment; now: number }) {
-  const a = actionFor(p, now);
+  const t = useT();
+  const a = actionFor(p, now, t);
   return (
     <div
       className={cn(
@@ -51,7 +55,7 @@ function TestRow({ p, now }: { p: PromotionalAssessment; now: number }) {
         </p>
         <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
           <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span className="tabular-nums">{clockLine(p, now)}</span>
+          <span className="tabular-nums">{clockLine(p, now, t)}</span>
         </p>
       </div>
       <Link
@@ -70,12 +74,13 @@ function TestRow({ p, now }: { p: PromotionalAssessment; now: number }) {
  * now leads, else the soonest; with more than one, the rest fold under "+N more". Nothing at all when there are none.
  */
 export function FreeTestStrip({ className }: { className?: string }) {
+  const t = useT();
   const { tests, now } = usePromotionalToShow();
   const [open, setOpen] = useState(false);
   if (tests.length === 0) return null;
 
   // A test to start right now leads; otherwise they are already soonest first.
-  const ordered = [...tests].sort((a, b) => Number(actionFor(b, now).live) - Number(actionFor(a, now).live));
+  const ordered = [...tests].sort((a, b) => Number(actionFor(b, now, t).live) - Number(actionFor(a, now, t).live));
   const [lead, ...rest] = ordered;
 
   return (
@@ -92,8 +97,8 @@ export function FreeTestStrip({ className }: { className?: string }) {
           <Gift className="h-[18px] w-[18px]" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-bold leading-tight text-gray-900 dark:text-gray-100">Free tests for you</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Scheduled tests — free, and not counted in your plan</p>
+          <h2 className="text-sm font-bold leading-tight text-gray-900 dark:text-gray-100">{t('exams.free.title')}</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('exams.free.subtitle')}</p>
         </div>
         {rest.length > 0 && (
           <button
@@ -102,7 +107,7 @@ export function FreeTestStrip({ className }: { className?: string }) {
             aria-expanded={open}
             className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-bold text-orange-700 hover:bg-orange-200 dark:bg-orange-500/20 dark:text-orange-300"
           >
-            +{rest.length} more
+            {t('exams.free.more', { count: rest.length })}
             <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} aria-hidden />
           </button>
         )}

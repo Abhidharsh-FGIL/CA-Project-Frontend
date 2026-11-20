@@ -4,10 +4,12 @@ import { Eye, EyeOff, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { LogoMark, Wordmark } from '@/components/brand/Brand';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { toast } from 'sonner';
+import { useT } from '@/content/useText';
 import { PASSWORD_HINT, confirmError, passwordError } from '@/lib/password-rules';
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
+  const t = useT();
   const [params] = useSearchParams();
   const { resetPassword } = useUserPortal();
   const token = params.get('token') || '';
@@ -70,36 +72,36 @@ export default function ResetPasswordPage() {
               <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center">
                 <CheckCircle2 className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">Password updated</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">{t('auth.reset.done_title')}</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
-                You can now log in with your new password.
+                {t('auth.reset.done_text')}
               </p>
               <button
                 onClick={() => navigate('/user/login')}
                 className="w-full bg-gradient-to-r from-brand-600 to-brand-400 text-white py-2.5 rounded-xl font-semibold hover:from-brand-700 hover:to-brand-500"
               >
-                Go to login
+                {t('auth.reset.done_button')}
               </button>
             </div>
           ) : (
             <>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Set a new password</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{t('auth.reset.heading')}</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                Choose a strong password. You'll use it to sign in next time.
+                {t('auth.reset.subheading')}
               </p>
 
               {!token && (
                 <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl p-3 mb-4 flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                   <p className="text-xs text-amber-700 dark:text-amber-300">
-                    No reset token in the URL. Open the link from the email exactly as we sent it.
+                    {t('auth.reset.no_token')}
                   </p>
                 </div>
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">New password</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t('auth.reset.new_label')}</label>
                   <div className="relative">
                     <input
                       type={showPwd ? 'text' : 'password'}
@@ -126,7 +128,7 @@ export default function ResetPasswordPage() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Confirm password</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t('auth.reset.confirm_label')}</label>
                   <input
                     type={showPwd ? 'text' : 'password'}
                     value={confirm}
@@ -147,14 +149,14 @@ export default function ResetPasswordPage() {
                   disabled={submitting || !token}
                   className="w-full bg-gradient-to-r from-brand-600 via-brand-400 to-brand-600 bg-[length:200%_auto] text-white py-3 rounded-xl font-semibold hover:bg-right-bottom transition-all duration-500 shadow-lg shadow-blue-200 hover:shadow-xl hover:shadow-blue-300 disabled:opacity-60 press"
                 >
-                  {submitting ? 'Updating…' : 'Reset password'}
+                  {submitting ? t('auth.reset.submitting') : t('auth.reset.submit')}
                 </button>
               </form>
 
               <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
-                Remembered it?{' '}
+                {t('auth.reset.back_prompt')}{' '}
                 <Link to="/user/login" className="text-blue-600 dark:text-blue-400 font-semibold hover:underline">
-                  Back to login
+                  {t('auth.reset.back_link')}
                 </Link>
               </p>
             </>

@@ -3,7 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { GenVerseShell } from '@/components/layout/GenVerseShell';
 import { PageHeader } from '@/components/layout/AppShell';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ClipboardCheck, Database, List, FileText, BarChart3, FileUp, History } from 'lucide-react';
+import { ClipboardCheck, Database, List, FileText, BarChart3, FileUp, History, Target } from 'lucide-react';
+import { PassMarksSettings } from '@/components/evaluation/PassMarksSettings';
 import { EvalPaperImportPanel } from '@/components/evaluation/EvalPaperImportPanel';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -152,6 +153,10 @@ export function EvaluationHubPage() {
                 <History className="h-4 w-4" />
                 History
               </TabsTrigger>
+              <TabsTrigger value="passmarks" className="gap-1.5 flex-shrink-0 whitespace-nowrap">
+                <Target className="h-4 w-4" />
+                Pass marks
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -223,6 +228,10 @@ export function EvaluationHubPage() {
                 />
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="passmarks">
+            <PassMarksSettings />
           </TabsContent>
 
           {/* By user: who attended what, from the server's history. Opening an assessment's report from here lands on the Reports tab. */}

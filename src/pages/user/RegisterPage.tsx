@@ -21,6 +21,8 @@ import { toast } from 'sonner';
 import { ROUTES } from '@/pages/landing/LandingShell';
 import { ArtImage, AuthField, AuthLayout, AuthModal } from './auth/AuthShell';
 import { GoogleButton } from './auth/GoogleButton';
+import { Slots } from './auth/Slots';
+import { useT } from '@/content/useText';
 import { trackCompleteRegistration } from '@/lib/meta-pixel';
 import { askAboutReferral } from '@/components/user/ReferralAskHost';
 import { cleanReferralInput, clearSavedReferral, refFromSearch, saveReferral, savedReferral, validateReferralCode } from '@/lib/referralApi';
@@ -36,6 +38,7 @@ const FIRST_LANDING = '/user/exams';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const t = useT();
   const { register, verifyOtp, resendOtp, signInWithGoogle, isAuthenticated } = useUserPortal();
   const location = useLocation();
 
@@ -56,6 +59,14 @@ export default function RegisterPage() {
   useEffect(() => {
     if (isAuthenticated) navigate(afterSignIn(justSignedUp.current ? FIRST_LANDING : '/user/dashboard'), { replace: true });
   }, [isAuthenticated, navigate]);
+
+  /** What an account gets, beside the sign-up form. */
+  const BENEFITS = [
+    { icon: FileText, label: t('auth.register.benefit_mock'), tone: 'blue' },
+    { icon: BookOpen, label: t('auth.register.benefit_unit'), tone: 'orange' },
+    { icon: Target, label: t('auth.register.benefit_analyse'), tone: 'purple' },
+    { icon: BarChart3, label: t('auth.register.benefit_plan'), tone: 'green' },
+  ];
 
   const [form, setForm] = useState({
     name: google ? formNameFrom(google.name) : '',
@@ -318,7 +329,7 @@ export default function RegisterPage() {
 
   return (
     <AuthLayout
-      title="Create Your Account | MyGovExams"
+      title={t('auth.register.page_title')}
       tight
       side={
         <>
@@ -338,21 +349,21 @@ export default function RegisterPage() {
       }
     >
       <div className="mge-auth-card">
-        <h1>Create Your Account</h1>
-        <p className="mge-auth-sub">Start your journey towards exam success</p>
+        <h1>{t('auth.register.heading')}</h1>
+        <p className="mge-auth-sub">{t('auth.register.subheading')}</p>
 
         {GOOGLE_ENABLED && !google && (
           <>
             <GoogleButton text="signup_with" onCredential={googleSignUp} />
             <div className="mge-auth-or">
-              <span>or sign up with email</span>
+              <span>{t('auth.register.or_email')}</span>
             </div>
           </>
         )}
         {google && (
           <div className="mge-google-banner">
             <span>
-              Signed in with Google as <strong>{google.email}</strong>. Add the details below to finish.
+              <Slots text={t('auth.register.google_banner')} slots={{ email: <strong>{google.email}</strong> }} />
             </span>
             <button
               type="button"
@@ -362,7 +373,7 @@ export default function RegisterPage() {
                 setForm(f => ({ ...f, name: '', email: '' }));
               }}
             >
-              Use a different account
+              {t('auth.register.google_switch')}
             </button>
           </div>
         )}
@@ -373,7 +384,7 @@ export default function RegisterPage() {
             value={form.name}
             onChange={v => setForm(f => ({ ...f, name: v }))}
             error={errors.name}
-            placeholder="Full Name"
+            placeholder={t('auth.register.name_placeholder')}
             autoComplete="name"
           />
           <AuthField
@@ -382,7 +393,7 @@ export default function RegisterPage() {
             value={form.email}
             onChange={v => setForm(f => ({ ...f, email: v }))}
             error={errors.email}
-            placeholder="Email"
+            placeholder={t('auth.register.email_placeholder')}
             readOnly={!!google}
             autoComplete="email"
           />
@@ -393,7 +404,7 @@ export default function RegisterPage() {
             value={form.phone}
             onChange={v => setForm(f => ({ ...f, phone: v.replace(/\D/g, '').slice(0, 10) }))}
             error={errors.phone}
-            placeholder="Phone Number"
+            placeholder={t('auth.register.phone_placeholder')}
             maxLength={10}
             autoComplete="tel-national"
           />
@@ -401,45 +412,51 @@ export default function RegisterPage() {
             icon={Gift}
             value={referral}
             onChange={setReferral}
-            placeholder="Referral code (optional)"
+            placeholder={t('auth.register.referral_placeholder')}
             autoComplete="off"
             error={referralCheck.state === 'bad' ? referralCheck.text : undefined}
             hint={
               referralCheck.state === 'ok'
                 ? referralCheck.text
                 : referralCheck.state === 'checking'
-                  ? 'Checking…'
-                  : 'Code, or your friend’s mobile number or email'
+                  ? t('auth.register.checking')
+                  : t('auth.register.referral_hint')
             }
           />
 
           <button type="submit" disabled={submitting} className="mge-btn mge-btn-primary mge-auth-submit">
             {submitting ? (
               <>
-                <span className="mge-spinner" /> Sending OTP...
+                <span className="mge-spinner" /> {t('auth.register.submitting')}
               </>
             ) : (
               <>
-                Sign Up <ArrowRight size={19} />
+                {t('auth.register.submit')} <ArrowRight size={19} />
               </>
             )}
           </button>
           <p className="mge-auth-terms">
-            By signing up, you agree to our{' '}
-            <Link to="/terms" target="_blank" rel="noopener noreferrer">
-              Terms and Conditions
-            </Link>{' '}
-            and{' '}
-            <Link to="/privacy" target="_blank" rel="noopener noreferrer">
-              Privacy Policy
-            </Link>
-            .
+            <Slots
+              text={t('auth.register.terms')}
+              slots={{
+                terms: (
+                  <Link to="/terms" target="_blank" rel="noopener noreferrer">
+                    {t('auth.register.terms_link')}
+                  </Link>
+                ),
+                privacy: (
+                  <Link to="/privacy" target="_blank" rel="noopener noreferrer">
+                    {t('auth.register.privacy_link')}
+                  </Link>
+                ),
+              }}
+            />
           </p>
         </form>
 
         <p className="mge-auth-switch" style={{ marginTop: 22 }}>
-          Already have an account?
-          <Link to={ROUTES.login}>Login</Link>
+          {t('auth.register.login_prompt')}
+          <Link to={ROUTES.login}>{t('auth.register.login_link')}</Link>
         </p>
       </div>
 
@@ -448,8 +465,8 @@ export default function RegisterPage() {
           <div className="mge-modal-icon mge-tile-orange">
             <Gift size={30} />
           </div>
-          <h2>Were you referred by someone?</h2>
-          <p>Link your account to the friend who told you about MyGovExams. You can skip this.</p>
+          <h2>{t('auth.register.ask_title')}</h2>
+          <p>{t('auth.register.ask_text')}</p>
           <div style={{ textAlign: 'left', marginBottom: 14 }}>
             <AuthField
               icon={Gift}
@@ -458,10 +475,10 @@ export default function RegisterPage() {
                 setAskCode(v);
                 setAskError(null);
               }}
-              placeholder="Referral code"
+              placeholder={t('auth.register.ask_placeholder')}
               autoComplete="off"
               error={askError ?? undefined}
-              hint="Code, or your friend’s mobile number or email"
+              hint={t('auth.register.referral_hint')}
             />
           </div>
           <button
@@ -471,7 +488,7 @@ export default function RegisterPage() {
             disabled={askChecking}
             autoFocus
           >
-            {askChecking ? 'Checking…' : 'Continue'}
+            {askChecking ? t('auth.register.checking') : 'Continue'}
           </button>
           <button
             type="button"
@@ -490,7 +507,7 @@ export default function RegisterPage() {
           <div className="mge-modal-icon mge-tile-orange">
             <AlertCircle size={30} />
           </div>
-          <h2>Couldn't create your account</h2>
+          <h2>{t('auth.register.error_title')}</h2>
           <p>{registerError}</p>
           <button type="button" className="mge-btn mge-btn-primary mge-auth-submit" onClick={() => setRegisterError(null)} autoFocus>
             OK
@@ -503,9 +520,12 @@ export default function RegisterPage() {
           <div className="mge-modal-icon mge-tile-green">
             <CheckCircle2 size={30} />
           </div>
-          <h2>Verify your email</h2>
+          <h2>{t('auth.register.verify_title')}</h2>
           <p>
-            We sent a 6-digit OTP to <strong style={{ wordBreak: 'break-all' }}>{otpSentTo}</strong>
+            <Slots
+              text={t('auth.register.verify_text')}
+              slots={{ email: <strong style={{ wordBreak: 'break-all' }}>{otpSentTo}</strong> }}
+            />
           </p>
 
           <input
@@ -524,11 +544,13 @@ export default function RegisterPage() {
           <div className="mge-otp-row">
             <span className={otpExpiresIn === 0 ? 'mge-expired' : undefined}>
               {otpExpiresIn > 0
-                ? `Expires in ${Math.floor(otpExpiresIn / 60)}:${String(otpExpiresIn % 60).padStart(2, '0')}`
-                : 'OTP expired'}
+                ? t('auth.register.otp_expires_in', {
+                    time: `${Math.floor(otpExpiresIn / 60)}:${String(otpExpiresIn % 60).padStart(2, '0')}`,
+                  })
+                : t('auth.register.otp_expired')}
             </span>
             <button type="button" className="mge-link-btn" onClick={handleResend} disabled={resendCooldown > 0}>
-              {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP'}
+              {resendCooldown > 0 ? t('auth.register.otp_resend_in', { seconds: resendCooldown }) : t('auth.register.otp_resend')}
             </button>
           </div>
 
@@ -538,10 +560,10 @@ export default function RegisterPage() {
             onClick={handleVerify}
             disabled={verifying || otp.length !== 6 || otpExpiresIn === 0}
           >
-            {verifying ? 'Verifying...' : 'Verify & Continue'}
+            {verifying ? t('auth.register.otp_verifying') : t('auth.register.otp_verify')}
           </button>
           <button type="button" className="mge-modal-text-btn" onClick={() => setOtpModalOpen(false)}>
-            Change details
+            {t('auth.register.otp_change')}
           </button>
         </AuthModal>
       )}
@@ -549,10 +571,3 @@ export default function RegisterPage() {
   );
 }
 
-/** What an account gets, beside the sign-up form. */
-const BENEFITS = [
-  { icon: FileText, label: 'Practice with mock tests', tone: 'blue' },
-  { icon: BookOpen, label: 'Learn unit-wise by topic', tone: 'orange' },
-  { icon: Target, label: 'Analyse your performance', tone: 'purple' },
-  { icon: BarChart3, label: 'Get a personalized study plan', tone: 'green' },
-];

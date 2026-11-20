@@ -1,0 +1,121 @@
+import { defineContent } from './define';
+
+/** The exam stage page: unit practice, key topics, mock tests — see define.ts. Keys: `practice.<section>.<name>`. */
+export const practice = defineContent('Practice & mock tests (exam page)', {
+  // ── Page frame ────────────────────────────────────────────────────────────
+  'practice.nav.all_exams': { label: 'Exam page — Back link (exam with a single stage)', default: 'All examinations' },
+  'practice.nav.back_to': { label: 'Exam page — Back link to the exam', default: 'Back to {exam}', vars: ['exam'], hint: '{exam} is the exam name.' },
+  'practice.notfound.message': { label: 'Exam page — Stage not found message', default: 'This exam stage could not be found.' },
+  'practice.ntpc.papers_for': { label: 'Exam page — "Papers shown for" label (RRB NTPC level chip)', default: 'Papers shown for' },
+  'practice.loading.exam': { label: 'Exam page — Loading text on the Mock Exam tab', default: 'Loading exam papers…' },
+  'practice.loading.topics': { label: 'Exam page — Loading text on the Key Topics tab', default: 'Loading key topics…' },
+  'practice.loading.practice': { label: 'Exam page — Loading text on the Practice tab', default: 'Loading practice tests…' },
+  'practice.empty.sections': { label: 'Exam page — Empty state, no sections published (Practice tab)', default: 'No sections are published for this stage yet.' },
+  'practice.verb.exam': { label: 'Exam page — Word for "Exam" in "Unit-wise Exam" / "Full Set Exam" labels', default: 'Exam' },
+  'practice.verb.practice': { label: 'Exam page — Word for "Practice" in "Unit-wise Practice" / "Full Set Practice" labels', default: 'Practice' },
+
+  // ── Hero and figures ──────────────────────────────────────────────────────
+  'practice.hero.cta': { label: 'Exam page — Hero button "Take Mock Exam"', default: 'Take Mock Exam' },
+  'practice.hero.cta_note': { label: 'Exam page — Line under the "Take Mock Exam" button', default: 'Timed exactly like the real exam' },
+  'practice.stat.questions': { label: 'Exam page — Figure label "Questions" (hero and mock banner)', default: 'Questions' },
+  'practice.stat.marks': { label: 'Exam page — Figure label "Marks" (hero and mock banner)', default: 'Marks' },
+  'practice.stat.duration': { label: 'Exam page — Figure label "Duration" (hero and mock banner)', default: 'Duration' },
+  'practice.stat.negative_marking': { label: 'Exam page — Figure label "Negative marking" (mock banner)', default: 'Negative marking' },
+  'practice.stat.negative_none': { label: 'Exam page — Negative marking value when there is none (mock banner)', default: 'None' },
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  'practice.tabs.topics.label': { label: 'Exam page — Tab name: Key Topics', default: 'Practice by Key Topics' },
+  'practice.tabs.topics.note': { label: 'Exam page — Tab description: Key Topics', default: 'One topic at a time — build your basics' },
+  'practice.tabs.practice.label': { label: 'Exam page — Tab name: Practice by Unit', default: 'Practice by Unit' },
+  'practice.tabs.practice.note': { label: 'Exam page — Tab description: Practice by Unit', default: 'Pick a unit, then Simple, Medium or Complex' },
+  'practice.tabs.exam.label': { label: 'Exam page — Tab name: Mock Exam', default: 'Mock Exam' },
+  'practice.tabs.exam.note': { label: 'Exam page — Tab description: Mock Exam', default: 'Full paper, timed like the real one' },
+  'practice.tabs.exam.tag': { label: 'Exam page — Tab tag on Mock Exam', default: 'Official pattern' },
+  'practice.tabs.fresh': {
+    label: 'Exam page — Line under the tabs (fresh questions)',
+    default: '*Fresh questions every attempt* — a new set of expert-validated questions each time.',
+    hint: 'Wrap words in *single asterisks* to make them bold.',
+  },
+
+  // ── Key Topics tab ────────────────────────────────────────────────────────
+  'practice.topics.empty_sections': { label: 'Exam page (Key Topics) — Empty state, no sections published', default: 'No sections are published for this stage yet.' },
+  'practice.topics.empty_tests': { label: 'Exam page (Key Topics) — Notice when no key-topic tests exist yet', default: 'Key-topic tests are on the way. Each one covers a single topic of the syllabus.' },
+  'practice.topics.coming_soon': { label: 'Exam page (Key Topics) — Section with no topics yet', default: 'Coming soon' },
+  'practice.topics.unit_heading': { label: 'Exam page (Key Topics) — Unit heading prefix', default: 'Unit {label}', vars: ['label'], hint: '{label} is the unit numeral, e.g. I. A " · " and the unit name follow it.' },
+  'practice.section.alternative': { label: 'Exam page — Tag on a section that is sat instead of another', default: 'or {section}', vars: ['section'], hint: '{section} is the other section\'s name.' },
+
+  // ── Per-paper status and actions (used on every list) ────────────────────
+  'practice.status.cleared': { label: 'Exam page — Status "Cleared"', default: 'Cleared' },
+  'practice.status.cleared_score': { label: 'Exam page — Status "Cleared" with the best score', default: 'Cleared · {pct}%', vars: ['pct'] },
+  'practice.status.best': { label: 'Exam page — Status best score', default: 'Best {pct}%', vars: ['pct'] },
+  'practice.status.not_attempted': { label: 'Exam page — Status "Not attempted"', default: 'Not attempted' },
+  'practice.status.not_attempted_yet': { label: 'Exam page — Mock card status "Not attempted yet"', default: 'Not attempted yet' },
+  'practice.status.needs': { label: 'Exam page — "needs N%" note beside a below-pass best score', default: '· needs {pct}%', vars: ['pct'] },
+  'practice.status.attempts_used': { label: 'Exam page — Mock card attempts used of allowed', default: '{used}/{max} attempts used', vars: ['used', 'max'] },
+  'practice.status.attempts_of': { label: 'Exam page — Paper row attempts used of allowed', default: '{used}/{max} attempts', vars: ['used', 'max'] },
+  'practice.status.best_score': { label: 'Exam page — Mock card "Best score" caption', default: 'Best score' },
+  'practice.paper.questions': { label: 'Exam page — Question count chip', default: '{count} Qs', vars: ['count'] },
+  'practice.paper.minutes': { label: 'Exam page — Time limit chip', default: '{count} min', vars: ['count'] },
+  'practice.paper.negative': { label: 'Exam page — Negative marking chip on a mock card', default: '−{value} negative', vars: ['value'] },
+  'practice.paper.negative_short': { label: 'Exam page — Negative marking chip on a paper row', default: '-{value} neg', vars: ['value'] },
+  'practice.paper.recommended': { label: 'Exam page — "Recommended for you" tag (desktop)', default: 'Recommended for you' },
+  'practice.paper.recommended_short': { label: 'Exam page — "Recommended" tag (phone)', default: 'For you' },
+  'practice.action.start': { label: 'Exam page — Start link on a paper', default: 'Start' },
+  'practice.action.start_exam': { label: 'Exam page — Mock card button, first attempt', default: 'Start exam' },
+  'practice.action.take_again': { label: 'Exam page — Mock card button, after an attempt', default: 'Take again' },
+  'practice.action.upgrade': { label: 'Exam page — Upgrade link on a locked paper', default: 'Upgrade' },
+  'practice.action.upgrade_unlock': { label: 'Exam page — Upgrade button / tooltip on a locked mock', default: 'Upgrade to unlock' },
+  'practice.action.no_attempts': { label: 'Exam page — Key-topic row when attempts are used up', default: 'No attempts' },
+  'practice.action.no_attempts_left': { label: 'Exam page — Mock card / paper row when attempts are used up', default: 'No attempts left' },
+
+  // ── Mock Exam tab ─────────────────────────────────────────────────────────
+  'practice.exam.banner.title': { label: 'Exam page (Mock Exam) — Banner heading', default: 'Just like the official exam' },
+  'practice.exam.banner.tag': { label: 'Exam page (Mock Exam) — Banner tag', default: 'Official pattern' },
+  'practice.exam.banner.body': { label: 'Exam page (Mock Exam) — Banner text, first sentence', default: 'Every mock follows the real paper structure and is taken in one sitting, so exam day feels familiar.', multiline: true },
+  'practice.exam.banner.gate': {
+    label: 'Exam page (Mock Exam) — Banner text when levels unlock in order',
+    default: 'Score *{pct}% or more* in a Simple mock to unlock Medium, and in a Medium mock to unlock Complex.',
+    vars: ['pct'],
+    multiline: true,
+    hint: '{pct} is the pass mark. Wrap words in *single asterisks* to make them bold.',
+  },
+  'practice.exam.banner.cleared': {
+    label: 'Exam page (Mock Exam) — Banner text when levels are not gated',
+    default: 'A paper counts as *cleared* once you score {pct}% or more.',
+    vars: ['pct'],
+    multiline: true,
+    hint: '{pct} is the pass mark. Wrap words in *single asterisks* to make them bold.',
+  },
+  'practice.exam.empty': { label: 'Exam page (Mock Exam) — Empty state, no mock tests published', default: 'No mock tests have been published for this stage yet.' },
+  'practice.exam.full_heading': { label: 'Exam page (Mock Exam) — Heading over the mock papers', default: 'Full mock papers' },
+  'practice.exam.level_heading': { label: 'Exam page (Mock Exam) — Heading over a difficulty\'s mocks', default: '{level} level mocks', vars: ['level'], hint: '{level} is Simple, Medium or Complex.' },
+  'practice.exam.full_blurb': { label: 'Exam page (Mock Exam) — Line under the mock papers heading', default: 'Set to the official exam pattern — the real question count, in one sitting.' },
+  'practice.exam.locked': { label: 'Exam page (Mock Exam) — "Locked" title on a locked level', default: 'Locked' },
+  'practice.exam.locked_reason': { label: 'Exam page (Mock Exam) — Why a level is locked (when the server gives no reason)', default: 'Clear the previous level with at least {pct}% to unlock.', vars: ['pct'] },
+  'practice.exam.level_empty_all': { label: 'Exam page (Mock Exam) — Empty level, no mocks yet', default: 'No mock tests published yet.' },
+  'practice.exam.level_empty': { label: 'Exam page (Mock Exam) — Empty level of a given difficulty', default: 'No {level} mock tests published yet.', vars: ['level'], hint: '{level} is simple, medium or complex, in lower case.' },
+
+  // ── Practice by Unit tab ──────────────────────────────────────────────────
+  'practice.drill.title': { label: 'Exam page (Practice) — Heading after the section name', default: '— unit-wise {verb}', vars: ['verb'], hint: 'Follows the section name. {verb} is "practice" or "exam", in lower case.' },
+  'practice.drill.hint': { label: 'Exam page (Practice) — Instruction under the section heading', default: 'Pick a unit, then a difficulty. Each button opens that paper straight away.', multiline: true },
+  'practice.drill.all_sections': { label: 'Exam page (Practice) — Button back to all sections', default: 'All sections' },
+  'practice.drill.all_units': { label: 'Exam page (Practice) — Unit filter, all units', default: 'All Units' },
+  'practice.section.unit_wise': { label: 'Exam page (Practice) — Section button "Unit-wise …"', default: 'Unit-wise {verb}', vars: ['verb'], hint: '{verb} is Practice or Exam.' },
+  'practice.section.full_set': { label: 'Exam page (Practice) — Section button "Full Set …"', default: 'Full Set {verb}', vars: ['verb'], hint: '{verb} is Practice or Exam.' },
+  'practice.unit.topics_count': { label: 'Exam page (Practice) — Topic count under a unit with no question count', default: '{count} topics', vars: ['count'] },
+  'practice.unit.being_prepared': { label: 'Exam page (Practice) — Unit with no papers yet', default: '{verb} papers for this unit are being prepared.', vars: ['verb'], hint: '{verb} is Practice or Exam.' },
+  'practice.level.no_paper': { label: 'Exam page (Practice) — Difficulty button with no paper', default: 'No paper yet' },
+  'practice.fullset.title': { label: 'Exam page (Practice) — Full set card heading', default: 'Full Set {verb}', vars: ['verb'], hint: '{verb} is Practice or Exam.' },
+  'practice.fullset.text': { label: 'Exam page (Practice) — Full set card text', default: 'Take the complete set of questions from all units in one sitting.', multiline: true },
+  'practice.fullset.all_units': { label: 'Exam page (Practice) — Full set button caption', default: 'All units' },
+
+  // ── Syllabus panel ────────────────────────────────────────────────────────
+  'practice.syllabus.title': { label: 'Exam page — Syllabus panel title', default: 'Syllabus' },
+  'practice.syllabus.total_units': { label: 'Exam page — Syllabus panel unit total', default: 'Total Units: {count}', vars: ['count'] },
+  'practice.syllabus.expand_all': { label: 'Exam page — Syllabus panel "Expand All" button', default: 'Expand All' },
+  'practice.syllabus.collapse_all': { label: 'Exam page — Syllabus panel "Collapse All" button', default: 'Collapse All' },
+  'practice.syllabus.unit_hint': { label: 'Exam page — Syllabus panel tip when a section is open', default: 'You can expand each unit to view the topics under it and start practising.', multiline: true },
+  'practice.syllabus.section_hint': { label: 'Exam page — Syllabus panel tip on the section list', default: 'Click on any section to view\nthe units and start practising.', multiline: true, hint: 'A new line in the text is a line break on the page.' },
+  'practice.syllabus.more_topics': { label: 'Exam page — Syllabus "+ N more topics" link', default: '+ {count} more topics', vars: ['count'] },
+  'practice.syllabus.fewer_topics': { label: 'Exam page — Syllabus "Show fewer topics" link', default: 'Show fewer topics' },
+});
