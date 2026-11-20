@@ -15,15 +15,17 @@ import {
   Sparkles,
   Loader2,
   Globe,
+  Smartphone,
 } from 'lucide-react';
 import { LandingSettings } from '@/components/evaluation/LandingSettings';
 import { SiteContentSettings } from '@/components/admin/SiteContentSettings';
+import { AppContentSettings } from '@/components/admin/AppContentSettings';
 import { AppConfigSettings } from '@/components/admin/AppConfigSettings';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAdminSettings, useAdminSettingsActions } from '@/hooks/use-admin-settings';
 
-type Tab = 'profile' | 'security' | 'policy' | 'notifications' | 'landing';
+type Tab = 'profile' | 'security' | 'policy' | 'notifications' | 'landing' | 'app';
 
 const TABS: { key: Tab; label: string; icon: typeof User }[] = [
   { key: 'profile', label: 'Profile', icon: User },
@@ -31,6 +33,7 @@ const TABS: { key: Tab; label: string; icon: typeof User }[] = [
   { key: 'policy', label: 'System Policy', icon: ShieldCheck },
   { key: 'notifications', label: 'Notifications', icon: Bell },
   { key: 'landing', label: 'Site content', icon: Globe },
+  { key: 'app', label: 'App content', icon: Smartphone },
 ];
 
 export default function AdminSettingsPage() {
@@ -310,6 +313,8 @@ export default function AdminSettingsPage() {
               <SiteContentSettings />
             </>
           )}
+
+          {tab === 'app' && <AppContentSettings />}
 
           {tab === 'notifications' && (
             <SettingsCard

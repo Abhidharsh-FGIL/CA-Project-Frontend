@@ -2,18 +2,10 @@ import { defineContent } from './define';
 import { EXAMS_STATS } from '@/config/exams-page';
 
 /**
- * The public landing page and its header/footer, the figures shown on it and on the Exams page, and the support contact
- * used across the app. Keys: `landing.<section>.<name>`, `site.<…>` for what is shared.
- * (Which exams are "Live" is its own setting — Live exams — not a text field.)
+ * The public landing page and its header/footer. Keys: `landing.<section>.<name>`. What more than one screen shows
+ * (the figures, the support contact) is in `shared`, below. (Which exams are "Live" is its own setting, not a text field.)
  */
 export const landing = defineContent('Landing page', {
-  // ── Shared across the app ──────────────────────────────────────────────────────
-  'site.support.email': { label: 'Support — email address', default: 'admin@fgilservices.com', hint: 'Shown in the footer, legal pages, the portal help menu and referral mail.' },
-  'site.support.phone': { label: 'Support — phone number', default: '+91 96596 06012', hint: 'Shown as typed; the call link keeps only digits and +.' },
-  'site.stats.questions': { label: 'Figure — questions available', default: EXAMS_STATS.questions, hint: 'A display claim, not measured by the app. Shown on the landing page and the Exams page.' },
-  'site.stats.aspirants': { label: 'Figure — aspirants practising', default: EXAMS_STATS.aspirants, hint: 'Also used in “Join … aspirants” at the foot of the landing page.' },
-  'site.stats.newQuestions': { label: 'Figure — new questions added every week', default: EXAMS_STATS.newQuestions },
-
   // ── Page / navigation ──────────────────────────────────────────────────────────
   'landing.page.title': { label: 'Browser tab title', default: 'MyGovExams | Prepare Smarter' },
   'landing.nav.home': { label: 'Header & footer — Home link', default: 'Home' },
@@ -181,4 +173,17 @@ export const landing = defineContent('Landing page', {
   'landing.footer.contact': { label: 'Footer — “Contact Us” heading', default: 'Contact Us' },
   'landing.footer.copy': { label: 'Footer — copyright line', default: '© {year} MyGovExams. All rights reserved.', vars: ['year'] },
   'landing.footer.powered': { label: 'Footer — “Powered by” line', default: 'Powered by FutureGen Innovation Lab Pvt Ltd' },
+});
+
+/**
+ * Texts that more than one screen shows — change one here and every screen that uses it follows: the three figures
+ * (landing page stats band and closing line, and the Exams page banner) and the support email/phone (footer, legal pages,
+ * portal help menu, referral mail).
+ */
+export const shared = defineContent('Shared (figures & support contact)', {
+  'site.support.email': { label: 'Support — email address', default: 'admin@fgilservices.com', hint: 'Shown in the footer, legal pages, the portal help menu and referral mail.' },
+  'site.support.phone': { label: 'Support — phone number', default: '+91 96596 06012', hint: 'Shown as typed; the call link keeps only digits and +.' },
+  'site.stats.questions': { label: 'Figure — questions available (landing page and Exams page)', default: EXAMS_STATS.questions, hint: 'A display claim, not measured by the app. Shown in the stats band on the landing page and at the top of the Exams page.' },
+  'site.stats.aspirants': { label: 'Figure — aspirants practising (landing page and Exams page)', default: EXAMS_STATS.aspirants, hint: 'Also used in “Join … aspirants” at the foot of the landing page, and on the Exams page.' },
+  'site.stats.newQuestions': { label: 'Figure — new questions added every week (landing page and Exams page)', default: EXAMS_STATS.newQuestions, hint: 'Shown on the landing page and the Exams page (“New / week”).' },
 });

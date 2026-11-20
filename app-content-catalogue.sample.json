@@ -1,0 +1,6 @@
+{
+  "entries": [
+    { "key": "auth.login.title", "text": "Welcome Back", "group": "Sign in, register & onboarding" },
+    { "key": "home.greeting", "text": "Hello, {name}!", "group": "Home" }
+  ]
+}
