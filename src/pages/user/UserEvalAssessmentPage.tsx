@@ -23,6 +23,7 @@ import { getPlan } from '@/data/userPortalSampleData';
 import { useQuery } from '@tanstack/react-query';
 import { matchOptionIndex } from '@/lib/option-match';
 import { MathText } from '@/components/ui/MathText';
+import { OptionContent } from '@/components/ui/OptionContent';
 import {
   CheckCircle2,
   XCircle,
@@ -393,11 +394,11 @@ function ActiveQuestionCard({
                     * the answer stored and graded is unaffected by the language the
                     * candidate happens to be reading in.
                     */}
-                  {opt.image_url ? (
-                    <img src={buildUrl(opt.image_url)} alt={`Option ${opt.label}`} className="max-h-32 rounded border border-gray-200 object-contain" />
-                  ) : (
-                    <MathText text={(showPrimary ? opt.text : opt.translated ?? opt.text) || ''} />
-                  )}
+                  <OptionContent
+                    text={showPrimary ? opt.text : opt.translated ?? opt.text}
+                    imageUrl={opt.image_url}
+                    alt={`Option ${opt.label}`}
+                  />
                   {showPrimary && opt.translated && (
                     <span className="block text-[11px] text-gray-500 mt-0.5">{opt.translated}</span>
                   )}
@@ -558,9 +559,7 @@ function QuestionView({
                   {opt.label}
                 </span>
                 <span className="flex-1">
-                  {opt.image_url
-                    ? <img src={buildUrl(opt.image_url)} alt={`Option ${opt.label}`} className="max-h-32 rounded border border-gray-200 dark:border-gray-700 object-contain" />
-                    : <MathText text={opt.text || ''} />}
+                  <OptionContent text={opt.text} imageUrl={opt.image_url} alt={`Option ${opt.label}`} />
                   {opt.translated && (
                     <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">{opt.translated}</span>
                   )}

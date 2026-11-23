@@ -103,6 +103,7 @@ export const PANEL_SURFACE =
 
 const PLAN_LABEL: Record<string, string> = {
   free: 'Free Plan',
+  essential: 'Essential',
   standard: 'Standard',
   ultimate: 'Ultimate',
   premium: 'Premium',

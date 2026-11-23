@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTrigger, DialogClose } from '@/components/
 import { ChevronDown, CheckCircle2, XCircle, Image, ZoomIn, ZoomOut, RotateCw, Maximize2, Minimize2, X } from 'lucide-react';
 import { useState } from 'react';
 import { MathText } from '@/components/ui/MathText';
+import { OptionContent } from '@/components/ui/OptionContent';
 import { normaliseLineBreaks } from '@/lib/question-text';
 import { buildUrl } from '@/lib/api';
 
@@ -152,8 +153,8 @@ export function EvalQuestionDetail({ question: q, index, showAnswer = true }: Ev
         )}
       </div>
 
-      {/* Image question: when there's no text, the attachment IS the question — show it inline */}
-      {!hasText && questionImage && (
+      {/* The question's picture, under its text (or alone, when it has no text) */}
+      {questionImage && (
         <div className="ml-6">
           <img
             src={buildUrl(questionImage)}
@@ -192,11 +193,7 @@ export function EvalQuestionDetail({ question: q, index, showAnswer = true }: Ev
               >
                 <span className="font-medium text-muted-foreground w-5">{String.fromCharCode(65 + i)}.</span>
                 <span className="flex-1">
-                  {opt.image_url ? (
-                    <img src={buildUrl(opt.image_url)} alt={`Option ${String.fromCharCode(65 + i)}`} className="max-h-24 rounded border border-border object-contain" />
-                  ) : (
-                    <MathText text={opt.text || ''} />
-                  )}
+                  <OptionContent text={opt.text} imageUrl={opt.image_url} alt={`Option ${String.fromCharCode(65 + i)}`} imageClassName="max-h-24 border-border" />
                 </span>
                 {isCorrect && <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />}
               </div>

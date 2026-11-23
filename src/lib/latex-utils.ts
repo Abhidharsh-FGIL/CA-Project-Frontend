@@ -20,7 +20,11 @@ export function repairSwallowedEscapes(content: string): string {
     .replace(/\v(?=[a-z])/g, '\\v')
     // The escape takes the command's first letter with it: "\times" arrives as a tab and "imes".
     .replace(/\t(?=(?:ext|imes|heta|an|au|frac|riangle|herefore|ilde)\b)/g, '\\t')
-    .replace(/\n(?=(?:eq|abla|otin)\b)/g, '\\n');
+    .replace(/\n(?=(?:eq|abla|otin)\b)/g, '\\n')
+    // A lone carriage return that passed through a form field or a database comes back as a line feed, so "\right"
+    // arrives as a newline + "ight". Only when a closing delimiter follows ("ight)", "ight]", "ight|", "ight\}"), which
+    // prose never starts a line with.
+    .replace(/\r?\n(?=ight(?:[)\].|]|\\[{}|.]))/g, '\\r');
 }
 
 /**

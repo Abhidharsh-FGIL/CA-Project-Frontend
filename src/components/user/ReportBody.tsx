@@ -19,6 +19,7 @@ import {
   type TopicFocus,
 } from '@/lib/userPortalApi';
 import { MathText } from '@/components/ui/MathText';
+import { OptionContent } from '@/components/ui/OptionContent';
 import { normaliseLineBreaks, parseOptionRepr } from '@/lib/question-text';
 import {
   OPTION_LABELS,
@@ -355,21 +356,15 @@ function QuestionCard({
                         {o.label}
                       </span>
                       <span className="min-w-0 flex-1">
-                        {o.image_url ? (
-                          <img
-                            src={buildUrl(o.image_url)}
-                            alt={`Option ${o.label}`}
-                            className="max-h-24 rounded border border-gray-200 object-contain"
-                          />
-                        ) : (
-                          <span
-                            className={`block text-sm leading-snug ${
-                              isRight ? 'text-emerald-900 font-medium' : isMine ? 'text-red-900' : 'text-gray-700'
-                            }`}
-                          >
-                            <MathText text={o.text ?? ''} />
-                          </span>
-                        )}
+                        <OptionContent
+                          text={o.text}
+                          imageUrl={o.image_url}
+                          alt={`Option ${o.label}`}
+                          textClassName={`text-sm leading-snug ${
+                            isRight ? 'text-emerald-900 font-medium' : isMine ? 'text-red-900' : 'text-gray-700'
+                          }`}
+                          imageClassName="max-h-24"
+                        />
                         {o.translated && (
                           <span className="block text-[11px] text-gray-500 leading-snug mt-0.5">
                             <MathText text={o.translated} />
@@ -418,13 +413,9 @@ function QuestionCard({
                     >
                       {userAns.label}
                     </span>
-                    {userAns.image_url ? (
-                      <img src={buildUrl(userAns.image_url)} alt="Your answer" className="max-h-24 rounded border border-gray-200 object-contain" />
-                    ) : userAns.text ? (
-                      <span className="text-sm text-gray-800 leading-snug">
-                        <MathText text={userAns.text} />
-                      </span>
-                    ) : null}
+                    <span className="min-w-0">
+                      <OptionContent text={userAns.text} imageUrl={userAns.image_url} alt="Your answer" textClassName="text-sm text-gray-800 leading-snug" imageClassName="max-h-24" />
+                    </span>
                   </div>
                 ) : (
                   <span className="text-sm text-gray-400 italic">Not answered</span>
@@ -437,13 +428,9 @@ function QuestionCard({
                   <span className="flex-shrink-0 w-6 h-6 rounded bg-emerald-200 text-emerald-800 font-bold text-xs flex items-center justify-center">
                     {correctAns.label}
                   </span>
-                  {correctAns.image_url ? (
-                    <img src={buildUrl(correctAns.image_url)} alt="Correct answer" className="max-h-24 rounded border border-gray-200 object-contain" />
-                  ) : correctAns.text ? (
-                    <span className="text-sm text-gray-800 leading-snug">
-                      <MathText text={correctAns.text} />
-                    </span>
-                  ) : null}
+                  <span className="min-w-0">
+                    <OptionContent text={correctAns.text} imageUrl={correctAns.image_url} alt="Correct answer" textClassName="text-sm text-gray-800 leading-snug" imageClassName="max-h-24" />
+                  </span>
                 </div>
               </div>
             </div>

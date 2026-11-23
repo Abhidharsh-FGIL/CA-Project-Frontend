@@ -1,18 +1,22 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronDown, ChevronUp, Loader2, Plus, Save, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, ImagePlus, Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import {
   APP_LIMITS,
   EMPTY_APP_CONFIG,
   HIGHLIGHT_ICONS,
+  SLIDE_IMAGE,
+  slideImageProblem,
   validateAppConfig,
   type AppChip,
   type AppConfig,
   type AppHighlight,
+  type AppSlide,
 } from '@/config/app-config';
-import { getAdminAppConfig, saveAdminAppConfig } from '@/lib/appConfigApi';
+import { buildUrl } from '@/lib/api';
+import { getAdminAppConfig, saveAdminAppConfig, uploadOnboardingImage } from '@/lib/appConfigApi';
 
 const FIELD =
   'w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300';
@@ -37,14 +41,16 @@ function Text({
   error,
   placeholder,
   multiline,
+  hint,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
-  max: number;
+  max?: number;
   error?: string;
   placeholder?: string;
   multiline?: boolean;
+  hint?: string;
 }) {
   const n = [...value.trim()].length;
   const cls = `${FIELD} ${error ? FIELD_ERR : ''}`;
@@ -52,15 +58,64 @@ function Text({
     <label className="block min-w-0">
       <span className="mb-1 flex items-baseline justify-between gap-2 text-[11px] font-semibold text-gray-600 dark:text-gray-300">
         <span>{label}</span>
-        <span className={n > max ? 'text-red-600' : 'font-normal text-gray-400'}>{n}/{max}</span>
+        {max !== undefined && <span className={n > max ? 'text-red-600' : 'font-normal text-gray-400'}>{n}/{max}</span>}
       </span>
       {multiline ? (
         <textarea rows={2} className={cls} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} />
       ) : (
         <input className={cls} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} />
       )}
+      {hint && !error && <span className="mt-0.5 block text-[11px] text-gray-400">{hint}</span>}
       {error && <span className="mt-0.5 block text-[11px] text-red-600">{error}</span>}
     </label>
+  );
+}
+
+/** The slide's picture: preview, upload / replace, remove. */
+function SlideImage({ url, onChange, label }: { url: string; onChange: (url: string) => void; label: string }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const pick = async (file: File | undefined) => {
+    if (input.current) input.current.value = '';
+    if (!file) return;
+    const bad = slideImageProblem(file);
+    if (bad) return setProblem(bad);
+    setProblem(null);
+    setBusy(true);
+    try {
+      onChange(await uploadOnboardingImage(file));
+    } catch (err: any) {
+      // A 413 or 422 carries the server's own reason.
+      setProblem(String(err?.message || 'The picture could not be uploaded.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="min-w-0">
+      <span className="mb-1 block text-[11px] font-semibold text-gray-600 dark:text-gray-300">Picture</span>
+      <div className="flex items-start gap-3">
+        <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-800">
+          {url ? <img src={buildUrl(url)} alt={`${label} picture`} className="h-full w-full object-cover" /> : <ImagePlus className="h-6 w-6 text-gray-400" />}
+        </div>
+        <div className="min-w-0 space-y-1.5">
+          <input ref={input} type="file" accept={SLIDE_IMAGE.types.join(',')} className="hidden" onChange={e => pick(e.target.files?.[0])} />
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={busy} onClick={() => input.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />} {url ? 'Replace picture' : 'Upload picture'}
+            </button>
+            {url && !busy && (
+              <button type="button" onClick={() => onChange('')} className="text-xs font-semibold text-gray-500 hover:text-red-600">Remove</button>
+            )}
+          </div>
+          <p className="text-[11px] text-gray-400">{SLIDE_IMAGE.advice}</p>
+          {problem && <p className="text-[11px] text-red-600">{problem}</p>}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -102,7 +157,7 @@ function RowTools({
 }
 
 /**
- * What the mobile app shows before sign-in: tagline, exam chips, highlights and the login text. Saving replaces the whole
+ * What the mobile app shows before sign-in: tagline, exam chips, highlights, onboarding slides and the login text. Saving replaces the whole
  * document, so the form always sends every field back. A row switched off stays in the list and is hidden from the app.
  */
 export function AppConfigSettings() {
@@ -130,6 +185,8 @@ export function AppConfigSettings() {
   const editHighlight = (i: number, patch: Partial<AppHighlight>) =>
     edit({ highlights: form.highlights.map((h, j) => (j === i ? { ...h, ...patch } : h)) });
 
+  const editSlide = (i: number, patch: Partial<AppSlide>) => edit({ onboarding_slides: form.onboarding_slides.map((sl, j) => (j === i ? { ...sl, ...patch } : sl)) });
+
   const save = useMutation({
     mutationFn: (config: AppConfig) => saveAdminAppConfig(config),
     onSuccess: () => {
@@ -152,6 +209,7 @@ export function AppConfigSettings() {
 
   const chipsFull = form.exam_chips.length >= APP_LIMITS.max_chips;
   const highlightsFull = form.highlights.length >= APP_LIMITS.max_highlights;
+  const slidesFull = form.onboarding_slides.length >= APP_LIMITS.max_slides;
   const section = 'text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400';
   const rowBox = 'rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-2.5';
 
@@ -268,6 +326,44 @@ export function AppConfigSettings() {
                 </div>
               );
             })}
+          </div>
+
+          {/* ── Onboarding slides ── */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className={section}>Onboarding slides <span className="font-normal normal-case tracking-normal text-gray-400">· {form.onboarding_slides.length}/{APP_LIMITS.max_slides}</span></p>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 disabled:opacity-40"
+                disabled={slidesFull}
+                onClick={() => edit({ onboarding_slides: [...form.onboarding_slides, { title: '', title_ta: '', subtitle: '', subtitle_ta: '', image_url: '', is_active: true }] })}
+              >
+                <Plus className="h-3.5 w-3.5" /> Add slide
+              </button>
+            </div>
+            <p className="text-[11px] text-gray-400">The swipe-through screens a new user sees on first launch. Order here is the order in the app.</p>
+            {errors.slides && <p className="text-[11px] text-red-600">{errors.slides}</p>}
+            {form.onboarding_slides.length === 0 && <p className="text-xs text-gray-400">No slides yet.</p>}
+            {form.onboarding_slides.map((sl, i) => (
+              <div key={i} className={`${rowBox} ${sl.is_active ? '' : 'opacity-60'}`}>
+                <SlideImage url={sl.image_url} label={`Slide ${i + 1}`} onChange={url => editSlide(i, { image_url: url })} />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Text label="Title" value={sl.title} onChange={v => editSlide(i, { title: v })} max={APP_LIMITS.slide_title} error={errors[`slide.${i}.title`]} placeholder="Practice *smarter*" hint="Wrap words in *stars* for the accent colour." />
+                  <Text label="Tamil title (optional)" value={sl.title_ta} onChange={v => editSlide(i, { title_ta: v })} hint="Wrap words in *stars* for the accent colour." />
+                  <Text multiline label="Subtitle" value={sl.subtitle} onChange={v => editSlide(i, { subtitle: v })} max={APP_LIMITS.slide_subtitle} error={errors[`slide.${i}.subtitle`]} />
+                  <Text multiline label="Tamil subtitle (optional)" value={sl.subtitle_ta} onChange={v => editSlide(i, { subtitle_ta: v })} />
+                </div>
+                <RowTools
+                  what={`slide ${i + 1}`}
+                  index={i}
+                  count={form.onboarding_slides.length}
+                  active={sl.is_active}
+                  onActive={v => editSlide(i, { is_active: v })}
+                  onMove={to => edit({ onboarding_slides: move(form.onboarding_slides, i, to) })}
+                  onRemove={() => edit({ onboarding_slides: form.onboarding_slides.filter((_, j) => j !== i) })}
+                />
+              </div>
+            ))}
           </div>
 
           {/* ── Login screen ── */}

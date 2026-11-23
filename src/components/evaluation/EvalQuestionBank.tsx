@@ -592,10 +592,9 @@ export function EvalQuestionBank() {
                             {opts.map((o, i) => (
                               <span key={i} className="inline-flex items-center gap-1">
                                 <span className="font-medium">{o.label}.</span>
-                                {o.image_url ? (
+                                {(o.text || !o.image_url) && <MathText text={o.text || '—'} />}
+                                {o.image_url && (
                                   <img src={buildUrl(o.image_url)} alt={`Option ${o.label}`} className="h-6 max-w-[80px] rounded border border-border object-contain" />
-                                ) : (
-                                  <MathText text={o.text || '—'} />
                                 )}
                               </span>
                             ))}
@@ -698,22 +697,19 @@ export function EvalQuestionBank() {
                       className="accent-primary"
                     />
                     <span className="text-sm font-medium text-muted-foreground w-5">{String.fromCharCode(65 + i)}.</span>
-                    {opt.image_url ? (
-                      <div className="flex flex-1 items-center gap-2">
-                        <img src={buildUrl(opt.image_url)} alt={`Option ${String.fromCharCode(65 + i)}`} className="h-10 rounded border border-border object-contain" />
-                        <span className="text-xs text-muted-foreground">Image option</span>
-                      </div>
-                    ) : (
-                      <MathInput
-                        value={opt.text}
-                        onChange={(val) => {
-                          const next = [...editOptions];
-                          next[i] = { ...next[i], text: val };
-                          setEditOptions(next);
-                        }}
-                        className="flex-1"
-                      />
+                    {/* The picture (if any) stays; the text is editable beside it — an option may have both. */}
+                    {opt.image_url && (
+                      <img src={buildUrl(opt.image_url)} alt={`Option ${String.fromCharCode(65 + i)}`} className="h-10 shrink-0 rounded border border-border object-contain" />
                     )}
+                    <MathInput
+                      value={opt.text}
+                      onChange={(val) => {
+                        const next = [...editOptions];
+                        next[i] = { ...next[i], text: val };
+                        setEditOptions(next);
+                      }}
+                      className="flex-1"
+                    />
                   </div>
                 ))}
                 <p className="text-xs text-muted-foreground">Select the radio button for the correct answer.</p>

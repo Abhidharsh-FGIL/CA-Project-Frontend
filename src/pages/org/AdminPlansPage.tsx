@@ -20,12 +20,29 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAdminPlans, useAdminPlanActions } from '@/hooks/use-admin-plans';
 import { type PlanOut, type PlanName } from '@/lib/adminApi';
+import { PlanCardFields } from '@/components/admin/PlanCardFields';
+import {
+  CARD_LIMITS,
+  PLAN_STARTERS,
+  cardProblem,
+  cardToForm,
+  cardsToWire,
+  emptyCardForm,
+  type CardCycle,
+  type PlanCardForm,
+} from '@/lib/plan-editor';
+import { TIER_ORDER } from '@/data/userPortalSampleData';
 
 type PlanFeatureValue = number | 'unlimited' | 'none';
 
 // Local editor form shape — mirrors what the UI edits
 interface PlanEditorForm {
+  /** `create` makes a plan for a tier that has none yet; `edit` changes the one that exists. */
+  mode: 'create' | 'edit';
   plan_id: string;
+  tagline: string;
+  monthlyCard: PlanCardForm;
+  yearlyCard: PlanCardForm;
   name: PlanName;
   price_monthly: number;
   price_yearly: number;
@@ -44,6 +61,7 @@ interface PlanEditorForm {
 
 const TIER_META: Record<PlanName, { icon: typeof Sparkles; color: string }> = {
   free: { icon: Star, color: 'from-gray-400 to-gray-500' },
+  essential: { icon: Sparkles, color: 'from-emerald-500 to-teal-500' },
   standard: { icon: Sparkles, color: 'from-blue-500 to-cyan-500' },
   ultimate: { icon: Sparkles, color: 'from-brand-500 to-brand-400' },
   premium: { icon: Crown, color: 'from-amber-500 to-orange-500' },
@@ -54,7 +72,11 @@ const REPORT_LEVELS = ['basic', 'standard', 'detailed', 'full'] as const;
 function planToForm(plan: PlanOut): PlanEditorForm {
   const f = plan.features ?? {};
   return {
+    mode: 'edit',
     plan_id: plan.plan_id,
+    tagline: plan.tagline ?? '',
+    monthlyCard: cardToForm(plan.cards?.monthly),
+    yearlyCard: cardToForm(plan.cards?.yearly),
     name: plan.name,
     price_monthly: plan.price_monthly,
     price_yearly: plan.price_yearly,
@@ -72,6 +94,32 @@ function planToForm(plan: PlanOut): PlanEditorForm {
   };
 }
 
+/** A plan for a tier the server has none for yet, pre-filled from the starter for that tier where there is one. */
+function newPlanForm(tier: PlanName): PlanEditorForm {
+  const s = PLAN_STARTERS[tier];
+  return {
+    mode: 'create',
+    plan_id: '',
+    tagline: s?.tagline ?? '',
+    monthlyCard: s?.monthly ?? emptyCardForm(),
+    yearlyCard: emptyCardForm(),
+    name: tier,
+    price_monthly: s?.price_monthly ?? 0,
+    price_yearly: s?.price_yearly ?? 0,
+    duration_days_monthly: 30,
+    duration_days_yearly: 365,
+    highlight: false,
+    active: true,
+    perks: s?.perks ?? [],
+    practice_tests_per_month: s?.practice ?? 'unlimited',
+    mock_tests_per_month: s?.mock ?? 'none',
+    ai_report_level: s?.ai_report_level ?? 'basic',
+    history_retention_days: s?.history_retention_days ?? 30,
+    download_pdf: false,
+    support: 'Email',
+  };
+}
+
 export default function AdminPlansPage() {
   const { data: plansData, isLoading: plansLoading } = useAdminPlans();
   const plans: PlanOut[] = plansData ?? [];
@@ -79,28 +127,36 @@ export default function AdminPlansPage() {
   const [editing, setEditing] = useState<PlanEditorForm | null>(null);
 
   const handleSave = (form: PlanEditorForm) => {
-    planActions.update.mutate({
-      tier: form.name,
-      payload: {
-        price_monthly: form.price_monthly,
-        price_yearly: form.price_yearly,
-        duration_days_monthly: form.duration_days_monthly,
-        duration_days_yearly: form.duration_days_yearly,
-        highlight: form.highlight,
-        active: form.active,
-        perks: form.perks,
-        features: {
-          practice_tests_per_month: form.practice_tests_per_month,
-          mock_tests_per_month: form.mock_tests_per_month,
-          ai_report_level: form.ai_report_level,
-          history_retention_days: form.history_retention_days,
-          download_pdf: form.download_pdf,
-          support: form.support,
-        },
+    const body = {
+      price_monthly: form.price_monthly,
+      price_yearly: form.price_yearly,
+      duration_days_monthly: form.duration_days_monthly,
+      duration_days_yearly: form.duration_days_yearly,
+      highlight: form.highlight,
+      active: form.active,
+      perks: form.perks,
+      tagline: form.tagline.trim() || null,
+      cards: cardsToWire(form.monthlyCard, form.yearlyCard),
+      features: {
+        practice_tests_per_month: form.practice_tests_per_month,
+        mock_tests_per_month: form.mock_tests_per_month,
+        ai_report_level: form.ai_report_level,
+        history_retention_days: form.history_retention_days,
+        download_pdf: form.download_pdf,
+        support: form.support,
       },
-    });
-    setEditing(null);
+    };
+    // The form stays open until the server accepts it, so a refused plan is not lost with the typing.
+    const done = {
+      onSuccess: () => setEditing(null),
+      onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'The plan could not be saved'),
+    };
+    if (form.mode === 'create') planActions.create.mutate({ name: form.name, ...body }, done);
+    else planActions.update.mutate({ tier: form.name, payload: body }, done);
   };
+
+  // Tiers the product knows but the server has no plan for — each can be added from here.
+  const missingTiers = TIER_ORDER.filter(t => !plans.some(p => p.name === t) && t !== 'free');
 
   const toggleActive = (plan: PlanOut) => {
     planActions.toggleActive.mutate(plan.name);
@@ -120,8 +176,23 @@ export default function AdminPlansPage() {
         </div>
       ) : (
       <div className="space-y-5 pb-6">
+        {missingTiers.length > 0 && (
+          <div className="rounded-xl border border-dashed border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20 p-3 flex flex-wrap items-center gap-2">
+            <p className="text-xs text-gray-600 dark:text-gray-300 mr-1">Plans you can add:</p>
+            {missingTiers.map(t => (
+              <button
+                key={t}
+                onClick={() => setEditing(newPlanForm(t))}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold capitalize bg-gradient-to-r from-brand-600 to-brand-400 text-white px-3 py-1.5 rounded-lg shadow-sm press"
+              >
+                <Plus className="w-3 h-3" /> Add {t} plan
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Quick stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           {plans.map(plan => {
             const Icon = TIER_META[plan.name].icon;
             return (
@@ -329,7 +400,7 @@ export default function AdminPlansPage() {
             <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             Plan Perks
           </h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {plans.map(plan => {
               const Icon = TIER_META[plan.name].icon;
               return (
@@ -405,8 +476,18 @@ function PlanEditor({
     setForm(f => ({ ...f, [key]: value }));
   };
 
+  const [cycle, setCycle] = useState<CardCycle>('monthly');
+  const problem =
+    cardProblem(form.monthlyCard, 'monthly') ??
+    cardProblem(form.yearlyCard, 'yearly') ??
+    (form.tagline.length > CARD_LIMITS.tagline ? `Tagline is over ${CARD_LIMITS.tagline} characters.` : null);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (problem) {
+      toast.error(problem);
+      return;
+    }
     onSave(form);
   };
 
@@ -440,7 +521,7 @@ function PlanEditor({
             <X className="w-4 h-4" />
           </button>
           <div className="relative">
-            <p className="text-[10px] uppercase tracking-[0.25em] font-bold opacity-90">Edit Plan</p>
+            <p className="text-[10px] uppercase tracking-[0.25em] font-bold opacity-90">{plan.mode === 'create' ? 'Add Plan' : 'Edit Plan'}</p>
             <h2 className="text-lg font-bold mt-0.5 inline-flex items-center gap-2">
               <Icon className="w-5 h-5" />
               {form.name}
@@ -568,6 +649,30 @@ function PlanEditor({
             />
           </Section>
 
+          {/* Card text */}
+          <Section title="Pricing-page card">
+            <div className="space-y-3">
+              <FormField label="Tagline (under the plan name)">
+                <input
+                  type="text"
+                  maxLength={CARD_LIMITS.tagline}
+                  value={form.tagline}
+                  onChange={e => setForm(f => ({ ...f, tagline: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+              </FormField>
+              <PlanCardFields
+                cycle={cycle}
+                onCycle={setCycle}
+                value={cycle === 'monthly' ? form.monthlyCard : form.yearlyCard}
+                onChange={v => setForm(f => (cycle === 'monthly' ? { ...f, monthlyCard: v } : { ...f, yearlyCard: v }))}
+              />
+              <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                Leave a card empty to use the built-in wording. The yearly card is used only when the plan has a yearly price.
+              </p>
+            </div>
+          </Section>
+
           {/* Perks */}
           <Section title="Perks (sales bullets)">
             <div className="space-y-2">
@@ -610,7 +715,7 @@ function PlanEditor({
               type="submit"
               className="inline-flex items-center gap-1.5 text-xs font-semibold bg-gradient-to-r from-brand-600 to-brand-400 hover:from-brand-700 hover:to-brand-500 text-white px-4 py-2 rounded-lg shadow-md press"
             >
-              <Save className="w-3.5 h-3.5" /> Save Changes
+              <Save className="w-3.5 h-3.5" /> {plan.mode === 'create' ? 'Add Plan' : 'Save Changes'}
             </button>
           </div>
         </form>

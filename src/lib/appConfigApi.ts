@@ -13,3 +13,15 @@ export async function getAdminAppConfig(): Promise<AppConfig> {
 export function saveAdminAppConfig(config: AppConfig): Promise<unknown> {
   return api.put('/api/v1/admin/app-config', toAppConfigBody(config));
 }
+
+/**
+ * POST /api/v1/admin/app-config/onboarding-image (multipart, field "file") → `{ image_url }`. PNG, JPEG or WebP, up to 1 MB.
+ * Put the returned `image_url` on the slide; nothing is attached until the config is saved.
+ */
+export async function uploadOnboardingImage(file: File): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = (await api.upload<unknown>('/api/v1/admin/app-config/onboarding-image', form)) as { image_url?: unknown } | null;
+  if (typeof res?.image_url !== 'string' || !res.image_url) throw new Error('The server did not return a picture address.');
+  return res.image_url;
+}

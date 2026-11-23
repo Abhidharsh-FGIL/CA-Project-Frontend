@@ -309,12 +309,16 @@ export default function AdminSettingsPage() {
           {tab === 'landing' && (
             <>
               <LandingSettings />
-              <AppConfigSettings />
               <SiteContentSettings />
             </>
           )}
 
-          {tab === 'app' && <AppContentSettings />}
+          {tab === 'app' && (
+            <>
+              <AppConfigSettings />
+              <AppContentSettings />
+            </>
+          )}
 
           {tab === 'notifications' && (
             <SettingsCard

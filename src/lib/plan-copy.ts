@@ -92,6 +92,21 @@ export type IncludedPoint = [title: string, detail: string];
  * plan data does not carry.
  */
 export function includedFor(copy: PlanCopy, plan: SubscriptionPlanInfo, billing: PlanBilling): IncludedPoint[] {
+  return fillIncluded(copy.included.map(([title, detail]) => ({ title, detail })), plan, billing).map(
+    ({ title, detail }) => [title, detail] as IncludedPoint,
+  );
+}
+
+/**
+ * Fills {mock}, {mock_s}, {practice} and {practice_s} in a list of points from the plan's counts, and drops a
+ * point whose count the plan does not give. Works on the admin's own card text as much as on the bundled
+ * wording, so an admin can write "{mock} Full-Length Mock Test{mock_s}" and the number follows the plan.
+ */
+export function fillIncluded(
+  points: Array<{ title: string; detail: string }>,
+  plan: SubscriptionPlanInfo,
+  billing: PlanBilling,
+): Array<{ title: string; detail: string }> {
   const c = planCounts(plan, billing);
   const fill = (text: string) =>
     text
@@ -99,9 +114,9 @@ export function includedFor(copy: PlanCopy, plan: SubscriptionPlanInfo, billing:
       .replace(/\{practice_s\}/g, c.practice === 1 ? '' : 's')
       .replace(/\{mock\}/g, c.mockText)
       .replace(/\{practice\}/g, c.practiceText);
-  return copy.included
-    .filter(([title]) => !(title.includes('{mock}') && c.mock === null) && !(title.includes('{practice}') && c.practice === null))
-    .map(([title, detail]) => [fill(title), detail] as IncludedPoint);
+  return points
+    .filter(({ title }) => !(title.includes('{mock}') && c.mock === null) && !(title.includes('{practice}') && c.practice === null))
+    .map(({ title, detail }) => ({ title: fill(title), detail }));
 }
 
 /** The line under a plan's name, from the backend's validity — null when it does not say. */
@@ -116,7 +131,7 @@ export function validityFor(plan: SubscriptionPlanInfo, billing: PlanBilling): s
 export function cardFor(plan: SubscriptionPlanInfo, billing: PlanBilling): PlanCard | null {
   const cycle = cycleShown(plan, billing);
   const fromApi = plan.cards?.[cycle];
-  if (fromApi) return fromApi;
+  if (fromApi) return { ...fromApi, included: fillIncluded(fromApi.included, plan, cycle) };
   const copy = PLAN_COPY[plan.tier]?.[cycle];
   if (!copy) return null;
   return {

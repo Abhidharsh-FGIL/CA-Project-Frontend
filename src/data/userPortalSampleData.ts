@@ -1,6 +1,6 @@
 // Sample data for the User Portal — replace with real API calls once backend is ready.
 
-export type SubscriptionTier = 'free' | 'standard' | 'ultimate' | 'premium';
+export type SubscriptionTier = 'free' | 'essential' | 'standard' | 'ultimate' | 'premium';
 export type AssessmentMode = 'practice' | 'mock';
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'mixed';
 
@@ -294,6 +294,23 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlanInfo[] = [
     perks: ['2 practice tests per month', 'Basic AI reports', '30-day history'],
   },
   {
+    tier: 'essential',
+    name: 'Essential',
+    tagline: 'Start small. Practise smart. Improve every day.',
+    price_monthly: 149,
+    price_yearly: 0,
+    duration_days_monthly: 30,
+    features: {
+      practice_tests_per_month: 15,
+      mock_tests_per_month: 1,
+      ai_report_level: 'standard',
+      history_retention_days: 90,
+      support: 'email',
+      download_pdf: false,
+    },
+    perks: ['1 full-length mock test', '15 subject-wise practice tests', 'Detailed performance reports', 'Strength & weakness analysis', 'Top-up anytime'],
+  },
+  {
     tier: 'standard',
     name: 'Standard',
     tagline: 'For steady, daily preparation',
@@ -375,7 +392,7 @@ export function includesAiInsights(plan: SubscriptionPlanInfo): boolean {
   return plan.features.ai_report_level === 'detailed' || plan.features.ai_report_level === 'full';
 }
 
-export const TIER_ORDER: SubscriptionTier[] = ['free', 'standard', 'ultimate', 'premium'];
+export const TIER_ORDER: SubscriptionTier[] = ['free', 'essential', 'standard', 'ultimate', 'premium'];
 
 export const SAMPLE_USER: SampleUser = {
   user_id: 'usr_001',
@@ -1198,6 +1215,7 @@ export function getTestPrice(test: SampleTest): number {
   // Practice tests on Free tier are free; everything else has a fee
   if (test.required_tier === 'free' && test.mode === 'practice') return 0;
   if (test.mode === 'practice') {
+    if (test.required_tier === 'essential') return 49;
     if (test.required_tier === 'standard') return 49;
     if (test.required_tier === 'ultimate') return 99;
     if (test.required_tier === 'premium') return 149;
@@ -1205,6 +1223,7 @@ export function getTestPrice(test: SampleTest): number {
   // Mock tests
   if (test.mode === 'mock') {
     if (test.required_tier === 'free') return 99;
+    if (test.required_tier === 'essential') return 199;
     if (test.required_tier === 'standard') return 199;
     if (test.required_tier === 'ultimate') return 299;
     if (test.required_tier === 'premium') return 499;

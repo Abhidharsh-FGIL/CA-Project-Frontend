@@ -3,57 +3,48 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Languages, Layers, Sparkles } from 'lucide-react';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { NtpcLevelChip, NtpcLevelDialog } from '@/components/user/NtpcLevelDialog';
-import { NTPC_LANGUAGES, NTPC_LANGUAGE_NATIVE, isNtpcGroup, useNtpcPrefs, type NtpcPrefs } from '@/lib/ntpc-level';
+import { NTPC_LANGUAGE_NATIVE, isNtpcGroup, useNtpcPrefs, type NtpcPrefs } from '@/lib/ntpc-level';
 import { examLanguageOf } from '@/lib/exam-language';
 import { examLogo } from '@/lib/exam-logo';
+import { logoSrc } from '@/lib/examCardsApi';
+import { MUTED, toneFor } from '@/lib/exam-tones';
 import { cn } from '@/lib/utils';
 import { useT } from '@/content/useText';
 import type { TnpscGroup } from '@/config/tnpsc';
 import { useOpenExamIds } from '@/hooks/use-exam-availability';
-import { EXAM_CARD_ORDER, UPCOMING_EXAMS, examEntryPath, splitExams, type UpcomingExam } from '@/lib/exam-listing';
-
-/** Shown after everything else, whatever the catalog's order. */
-const LAST_EXAM_IDS: ReadonlySet<string> = new Set(['group-1']);
+import { useExamCards } from '@/hooks/use-exam-cards';
+import { builtInLanguages, entryId, examEntries, type ExamCard } from '@/config/exam-cards';
+import { examEntryPath, type UpcomingExam } from '@/lib/exam-listing';
 
 /**
  * The entry points of the portal — one card per examination.
  * The /user/exams landing page.
  *
- * The open examination comes first. Everything else follows greyed out and cannot be
- * opened: the catalog exams that are not on sale yet, then a few announced ones that have
- * no catalog entry at all (see `exam-listing.ts`).
+ * The list and what each card says come from the admin's exam cards (Admin → Exams); until the server has any, the
+ * built-in listing is used: the open examinations first, then the catalog exams not on sale yet, then a few announced ones
+ * that have no catalog entry at all (see `exam-listing.ts`). A card that is not open is greyed and cannot be opened.
  */
 export function TnpscGroupGrid({ groups }: { groups: TnpscGroup[] }) {
   const openIds = useOpenExamIds();
-  // The lead cards, in their fixed order (`EXAM_CARD_ORDER`), open or coming soon; every other exam after them.
-  const featured = EXAM_CARD_ORDER.map(id => groups.find(g => g.id === id)).filter((g): g is TnpscGroup => !!g);
-  const split = splitExams(groups.filter(g => !EXAM_CARD_ORDER.includes(g.id)), openIds);
-  const { open } = split;
-  // Exams the product has the least to do with yet go at the very end, after the announced ones too.
-  const soon = split.soon.filter(g => !LAST_EXAM_IDS.has(g.id));
-  const last = split.soon.filter(g => LAST_EXAM_IDS.has(g.id));
-  const lead = featured.length + open.length + soon.length;
+  const cards = useExamCards();
+  const entries = examEntries(groups, openIds, cards);
 
   return (
     <CardScroller>
-      {featured.map((g, i) => (
-        <GroupCard key={g.id} group={g} index={i} comingSoon={!openIds.has(g.id)} />
-      ))}
-      {open.map((g, i) => (
-        <GroupCard key={g.id} group={g} index={featured.length + i} />
-      ))}
-      {soon.map((g, i) => (
-        <GroupCard key={g.id} group={g} index={featured.length + open.length + i} comingSoon />
-      ))}
-      {UPCOMING_EXAMS.map((e, i) => (
-        <UpcomingCard key={e.id} exam={e} index={lead + i} />
-      ))}
-      {last.map((g, i) => (
-        <GroupCard key={g.id} group={g} index={lead + UPCOMING_EXAMS.length + i} comingSoon />
-      ))}
+      {entries.map((e, i) =>
+        e.kind === 'exam' ? (
+          <GroupCard key={entryId(e)} group={e.group} index={i} comingSoon={e.comingSoon} card={e.card} />
+        ) : (
+          <UpcomingCard key={entryId(e)} exam={e.exam} index={i} card={e.card} />
+        ),
+      )}
     </CardScroller>
   );
 }
+
+/** The emblem a card shows: the admin's upload for it, else the body's own. */
+const cardLogo = (groupId: string, card?: ExamCard) =>
+  card?.logo_url ? { src: logoSrc(card.logo_url), alt: card.name } : examLogo(groupId);
 
 /**
  * The cards in one row that scrolls sideways, not a grid that wraps onto more rows.
@@ -120,71 +111,6 @@ function ScrollArrow({ dir, onClick }: { dir: 'left' | 'right'; onClick: () => v
 
 /** Chips that fit a card without pushing the stages and the footer out of line. */
 const SUBJECT_CHIP_LIMIT = 6;
-
-/**
- * One colour per examination — the bar across the card, the badge, the eyebrow and the open
- * stage chips all take it, so each exam is recognisable at a glance.
- */
-interface Tone {
-  bar: string;
-  eyebrow: string;
-  badge: string;
-  stage: string;
-}
-
-const TONES: Record<'blue' | 'teal' | 'violet' | 'amber' | 'rose' | 'indigo', Tone> = {
-  blue: {
-    bar: 'bg-blue-500',
-    eyebrow: 'text-blue-600 dark:text-blue-400',
-    badge: 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-900/50',
-    stage: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-800',
-  },
-  teal: {
-    bar: 'bg-teal-500',
-    eyebrow: 'text-teal-600 dark:text-teal-400',
-    badge: 'bg-teal-50 text-teal-600 border-teal-100 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-900/50',
-    stage: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-800',
-  },
-  violet: {
-    bar: 'bg-violet-500',
-    eyebrow: 'text-violet-600 dark:text-violet-400',
-    badge: 'bg-violet-50 text-violet-600 border-violet-100 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-900/50',
-    stage: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-800',
-  },
-  indigo: {
-    bar: 'bg-indigo-500',
-    eyebrow: 'text-indigo-600 dark:text-indigo-400',
-    badge: 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-900/50',
-    stage: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-800',
-  },
-  amber: {
-    bar: 'bg-amber-500',
-    eyebrow: 'text-amber-600 dark:text-amber-400',
-    badge: 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-900/50',
-    stage: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-800',
-  },
-  rose: {
-    bar: 'bg-rose-500',
-    eyebrow: 'text-rose-600 dark:text-rose-400',
-    badge: 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-900/50',
-    stage: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-800',
-  },
-};
-
-/** The known exams keep their colour wherever they sit in the list; a new one takes the next free hue. */
-const TONE_BY_GROUP: Record<string, keyof typeof TONES> = { 'group-1': 'blue', 'group-2': 'indigo', 'group-4': 'teal', 'gat-b': 'violet', 'rrb-ntpc-cbt-1': 'amber', 'rrb-ntpc-cbt-1-grad': 'violet', 'rrb-ntpc-cbt-2': 'rose' };
-const TONE_ORDER = ['blue', 'teal', 'violet', 'amber', 'rose'] as const;
-
-const toneFor = (groupId: string, index: number): Tone =>
-  TONES[TONE_BY_GROUP[groupId] ?? TONE_ORDER[index % TONE_ORDER.length]];
-
-/** What a card that cannot be opened looks like — every colour drained to grey. */
-const MUTED: Tone = {
-  bar: 'bg-gray-300 dark:bg-gray-700',
-  eyebrow: 'text-gray-400 dark:text-gray-500',
-  badge: 'bg-gray-100 text-gray-400 border-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:border-gray-700',
-  stage: 'bg-gray-100 text-gray-400 border-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:border-gray-700',
-};
 
 /** The tag on a card that is not open yet. */
 function ComingSoonTag() {
@@ -256,13 +182,12 @@ function CardFrame({
 }
 
 /**
- * The languages an exam's papers come in, each written in its own script: TNPSC's in Tamil and English, RRB NTPC's in
- * Tamil, English and Hindi. An exam not listed here (GAT-B) shows none rather than a guess.
+ * The languages an exam's papers come in, each written in its own script. The admin's list for the exam if it has one;
+ * else TNPSC's in Tamil and English, RRB NTPC's in Tamil, English and Hindi. An exam with neither (GAT-B) shows none
+ * rather than a guess.
  */
-function examLanguages(groupId: string): string[] {
-  if (isNtpcGroup(groupId)) return NTPC_LANGUAGES.map(l => NTPC_LANGUAGE_NATIVE[l]);
-  if (/^group-\d+$/.test(groupId)) return [NTPC_LANGUAGE_NATIVE.tamil, NTPC_LANGUAGE_NATIVE.english];
-  return [];
+function examLanguages(groupId: string, card?: ExamCard): string[] {
+  return (card?.languages ?? builtInLanguages(groupId)).map(l => NTPC_LANGUAGE_NATIVE[l]);
 }
 
 /** What a wrong answer costs in the exam's open stage ("0.33"), or null where it costs nothing. */
@@ -272,7 +197,7 @@ function negativeMark(group: TnpscGroup): number | null {
   return p?.negative_marking && p.negative_mark_value ? p.negative_mark_value : null;
 }
 
-function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; index: number; comingSoon?: boolean }) {
+function GroupCard({ group, index, comingSoon = false, card }: { group: TnpscGroup; index: number; comingSoon?: boolean; card?: ExamCard }) {
   const t = useT();
   const activeStages = group.stages.filter(s => s.status === 'active');
   // RRB NTPC is sat at two levels: the first time it is opened the aspirant is asked which, and can change it after.
@@ -280,7 +205,8 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
   const { user } = useUserPortal();
   const { level, language, ready, fixedLevel, save } = useNtpcPrefs(user?.user_id, group.id);
   const navigate = useNavigate();
-  const logo = examLogo(group.id);
+  const logo = cardLogo(group.id, card);
+  const languages = examLanguages(group.id, card);
   const [asking, setAsking] = useState<'enter' | 'change' | null>(null);
   const choose = (prefs: NtpcPrefs) => {
     save(prefs);
@@ -288,7 +214,7 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
     setAsking(null);
     if (entering) navigate(examEntryPath(group));
   };
-  const tone = comingSoon ? MUTED : toneFor(group.id, index);
+  const tone = comingSoon ? MUTED : toneFor(group.id, index, card?.tone);
 
   // Every subject the examination covers, deduped across its stages — Group 4's
   // single stage carries all twelve, while a multi-stage exam would repeat some.
@@ -326,6 +252,11 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
       <div className="p-5 flex-1 flex flex-col">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
+            {comingSoon && (
+              <div className="mb-2">
+                <ComingSoonTag />
+              </div>
+            )}
             {!comingSoon && (
               <div className="mb-2 flex flex-wrap items-center gap-x-2.5 gap-y-1">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
@@ -343,18 +274,16 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1.5">{group.name}</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{group.tagline}</p>
           </div>
-          {comingSoon ? (
-            <ComingSoonTag />
-          ) : (
-            <span
-              className={cn(
-                'flex-shrink-0 w-14 h-14 rounded-xl border flex items-center justify-center group-hover:scale-110 transition-transform',
-                tone.badge,
-              )}
-            >
-              <img src={logo.src} alt={logo.alt} className="w-10 h-10 object-contain" draggable={false} />
-            </span>
-          )}
+          {/* The emblem shows on a card that is not open yet too, drained to grey with the rest of it. */}
+          <span
+            className={cn(
+              'flex-shrink-0 w-14 h-14 rounded-xl border flex items-center justify-center transition-transform',
+              !comingSoon && 'group-hover:scale-110',
+              tone.badge,
+            )}
+          >
+            <img src={logo.src} alt={logo.alt} className="w-10 h-10 object-contain" draggable={false} />
+          </span>
         </div>
 
         <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-400 mt-3 line-clamp-3">{group.description}</p>
@@ -399,7 +328,7 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
         )}
 
         {/* The languages its papers are in — a strip in the card's own colour, so it reads as a feature of the exam. */}
-        {examLanguages(group.id).length > 0 && (
+        {languages.length > 0 && (
           <div
             className={cn(
               'mt-4 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2',
@@ -409,7 +338,7 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold">
               <Languages className="h-4 w-4" aria-hidden /> {t('exams.card.languages')}
             </span>
-            {examLanguages(group.id).map(name => (
+            {languages.map(name => (
               <span
                 key={name}
                 className={cn(
@@ -491,19 +420,27 @@ function GroupCard({ group, index, comingSoon = false }: { group: TnpscGroup; in
 }
 
 /** An announced examination: a name and a line about it, and nothing behind it yet. */
-function UpcomingCard({ exam, index }: { exam: UpcomingExam; index: number }) {
+function UpcomingCard({ exam, index, card }: { exam: UpcomingExam; index: number; card?: ExamCard }) {
   const t = useT();
+  const logo = card?.logo_url ? { src: logoSrc(card.logo_url), alt: card.name } : null;
   return (
     <CardFrame disabled index={index}>
       <div className={cn('h-[3px] w-full', MUTED.bar)} />
       <div className="p-5 flex-1 flex flex-col">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
+            <div className="mb-2">
+              <ComingSoonTag />
+            </div>
             <p className={cn('text-[10px] font-bold uppercase tracking-[0.18em]', MUTED.eyebrow)}>{exam.authority}</p>
             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1.5">{exam.name}</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{exam.tagline}</p>
           </div>
-          <ComingSoonTag />
+          {logo && (
+            <span className={cn('flex-shrink-0 w-14 h-14 rounded-xl border flex items-center justify-center', MUTED.badge)}>
+              <img src={logo.src} alt={logo.alt} className="w-10 h-10 object-contain" draggable={false} />
+            </span>
+          )}
         </div>
         <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-400 mt-3">{exam.description}</p>
 

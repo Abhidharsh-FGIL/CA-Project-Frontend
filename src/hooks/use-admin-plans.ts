@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { plansApi, type PlanName, type PlanUpdatePayload } from '@/lib/adminApi';
+import { plansApi, type PlanCreatePayload, type PlanName, type PlanUpdatePayload } from '@/lib/adminApi';
 import { toast } from 'sonner';
 
 const QUERY_KEY = 'admin-plans';
@@ -25,6 +25,16 @@ export function useAdminPlanActions() {
     },
   });
 
+  const create = useMutation({
+    mutationFn: (payload: PlanCreatePayload) => plansApi.create(payload),
+    onSuccess: (data) => {
+      toast.success(`${data.name} plan added`);
+      invalidate();
+      // The pricing page and the signed-in portal read the plan list; make them pick the new plan up.
+      qc.invalidateQueries({ queryKey: ['subscription-plans'] });
+    },
+  });
+
   const toggleActive = useMutation({
     mutationFn: (tier: PlanName) => plansApi.toggleActive(tier),
     onSuccess: (data) => {
@@ -33,5 +43,5 @@ export function useAdminPlanActions() {
     },
   });
 
-  return { update, toggleActive };
+  return { update, create, toggleActive };
 }

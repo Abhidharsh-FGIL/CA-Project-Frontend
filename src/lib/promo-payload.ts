@@ -12,7 +12,7 @@ import type {
 } from '@/lib/adminApi';
 
 /** The plans a code can be limited to. Free has no price to discount. */
-export const PROMO_PLAN_OPTIONS = ['standard', 'ultimate', 'premium'] as const;
+export const PROMO_PLAN_OPTIONS = ['essential', 'standard', 'ultimate', 'premium'] as const;
 /** The billing cycles a code can be limited to — the values an order is created with. */
 export const PROMO_BILLING_OPTIONS = ['monthly', 'yearly'] as const;
 

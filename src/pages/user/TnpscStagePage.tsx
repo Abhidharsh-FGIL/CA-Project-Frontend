@@ -4,7 +4,7 @@ import { NtpcLevelChip, NtpcLevelDialog } from '@/components/user/NtpcLevelDialo
 import { ntpcLabel, type NtpcNameLanguage } from '@/config/rrb-ntpc';
 import { isNtpcGroup, useNtpcPrefs } from '@/lib/ntpc-level';
 import { examLanguageOf } from '@/lib/exam-language';
-import { examLogo } from '@/lib/exam-logo';
+import { useExamLogo } from '@/hooks/use-exam-cards';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { here } from '@/lib/report-origin';
 import { skipsStageList } from '@/lib/exam-listing';
@@ -894,7 +894,7 @@ function ExamTrack({
 }) {
   const examGroupId = useParams<{ groupId: string }>().groupId;
   const passPercentage = levels[0]?.required_percentage ?? mockPassPercentage(examGroupId);
-  const logo = examLogo(examGroupId);
+  const logo = useExamLogo(examGroupId);
   const t = useT();
 
   /**
@@ -1666,7 +1666,7 @@ const pathSteps = (t: ReturnType<typeof useT>): Array<{
 ];
 
 function TrackTabs({ tab, onChange, hideTopics }: { tab: Tab; onChange: (t: Tab) => void; hideTopics?: boolean }) {
-  const logo = examLogo(useParams<{ groupId: string }>().groupId);
+  const logo = useExamLogo(useParams<{ groupId: string }>().groupId);
   const t = useT();
   const allSteps = pathSteps(t);
   const steps = hideTopics ? allSteps.filter(it => it.key !== 'topics') : allSteps;

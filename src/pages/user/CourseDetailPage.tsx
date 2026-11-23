@@ -34,6 +34,7 @@ import { useT } from '@/content/useText';
 
 const TIER_LABEL: Record<string, string> = {
   free: 'Free',
+  essential: 'Essential',
   standard: 'Standard',
   ultimate: 'Ultimate',
   premium: 'Premium',

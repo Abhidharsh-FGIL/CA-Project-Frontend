@@ -59,6 +59,12 @@ const TIER_META: Record<SubscriptionTier, { icon: typeof Sparkles; color: string
     pill: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300',
     label: 'Free',
   },
+  essential: {
+    icon: Sparkles,
+    color: 'from-emerald-500 to-teal-500',
+    pill: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300',
+    label: 'Essential',
+  },
   standard: {
     icon: Sparkles,
     color: 'from-blue-500 to-cyan-500',

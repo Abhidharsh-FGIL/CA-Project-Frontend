@@ -366,7 +366,7 @@ describe('composePlanNotice — a plan that is required', () => {
     const n = composePlanNotice(required(null), { current: plan('free'), plans });
     expect(n.title).toBe('Upgrade needed');
     expect(n.body[0]).toBe("Your Free plan doesn't include this.");
-    expect(n.suggestion?.name).toBe('Standard');
+    expect(n.suggestion?.name).toBe('Essential');
   });
 
   it('turns an unknown feature key into words', () => {
@@ -403,8 +403,8 @@ describe('spent attempts', () => {
     const n = composePlanNotice(attemptsUsed(3), { current: plan('free'), plans });
     expect(n.title).toBe('No attempts left');
     expect(n.body).toEqual(["You've used all 3 attempts on this test.", 'Upgrade to a paid plan to practise with more tests.']);
-    expect(n.primary).toEqual({ label: 'Upgrade to Standard', to: '/user/subscription' });
-    expect(n.suggestion?.name).toBe('Standard');
+    expect(n.primary).toEqual({ label: 'Upgrade to Essential', to: '/user/subscription' });
+    expect(n.suggestion?.name).toBe('Essential');
   });
 
   it('speaks to a paid user about the plan above theirs', () => {
@@ -438,7 +438,7 @@ describe('composePlanNotice — a report the plan does not include', () => {
     const n = composePlanNotice(reportLocked(), { current: plan('free'), plans });
     expect(n.title).toBe('Upgrade to see your report');
     expect(n.body).toEqual(['Upgrade your plan to see the report.', 'Your Free plan · Validity: unlimited']);
-    expect(n.primary).toEqual({ label: 'Upgrade to Standard', to: '/user/subscription' });
+    expect(n.primary).toEqual({ label: 'Upgrade to Essential', to: '/user/subscription' });
     expect(n.dismiss).toBe('Not now');
   });
 

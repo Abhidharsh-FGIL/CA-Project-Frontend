@@ -76,6 +76,7 @@ const METHOD_COLOR: Record<string, string> = {
 };
 
 const TIER_META: Record<string, { label: string; icon: typeof Sparkles; color: string }> = {
+  essential: { label: 'Essential', icon: Sparkles, color: 'from-emerald-500 to-teal-500' },
   standard: { label: 'Standard', icon: Sparkles, color: 'from-blue-500 to-cyan-500' },
   ultimate: { label: 'Ultimate', icon: Sparkles, color: 'from-brand-500 to-brand-400' },
   premium: { label: 'Premium', icon: Crown, color: 'from-amber-500 to-orange-500' },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EMPTY_APP_CONFIG, parseAppConfig, toAppConfigBody, validateAppConfig, type AppConfig } from './app-config';
+import { EMPTY_APP_CONFIG, parseAppConfig, slideImageProblem, toAppConfigBody, validateAppConfig, type AppConfig } from './app-config';
 
 const good = (): AppConfig => ({
   tagline: 'Practice · Prepare · Succeed',
@@ -9,6 +9,7 @@ const good = (): AppConfig => ({
     { id: 'rrb_ntpc', label: 'RRB NTPC', label_ta: 'ஆர்ஆர்பி', is_active: false },
   ],
   highlights: [{ icon: 'mock_tests', title: 'Full mock tests', title_ta: '', is_active: true }],
+  onboarding_slides: [{ title: 'Practice *smarter*', title_ta: '', subtitle: 'Mock tests', subtitle_ta: '', image_url: '/uploads/a.png', is_active: true }],
   login_title: 'Welcome Back',
   login_title_ta: '',
   login_subtitle: 'Enter your registered email ID to get a one-time password',
@@ -39,7 +40,7 @@ describe('app pre-login config', () => {
   it('sends every field and no others; order is the row position and an empty Tamil box is null', () => {
     const body = toAppConfigBody(good());
     expect(Object.keys(body).sort()).toEqual(
-      ['exam_chips', 'highlights', 'login_subtitle', 'login_subtitle_ta', 'login_title', 'login_title_ta', 'tagline', 'tagline_ta'],
+      ['exam_chips', 'highlights', 'login_subtitle', 'login_subtitle_ta', 'login_title', 'login_title_ta', 'onboarding_slides', 'tagline', 'tagline_ta'],
     );
     expect(body.tagline_ta).toBeNull();
     expect(body.exam_chips).toEqual([
@@ -93,5 +94,42 @@ describe('app pre-login config', () => {
     const m = validateAppConfig(many);
     expect(m.chips).toBeDefined();
     expect(m.highlights).toBeDefined();
+  });
+
+  it('reads slides in order, and sends them with their position, null Tamil and null picture', () => {
+    const c = parseAppConfig({
+      onboarding_slides: [
+        { title: 'B', subtitle: 's', image_url: null, order: 2, is_active: false, title_ta: null, subtitle_ta: null },
+        { title: 'A', subtitle: '', image_url: '/u/a.webp', order: 1, is_active: true, title_ta: 'அ', subtitle_ta: null },
+      ],
+    });
+    expect(c.onboarding_slides.map(x => x.title)).toEqual(['A', 'B']);
+    expect(c.onboarding_slides[1]).toMatchObject({ image_url: '', is_active: false, title_ta: '' });
+    const body = toAppConfigBody(c);
+    expect(body.onboarding_slides).toEqual([
+      { title: 'A', title_ta: 'அ', subtitle: '', subtitle_ta: null, image_url: '/u/a.webp', order: 1, is_active: true },
+      { title: 'B', title_ta: null, subtitle: 's', subtitle_ta: null, image_url: null, order: 2, is_active: false },
+    ]);
+    expect(toAppConfigBody({ ...c, onboarding_slides: [] }).onboarding_slides).toEqual([]);
+  });
+
+  it('a slide needs a title (120) and its subtitle is held to 400; at most 8 slides', () => {
+    const slide = { title: 'T', title_ta: '', subtitle: '', subtitle_ta: '', image_url: '', is_active: true };
+    const c = { ...good(), onboarding_slides: [{ ...slide, title: '' }, { ...slide, title: 'x'.repeat(121) }, { ...slide, subtitle: 'y'.repeat(401) }, { ...slide, title: 'x'.repeat(120), subtitle: 'y'.repeat(400) }] };
+    const e = validateAppConfig(c);
+    expect(e['slide.0.title']).toBeDefined();
+    expect(e['slide.1.title']).toBeDefined();
+    expect(e['slide.2.subtitle']).toBeDefined();
+    expect(e['slide.3.title']).toBeUndefined();
+    expect(e['slide.3.subtitle']).toBeUndefined();
+    expect(validateAppConfig({ ...good(), onboarding_slides: Array.from({ length: 9 }, () => slide) }).slides).toBeDefined();
+    expect(validateAppConfig({ ...good(), onboarding_slides: Array.from({ length: 8 }, () => slide) }).slides).toBeUndefined();
+  });
+
+  it('accepts PNG, JPEG and WebP up to 1 MB and says why anything else will not do', () => {
+    expect(slideImageProblem({ type: 'image/png', size: 1024 * 1024 })).toBeNull();
+    expect(slideImageProblem({ type: 'image/webp', size: 10 })).toBeNull();
+    expect(slideImageProblem({ type: 'image/gif', size: 10 })).toMatch(/PNG, JPEG or WebP/);
+    expect(slideImageProblem({ type: 'image/jpeg', size: 1024 * 1024 + 1 })).toMatch(/1 MB/);
   });
 });

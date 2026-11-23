@@ -49,6 +49,14 @@ const LIVE: ApiSubscriptionPlan[] = [
     duration_days: 30, active: true, highlight: false, price_monthly: 999, price_yearly: 9999,
     perks: ['Unlimited practice & mock tests', 'Priority mock tests', 'Full downloadable AI reports', 'Unlimited history'],
   },
+  {
+    plan_id: 'c7d2e5f0',
+    name: 'essential',
+    price: 149,
+    features: { support: 'email', download_pdf: false, ai_report_level: 'standard', mock_tests_per_month: 1, history_retention_days: 90, practice_tests_per_month: 15 },
+    duration_days: 30, active: true, highlight: false, price_monthly: 149, price_yearly: 0,
+    perks: ['1 full-length mock test', '15 subject-wise practice tests', 'Detailed performance reports', 'Strength & weakness analysis', 'Top-up anytime'],
+  },
 ];
 
 afterEach(() => setLivePlans(null));
@@ -110,6 +118,26 @@ describe('planFromApi', () => {
   });
 });
 
+describe('the Essential plan', () => {
+  it('sits between Free and Standard on the ladder', () => {
+    expect(TIER_ORDER.indexOf('essential')).toBe(TIER_ORDER.indexOf('free') + 1);
+    expect(TIER_ORDER.indexOf('essential')).toBeLessThan(TIER_ORDER.indexOf('standard'));
+  });
+
+  it('is monthly only: a yearly price of 0 is read as no yearly option', () => {
+    const p = planFromApi(LIVE[4])!;
+    expect(p.price_monthly).toBe(149);
+    expect(p.price_yearly).toBe(0);
+    expect(p.features.mock_tests_per_month).toBe(1);
+    expect(p.features.practice_tests_per_month).toBe(15);
+  });
+
+  it('takes its tagline from the backend when it sends one', () => {
+    expect(planFromApi({ ...LIVE[4], tagline: 'Begin here' })!.tagline).toBe('Begin here');
+    expect(planFromApi(LIVE[4])!.tagline).toBeTruthy(); // else the bundled one
+  });
+});
+
 describe('what an order is created against', () => {
   it('carries the backend’s plan id through', () => {
     expect(planFromApi(LIVE[1])!.plan_id).toBe('b6401555');
@@ -124,8 +152,8 @@ describe('what an order is created against', () => {
 
 describe('plansFromApi', () => {
   it('returns the ladder in order whatever order it arrived in', () => {
-    const shuffled = [LIVE[3], LIVE[0], LIVE[2], LIVE[1]];
-    expect(plansFromApi(shuffled).map(p => p.tier)).toEqual(['free', 'standard', 'ultimate', 'premium']);
+    const shuffled = [LIVE[3], LIVE[4], LIVE[0], LIVE[2], LIVE[1]];
+    expect(plansFromApi(shuffled).map(p => p.tier)).toEqual(['free', 'essential', 'standard', 'ultimate', 'premium']);
   });
 
   it('survives a response that is not a list', () => {

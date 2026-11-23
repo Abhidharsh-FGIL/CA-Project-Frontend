@@ -3,6 +3,14 @@ import katex from 'katex';
 import { normalizeLatex, repairSwallowedEscapes } from './latex-utils';
 
 describe('repairSwallowedEscapes', () => {
+  it('puts back a "\\right" that came back as a line feed + "ight" (the Tamil exam question)', () => {
+    const broken = '$\\left\\{\\frac{(3)^{-5} \\times (8)^5}{(100)^4 \\times (2)^2}\night\\}$ இன் மதிப்பைக் காண்க.';
+    expect(repairSwallowedEscapes(broken)).toBe('$\\left\\{\\frac{(3)^{-5} \\times (8)^5}{(100)^4 \\times (2)^2}\\right\\}$ இன் மதிப்பைக் காண்க.');
+    expect(repairSwallowedEscapes('$\\left(1\night)$')).toBe('$\\left(1\\right)$');
+    // ordinary text that starts a line with "ight" is left alone
+    expect(repairSwallowedEscapes('Tonight\nightfall is late')).toBe('Tonight\nightfall is late');
+  });
+
   it('puts back a "\\right" that a JSON "\\r" escape turned into a carriage return', () => {
     // As the paper arrived: "\right" read as CR + "ight".
     const broken = 'Find the value of $\\left(3 + \\frac{4}{3} \\text{ of } 2\\frac{1}{4}\rright)$.'.replace('\rright', '\right');

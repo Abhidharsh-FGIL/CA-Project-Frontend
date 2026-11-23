@@ -83,7 +83,7 @@ export interface RecentTest {
 }
 
 export interface SubscriptionTierDistribution {
-  tier: 'free' | 'standard' | 'ultimate' | 'premium';
+  tier: 'free' | 'essential' | 'standard' | 'ultimate' | 'premium';
   count: number;
   percentage: number;
 }
@@ -115,7 +115,7 @@ export const dashboardApi = {
 
 // ─── Users ─────────────────────────────────────────────────────────────────
 
-export type SubscriptionTier = 'free' | 'standard' | 'ultimate' | 'premium';
+export type SubscriptionTier = 'free' | 'essential' | 'standard' | 'ultimate' | 'premium';
 
 export interface AdminUserOut {
   user_id: string;
@@ -373,7 +373,23 @@ export const promosApi = {
 
 // ─── Plans ─────────────────────────────────────────────────────────────────
 
-export type PlanName = 'free' | 'standard' | 'ultimate' | 'premium';
+export type PlanName = 'free' | 'essential' | 'standard' | 'ultimate' | 'premium';
+
+/** The words on a plan's card for one billing cycle — what the aspirant reads on the pricing page. */
+export interface PlanCardWire {
+  headline: string | null;
+  description: string | null;
+  included: Array<{ title: string; detail: string | null }>;
+  excluded: string[];
+  best_for: string | null;
+  cta: string | null;
+  badge: string | null;
+}
+
+export interface PlanCardsWire {
+  monthly: PlanCardWire | null;
+  yearly: PlanCardWire | null;
+}
 
 export interface PlanOut {
   plan_id: string;
@@ -388,6 +404,10 @@ export interface PlanOut {
   duration_days_monthly: number;
   duration_days_yearly: number;
   perks: string[] | null;
+  /** One-line "who it is for" under the plan's name. */
+  tagline?: string | null;
+  /** The card's words for each billing cycle. Absent or null until the admin writes them. */
+  cards?: PlanCardsWire | null;
 }
 
 export interface PlanUpdatePayload {
@@ -401,10 +421,16 @@ export interface PlanUpdatePayload {
   duration_days_monthly?: number;
   duration_days_yearly?: number;
   perks?: string[];
+  tagline?: string | null;
+  cards?: PlanCardsWire | null;
 }
+
+/** `POST /admin/plans/` — a plan for a tier that has none yet. `name` is the tier. */
+export type PlanCreatePayload = PlanUpdatePayload & { name: PlanName };
 
 export const plansApi = {
   list: () => api.get<PlanOut[]>('/api/v1/admin/plans/'),
+  create: (payload: PlanCreatePayload) => api.post<PlanOut>('/api/v1/admin/plans/', payload),
   update: (tier: PlanName, payload: PlanUpdatePayload) =>
     api.patch<PlanOut>(`/api/v1/admin/plans/${tier}`, payload),
   toggleActive: (tier: PlanName) => api.post<PlanOut>(`/api/v1/admin/plans/${tier}/toggle-active`),

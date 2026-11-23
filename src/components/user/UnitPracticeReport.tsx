@@ -24,6 +24,7 @@ import { OverallScoreSummary } from '@/components/user/AttemptDiagnosticReport';
 import { isAttempted, type AttemptReportModel } from '@/lib/attempt-report';
 import type { QuestionReviewItem } from '@/lib/userPortalApi';
 import { MathText } from '@/components/ui/MathText';
+import { OptionContent } from '@/components/ui/OptionContent';
 import { normaliseLineBreaks, splitExplanationSteps } from '@/lib/question-text';
 import { difficultyLabel } from '@/lib/eval-difficulty';
 import { MIXED_LABEL } from '@/config/tnpsc';
@@ -663,15 +664,12 @@ function AnswerOptions({
               </span>
 
               <span className="min-w-0 flex-1 text-gray-700 dark:text-gray-200">
-                {o.image_url ? (
-                  <img
-                    src={o.image_url}
-                    alt={`Option ${o.label}`}
-                    className="max-h-24 rounded border border-gray-200 dark:border-gray-700"
-                  />
-                ) : (
-                  <MathText text={normaliseLineBreaks(o.text ?? '')} />
-                )}
+                <OptionContent
+                  text={o.text ? normaliseLineBreaks(o.text) : null}
+                  imageUrl={o.image_url}
+                  alt={`Option ${o.label}`}
+                  imageClassName="max-h-24"
+                />
                 {o.translated && (
                   <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
                     {o.translated}

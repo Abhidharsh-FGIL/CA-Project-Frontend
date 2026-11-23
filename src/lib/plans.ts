@@ -37,6 +37,8 @@ export interface ApiSubscriptionPlan {
   /** The plan's points when billed monthly / yearly. Null where the plan reads the same either way. */
   perks_monthly?: string[] | null;
   perks_yearly?: string[] | null;
+  /** One line under the plan's name. Where the backend has none, the bundled one is used. */
+  tagline?: string | null;
   /** The card's words per billing cycle — see `PlanCard`. */
   cards?: { monthly?: unknown; yearly?: unknown } | null;
 }
@@ -114,7 +116,7 @@ export function planFromApi(p: ApiSubscriptionPlan): SubscriptionPlanInfo | null
     plan_id: p.plan_id,
     tier: name,
     name: name.charAt(0).toUpperCase() + name.slice(1),
-    tagline: base.tagline,
+    tagline: text(p.tagline) ?? base.tagline,
     price_monthly: p.price_monthly ?? p.price ?? base.price_monthly,
     price_yearly: p.price_yearly ?? base.price_yearly,
     highlight: !!p.highlight,

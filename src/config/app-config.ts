@@ -18,11 +18,22 @@ export interface AppHighlight {
   is_active: boolean;
 }
 
+/** One onboarding slide. `image_url` is what the image upload returned ('' for none). */
+export interface AppSlide {
+  title: string;
+  title_ta: string;
+  subtitle: string;
+  subtitle_ta: string;
+  image_url: string;
+  is_active: boolean;
+}
+
 export interface AppConfig {
   tagline: string;
   tagline_ta: string;
   exam_chips: AppChip[];
   highlights: AppHighlight[];
+  onboarding_slides: AppSlide[];
   login_title: string;
   login_title_ta: string;
   login_subtitle: string;
@@ -34,6 +45,7 @@ export const EMPTY_APP_CONFIG: AppConfig = {
   tagline_ta: '',
   exam_chips: [],
   highlights: [],
+  onboarding_slides: [],
   login_title: '',
   login_title_ta: '',
   login_subtitle: '',
@@ -64,7 +76,24 @@ export const APP_LIMITS = {
   highlight_title_ta: 90,
   max_chips: 12,
   max_highlights: 12,
+  slide_title: 120,
+  slide_subtitle: 400,
+  max_slides: 8,
 } as const;
+
+/** The slide picture: what the server accepts and what we recommend. */
+export const SLIDE_IMAGE = {
+  types: ['image/png', 'image/jpeg', 'image/webp'],
+  maxBytes: 1024 * 1024,
+  advice: 'Portrait or square, about 1080 × 1200 px, with no text inside the picture. PNG, JPEG or WebP, up to 1 MB.',
+} as const;
+
+/** Why this file cannot be a slide picture, or null when it can. */
+export function slideImageProblem(file: { type: string; size: number }): string | null {
+  if (!(SLIDE_IMAGE.types as readonly string[]).includes(file.type)) return 'Use a PNG, JPEG or WebP picture.';
+  if (file.size > SLIDE_IMAGE.maxBytes) return `The picture is over 1 MB (${(file.size / 1024 / 1024).toFixed(1)} MB). Make it smaller.`;
+  return null;
+}
 
 const SLUG = /^[a-z0-9_-]+$/;
 const len = (s: string) => [...s].length;
@@ -88,6 +117,14 @@ export function parseAppConfig(raw: unknown): AppConfig {
     login_title_ta: text(r.login_title_ta),
     login_subtitle: text(r.login_subtitle),
     login_subtitle_ta: text(r.login_subtitle_ta),
+    onboarding_slides: byOrder(records(r.onboarding_slides)).map(sl => ({
+      title: text(sl.title),
+      title_ta: text(sl.title_ta),
+      subtitle: text(sl.subtitle),
+      subtitle_ta: text(sl.subtitle_ta),
+      image_url: text(sl.image_url),
+      is_active: sl.is_active !== false,
+    })),
     exam_chips: byOrder(records(r.exam_chips)).map(c => ({
       id: text(c.id),
       label: text(c.label),
@@ -127,6 +164,15 @@ export function toAppConfigBody(c: AppConfig) {
       order: i + 1,
       is_active: h.is_active,
     })),
+    onboarding_slides: c.onboarding_slides.map((sl, i) => ({
+      title: sl.title.trim(),
+      title_ta: orNull(sl.title_ta),
+      subtitle: sl.subtitle.trim(),
+      subtitle_ta: orNull(sl.subtitle_ta),
+      image_url: orNull(sl.image_url),
+      order: i + 1,
+      is_active: sl.is_active,
+    })),
     login_title: c.login_title.trim(),
     login_title_ta: orNull(c.login_title_ta),
     login_subtitle: c.login_subtitle.trim(),
@@ -134,7 +180,7 @@ export function toAppConfigBody(c: AppConfig) {
   };
 }
 
-/** What is wrong with the form, by field: `tagline`, `login_title_ta`, `chip.2.id`, `highlight.0.title`, … (and `chips` / `highlights` for the lists). */
+/** What is wrong with the form, by field: `tagline`, `login_title_ta`, `chip.2.id`, `highlight.0.title`, `slide.1.title`, … (and `chips` / `highlights` / `slides` for the lists). */
 export function validateAppConfig(c: AppConfig): Record<string, string> {
   const errors: Record<string, string> = {};
   const over = (key: string, value: string, max: number) => {
@@ -171,6 +217,13 @@ export function validateAppConfig(c: AppConfig): Record<string, string> {
     if (!h.title.trim()) errors[`highlight.${i}.title`] = 'Give the highlight a title.';
     else over(`highlight.${i}.title`, h.title, APP_LIMITS.highlight_title);
     over(`highlight.${i}.title_ta`, h.title_ta, APP_LIMITS.highlight_title_ta);
+  });
+
+  if (c.onboarding_slides.length > APP_LIMITS.max_slides) errors.slides = `At most ${APP_LIMITS.max_slides} slides.`;
+  c.onboarding_slides.forEach((sl, i) => {
+    if (!sl.title.trim()) errors[`slide.${i}.title`] = 'Give the slide a title.';
+    else over(`slide.${i}.title`, sl.title, APP_LIMITS.slide_title);
+    over(`slide.${i}.subtitle`, sl.subtitle, APP_LIMITS.slide_subtitle);
   });
 
   return errors;

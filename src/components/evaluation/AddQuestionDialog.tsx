@@ -4,12 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { stageForExamType, stageUnits, unitDisplayName, unitTopics } from '@/config/tnpsc';
 import { bankCategoryCounts } from '@/lib/key-topics';
 import { norm } from '@/lib/key-topic-sections';
-import { Type, ImageIcon, Upload, X, Loader2, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { ImagePlus, X, Loader2, Plus, Trash2, CheckCircle2 } from 'lucide-react';
 import { buildUrl } from '@/lib/api';
 import { useCreateEvalQuestion, useEvalQuestions, uploadEvalQuestionImage } from '@/hooks/use-evaluation';
 import { cn } from '@/lib/utils';
@@ -20,18 +19,17 @@ const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E'];
 const MIN_OPTIONS = 2;
 const MAX_OPTIONS = 5;
 
-/** A value that is EITHER typed text OR an uploaded image. */
+/** A question or an option: typed text, an uploaded image, or both. */
 interface MediaValue {
-  mode: 'text' | 'image';
   text: string;
   imageUrl?: string;
   imageName?: string;
 }
 
-const emptyMedia = (): MediaValue => ({ mode: 'text', text: '' });
-const hasContent = (m: MediaValue) => (m.mode === 'text' ? !!m.text.trim() : !!m.imageUrl);
+const emptyMedia = (): MediaValue => ({ text: '' });
+const hasContent = (m: MediaValue) => !!m.text.trim() || !!m.imageUrl;
 
-/** Text-or-image input used for the question and each option. */
+/** Text box with an optional image under it — used for the question and each option. Either is enough; both are fine. */
 function MediaField({
   value,
   onChange,
@@ -54,7 +52,7 @@ function MediaField({
     setUploading(true);
     try {
       const { url, name } = await uploadEvalQuestionImage(file);
-      onChange({ ...value, mode: 'image', imageUrl: url, imageName: name || file.name });
+      onChange({ ...value, imageUrl: url, imageName: name || file.name });
     } catch (e: any) {
       toast.error(e.message || 'Image upload failed');
     } finally {
@@ -63,57 +61,43 @@ function MediaField({
   };
 
   return (
-    <Tabs value={value.mode} onValueChange={m => onChange({ ...value, mode: m as 'text' | 'image' })}>
-      <TabsList className="h-7">
-        <TabsTrigger value="text" className="text-xs gap-1 px-2"><Type className="h-3 w-3" /> Text</TabsTrigger>
-        <TabsTrigger value="image" className="text-xs gap-1 px-2"><ImageIcon className="h-3 w-3" /> Image</TabsTrigger>
-      </TabsList>
+    <div className="space-y-1.5">
+      {textarea ? (
+        <Textarea value={value.text} onChange={e => onChange({ ...value, text: e.target.value })} placeholder={textPlaceholder} rows={3} />
+      ) : (
+        <Input value={value.text} onChange={e => onChange({ ...value, text: e.target.value })} placeholder={textPlaceholder} />
+      )}
 
-      <TabsContent value="text" className="mt-1.5">
-        {textarea ? (
-          <Textarea
-            value={value.text}
-            onChange={e => onChange({ ...value, text: e.target.value })}
-            placeholder={textPlaceholder}
-            rows={3}
+      {value.imageUrl ? (
+        <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-1.5">
+          <img src={buildUrl(value.imageUrl)} alt={value.imageName || 'Uploaded'} className="h-12 w-12 rounded object-cover" />
+          <span className="flex-1 truncate text-xs">{value.imageName}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            title="Remove image"
+            onClick={() => onChange({ ...value, imageUrl: undefined, imageName: undefined })}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : (
+        <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted/40">
+          {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+          {uploading ? 'Uploading…' : 'Add image (optional)'}
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={e => {
+              void handleFile(e.target.files?.[0]);
+              e.target.value = '';
+            }}
           />
-        ) : (
-          <Input
-            value={value.text}
-            onChange={e => onChange({ ...value, text: e.target.value })}
-            placeholder={textPlaceholder}
-          />
-        )}
-      </TabsContent>
-
-      <TabsContent value="image" className="mt-1.5">
-        {value.imageUrl ? (
-          <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-2">
-            <img src={buildUrl(value.imageUrl)} alt={value.imageName || 'Uploaded'} className="h-12 w-12 rounded object-cover" />
-            <span className="flex-1 truncate text-xs">{value.imageName}</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => onChange({ ...value, imageUrl: undefined, imageName: undefined })}
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
-        ) : (
-          <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-md border border-dashed py-3 text-xs text-muted-foreground hover:bg-muted/40">
-            {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-            {uploading ? 'Uploading…' : 'Upload image'}
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              className="hidden"
-              onChange={e => handleFile(e.target.files?.[0])}
-            />
-          </label>
-        )}
-      </TabsContent>
-    </Tabs>
+        </label>
+      )}
+    </div>
   );
 }
 
@@ -205,11 +189,12 @@ export function AddQuestionDialog({
       // The key topic, as the bank files it: the same name under `category`, which is what the key-topic pickers list.
       category: chapter.trim(),
       difficulty,
-      question_text: question.mode === 'text' ? question.text.trim() || null : null,
-      question_image_url: question.mode === 'image' ? question.imageUrl ?? null : null,
+      // Text and image are independent: send whichever are filled, both when both are.
+      question_text: question.text.trim() || null,
+      question_image_url: question.imageUrl ?? null,
       options: options.map(o => ({
-        text: o.mode === 'text' ? o.text.trim() || null : null,
-        image_url: o.mode === 'image' ? o.imageUrl ?? null : null,
+        text: o.text.trim() || null,
+        image_url: o.imageUrl ?? null,
       })),
       correct_index: correct,
       marks: 1.0,
@@ -229,7 +214,7 @@ export function AddQuestionDialog({
         <div className="space-y-4">
           {/* Question */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Question <span className="text-destructive">*</span></Label>
+            <Label className="text-xs">Question <span className="text-destructive">*</span> <span className="font-normal text-muted-foreground">— text, an image, or both</span></Label>
             <MediaField value={question} onChange={setQuestion} textPlaceholder="Type the question…" textarea />
           </div>
 

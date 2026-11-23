@@ -80,7 +80,7 @@ export interface UserProfile extends Partial<StudentDetailFields> {
   board?: string;
   otp_verified: boolean;
   phone_verified: boolean;
-  subscription_tier: 'free' | 'standard' | 'ultimate' | 'premium';
+  subscription_tier: 'free' | 'essential' | 'standard' | 'ultimate' | 'premium';
   subscription_expiry: string | null;
   created_at: string;
   is_active: boolean;

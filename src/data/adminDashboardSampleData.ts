@@ -44,7 +44,7 @@ export interface DailyAttempts {
 }
 
 export interface SubscriptionDistribution {
-  tier: 'free' | 'standard' | 'ultimate' | 'premium';
+  tier: 'free' | 'essential' | 'standard' | 'ultimate' | 'premium';
   count: number;
   percentage: number;
 }
@@ -294,6 +294,7 @@ export const TOP_COURSES: TopCourse[] = [
 
 export const TIER_LABEL: Record<SubscriptionDistribution['tier'], string> = {
   free: 'Free',
+  essential: 'Essential',
   standard: 'Standard',
   ultimate: 'Ultimate',
   premium: 'Premium',
@@ -301,6 +302,7 @@ export const TIER_LABEL: Record<SubscriptionDistribution['tier'], string> = {
 
 export const TIER_COLOR: Record<SubscriptionDistribution['tier'], string> = {
   free: 'bg-gray-400',
+  essential: 'bg-emerald-500',
   standard: 'bg-blue-500',
   ultimate: 'bg-brand-500',
   premium: 'bg-gradient-to-r from-amber-400 to-orange-500',
