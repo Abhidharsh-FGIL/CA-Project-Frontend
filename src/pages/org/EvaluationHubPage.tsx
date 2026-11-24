@@ -12,6 +12,7 @@ import { EvalPaperConfigPanel } from '@/components/evaluation/EvalPaperConfigPan
 import { EvalQuestionBank } from '@/components/evaluation/EvalQuestionBank';
 import { EvalPapersList } from '@/components/evaluation/EvalPapersList';
 import { useStartEvalGeneration } from '@/hooks/use-evaluation';
+import { useQueryClient } from '@tanstack/react-query';
 import type { EvalPaperConfig } from '@/hooks/use-evaluation';
 import { EvalAssessmentConfigPanel } from '@/components/evaluation/EvalAssessmentConfigPanel';
 import { EvalStudentDistributor } from '@/components/evaluation/EvalStudentDistributor';
@@ -46,6 +47,7 @@ type AssessmentView = 'list' | 'create' | 'distribute';
 export function EvaluationHubPage() {
   const navigate = useNavigate();
   const { hasEvaluation } = useWorkspaceContext();
+  const qc = useQueryClient();
   const { canAccessFeature } = useSubscription();
   const [config, setConfig] = useState<EvalPaperConfig>(DEFAULT_CONFIG);
 
@@ -175,7 +177,10 @@ export function EvaluationHubPage() {
           {canAccessFeature('evaluation_hub', 'paper_creation') && (
             <TabsContent value="import">
               <EvalPaperImportPanel
-                onImported={() => setActiveTab('papers')}
+                onImported={() => {
+                  qc.invalidateQueries({ queryKey: ['eval-papers'] });
+                  setActiveTab('papers');
+                }}
               />
             </TabsContent>
           )}

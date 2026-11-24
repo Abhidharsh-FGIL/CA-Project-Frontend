@@ -25,3 +25,15 @@ export async function uploadOnboardingImage(file: File): Promise<string> {
   if (typeof res?.image_url !== 'string' || !res.image_url) throw new Error('The server did not return a picture address.');
   return res.image_url;
 }
+
+/**
+ * POST /api/v1/admin/app-config/banner-image (multipart, field "file") → `{ image_url }`. PNG, JPEG or WebP, up to 1 MB.
+ * Put the returned `image_url` on the banner; nothing is attached until the config is saved.
+ */
+export async function uploadBannerImage(file: File): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = (await api.upload<unknown>('/api/v1/admin/app-config/banner-image', form)) as { image_url?: unknown } | null;
+  if (typeof res?.image_url !== 'string' || !res.image_url) throw new Error('The server did not return a picture address.');
+  return res.image_url;
+}

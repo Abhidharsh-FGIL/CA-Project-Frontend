@@ -86,17 +86,27 @@ function mapQuestion(q: any): any {
   };
 }
 
-export function useEvalPapers(filters?: { sourceType?: string }) {
-  const { orgId } = useWorkspaceContext();
-  return useQuery({
-    queryKey: ['eval-papers', orgId, filters],
+/** The collections list as a query. */
+export function evalPapersQuery(orgId: string | null | undefined, filters?: { sourceType?: string }) {
+  return {
+    queryKey: ['eval-papers', orgId, filters] as const,
+    // The response is very large. The app default refetches on every mount and deep-compares each refetch with the cached
+    // copy; for this list that meant downloading it again on every visit to the tab and seconds of main-thread work for
+    // nothing. Keep it for the 5-minute staleTime; everything that changes a collection invalidates this key.
+    refetchOnMount: true,
+    structuralSharing: false,
     queryFn: () => {
       const params = new URLSearchParams();
       if (orgId) params.set('org_id', orgId);
       if (filters?.sourceType) params.set('source_type', filters.sourceType);
       return api.get<any[]>(`/api/v1/evaluation/papers?${params}`);
     },
-  });
+  };
+}
+
+export function useEvalPapers(filters?: { sourceType?: string }) {
+  const { orgId } = useWorkspaceContext();
+  return useQuery(evalPapersQuery(orgId, filters));
 }
 
 export function useEvalQuestions(filters?: {

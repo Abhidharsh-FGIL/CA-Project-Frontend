@@ -10,6 +10,7 @@ const good = (): AppConfig => ({
   ],
   highlights: [{ icon: 'mock_tests', title: 'Full mock tests', title_ta: '', is_active: true }],
   onboarding_slides: [{ title: 'Practice *smarter*', title_ta: '', subtitle: 'Mock tests', subtitle_ta: '', image_url: '/uploads/a.png', is_active: true }],
+  dashboard_banners: [],
   login_title: 'Welcome Back',
   login_title_ta: '',
   login_subtitle: 'Enter your registered email ID to get a one-time password',
@@ -40,7 +41,7 @@ describe('app pre-login config', () => {
   it('sends every field and no others; order is the row position and an empty Tamil box is null', () => {
     const body = toAppConfigBody(good());
     expect(Object.keys(body).sort()).toEqual(
-      ['exam_chips', 'highlights', 'login_subtitle', 'login_subtitle_ta', 'login_title', 'login_title_ta', 'onboarding_slides', 'tagline', 'tagline_ta'],
+      ['dashboard_banners', 'exam_chips', 'highlights', 'login_subtitle', 'login_subtitle_ta', 'login_title', 'login_title_ta', 'onboarding_slides', 'tagline', 'tagline_ta'],
     );
     expect(body.tagline_ta).toBeNull();
     expect(body.exam_chips).toEqual([

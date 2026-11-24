@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { stageForExamType, stageUnits, unitDisplayName, unitTopics } from '@/config/tnpsc';
+import { TNPSC_GROUPS, stageUnits, unitDisplayName, unitTopics } from '@/config/tnpsc';
 import { bankCategoryCounts } from '@/lib/key-topics';
 import { norm } from '@/lib/key-topic-sections';
 import { ImagePlus, X, Loader2, Plus, Trash2, CheckCircle2 } from 'lucide-react';
@@ -110,7 +110,7 @@ export function AddQuestionDialog({
   onOpenChange,
 }: {
   paperTitle: string;
-  /** The paper's exam, which decides the syllabus units offered. Group 4 when it is not known. */
+  /** The paper's exam, which the Exam picker starts on. Group 4 when it is not known (a mixed collection). */
   examType?: string;
   defaultSubject?: string;
   defaultDifficulty?: string;
@@ -125,12 +125,16 @@ export function AddQuestionDialog({
   // The topic is chosen from the unit's key topics, or typed as a new one.
   const [newTopic, setNewTopic] = useState(false);
   const [unitId, setUnitId] = useState('');
+  // The exam whose syllabus the unit is chosen from. A collection that belongs to one exam starts on it; a mixed one
+  // (e.g. "Custom Questions") starts on Group 4 and the admin picks — the question is filed under the unit, not the paper.
+  const [examId, setExamId] = useState<string>(() => (TNPSC_GROUPS.find(g => g.exam_type === examType) ?? TNPSC_GROUPS.find(g => g.id === 'group-4') ?? TNPSC_GROUPS[0]).id);
   const [difficulty, setDifficulty] = useState(defaultDifficulty || 'medium');
   const [explanation, setExplanation] = useState('');
   const createQuestion = useCreateEvalQuestion();
 
   // The question is filed under a syllabus unit. An exam with no units in the catalog keeps the free-text subject.
-  const stage = useMemo(() => stageForExamType(examType) ?? stageForExamType('TNPSC Group 4'), [examType]);
+  const exams = useMemo(() => TNPSC_GROUPS.filter(g => g.stages.some(st => st.status === 'active')), []);
+  const stage = useMemo(() => exams.find(g => g.id === examId)?.stages.find(st => st.status === 'active'), [exams, examId]);
   const units = useMemo(() => stageUnits(stage), [stage]);
   const chosenUnit = units.find(u => u.unit.id === unitId);
 
@@ -156,6 +160,7 @@ export function AddQuestionDialog({
     setChapter('');
     setNewTopic(false);
     setUnitId('');
+    setExamId((TNPSC_GROUPS.find(g => g.exam_type === examType) ?? TNPSC_GROUPS.find(g => g.id === 'group-4') ?? TNPSC_GROUPS[0]).id);
     setDifficulty(defaultDifficulty || 'medium');
     setExplanation('');
   };
@@ -251,6 +256,28 @@ export function AddQuestionDialog({
                 <Plus className="h-3 w-3" /> Add Option ({options.length}/{MAX_OPTIONS})
               </Button>
             )}
+          </div>
+
+          {/* Exam */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Exam <span className="text-destructive">*</span></Label>
+            <Select
+              value={examId}
+              onValueChange={v => {
+                // The units belong to the exam, so a different exam starts the unit and topic afresh.
+                setExamId(v);
+                setUnitId('');
+                setChapter('');
+                setNewTopic(false);
+              }}
+            >
+              <SelectTrigger className="h-10"><SelectValue placeholder="Choose the exam" /></SelectTrigger>
+              <SelectContent className="max-h-[60vh]">
+                {exams.map(g => (
+                  <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Subject + Topic */}

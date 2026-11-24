@@ -4,6 +4,8 @@
  *
  * The form holds Tamil text as a plain string ('' for none); the wire carries `null`.
  */
+import { parseBanners, toBannersBody, validateBanners, type AppBanner } from '@/config/dashboard-banners';
+
 export interface AppChip {
   id: string;
   label: string;
@@ -34,6 +36,7 @@ export interface AppConfig {
   exam_chips: AppChip[];
   highlights: AppHighlight[];
   onboarding_slides: AppSlide[];
+  dashboard_banners: AppBanner[];
   login_title: string;
   login_title_ta: string;
   login_subtitle: string;
@@ -46,6 +49,7 @@ export const EMPTY_APP_CONFIG: AppConfig = {
   exam_chips: [],
   highlights: [],
   onboarding_slides: [],
+  dashboard_banners: [],
   login_title: '',
   login_title_ta: '',
   login_subtitle: '',
@@ -125,6 +129,7 @@ export function parseAppConfig(raw: unknown): AppConfig {
       image_url: text(sl.image_url),
       is_active: sl.is_active !== false,
     })),
+    dashboard_banners: parseBanners(r.dashboard_banners),
     exam_chips: byOrder(records(r.exam_chips)).map(c => ({
       id: text(c.id),
       label: text(c.label),
@@ -173,6 +178,7 @@ export function toAppConfigBody(c: AppConfig) {
       order: i + 1,
       is_active: sl.is_active,
     })),
+    dashboard_banners: toBannersBody(c.dashboard_banners),
     login_title: c.login_title.trim(),
     login_title_ta: orNull(c.login_title_ta),
     login_subtitle: c.login_subtitle.trim(),
@@ -180,7 +186,7 @@ export function toAppConfigBody(c: AppConfig) {
   };
 }
 
-/** What is wrong with the form, by field: `tagline`, `login_title_ta`, `chip.2.id`, `highlight.0.title`, `slide.1.title`, … (and `chips` / `highlights` / `slides` for the lists). */
+/** What is wrong with the form, by field: `tagline`, `login_title_ta`, `chip.2.id`, `highlight.0.title`, `slide.1.title`, … (and `chips` / `highlights` / `slides` / `banners` for the lists; banner fields are `banner.0.title`, …). */
 export function validateAppConfig(c: AppConfig): Record<string, string> {
   const errors: Record<string, string> = {};
   const over = (key: string, value: string, max: number) => {
@@ -225,6 +231,8 @@ export function validateAppConfig(c: AppConfig): Record<string, string> {
     else over(`slide.${i}.title`, sl.title, APP_LIMITS.slide_title);
     over(`slide.${i}.subtitle`, sl.subtitle, APP_LIMITS.slide_subtitle);
   });
+
+  Object.assign(errors, validateBanners(c.dashboard_banners));
 
   return errors;
 }
