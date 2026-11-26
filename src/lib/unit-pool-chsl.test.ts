@@ -171,4 +171,20 @@ describe('CHSL units over the existing NTPC and TNPSC bank', () => {
     // Without the field, the portal's own rules still decide.
     expect(unitIdsOf(tier1, { subject: 'Mathematics', chapter: 'Percentage' })).toEqual(['c1-quantitative-aptitude-fundamental-arithmetic']);
   });
+
+  it("counts a question with two CHSL units under the first of the tier's, as the server does", () => {
+    // Server list: the first id of this tier wins.
+    const two = ['c1-quantitative-aptitude-geometry', 'c2-quantitative-aptitude-geometry', 'c1-quantitative-aptitude-trigonometry', 'c2-quantitative-aptitude-trigonometry'];
+    expect(unitIdsOf(tier1, { subject: 'Mathematics', chsl_unit_ids: two })).toEqual(['c1-quantitative-aptitude-geometry']);
+    expect(unitIdsOf(tier2, { subject: 'Mathematics', chsl_unit_ids: two })).toEqual(['c2-quantitative-aptitude-geometry']);
+    // Without the field, the portal's rules give the same first unit.
+    expect(unitIdsOf(tier1, { subject: 'Mathematics', chapter: 'Geometry and Trigonometry' })).toEqual(['c1-quantitative-aptitude-geometry']);
+    expect(unitIdsOf(tier1, { subject: 'General Intelligence & Reasoning', chapter: 'Decision Making' })).toEqual([
+      'c1-general-intelligence-and-reasoning-logical-and-analytical-reasoning',
+    ]);
+    // The result payload's unit_id is already the CHSL unit the paper counts it under.
+    expect(unitIdsOf(tier1, { unit_id: 'c1-quantitative-aptitude-trigonometry', own_unit_id: 'n1-ma-geometry-and-mensuration', chsl_unit_ids: two })).toEqual([
+      'c1-quantitative-aptitude-trigonometry',
+    ]);
+  });
 });

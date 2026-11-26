@@ -125,6 +125,20 @@ function displayOptions(rawOpts: any, translated?: string[] | null): DisplayOpti
   return [];
 }
 
+/** TNPSC's fifth option, "Answer not known", in the languages a bank question carries it in. */
+const NOT_KNOWN = /^\s*(?:answer not known|விடை தெரியவில்லை|उत्तर ज्ञात नहीं)\s*\.?\s*$/i;
+
+/**
+ * SSC CHSL has four options. Its papers borrow TNPSC questions, which carry a fifth, "Answer not known", that SSC does not
+ * offer, so it is not shown there. The other options keep their letters: the stored answer is the option's text, so grading
+ * is unaffected.
+ */
+function withoutNotKnown(options: DisplayOption[], paperTitle?: string | null): DisplayOption[] {
+  if (!/^\s*SSC CHSL/i.test(paperTitle ?? '') || options.length <= 4) return options;
+  const kept = options.filter(o => !NOT_KNOWN.test(o.text ?? ''));
+  return kept.length === options.length ? options : kept;
+}
+
 /** The value stored as the student's answer for an option: its text, else its letter. */
 const optionValue = (o: DisplayOption) => (o.text != null && o.text !== '' ? o.text : o.label);
 
@@ -289,7 +303,7 @@ function ActiveQuestionCard({
     question.chapter && !showPrimary && (trLang === 'ta' || trLang === 'hi') && isLanguageExamTitle(paperTitle)
       ? ntpcNodeName(question.chapter, null, trLang === 'ta' ? 'tamil' : 'hindi')
       : question.chapter;
-  const options = displayOptions(question.options, tr?.options);
+  const options = withoutNotKnown(displayOptions(question.options, tr?.options), paperTitle);
   // Defensive: papers saved before the generator fix may still carry the choices
   // inside the stem. Display-only — the stored answer still comes from `options`.
   // Line breaks are part of a passage (a newspaper report is several paragraphs), so they are kept.

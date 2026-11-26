@@ -353,7 +353,9 @@ function unitsFromBridge(stage: TnpscStage, c: Compiled, q: any, explicit: strin
     subtopic: q?.subtopic,
     unitId: explicit,
   });
-  return keys.map(k => c.byId.get(prefix + k)).filter((cu): cu is CompiledUnit => !!cu);
+  // The first of this tier's units only, as the server counts a question with two (see `chsl_unit_ids` above).
+  const first = keys.map(k => c.byId.get(prefix + k)).find((cu): cu is CompiledUnit => !!cu);
+  return first ? [first] : [];
 }
 
 /** Where a question lands, and which route put it there. */
@@ -379,7 +381,9 @@ function placeQuestion(stage: TnpscStage, c: Compiled, q: any): { units: Compile
         .filter((id: unknown): id is string => typeof id === 'string')
         .map(id => c.byId.get(id.trim()))
         .filter((cu): cu is CompiledUnit => !!cu);
-      return mine.length > 0 ? { units: mine, via: 'unit_id' } : { units: [], via: null };
+      // A question with two CHSL units counts under the first of this tier's — the server's rule, so the paper the admin
+      // builds and the sections the student sees agree with what the server scores.
+      return mine.length > 0 ? { units: [mine[0]], via: 'unit_id' } : { units: [], via: null };
     }
     // A CHSL question of the other tier ("c2-…" in a Tier I paper) is also null here; its own id places it below.
     if (ids === null && !/^c[12]-/.test(explicit ?? '')) return { units: [], via: null };
