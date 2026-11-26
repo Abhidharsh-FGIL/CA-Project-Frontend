@@ -26,6 +26,8 @@ import type { QuestionDifficulty } from '@/lib/eval-difficulty';
 
 export type PoolMode = 'fixed' | 'live';
 
+const CHSL_STAGE = /^ssc-chsl-tier-[12](?:-exam)?$/;
+
 /** A unit id without its exam prefix: "gs-general-science" for both `g2-gs-general-science` and `g4-gs-general-science`. */
 const unitFamily = (id: string): string => id.replace(/^g\d+-/, '');
 
@@ -117,6 +119,8 @@ export interface PoolInput {
   language?: string | null;
   /** The questions the paper holds — read for the subjects and topics they carry. */
   questions?: Array<{ subject?: string | null; chapter?: string | null }>;
+  /** The admin narrowed the paper to chosen topics (chapters), so the pool is held to them too. */
+  narrowedByChapter?: boolean;
 }
 
 const orNull = <T>(list: T[] | undefined): T[] | null => (list && list.length > 0 ? list : null);
@@ -143,8 +147,15 @@ export function describePool(input: PoolInput): { mode: PoolMode; filter: PoolFi
   if (!input.shuffle || input.composed) return fixed;
 
   const fromBank = input.source === 'bank';
-  const subjects = fromBank ? orNull(distinct((input.questions ?? []).map(q => q.subject))) : null;
-  const chapters = fromBank ? orNull(distinct((input.questions ?? []).map(q => q.chapter))) : null;
+  /*
+   * SSC CHSL draws mostly borrowed NTPC / TNPSC questions, which the server finds by their `chsl_unit_ids`. It applies
+   * `subjects` + `chapters` as a further filter, and those would be the NTPC / TNPSC names the paper happened to hold on the
+   * day it was made — every other topic of the unit would never be drawn. A CHSL unit pool therefore states its units alone,
+   * unless the admin narrowed it to chosen topics.
+   */
+  const chslUnits = CHSL_STAGE.test(input.stageId ?? '') && (input.unitIds?.length ?? 0) > 0 && !input.narrowedByChapter;
+  const subjects = fromBank && !chslUnits ? orNull(distinct((input.questions ?? []).map(q => q.subject))) : null;
+  const chapters = fromBank && !chslUnits ? orNull(distinct((input.questions ?? []).map(q => q.chapter))) : null;
 
   const filter: PoolFilter = {
     stage_id: input.stageId ?? null,

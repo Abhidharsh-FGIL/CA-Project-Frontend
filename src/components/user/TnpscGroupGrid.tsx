@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Languages, Layers, Sparkles } from 'lucide-react';
 import { useUserPortal } from '@/contexts/UserPortalContext';
 import { NtpcLevelChip, NtpcLevelDialog } from '@/components/user/NtpcLevelDialog';
-import { NTPC_LANGUAGE_NATIVE, isNtpcGroup, useNtpcPrefs, type NtpcPrefs } from '@/lib/ntpc-level';
+import { NTPC_LANGUAGE_NATIVE, isLanguageExam, useNtpcPrefs, type NtpcPrefs } from '@/lib/ntpc-level';
 import { examLanguageOf } from '@/lib/exam-language';
 import { examLogo } from '@/lib/exam-logo';
 import { logoSrc } from '@/lib/examCardsApi';
@@ -201,9 +201,9 @@ function GroupCard({ group, index, comingSoon = false, card }: { group: TnpscGro
   const t = useT();
   const activeStages = group.stages.filter(s => s.status === 'active');
   // RRB NTPC is sat at two levels: the first time it is opened the aspirant is asked which, and can change it after.
-  const ntpc = isNtpcGroup(group.id) && !comingSoon;
+  const ntpc = isLanguageExam(group.id) && !comingSoon;
   const { user } = useUserPortal();
-  const { level, language, ready, fixedLevel, save } = useNtpcPrefs(user?.user_id, group.id);
+  const { level, language, ready, fixedLevel, levelless, save } = useNtpcPrefs(user?.user_id, group.id);
   const navigate = useNavigate();
   const logo = cardLogo(group.id, card);
   const languages = examLanguages(group.id, card);
@@ -394,6 +394,7 @@ function GroupCard({ group, index, comingSoon = false, card }: { group: TnpscGro
             <NtpcLevelChip
               prefs={{ level, language }}
               fixedLevel={fixedLevel}
+              levelless={levelless}
               onChange={() => setAsking('change')}
             />
           </div>
@@ -414,7 +415,7 @@ function GroupCard({ group, index, comingSoon = false, card }: { group: TnpscGro
         </div>
       </div>
     </CardFrame>
-    {ntpc && <NtpcLevelDialog open={asking !== null} onOpenChange={o => !o && setAsking(null)} value={{ level, language }} fallbackLanguage={examLanguageOf(user?.medium)} onSave={choose} examName={group.name} fixedLevel={fixedLevel} />}
+    {ntpc && <NtpcLevelDialog open={asking !== null} onOpenChange={o => !o && setAsking(null)} value={{ level, language }} fallbackLanguage={examLanguageOf(user?.medium)} onSave={choose} examName={group.name} fixedLevel={fixedLevel} levelless={levelless} />}
     </>
   );
 }

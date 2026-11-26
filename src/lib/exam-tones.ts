@@ -62,6 +62,8 @@ const TONE_BY_GROUP: Record<string, ExamToneKey> = {
   'rrb-ntpc-cbt-1': 'amber',
   'rrb-ntpc-cbt-1-grad': 'violet',
   'rrb-ntpc-cbt-2': 'rose',
+  'ssc-chsl-tier-1': 'teal',
+  'ssc-chsl-tier-2': 'blue',
 };
 const TONE_ORDER = ['blue', 'teal', 'violet', 'amber', 'rose'] as const;
 

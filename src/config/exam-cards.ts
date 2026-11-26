@@ -11,7 +11,7 @@
  */
 import type { TnpscGroup } from '@/config/tnpsc';
 import { EXAM_CARD_ORDER, UPCOMING_EXAMS, splitExams, type UpcomingExam } from '@/lib/exam-listing';
-import { NTPC_LANGUAGES, isNtpcGroup, isNtpcLanguage, type NtpcLanguage } from '@/lib/ntpc-level';
+import { NTPC_LANGUAGES, isLanguageExam, isNtpcLanguage, type NtpcLanguage } from '@/lib/ntpc-level';
 import { defaultToneKey, isToneKey, type ExamToneKey } from '@/lib/exam-tones';
 
 export interface ExamCard {
@@ -91,9 +91,9 @@ export function legacyEntries(groups: TnpscGroup[], openIds: ReadonlySet<string>
   ];
 }
 
-/** The languages an exam's papers come in when the admin has not said: TNPSC's two, RRB NTPC's three, none for the rest. */
+/** The languages an exam's papers come in when the admin has not said: TNPSC's two, RRB NTPC's and SSC CHSL's three, none for the rest. */
 export function builtInLanguages(groupId: string): NtpcLanguage[] {
-  if (isNtpcGroup(groupId)) return [...NTPC_LANGUAGES];
+  if (isLanguageExam(groupId)) return [...NTPC_LANGUAGES];
   if (/^group-\d+$/.test(groupId)) return ['tamil', 'english'];
   return [];
 }
@@ -121,13 +121,27 @@ export const announcedFromCard = (c: ExamCard): UpcomingExam => ({
 });
 
 /**
- * What the Exams page lists, in order.
+ * What the Exams page lists, in order: the open exams first, then the rest (see `openFirst`).
  *
- * With no saved cards it is the built-in listing. With some, their order is the page's order: a card in the catalog is that
+ * Within each, with no saved cards it is the built-in listing. With some, their order is the page's order: a card in the catalog is that
  * exam's card (open or coming soon by its Active switch), a card that is not is an announced exam. An exam the catalog has
  * that no card names yet still shows, after them — a new exam on the server must not vanish for want of a card.
  */
 export function examEntries(groups: TnpscGroup[], openIds: ReadonlySet<string>, cards?: ExamCard[]): ExamEntry[] {
+  return openFirst(orderedEntries(groups, openIds, cards));
+}
+
+/**
+ * Exams open to students first, then everything else (coming soon and announced), each group keeping its own order. An
+ * aspirant looks for what they can sit today, so a newly opened exam must not wait behind a coming-soon card because of where
+ * the saved order, or the catalog, happens to put it.
+ */
+export function openFirst(entries: ExamEntry[]): ExamEntry[] {
+  const isOpen = (e: ExamEntry) => e.kind === 'exam' && !e.comingSoon;
+  return [...entries.filter(isOpen), ...entries.filter(e => !isOpen(e))];
+}
+
+function orderedEntries(groups: TnpscGroup[], openIds: ReadonlySet<string>, cards?: ExamCard[]): ExamEntry[] {
   if (!cards || cards.length === 0) return legacyEntries(groups, openIds);
 
   const byId = new Map<string, TnpscGroup>(groups.map(g => [g.id, g]));

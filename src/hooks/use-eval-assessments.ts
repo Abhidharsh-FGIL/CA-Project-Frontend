@@ -80,7 +80,7 @@ export interface EvalAssessmentConfig {
   /** The section a section-wise practice paper covers, by its printed name. */
   tnpscSectionName?: string;
   /** Which language paper a full mock is sat in, where the stage offers a choice. */
-  tnpscLanguage?: 'tamil' | 'english';
+  tnpscLanguage?: 'tamil' | 'english' | 'hindi';
   /**
    * A promotional test: free, open only between `startsAt` and `endsAt` (ISO), reached by its link and never
    * listed among the exams — BACKEND_PROMOTIONAL.md.

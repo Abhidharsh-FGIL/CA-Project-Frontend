@@ -57,10 +57,10 @@ import { useAdminPassMarks } from '@/hooks/use-pass-marks';
 import { format } from 'date-fns';
 import { api } from '@/lib/api';
 import { TnpscTagFields } from '@/components/evaluation/TnpscTagFields';
-import { NTPC_LANGUAGE_LABEL, isNtpcGroup, isNtpcLanguage, languageOfNtpcCode, questionNtpcLanguage, selectedNtpcLanguages, type NtpcLanguage } from '@/lib/ntpc-level';
+import { NTPC_LANGUAGE_LABEL, isLanguageExam, isNtpcLanguage, languageOfNtpcCode, questionNtpcLanguage, selectedNtpcLanguages, type NtpcLanguage } from '@/lib/ntpc-level';
 import { UnitPoolDiagnosis, UnitPoolPicker } from '@/components/evaluation/UnitPoolPicker';
 import { UnitMappingDialog } from '@/components/evaluation/UnitMappingDialog';
-import { EMPTY_TAG, describeTag, describeTagError, examTypeLabel, selectedLevels, suggestAssessmentTitle, tagAssessmentKeepingTopic, topicIdForUnit, validateTnpscTag, type TnpscTagValue } from '@/lib/tnpscAdminApi';
+import { EMPTY_TAG, describeTag, describeTagError, examTypeLabel, selectedLevels, suggestAssessmentTitle, tagAssessmentKeepingTopic, topicIdForUnit, validateTnpscTag, wireLanguage, type TnpscTagValue } from '@/lib/tnpscAdminApi';
 import {
   MIN_UNIT_PAPER_QUESTIONS,
   isOfferableUnitPaper,
@@ -76,6 +76,7 @@ import {
 } from '@/config/tnpsc';
 import { findStage } from '@/config/tnpsc';
 import {
+  inLanguageSubjectUnit,
   inSelectedUnits,
   questionInUnit,
   subjectWeightsFromUnits,
@@ -194,6 +195,9 @@ function difficultyOf(questions: Array<{ difficulty?: string | null }>, fallback
   return 'mixed';
 }
 
+/** The deductions the panel offers for a wrong answer. */
+const DEDUCTION_CHOICES = [0.25, 0.5, 0.75, 1, 1.5, 2];
+
 export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promotional = false }: Props) {
   const { profileContext } = useWorkspaceContext();
   const createAssessment = useCreateEvalAssessment();
@@ -256,6 +260,13 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
   useEffect(() => {
     if (!perSectionAvailable) {
       setNegativeScope('paper');
+      // A pattern that marks every section alike (SSC CHSL: 0.5 in Tier I, 1 in Tier II) names the deduction: start the
+      // paper on it, so the value sent is the exam's own and not the 0.25 the box starts at.
+      const fixed = examPattern?.negative_marking ? examPattern.negative_mark_value : undefined;
+      if (fixed != null && DEDUCTION_CHOICES.includes(fixed)) {
+        setNegativeMarkDeduction(fixed);
+        setNegativeMarkWrongs(1);
+      }
       return;
     }
     setSectionNegatives(prev => {
@@ -359,7 +370,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
   const applyUnits = (ids: string[]) => {
     setSelectedUnitIds(ids);
     // Weights follow the published split by default — Units IV and V open at 15 : 20.
-    setSubjectWeights(unitWeightsFromSyllabus(stageUnitList.filter(x => ids.includes(x.unit.id)).map(x => x.unit)));
+    setSubjectWeights(unitWeightsFromSyllabus(stageUnitList.filter(x => ids.includes(x.unit.id)).map(x => x.unit), tnpscStage));
     setSelectedChapters([]);
   };
   const toggleUnit = (id: string) =>
@@ -397,6 +408,10 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
     setQuestionCount(p.total_questions);
     setTimeLimitMinutes(p.duration_minutes);
     setNegativeMarking(p.negative_marking);
+    if (p.negative_marking && !hasPerSectionNegative(p) && p.negative_mark_value != null && DEDUCTION_CHOICES.includes(p.negative_mark_value)) {
+      setNegativeMarkDeduction(p.negative_mark_value);
+      setNegativeMarkWrongs(1);
+    }
     toast.success(`Applied ${tnpscStage!.short_name} pattern — ${p.total_questions} questions, ${p.duration_minutes} min.`);
   };
 
@@ -464,6 +479,11 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
     return (rawBankQuestions as any[])
       .filter(q => {
         if (!only) return true;
+        // SSC CHSL's English Language section is English in every language's paper.
+        if (inLanguageSubjectUnit(tnpscStage, q)) {
+          const lang = questionNtpcLanguage(q);
+          return !lang || lang === 'english';
+        }
         // The server lists every language a question is available in; one that carries this language is eligible.
         const offered: unknown[] = Array.isArray(q?.languages) ? q.languages : [];
         if (offered.some(l => typeof l === 'string' && languageOfNtpcCode(l) === only)) return true;
@@ -476,9 +496,9 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
       });
   };
   const bankQuestions = useMemo(
-    () => bankFor(isNtpcGroup(tnpscTag.group_id) && isNtpcLanguage(tnpscTag.ntpc_language) ? tnpscTag.ntpc_language : null),
+    () => bankFor(isLanguageExam(tnpscTag.group_id) && isNtpcLanguage(tnpscTag.ntpc_language) ? tnpscTag.ntpc_language : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rawBankQuestions, papers, tnpscTag.group_id, tnpscTag.ntpc_language],
+    [rawBankQuestions, papers, tnpscTag.group_id, tnpscTag.ntpc_language, tnpscStage],
   );
 
   /** What the bank can supply to each unit, shown beside the unit's published count. */
@@ -709,7 +729,7 @@ export function EvalAssessmentConfigPanel({ onCreated, onBack, initialTag, promo
    */
   const poolBreakdown = useMemo(() => {
     if (!unitMode || bankLoading || bankError || selectedUnits.length === 0) return null;
-    const lang = isNtpcGroup(tnpscTag.group_id) && isNtpcLanguage(tnpscTag.ntpc_language) ? tnpscTag.ntpc_language : null;
+    const lang = isLanguageExam(tnpscTag.group_id) && isNtpcLanguage(tnpscTag.ntpc_language) ? tnpscTag.ntpc_language : null;
     return {
       loaded: (rawBankQuestions as any[]).length,
       inLanguage: (bankQuestions as any[]).length,
@@ -1041,7 +1061,7 @@ Create it anyway?`);
       shuffle: shuffleQuestions,
       composed: wantsBlend,
       stageId: tnpscTag.stage_id,
-      language: isNtpcGroup(tnpscTag.group_id) && isNtpcLanguage(tnpscTag.ntpc_language) ? tnpscTag.ntpc_language : null,
+      language: isLanguageExam(tnpscTag.group_id) && isNtpcLanguage(tnpscTag.ntpc_language) ? tnpscTag.ntpc_language : null,
       unitIds: unitMode ? selectedUnits.map(u => u.id) : undefined,
       paperIds,
       difficulty: wantedDifficulty,
@@ -1050,6 +1070,7 @@ Create it anyway?`);
       // The subjects and topics the paper holds — how a question added by hand, which has no unit,
       // finds the paper its neighbours are in.
       questions: chosen,
+      narrowedByChapter: selectedChapters.length > 0,
     });
 
     // A promotional test is placed nowhere: the placement above only chose its questions. Left unplaced, it cannot
@@ -1077,7 +1098,8 @@ Create it anyway?`);
       // A key topic is saved as a unit paper that names its topic (see `TnpscScope`).
       tnpscScope: place ? (tnpscTag.scope === 'topic' ? 'unit' : tnpscTag.scope) ?? undefined : undefined,
       tnpscSectionName: place && tnpscTag.scope === 'section' ? tnpscTag.section_name ?? undefined : undefined,
-      tnpscLanguage: place && tnpscTag.track === 'mock' ? tnpscTag.language ?? undefined : undefined,
+      // Sent as the server's own field: a mock's language (Group 4) or an RRB NTPC / SSC CHSL paper's chosen one.
+      tnpscLanguage: place ? wireLanguage(tnpscTag) ?? undefined : undefined,
       paperId: source === 'paper' && paperIds.length === 1 ? paperIds[0] : undefined,
       paperIds: source === 'paper' && paperIds.length > 1 ? paperIds : undefined,
       paperWeights: source === 'paper' && paperIds.length > 1 ? paperWeights : undefined,
@@ -1167,7 +1189,7 @@ Create it anyway?`);
   const [creating, setCreating] = useState(false);
   /** The placements Create will make a paper for: each ticked NTPC language × each ticked difficulty button. */
   const variantTags = (): TnpscTagValue[] => {
-    const langs = isNtpcGroup(tnpscTag.group_id) ? selectedNtpcLanguages(tnpscTag) : [];
+    const langs = isLanguageExam(tnpscTag.group_id) ? selectedNtpcLanguages(tnpscTag) : [];
     const inUnitFlow = tnpscTag.track === 'practice' && (tnpscTag.scope === 'unit' || tnpscTag.scope === 'topic');
     const levels = inUnitFlow ? selectedLevels(tnpscTag) : [tnpscTag.level ?? null];
     const tags: TnpscTagValue[] = [];
@@ -1205,7 +1227,7 @@ Create it anyway?`);
       // The language and difficulty are part of the title (it is how the portal knows whom to show the paper to), so each
       // paper takes the title its own placement suggests.
       const name = suggestAssessmentTitle(tag) || title;
-      const lang = isNtpcGroup(tag.group_id) && isNtpcLanguage(tag.ntpc_language) ? tag.ntpc_language : null;
+      const lang = isLanguageExam(tag.group_id) && isNtpcLanguage(tag.ntpc_language) ? tag.ntpc_language : null;
       const wanted = anyDifficulty ? null : poolDifficulty(tag, difficulty);
       const pool = matchingOf(subjectPoolOf(bankFor(lang)), wanted);
       const count = Math.min(questionCount, pool.length);
@@ -1670,6 +1692,7 @@ Create it anyway?`);
                           items={groups.map(g => ({ key: g.key, label: g.label }))}
                           weights={subjectWeights}
                           onChange={setSubjectWeights}
+                          autoWeights={unitMode ? () => unitWeightsFromSyllabus(selectedUnits, tnpscStage) : undefined}
                         />
                         {shortGroups.length > 0 && (
                           <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/70 p-2.5 text-[11px] leading-relaxed text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
@@ -1689,7 +1712,7 @@ Create it anyway?`);
                         {unitMode && (
                           <button
                             type="button"
-                            onClick={() => setSubjectWeights(unitWeightsFromSyllabus(selectedUnits))}
+                            onClick={() => setSubjectWeights(unitWeightsFromSyllabus(selectedUnits, tnpscStage))}
                             className="mt-2 text-xs text-blue-600 hover:underline dark:text-blue-400"
                           >
                             Reset to the published split
@@ -1994,7 +2017,7 @@ Create it anyway?`);
                       >
                         <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {[0.25, 0.5, 0.75, 1, 1.5, 2].map(d => (
+                          {DEDUCTION_CHOICES.map(d => (
                             <SelectItem key={d} value={String(d)}>
                               {d} mark{d === 1 ? '' : 's'}
                             </SelectItem>

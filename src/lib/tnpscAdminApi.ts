@@ -13,7 +13,7 @@ import { fromWireRow, toWireGroup, toWireStage, toWireSubject, toWireUnit } from
  *   POST  /api/v1/admin/tnpsc/bulk-tag
  *   GET   /api/v1/admin/tnpsc/coverage?stage_id=
  */
-import { NTPC_LANGUAGE_LABEL, NTPC_LEVEL_LABEL, isNtpcGroup, ntpcLevelOf, paperNtpcLanguage, type NtpcLanguage, type NtpcLevel } from '@/lib/ntpc-level';
+import { NTPC_LANGUAGE_LABEL, NTPC_LEVEL_LABEL, isLanguageExam, isNtpcGroup, isNtpcLanguage, ntpcLevelOf, paperNtpcLanguage, type NtpcLanguage, type NtpcLevel } from '@/lib/ntpc-level';
 import { api } from './api';
 import { parsePassMarkSettings, type ExamPassMarks, type PassMarkSettings, type PassMarkTable } from '@/config/pass-marks';
 import {
@@ -120,6 +120,9 @@ export type TnpscScope = 'unit' | 'section' | 'topic';
 
 export type TnpscExamLanguage = 'tamil' | 'english';
 
+/** What goes on the wire as a paper's language: Group 4's two, and the three an RRB NTPC or SSC CHSL paper can be in. */
+export type TnpscWireLanguage = TnpscExamLanguage | NtpcLanguage;
+
 export const EMPTY_TAG: TnpscTagValue = {
   group_id: null,
   stage_id: null,
@@ -145,7 +148,7 @@ interface TnpscTagPayload {
   topic_id: string | null;
   scope: TnpscScope | null;
   section_name: string | null;
-  language: TnpscExamLanguage | null;
+  language: TnpscWireLanguage | null;
 }
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -208,8 +211,19 @@ function toPayload(tag: TnpscTagValue): TnpscTagPayload {
     // A key-topic paper is saved as a unit paper that names its topic.
     scope: tag.track === 'practice' ? (tag.scope === 'topic' ? 'unit' : tag.scope) : null,
     section_name: tag.track === 'practice' && tag.scope === 'section' ? tag.section_name : null,
-    language: tag.track === 'mock' ? tag.language : null,
+    language: wireLanguage(tag),
   };
+}
+
+/**
+ * The paper's language as the server reads it (`tnpsc_language` on create, `language` on the placement): an RRB NTPC or SSC CHSL
+ * paper's chosen language — `tamil`, `english` or `hindi`; null for "both", which names none — and, for every other exam, a
+ * full mock's language where the exam has a choice (Group 4). The form's own `ntpc_language` field is never sent.
+ */
+export function wireLanguage(tag: Pick<TnpscTagValue, 'group_id' | 'stage_id' | 'track' | 'language' | 'ntpc_language'>): TnpscWireLanguage | null {
+  const group = tag.group_id ?? groupOfStage(tag.stage_id);
+  if (isLanguageExam(group) && isNtpcLanguage(tag.ntpc_language)) return tag.ntpc_language;
+  return tag.track === 'mock' ? tag.language : null;
 }
 
 // ─── Read tags off an API row ──────────────────────────────────────────────────
@@ -240,7 +254,7 @@ export function readTnpscTag(raw: any): TnpscTagValue {
   const group_id = row.tnpsc_group_id ?? row.group_id ?? groupOfStage(stage_id);
   // An NTPC paper with no level in it is one for both.
   const ntpc_level = isNtpcGroup(group_id) ? (ntpcLevelOf(row.ntpc_level) ?? ntpcLevelOf(row.title) ?? 'both') : null;
-  const ntpc_language = isNtpcGroup(group_id) ? (paperNtpcLanguage(row) ?? 'both') : null;
+  const ntpc_language = isLanguageExam(group_id) ? (paperNtpcLanguage(row) ?? 'both') : null;
   return {
     group_id,
     stage_id,
@@ -347,12 +361,12 @@ export function suggestAssessmentTitle(tag: TnpscTagValue): string | null {
    */
   // RRB NTPC titles name the test ("RRB NTPC CBT-1"), not the portal's exam ("RRB NTPC CBT-1 (UG)"): the level goes in
   // the brackets below, which is where the portal reads it back from (`ntpcLevelOf`).
-  const name = isNtpcGroup(group.id) ? (group.exam_type ?? group.name) : group.name;
+  const name = isLanguageExam(group.id) ? (group.exam_type ?? group.name) : group.name;
   const base = group.stages.length > 1 ? `${name} ${stage.short_name}` : name;
   // An RRB NTPC paper made for one level names it, which is how the portal knows whom to show it to.
-  const who = isNtpcGroup(group.id)
+  const who = isLanguageExam(group.id)
     ? [
-        tag.ntpc_level && tag.ntpc_level !== 'both' ? NTPC_LEVEL_LABEL[tag.ntpc_level] : null,
+        isNtpcGroup(group.id) && tag.ntpc_level && tag.ntpc_level !== 'both' ? NTPC_LEVEL_LABEL[tag.ntpc_level] : null,
         tag.ntpc_language && tag.ntpc_language !== 'both' ? NTPC_LANGUAGE_LABEL[tag.ntpc_language] : null,
       ].filter(Boolean)
     : [];
@@ -441,10 +455,9 @@ export function validateTnpscTag(tag: TnpscTagValue, questionCount?: number): Ta
     if (!tag.language) errors.push('Choose the language this exam is sat in.');
   }
 
-  if (isNtpcGroup(tag.group_id ?? groupOfStage(tag.stage_id))) {
-    if (!tag.ntpc_level) errors.push('Choose whether this paper is for Graduate or Under-Graduate aspirants, or for both.');
-    if (!tag.ntpc_language) errors.push('Choose the language of this paper — or Both languages.');
-  }
+  const taggedGroup = tag.group_id ?? groupOfStage(tag.stage_id);
+  if (isNtpcGroup(taggedGroup) && !tag.ntpc_level) errors.push('Choose whether this paper is for Graduate or Under-Graduate aspirants, or for both.');
+  if (isLanguageExam(taggedGroup) && !tag.ntpc_language) errors.push('Choose the language of this paper — or Both languages.');
 
   if (tag.track === 'practice') {
     if (!tag.scope) errors.push('Choose whether this covers one unit, one key topic or a whole section.');

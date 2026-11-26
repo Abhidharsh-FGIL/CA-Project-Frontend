@@ -22,6 +22,22 @@ export const NTPC_LEVEL_LABEL: Record<NtpcLevel, string> = {
 /** The levels of the exam the portal prepares for: both RRB NTPC tests. */
 export const isNtpcGroup = (groupId?: string | null) => !!groupId && groupId.startsWith('rrb-ntpc-');
 
+/** Both SSC CHSL tests. */
+export const isSscChslGroup = (groupId?: string | null) => !!groupId && groupId.startsWith('ssc-chsl-');
+
+/**
+ * The exams whose papers come in several languages (Tamil, English, Hindi) and are chosen by language: RRB NTPC and SSC CHSL.
+ * Everything here that is about language — the aspirant's choice, the paper's title, the bank filtered by script — is for
+ * these. The level (Graduate / Under-Graduate) is RRB NTPC's alone, so level code keeps using `isNtpcGroup`.
+ */
+export const isLanguageExam = (groupId?: string | null) => isNtpcGroup(groupId) || isSscChslGroup(groupId);
+
+/** An exam that has languages but no levels: the aspirant is asked their language only. */
+export const hasNoLevel = (groupId?: string | null) => isSscChslGroup(groupId);
+
+/** Whether a paper's title is that of a multi-language exam's ("RRB NTPC CBT-1 (Hindi) — …", "SSC CHSL Tier-1 (Tamil) — …"). */
+export const isLanguageExamTitle = (title?: string | null) => /^(?:RRB NTPC|SSC CHSL)/i.test((title ?? '').trim());
+
 /**
  * CBT-1 is offered as two exams, one per level: `rrb-ntpc-cbt-1` is the Under-Graduate one (the exam everyone had,
  * so saved choices and links keep working) and `rrb-ntpc-cbt-1-grad` the Graduate one. The exam says the level, so
@@ -220,7 +236,7 @@ function subscribe(cb: () => void) {
 export function useNtpcPrefs(
   userId?: string | null,
   groupId?: string | null,
-): NtpcPrefs & { ready: boolean; fixedLevel: NtpcLevel | null; save: (next: NtpcPrefs) => void } {
+): NtpcPrefs & { ready: boolean; fixedLevel: NtpcLevel | null; levelless: boolean; save: (next: NtpcPrefs) => void } {
   lastUserId = userId;
   const prefs = useSyncExternalStore(
     subscribe,
@@ -228,13 +244,15 @@ export function useNtpcPrefs(
     () => NONE,
   );
   const fixedLevel = ntpcFixedLevel(groupId);
+  // SSC CHSL has no levels: only the language is asked and kept, and the level the aspirant chose for RRB NTPC is left alone.
+  const levelless = hasNoLevel(groupId);
   const save = useCallback(
     (next: NtpcPrefs) =>
-      writeRaw(userId, JSON.stringify(fixedLevel ? { level: current(userId).level, language: next.language } : next)),
-    [userId, fixedLevel],
+      writeRaw(userId, JSON.stringify(fixedLevel || levelless ? { level: current(userId).level, language: next.language } : next)),
+    [userId, fixedLevel, levelless],
   );
-  const level = fixedLevel ?? prefs.level;
-  return { level, language: prefs.language, ready: !!level && !!prefs.language, fixedLevel, save };
+  const level = levelless ? null : (fixedLevel ?? prefs.level);
+  return { level, language: prefs.language, ready: (!!level || levelless) && !!prefs.language, fixedLevel, levelless, save };
 }
 
 /**
@@ -273,7 +291,7 @@ const TRANSLATION_CODE: Record<NtpcLanguage, string> = { tamil: 'ta', english: '
  */
 export function questionsForPaperLanguage<T extends { translations?: unknown }>(questions: T[], title?: string | null, paperCode?: string | null): T[] {
   // Only RRB NTPC papers: another exam's title may name a language that is a subject ("General Tamil"), not the paper's.
-  if (!/^RRB NTPC/i.test((title ?? '').trim())) return questions;
+  if (!isLanguageExamTitle(title)) return questions;
   const language = languageOfCode(paperCode) ?? ntpcLanguageOfTitle(title);
   if (!language || language === 'english') return questions;
   const code = TRANSLATION_CODE[language];
@@ -302,7 +320,7 @@ export function activeNtpcLanguage(): NtpcLanguage | null {
  * Hindi. "both" for any other paper, as before. The reader can still switch.
  */
 export function defaultQuestionLanguage(title?: string | null, paperCode?: string | null): 'both' | 'primary' | 'translation' {
-  if (!/^RRB NTPC/i.test((title ?? '').trim())) return 'both';
+  if (!isLanguageExamTitle(title)) return 'both';
   const language = languageOfCode(paperCode) ?? ntpcLanguageOfTitle(title);
   return !language ? 'both' : language === 'english' ? 'primary' : 'translation';
 }

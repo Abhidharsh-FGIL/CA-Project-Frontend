@@ -18,7 +18,7 @@ import { inRange, isoDay, rangeLabel, type DateRange } from '@/components/user/D
 import { OPEN_EXAM_IDS } from '@/lib/exam-listing';
 
 export type TrackKey = 'all' | 'mock' | 'practice';
-export type GroupKey = 'all' | 'group-1' | 'group-2' | 'group-4' | 'gat-b' | 'rrb-ntpc-cbt-1' | 'rrb-ntpc-cbt-1-grad' | 'rrb-ntpc-cbt-2';
+export type GroupKey = 'all' | 'group-1' | 'group-2' | 'group-4' | 'gat-b' | 'rrb-ntpc-cbt-1' | 'rrb-ntpc-cbt-1-grad' | 'rrb-ntpc-cbt-2' | 'ssc-chsl-tier-1' | 'ssc-chsl-tier-2';
 
 /**
  * The same two dimensions with the "all" escape hatch removed.
@@ -40,6 +40,8 @@ export const GROUP_STAGE: Record<ExamGroupKey, string> = {
   'rrb-ntpc-cbt-1': 'rrb-ntpc-cbt-1-exam',
   'rrb-ntpc-cbt-1-grad': 'rrb-ntpc-cbt-1-grad-exam',
   'rrb-ntpc-cbt-2': 'rrb-ntpc-cbt-2-exam',
+  'ssc-chsl-tier-1': 'ssc-chsl-tier-1-exam',
+  'ssc-chsl-tier-2': 'ssc-chsl-tier-2-exam',
 };
 
 /**
@@ -74,6 +76,8 @@ const EXAM_GROUPS: FilterOption<ExamGroupKey>[] = [
   { value: 'rrb-ntpc-cbt-1', label: 'RRB NTPC CBT-1 (UG)', hint: 'First stage · Under-Graduate' },
   { value: 'rrb-ntpc-cbt-1-grad', label: 'RRB NTPC CBT-1 (Graduate)', hint: 'First stage · Graduate' },
   { value: 'rrb-ntpc-cbt-2', label: 'RRB NTPC CBT-2', hint: 'Second stage' },
+  { value: 'ssc-chsl-tier-1', label: 'SSC CHSL Tier-1', hint: 'Screening' },
+  { value: 'ssc-chsl-tier-2', label: 'SSC CHSL Tier-2', hint: 'Main' },
 ];
 
 /**

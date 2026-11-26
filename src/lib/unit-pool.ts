@@ -36,6 +36,7 @@ import {
   type TnpscSyllabusUnit,
 } from '@/config/tnpsc';
 import { G4_SUBJECT_ALIASES, G4_UNIT_HINTS, splitTag } from '@/config/g4-tag-aliases';
+import { chslExcluded, chslUnitKeys } from '@/config/chsl-bank-bridge';
 import { parseCollectionTitle, unitFromCollectionTitle } from '@/lib/collection-unit';
 
 /** Compare topic names the way a reader would: case, punctuation and "&" are noise. */
@@ -324,7 +325,36 @@ function collectionTitleOf(q: any): string | null {
   return typeof t === 'string' && t.trim() ? t : null;
 }
 
-type Via = 'unit_id' | 'tags' | 'collection';
+type Via = 'unit_id' | 'tags' | 'bridge' | 'collection';
+
+const isChslStage = (stage: TnpscStage): boolean => /^ssc-chsl-tier-[12]-exam$/.test(stage.id);
+
+/**
+ * Whether a bank question sits in a unit whose language is the subject itself — SSC CHSL's English Language section. A
+ * CHSL paper is made per language (Tamil, Hindi, English), but its English section is English whatever the paper's
+ * language, so those questions are drawn in English and not dropped by the paper's language.
+ */
+export function inLanguageSubjectUnit(stage: TnpscStage | undefined, q: any): boolean {
+  if (!stage || !q || !isChslStage(stage)) return false;
+  return unitIdsOf(stage, q).some(id => /^c[12]-english-language-/.test(id));
+}
+
+/**
+ * The CHSL units an NTPC or TNPSC bank question stands for (`config/chsl-bank-bridge.ts`). Nothing for any other exam.
+ * Which language's questions a paper draws is decided by the paper's language, not here.
+ */
+function unitsFromBridge(stage: TnpscStage, c: Compiled, q: any, explicit: string | null): CompiledUnit[] {
+  if (!isChslStage(stage)) return [];
+  const prefix = stage.id.includes('tier-2') ? 'c2-' : 'c1-';
+  const keys = chslUnitKeys({
+    subject: q?.subject,
+    chapter: q?.chapter,
+    topic: q?.topic,
+    subtopic: q?.subtopic,
+    unitId: explicit,
+  });
+  return keys.map(k => c.byId.get(prefix + k)).filter((cu): cu is CompiledUnit => !!cu);
+}
 
 /** Where a question lands, and which route put it there. */
 function placeQuestion(stage: TnpscStage, c: Compiled, q: any): { units: CompiledUnit[]; via: Via | null } {
@@ -333,11 +363,38 @@ function placeQuestion(stage: TnpscStage, c: Compiled, q: any): { units: Compile
     // A question filed under another exam's copy of a shared unit still belongs to this exam's copy.
     const cu = c.byId.get(explicit) ?? c.byFamily.get(unitFamily(explicit));
     if (cu) return { units: [cu], via: 'unit_id' };
+    // SSC CHSL borrows RRB NTPC's and TNPSC's questions, which name those exams' units; their tags can still place them.
+    if (!isChslStage(stage)) return { units: [], via: null };
+  }
+
+  /*
+   * The server's own answer for a borrowed question: `chsl_unit_ids`, both tiers' ids, tagged by the same rules as
+   * `config/chsl-bank-bridge.ts`. A list is the question's CHSL units (this tier's are taken); null means the mapping gave it
+   * none, so it is not guessed at here. A server that does not send the field yet leaves the portal's rules to decide.
+   */
+  if (isChslStage(stage) && q && 'chsl_unit_ids' in q) {
+    const ids = q.chsl_unit_ids;
+    if (Array.isArray(ids)) {
+      const mine = ids
+        .filter((id: unknown): id is string => typeof id === 'string')
+        .map(id => c.byId.get(id.trim()))
+        .filter((cu): cu is CompiledUnit => !!cu);
+      return mine.length > 0 ? { units: mine, via: 'unit_id' } : { units: [], via: null };
+    }
+    // A CHSL question of the other tier ("c2-…" in a Tier I paper) is also null here; its own id places it below.
+    if (ids === null && !/^c[12]-/.test(explicit ?? '')) return { units: [], via: null };
+  }
+
+  // Content CHSL leaves out (Tamil Nadu, translation, set texts) stays out even when a CHSL name ("Current Affairs") matches.
+  if (isChslStage(stage) && chslExcluded({ subject: q?.subject, chapter: q?.chapter, topic: q?.topic, subtopic: q?.subtopic })) {
     return { units: [], via: null };
   }
 
   const tagged = unitsFromTags(stage, c, q);
   if (tagged.length > 0) return { units: tagged, via: 'tags' };
+
+  const bridged = unitsFromBridge(stage, c, q, explicit);
+  if (bridged.length > 0) return { units: bridged, via: 'bridge' };
 
   const id = unitFromCollectionTitle(stage, collectionTitleOf(q));
   const cu = id ? c.byId.get(id) : undefined;
@@ -480,21 +537,34 @@ export function subjectIdForQuestion(
         /** The question itself — a shared name like "Technical Terms" is settled by its language. */
         text?: string | null;
         body?: string | null;
+        unit_id?: string | null;
+        tnpsc_unit_id?: string | null;
+        /** SSC CHSL: the server's CHSL units for a borrowed NTPC / TNPSC question. */
+        chsl_unit_ids?: string[] | null;
       }
     | null
     | undefined,
 ): string | undefined {
   if (!stage || !q) return undefined;
+  const chsl = isChslStage(stage);
   const direct = resolveSubjectId(stage, q.subject);
-  if (direct) return direct;
-  const units = unitIdsOf(stage, {
-    subject: q.subject,
-    chapter: q.chapter ?? q.topic,
-    subtopic: q.subtopic,
-    text: q.text ?? q.body,
-  });
-  if (units.length !== 1) return undefined;
-  return subjectForUnit(stage, stageUnits(stage).find(x => x.unit.id === units[0])?.unit);
+  // A CHSL paper borrows NTPC and TNPSC questions and draws them by unit, so the unit — not a Subject like "Mathematics"
+  // or "General Intelligence & Reasoning" that only partly says it — decides which section a question is sat in.
+  if (direct && !chsl) return direct;
+
+  const tags: Record<string, unknown> = { subject: q.subject, chapter: q.chapter ?? q.topic, subtopic: q.subtopic, text: q.text ?? q.body };
+  if (chsl && 'chsl_unit_ids' in q) tags.chsl_unit_ids = (q as { chsl_unit_ids?: unknown }).chsl_unit_ids;
+  const unitId = chsl ? (q.unit_id ?? q.tnpsc_unit_id ?? null) : null;
+  const units = (unitId && unitIdsOf(stage, { ...tags, unit_id: unitId }).length > 0)
+    ? unitIdsOf(stage, { ...tags, unit_id: unitId })
+    : unitIdsOf(stage, tags);
+  const all = stageUnits(stage);
+  const subjects = [...new Set(units.map(id => subjectForUnit(stage, all.find(x => x.unit.id === id)?.unit)).filter(Boolean))] as string[];
+  // A question in several units of one subject ("Writing skills" is Grammar, Sentence Transformation and Comprehension)
+  // is still in that subject. Across subjects, a CHSL question takes its first unit's; elsewhere it is not guessed at.
+  if (subjects.length === 1) return subjects[0];
+  if (chsl && subjects.length > 1) return subjects[0];
+  return direct;
 }
 
 /** Whether a bank question belongs to the unit. */
@@ -583,15 +653,36 @@ export function unitBankCounts(stage: TnpscStage | undefined, questions: any[]):
  * decimals summing to exactly 100 (what `validateWeightage` accepts); falls back to
  * an even split if a published count would round below the 1% minimum.
  */
-export function unitWeightsFromSyllabus(units: TnpscSyllabusUnit[]): Record<string, number> {
+export function unitWeightsFromSyllabus(units: TnpscSyllabusUnit[], stage?: TnpscStage): Record<string, number> {
   if (units.length === 0) return {};
   if (units.length === 1) return { [units[0].id]: 100 };
 
-  const total = units.reduce((s, u) => s + Math.max(0, u.questions), 0);
+  let shares = units.map(u => Math.max(0, Number(u.questions) || 0));
+  if (shares.every(s => s === 0)) {
+    /*
+     * No unit-wise counts (SSC CHSL publishes none), but the sections have question counts: each section's share of the
+     * paper is split evenly between its chosen units. Tier I's four sections of 25 open at 25% each, so English's five
+     * units are 5% apiece and not the 3.85% an even split over all 26 units would give.
+     */
+    const sectionOf = new Map(stage ? stageUnits(stage).map(x => [x.unit.id, x.sectionName]) : []);
+    const sectionQs = new Map((stage?.pattern?.sections ?? []).map(s => [s.name, s.questions]));
+    const perSection = new Map<string, number>();
+    for (const u of units) {
+      const s = sectionOf.get(u.id);
+      if (s) perSection.set(s, (perSection.get(s) ?? 0) + 1);
+    }
+    if (units.every(u => (sectionQs.get(sectionOf.get(u.id) ?? '') ?? 0) > 0)) {
+      shares = units.map(u => {
+        const s = sectionOf.get(u.id)!;
+        return sectionQs.get(s)! / perSection.get(s)!;
+      });
+    }
+  }
+  const total = shares.reduce((s, x) => s + x, 0);
   if (total <= 0) return evenSplit(units);
 
   // Work in hundredths of a percent so the remainder can be handed out exactly.
-  const raw = units.map(u => ({ id: u.id, exact: (Math.max(0, u.questions) / total) * 10000 }));
+  const raw = units.map((u, i) => ({ id: u.id, exact: (shares[i] / total) * 10000 }));
   const floors = raw.map(r => ({ ...r, cents: Math.floor(r.exact), rem: r.exact - Math.floor(r.exact) }));
   let spare = 10000 - floors.reduce((s, r) => s + r.cents, 0);
   [...floors].sort((a, b) => b.rem - a.rem).forEach(r => {

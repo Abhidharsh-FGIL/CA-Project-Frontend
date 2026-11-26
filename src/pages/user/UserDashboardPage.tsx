@@ -46,7 +46,7 @@ import { stageForTitle } from '@/config/tnpsc';
 import { useTnpscCatalog, useTnpscMockTests, useTnpscPracticeTests } from '@/hooks/use-tnpsc';
 import { useExamLanguage } from '@/hooks/use-exam-language';
 import { papersFor } from '@/lib/exam-language';
-import { isNtpcGroup, paperIsForNtpc, useNtpcPrefs } from '@/lib/ntpc-level';
+import { isLanguageExam, paperIsForNtpc, useNtpcPrefs } from '@/lib/ntpc-level';
 import { examLanguageOf } from '@/lib/exam-language';
 import { NtpcLevelChip, NtpcLevelDialog } from '@/components/user/NtpcLevelDialog';
 import { FilterSelect } from '@/components/user/FilterSelect';
@@ -102,8 +102,8 @@ export default function UserDashboardPage() {
   useAiCoachAutoOpen(group, GROUP_STAGE[group], () => setCoachOpen(true));
   const firstName = user?.name?.split(' ')[0];
   // RRB NTPC is sat at two levels; the papers counted and offered here are the chosen level's.
-  const { level: chosenLevel, language: chosenLanguage, fixedLevel: ntpcFixedLevel, save: saveNtpc } = useNtpcPrefs(user?.user_id, group);
-  const isNtpc = isNtpcGroup(group);
+  const { level: chosenLevel, language: chosenLanguage, fixedLevel: ntpcFixedLevel, levelless, save: saveNtpc } = useNtpcPrefs(user?.user_id, group);
+  const isNtpc = isLanguageExam(group);
   const ntpcPrefs = useMemo(() => (isNtpc ? { level: chosenLevel, language: chosenLanguage } : null), [isNtpc, chosenLevel, chosenLanguage]);
   const [askingLevel, setAskingLevel] = useState(false);
 
@@ -367,10 +367,10 @@ export default function UserDashboardPage() {
         {/* These two scope every card below, so they lead the page rather than
             sitting inside one card as that card's own filter. */}
         <div className="flex items-center gap-2 flex-wrap">
-          {isNtpcGroup(group) && (
+          {isLanguageExam(group) && (
             <>
-              <NtpcLevelChip prefs={{ level: chosenLevel, language: chosenLanguage }} fixedLevel={ntpcFixedLevel} onChange={() => setAskingLevel(true)} />
-              <NtpcLevelDialog open={askingLevel} onOpenChange={setAskingLevel} value={{ level: chosenLevel, language: chosenLanguage }} fallbackLanguage={examLanguageOf(user?.medium)} onSave={p => { saveNtpc(p); setAskingLevel(false); }} fixedLevel={ntpcFixedLevel} />
+              <NtpcLevelChip prefs={{ level: chosenLevel, language: chosenLanguage }} fixedLevel={ntpcFixedLevel} levelless={levelless} onChange={() => setAskingLevel(true)} />
+              <NtpcLevelDialog open={askingLevel} onOpenChange={setAskingLevel} value={{ level: chosenLevel, language: chosenLanguage }} fallbackLanguage={examLanguageOf(user?.medium)} onSave={p => { saveNtpc(p); setAskingLevel(false); }} fixedLevel={ntpcFixedLevel} levelless={levelless} examName={examGroupLabel(group)} />
             </>
           )}
           <FilterSelect value={group} options={examOptions} upcoming={upcomingExams} onChange={chooseGroup} ariaLabel="Exam group" />

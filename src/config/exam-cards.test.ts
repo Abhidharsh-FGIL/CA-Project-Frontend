@@ -9,6 +9,7 @@ import {
   examEntries,
   legacyEntries,
   logoFileProblem,
+  openFirst,
   parseExamCards,
   slugify,
   toExamCardsBody,
@@ -55,17 +56,38 @@ describe('legacyEntries — the page before the admin saves anything', () => {
 });
 
 describe('examEntries', () => {
-  it('is the built-in page when there are no cards', () => {
-    expect(examEntries(TNPSC_GROUPS, OPEN_EXAM_IDS, undefined).map(entryId)).toEqual(legacyEntries(TNPSC_GROUPS, OPEN_EXAM_IDS).map(entryId));
-    expect(examEntries(TNPSC_GROUPS, OPEN_EXAM_IDS, []).map(entryId)).toEqual(legacyEntries(TNPSC_GROUPS, OPEN_EXAM_IDS).map(entryId));
+  it('is the built-in page, open exams first, when there are no cards', () => {
+    const expected = openFirst(legacyEntries(TNPSC_GROUPS, OPEN_EXAM_IDS)).map(entryId);
+    expect(examEntries(TNPSC_GROUPS, OPEN_EXAM_IDS, undefined).map(entryId)).toEqual(expected);
+    expect(examEntries(TNPSC_GROUPS, OPEN_EXAM_IDS, []).map(entryId)).toEqual(expected);
+  });
+
+  it('lists every open exam before any coming-soon or announced one, whatever the saved order says', () => {
+    // The saved order puts two coming-soon cards ahead of an exam that has since been opened (SSC CHSL Tier-1).
+    const open = new Set([...OPEN_EXAM_IDS, 'ssc-chsl-tier-1']);
+    const cards = [card({ id: 'ssc-gd-constable' }), card({ id: 'group-1' }), card({ id: 'ssc-chsl-tier-1' }), card({ id: 'group-4' })];
+    const entries = examEntries(TNPSC_GROUPS, open, cards);
+    const firstSoon = entries.findIndex(e => e.kind !== 'exam' || e.comingSoon);
+    expect(entries.slice(0, firstSoon).every(e => e.kind === 'exam' && !e.comingSoon)).toBe(true);
+    expect(entries.slice(firstSoon).every(e => e.kind !== 'exam' || e.comingSoon)).toBe(true);
+    expect(entries.map(entryId).slice(0, 2)).toEqual(['ssc-chsl-tier-1', 'group-4']);
+    expect(entries.map(entryId).indexOf('ssc-gd-constable')).toBeGreaterThan(entries.map(entryId).indexOf('group-2'));
+  });
+
+  it('keeps each side’s own order', () => {
+    const entries = examEntries(TNPSC_GROUPS, OPEN_EXAM_IDS, [card({ id: 'group-2' }), card({ id: 'group-4' })]);
+    expect(entries.map(entryId).slice(0, 2)).toEqual(['group-2', 'group-4']);
   });
 
   it('takes its order from the cards, and shows a card with no catalog exam as announced', () => {
     const cards = [card({ id: 'rrb-group-d' }), card({ id: 'group-2', name: 'Group 2' }), card({ id: 'group-4', name: 'Group 4' })];
     const entries = examEntries(TNPSC_GROUPS, OPEN_EXAM_IDS, cards);
-    expect(entries.slice(0, 3).map(entryId)).toEqual(['rrb-group-d', 'group-2', 'group-4']);
-    expect(entries[0].kind).toBe('announced');
-    expect(entries[1].kind).toBe('exam');
+    // Open exams come first, in the cards' order; the announced card follows them.
+    const ids = entries.map(entryId);
+    expect(ids.slice(0, 2)).toEqual(['group-2', 'group-4']);
+    expect(ids.indexOf('rrb-group-d')).toBeGreaterThan(ids.indexOf('group-4'));
+    expect(entries.find(e => entryId(e) === 'rrb-group-d')?.kind).toBe('announced');
+    expect(entries[0].kind).toBe('exam');
   });
 
   it('puts the admin’s wording over the catalog’s', () => {

@@ -20,6 +20,8 @@ export const BOARDS = [
   'GAT-B',
   'RRB NTPC CBT-1',
   'RRB NTPC CBT-2',
+  'SSC CHSL Tier-1',
+  'SSC CHSL Tier-2',
   'UPSC',
   'SSC',
   'IBPS',

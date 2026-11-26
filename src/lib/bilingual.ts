@@ -11,7 +11,7 @@
 import { TNPSC_GROUPS, stageUnits, unitTopics } from '@/config/tnpsc';
 import { displayTitle } from '@/lib/display-title';
 import { registerHindi } from '@/lib/hindi-names';
-import { activeNtpcLanguage, languageOfNtpcCode, ntpcLanguageOfTitle, type NtpcLanguage } from '@/lib/ntpc-level';
+import { activeNtpcLanguage, isLanguageExamTitle, languageOfNtpcCode, ntpcLanguageOfTitle, type NtpcLanguage } from '@/lib/ntpc-level';
 import { ntpcLabel } from '@/config/rrb-ntpc';
 
 export const BILINGUAL_SEPARATOR = ' / ';
@@ -472,7 +472,7 @@ export function bilingualTitle(title: string | null | undefined): string {
   // An RRB NTPC paper's names follow its own language, not Tamil: the title may already carry a Tamil pair
   // ("Current Events / நடப்பு நிகழ்வுகள்"), which a Hindi or English paper drops. The language is the one the paper
   // was taken in (the head of its title), else the aspirant's choice; Hindi names are the ones the Exams screen shows.
-  const ntpc = /^RRB NTPC/i.test(t) ? ntpcLanguageOfTitle(t) ?? activeNtpcLanguage() : null;
+  const ntpc = isLanguageExamTitle(t) ? ntpcLanguageOfTitle(t) ?? activeNtpcLanguage() : null;
   if (ntpc) {
     const at = t.indexOf(' — ');
     if (at < 0) return t;
@@ -542,7 +542,7 @@ let reportNtpcLanguage: NtpcLanguage | null = null;
 export function setReportNtpcLanguage(testTitle: string | null | undefined, paperLanguage?: string | null): void {
   const t = (testTitle ?? '').trim();
   // The paper's own language is the server's code where it sent one, else the title's.
-  reportNtpcLanguage = /^RRB NTPC/i.test(t) ? languageOfNtpcCode(paperLanguage) ?? ntpcLanguageOfTitle(t) ?? activeNtpcLanguage() : null;
+  reportNtpcLanguage = isLanguageExamTitle(t) ? languageOfNtpcCode(paperLanguage) ?? ntpcLanguageOfTitle(t) ?? activeNtpcLanguage() : null;
 }
 
 /**

@@ -28,7 +28,7 @@ import {
   type TnpscScope,
   type TnpscTagValue,
 } from '@/lib/tnpscAdminApi';
-import { NTPC_LANGUAGES, NTPC_LANGUAGE_LABEL, isNtpcGroup, ntpcFixedLevel, selectedNtpcLanguages, type NtpcLanguage } from '@/lib/ntpc-level';
+import { NTPC_LANGUAGES, NTPC_LANGUAGE_LABEL, isLanguageExam, isNtpcGroup, ntpcFixedLevel, selectedNtpcLanguages, type NtpcLanguage } from '@/lib/ntpc-level';
 import { FULL_PAPER_BLEND, blendTargets, describeBlend } from '@/lib/difficulty-blend';
 import { blendTotal, selectedLevels } from '@/lib/tnpscAdminApi';
 
@@ -114,8 +114,8 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, cate
       language: null,
       // CBT-1 UG and CBT-1 Graduate are each for one level: the exam sets it, and it is not asked below.
       ntpc_level: ntpcFixedLevel(groupId) ?? (isNtpcGroup(groupId) ? (value.ntpc_level ?? null) : null),
-      ntpc_language: isNtpcGroup(groupId) ? (value.ntpc_language ?? null) : null,
-      ntpc_languages: isNtpcGroup(groupId) ? (value.ntpc_languages ?? []) : [],
+      ntpc_language: isLanguageExam(groupId) ? (value.ntpc_language ?? null) : null,
+      ntpc_languages: isLanguageExam(groupId) ? (value.ntpc_languages ?? []) : [],
     });
   };
 
@@ -240,10 +240,10 @@ export function TnpscTagFields({ value, onChange, questionCount, hideTrack, cate
         </div>
       </div>
 
-      {/* ── 1b. RRB NTPC: which level is the paper for? ───────────────── */}
-      {isNtpcGroup(value.group_id) && (
+      {/* ── 1b. RRB NTPC and SSC CHSL: which language is the paper in — and, for RRB NTPC, which level? ───── */}
+      {isLanguageExam(value.group_id) && (
         <div className="space-y-1.5">
-          {!ntpcFixedLevel(value.group_id) && (
+          {isNtpcGroup(value.group_id) && !ntpcFixedLevel(value.group_id) && (
           <>
           <Label className="text-xs font-medium">
             Level <span className="text-red-500">*</span>

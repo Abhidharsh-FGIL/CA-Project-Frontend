@@ -80,7 +80,7 @@ import {
   type SubmitAttemptResponse,
 } from '@/lib/userPortalApi';
 import { toast } from 'sonner';
-import { defaultQuestionLanguage, questionsForPaperLanguage } from '@/lib/ntpc-level';
+import { defaultQuestionLanguage, isLanguageExamTitle, questionsForPaperLanguage } from '@/lib/ntpc-level';
 import { normaliseLineBreaks, normaliseOption, parseOptionRepr, stripInlineOptions } from '@/lib/question-text';
 import { useT } from '@/content/useText';
 import { Strong } from '@/content/strong';
@@ -286,7 +286,7 @@ function ActiveQuestionCard({
   const tr = translationOf(question, showTr);
   const trLang = translationLang(question);
   const chapterShown =
-    question.chapter && !showPrimary && (trLang === 'ta' || trLang === 'hi') && /^RRB NTPC/i.test(paperTitle ?? '')
+    question.chapter && !showPrimary && (trLang === 'ta' || trLang === 'hi') && isLanguageExamTitle(paperTitle)
       ? ntpcNodeName(question.chapter, null, trLang === 'ta' ? 'tamil' : 'hindi')
       : question.chapter;
   const options = displayOptions(question.options, tr?.options);
@@ -1852,7 +1852,7 @@ export function UserEvalAssessmentPage() {
               {subjectOptions.map(([key, { label, count }]) => (
                 <option key={key} value={key}>
                   {/* An RRB NTPC paper names its units in the one language it is read in — English unless shown in its Tamil or Hindi translation. */}
-                  {/^RRB NTPC/i.test(assessment?.title ?? '')
+                  {isLanguageExamTitle(assessment?.title)
                     ? ntpcNodeName(
                         label,
                         null,

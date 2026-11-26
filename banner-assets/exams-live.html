@@ -1,0 +1,41 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Dashboard banner picture, 1200 x 480. Left 60% is kept calm for the banner's own title/subtitle/button.
+     To change which exams are shown, edit the four .chip blocks, then re-render (see README in this folder). -->
+<style>
+  *{box-sizing:border-box;margin:0}
+  html,body{width:1200px;height:480px;overflow:hidden;font-family:"Segoe UI",Arial,sans-serif}
+  .banner{position:relative;width:1200px;height:480px;
+    background:
+      radial-gradient(520px 380px at 12% 108%, rgba(56,189,248,.28), transparent 70%),
+      radial-gradient(420px 320px at 62% -8%, rgba(167,139,250,.30), transparent 70%),
+      linear-gradient(115deg,#172554 0%,#1E3A8A 55%,#2D4FB3 100%)}
+  .ring{position:absolute;border-radius:50%;border:2px solid rgba(255,255,255,.07)}
+  .r1{width:520px;height:520px;left:-170px;top:-210px}
+  .r2{width:380px;height:380px;left:430px;top:250px}
+  .dots{position:absolute;left:44px;bottom:36px;width:150px;height:70px;opacity:.22;
+    background-image:radial-gradient(#fff 2px,transparent 2.5px);background-size:16px 16px}
+  .panel{position:absolute;right:44px;top:36px;width:410px;height:408px;display:flex;flex-direction:column;gap:12px}
+  .chip{flex:1;display:flex;align-items:center;gap:14px;padding:0 18px 0 12px;border-radius:20px;
+    background:rgba(255,255,255,.96);box-shadow:0 8px 22px rgba(8,16,60,.32)}
+  .emblem{width:62px;height:62px;border-radius:50%;background:#fff;border:2px solid #E5E7EB;overflow:hidden;flex:none;display:flex;align-items:center;justify-content:center}
+  .emblem img{width:100%;height:100%;object-fit:cover}
+  .name{font-size:25px;font-weight:800;color:#0F1B4D;letter-spacing:-.2px;line-height:1.1}
+  .sub{font-size:14px;font-weight:600;color:#64748B;margin-top:3px}
+  .live{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:13px;font-weight:800;letter-spacing:.08em;color:#047857;
+    background:#D1FAE5;border-radius:999px;padding:6px 12px}
+  .live i{width:9px;height:9px;border-radius:50%;background:#10B981;box-shadow:0 0 0 4px rgba(16,185,129,.25)}
+</style></head>
+<body><div class="banner">
+  <div class="ring r1"></div><div class="ring r2"></div><div class="dots"></div>
+  <div class="panel">
+    <div class="chip"><div class="emblem"><img src="../public/tnpsc-logo.png"></div>
+      <div><div class="name">TNPSC Group 4</div><div class="sub">Mock &amp; practice tests</div></div><div class="live"><i></i>LIVE</div></div>
+    <div class="chip"><div class="emblem"><img src="../public/tnpsc-logo.png"></div>
+      <div><div class="name">TNPSC Group 2</div><div class="sub">Mock &amp; practice tests</div></div><div class="live"><i></i>LIVE</div></div>
+    <div class="chip"><div class="emblem"><img src="../public/railways-logo.png"></div>
+      <div><div class="name">RRB NTPC CBT-1</div><div class="sub">Mock &amp; practice tests</div></div><div class="live"><i></i>LIVE</div></div>
+    <div class="chip"><div class="emblem"><img src="../public/railways-logo.png"></div>
+      <div><div class="name">RRB NTPC CBT-2</div><div class="sub">Mock &amp; practice tests</div></div><div class="live"><i></i>LIVE</div></div>
+  </div>
+</div></body></html>

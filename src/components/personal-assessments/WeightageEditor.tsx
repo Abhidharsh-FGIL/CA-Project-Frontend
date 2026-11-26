@@ -11,9 +11,11 @@ export interface WeightageEditorProps {
   weights: Record<string, number>;
   onChange: (weights: Record<string, number>) => void;
   disabled?: boolean;
+  /** What "Auto" fills in; an even split when not given. */
+  autoWeights?: () => Record<string, number>;
 }
 
-export function WeightageEditor({ items, weights, onChange, disabled }: WeightageEditorProps) {
+export function WeightageEditor({ items, weights, onChange, disabled, autoWeights }: WeightageEditorProps) {
   const { valid, total, errors } = validateWeightage(weights);
   const singleItem = items.length === 1;
 
@@ -23,7 +25,7 @@ export function WeightageEditor({ items, weights, onChange, disabled }: Weightag
   };
 
   const handleAutoDistribute = () => {
-    onChange(distributeEvenly(items.map((i) => i.key)));
+    onChange(autoWeights ? autoWeights() : distributeEvenly(items.map((i) => i.key)));
   };
 
   const barColor = valid ? 'bg-primary' : 'bg-destructive';

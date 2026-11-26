@@ -22,11 +22,12 @@
 
 import { G4_SUBJECT_ALIASES, splitTag } from './g4-tag-aliases';
 import { RRB_NTPC_GROUPS } from './rrb-ntpc';
+import { SSC_CHSL_GROUPS } from './ssc-chsl';
 import { ntpcCbt1ExamFor, ntpcFixedLevel, ntpcLevelOf } from '@/lib/ntpc-level';
 
 // ─── Ids & levels ──────────────────────────────────────────────────────────────
 
-export type TnpscGroupId = 'group-1' | 'group-2' | 'group-4' | 'gat-b' | 'rrb-ntpc-cbt-1' | 'rrb-ntpc-cbt-1-grad' | 'rrb-ntpc-cbt-2';
+export type TnpscGroupId = 'group-1' | 'group-2' | 'group-4' | 'gat-b' | 'rrb-ntpc-cbt-1' | 'rrb-ntpc-cbt-1-grad' | 'rrb-ntpc-cbt-2' | 'ssc-chsl-tier-1' | 'ssc-chsl-tier-2';
 export type TnpscStageId =
   | 'group-1-prelims'
   | 'group-1-mains'
@@ -36,7 +37,9 @@ export type TnpscStageId =
   | 'gat-b-exam'
   | 'rrb-ntpc-cbt-1-exam'
   | 'rrb-ntpc-cbt-1-grad-exam'
-  | 'rrb-ntpc-cbt-2-exam';
+  | 'rrb-ntpc-cbt-2-exam'
+  | 'ssc-chsl-tier-1-exam'
+  | 'ssc-chsl-tier-2-exam';
 export type TnpscLevel = 'simple' | 'medium' | 'complex';
 export type TnpscTestType = 'mock' | 'practice';
 
@@ -1606,6 +1609,8 @@ export const TNPSC_GROUPS: TnpscGroup[] = [
   },
   // RRB NTPC: two computer-based tests, each an exam of its own (see `rrb-ntpc.ts`).
   ...RRB_NTPC_GROUPS,
+  // SSC CHSL: Tier I and Tier II, each an exam of its own (see `ssc-chsl.ts`).
+  ...SSC_CHSL_GROUPS,
 ];
 
 // ─── Pattern display ───────────────────────────────────────────────────────────

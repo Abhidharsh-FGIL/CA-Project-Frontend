@@ -655,6 +655,8 @@ const STAGE_KEYWORDS: Record<string, string[]> = {
   // The same papers: which level each is for is decided after (`papersForNtpc`), not by its title here.
   'rrb-ntpc-cbt-1-grad-exam': ['rrb ntpc cbt-1', 'rrb ntpc cbt 1', 'ntpc cbt-1', 'ntpc cbt 1'],
   'rrb-ntpc-cbt-2-exam': ['rrb ntpc cbt-2', 'rrb ntpc cbt 2', 'ntpc cbt-2', 'ntpc cbt 2'],
+  'ssc-chsl-tier-1-exam': ['ssc chsl tier-1', 'ssc chsl tier 1', 'chsl tier-1', 'chsl tier 1', 'chsl tier i '],
+  'ssc-chsl-tier-2-exam': ['ssc chsl tier-2', 'ssc chsl tier 2', 'chsl tier-2', 'chsl tier 2', 'chsl tier ii '],
 };
 
 async function deriveTests(

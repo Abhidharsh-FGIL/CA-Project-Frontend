@@ -69,6 +69,6 @@ describe('the "Coming soon" note under the filter', () => {
   it('names at most two exams that are not open yet, CBT-1 Graduate first, and none that are open', async () => {
     const { upcomingExamLabels } = await import('@/hooks/use-progress-trend');
     expect(upcomingExamLabels(new Set(['group-2', 'group-4', 'rrb-ntpc-cbt-1']))).toEqual(['RRB NTPC CBT-1 (Graduate)', 'Group 1']);
-    expect(upcomingExamLabels(new Set(['group-1', 'group-2', 'group-4', 'gat-b', 'rrb-ntpc-cbt-1', 'rrb-ntpc-cbt-1-grad']))).toEqual(['RRB NTPC CBT-2']);
+    expect(upcomingExamLabels(new Set(['group-1', 'group-2', 'group-4', 'gat-b', 'rrb-ntpc-cbt-1', 'rrb-ntpc-cbt-1-grad', 'ssc-chsl-tier-1', 'ssc-chsl-tier-2']))).toEqual(['RRB NTPC CBT-2']);
   });
 });

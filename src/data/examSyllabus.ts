@@ -32,6 +32,9 @@ const STAGE_SECTION_QUESTIONS: Record<string, Record<string, number>> = {
   'rrb-ntpc-cbt-1-exam': { 'ntpc-general-awareness': 40, 'ntpc-mathematics': 30, 'ntpc-reasoning': 30 },
   'rrb-ntpc-cbt-1-grad-exam': { 'ntpc-general-awareness': 40, 'ntpc-mathematics': 30, 'ntpc-reasoning': 30 },
   'rrb-ntpc-cbt-2-exam': { 'ntpc-general-awareness': 50, 'ntpc-mathematics': 35, 'ntpc-reasoning': 35 },
+  // SSC CHSL: Tier I is 4 x 25; Tier II is Maths 30 + Reasoning 30 + English 40 + General Awareness 20 + Computer 15.
+  'ssc-chsl-tier-1-exam': { 'chsl-english': 25, 'chsl-reasoning': 25, 'chsl-quant': 25, 'chsl-general-awareness': 25 },
+  'ssc-chsl-tier-2-exam': { 'chsl-quant': 30, 'chsl-reasoning': 30, 'chsl-english': 40, 'chsl-general-awareness': 20, 'chsl-computer': 15 },
   // Group 1 Prelims: General Studies 175 + Aptitude 25
   'group-1-prelims': {
     'general-science': 25,
@@ -104,6 +107,8 @@ export const EXAM_SYLLABUS: Record<string, SyllabusSubject[]> = {
   'GAT-B': stageSyllabus('gat-b-exam'),
   'RRB NTPC CBT-1': stageSyllabus('rrb-ntpc-cbt-1-exam'),
   'RRB NTPC CBT-2': stageSyllabus('rrb-ntpc-cbt-2-exam'),
+  'SSC CHSL Tier-1': stageSyllabus('ssc-chsl-tier-1-exam'),
+  'SSC CHSL Tier-2': stageSyllabus('ssc-chsl-tier-2-exam'),
 
   // IBPS Clerk Prelims — English Language (30) + Numerical Ability (35) +
   // Reasoning Ability (35) = 100 questions, 1 hour (20 min sectional).

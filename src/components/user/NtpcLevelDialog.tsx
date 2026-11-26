@@ -1,6 +1,6 @@
 /**
  * "Which level, and in which language?" — asked when an aspirant opens RRB NTPC, and again whenever they choose to
- * change it. The papers they are shown follow the answers (see `lib/ntpc-level.ts`).
+ * change it. SSC CHSL has languages but no levels, so it asks the language only (`levelless`). The papers they are shown follow the answers (see `lib/ntpc-level.ts`).
  */
 import { useEffect, useState } from 'react';
 import { BookOpen, Check, GraduationCap, Languages } from 'lucide-react';
@@ -41,6 +41,7 @@ export function NtpcLevelDialog({
   onSave,
   examName,
   fixedLevel = null,
+  levelless = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -52,7 +53,10 @@ export function NtpcLevelDialog({
   examName?: string;
   /** The exam is for this level (CBT-1 UG or Graduate): only the language is asked. */
   fixedLevel?: NtpcLevel | null;
+  /** The exam has no levels (SSC CHSL): only the language is asked. */
+  levelless?: boolean;
 }) {
+  const languageOnly = !!fixedLevel || levelless;
   const [level, setLevel] = useState<NtpcLevel | null>(fixedLevel ?? value.level);
   const suggested = isNtpcLanguage(fallbackLanguage) ? fallbackLanguage : null;
   const [language, setLanguage] = useState<NtpcLanguage | null>(value.language ?? suggested);
@@ -69,17 +73,17 @@ export function NtpcLevelDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100%-1.5rem)] max-w-md rounded-2xl p-6 sm:p-7" onOpenAutoFocus={e => e.preventDefault()}>
         <DialogTitle className="text-xl font-bold text-gray-900 dark:text-gray-100">
-          {fixedLevel ? 'Choose your language' : 'Set up your preparation'}
+          {languageOnly ? 'Choose your language' : 'Set up your preparation'}
         </DialogTitle>
         <DialogDescription className="text-sm text-gray-500 dark:text-gray-400">
-          {fixedLevel
+          {languageOnly
             ? `${examName ?? 'RRB NTPC'} has papers in more than one language. You will be shown the papers in the one you choose.`
             : `${examName ?? 'RRB NTPC'} has separate Graduate and Under-Graduate recruitments, and papers in more than one language. You will be shown the papers for your choices.`}
         </DialogDescription>
 
         <div className="mt-4 space-y-4">
           {/* An exam for one level (CBT-1 UG or Graduate) says its level already. */}
-          {!fixedLevel && (
+          {!languageOnly && (
           <div>
             <p className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Your level</p>
             <div className="grid gap-2">
@@ -121,8 +125,8 @@ export function NtpcLevelDialog({
 
         <Button
           type="button"
-          disabled={!level || !language}
-          onClick={() => level && language && onSave({ level, language })}
+          disabled={(!level && !levelless) || !language}
+          onClick={() => (level || levelless) && language && onSave({ level: levelless ? null : level, language })}
           className="mt-5 h-11 w-full rounded-lg bg-brand-500 text-sm font-bold text-white hover:bg-brand-600"
         >
           Continue
@@ -139,14 +143,17 @@ export function NtpcLevelChip({
   onChange,
   className,
   fixedLevel = null,
+  levelless = false,
 }: {
   prefs: NtpcPrefs;
   onChange: () => void;
   className?: string;
   /** The exam is for this level, and says so in its name: the chip shows the language alone. */
   fixedLevel?: NtpcLevel | null;
+  /** The exam has no levels (SSC CHSL): the chip shows the language alone. */
+  levelless?: boolean;
 }) {
-  const text = [!fixedLevel && prefs.level && NTPC_LEVEL_LABEL[prefs.level], prefs.language && NTPC_LANGUAGE_LABEL[prefs.language]].filter(Boolean).join(' · ');
+  const text = [!fixedLevel && !levelless && prefs.level && NTPC_LEVEL_LABEL[prefs.level], prefs.language && NTPC_LANGUAGE_LABEL[prefs.language]].filter(Boolean).join(' · ');
   return (
     <button
       type="button"
@@ -162,7 +169,7 @@ export function NtpcLevelChip({
       )}
     >
       <GraduationCap className="h-3.5 w-3.5" />
-      {text || 'Choose your level and language'}
+      {text || (levelless ? 'Choose your language' : 'Choose your level and language')}
       {text && <span className="font-medium underline underline-offset-2">Change</span>}
     </button>
   );

@@ -168,3 +168,20 @@ describe('bothLevelUnitIds — an RRB NTPC CBT-1 pool is both levels', () => {
     expect(bothLevelUnitIds([])).toEqual([]);
   });
 });
+
+describe('describePool — SSC CHSL', () => {
+  const chsl = { source: 'bank' as const, shuffle: true, composed: false, stageId: 'ssc-chsl-tier-1-exam' };
+  const borrowed = [{ subject: 'Mathematics', chapter: 'Percentage' }, { subject: 'Aptitude', chapter: 'Ratio and Proportion' }];
+
+  it('a unit pool states its units alone, so the server draws every borrowed question of them', () => {
+    const { mode, filter } = describePool({ ...chsl, unitIds: ['c1-quantitative-aptitude-fundamental-arithmetic'], questions: borrowed });
+    expect(mode).toBe('live');
+    expect(filter?.unit_ids).toEqual(['c1-quantitative-aptitude-fundamental-arithmetic']);
+    expect([filter?.subjects, filter?.chapters]).toEqual([null, null]);
+  });
+
+  it('keeps the topics when the admin narrowed the paper to chosen ones', () => {
+    const { filter } = describePool({ ...chsl, unitIds: ['c1-quantitative-aptitude-fundamental-arithmetic'], questions: borrowed, narrowedByChapter: true });
+    expect(filter?.chapters).toEqual(['Percentage', 'Ratio and Proportion']);
+  });
+});

@@ -48,6 +48,8 @@ function groupFromName(title: string): string | null {
   if (/(?:^|[^a-z0-9])gat[\s_-]*b(?![a-z])/.test(lower)) return 'gat-b';
   const rrb = lower.match(/(?:rrb|ntpc)[^]*?cbt[\s_-]*([12])/);
   if (rrb) return `rrb-ntpc-cbt-${rrb[1]}`;
+  const chsl = lower.match(/chsl[^]*?tier[\s_-]*(1|2|i{1,2})(?![a-z0-9])/);
+  if (chsl) return `ssc-chsl-tier-${chsl[1] === '2' || chsl[1] === 'ii' ? 2 : 1}`;
   const m = lower.match(/(?:^|[^a-z0-9])g(?:roup)?[\s_-]*(\d)(?![0-9])/);
   if (!m) return null;
   const id = `group-${m[1]}`;
