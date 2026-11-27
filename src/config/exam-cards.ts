@@ -303,3 +303,15 @@ export function logoFileProblem(file: { type: string; size: number }): string | 
   if (file.size > LOGO_MAX_BYTES) return `Keep the image under ${LOGO_MAX_BYTES / 1024 / 1024} MB.`;
   return null;
 }
+
+/**
+ * The list with one card of a chosen few moved up or down among those few only — the open exams, say — swapping it with
+ * its neighbour in that set. Every other card keeps its place. `slots` are the indexes in `list` of the set, in order.
+ */
+export function moveWithin<T>(list: T[], slots: number[], k: number, dir: -1 | 1): T[] {
+  const j = k + dir;
+  if (k < 0 || k >= slots.length || j < 0 || j >= slots.length) return list;
+  const next = [...list];
+  [next[slots[k]], next[slots[j]]] = [next[slots[j]], next[slots[k]]];
+  return next;
+}

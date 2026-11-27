@@ -12,10 +12,12 @@
  * backend sent (`rrb_ntpc_52_units_map_2026-11-07.xlsx`)): 52 units over three subjects, `n1-…` for CBT-1 and `n2-…` for CBT-2. Names are held in English, Tamil and Hindi;
  * `ntpcLabel` gives the one the aspirant chose, and the English where a translation has not been supplied.
  *
- * The types come from `tnpsc.ts`, which imports this file for the data; the import here is type-only so the two do not
+ * The types come from `tnpsc.ts`, which imports this file for the data; the
+ * import here is type-only so the two do not
  * load each other.
  */
 import { hindiName } from '@/lib/hindi-names';
+import { SSC_CHSL_NAMES } from './ssc-chsl';
 import { NTPC_SUBJECTS, NTPC_UNITS, type NtpcSubjectData, type NtpcUnitData } from './rrb-ntpc-data';
 import type { TnpscGroup, TnpscSubject, TnpscSyllabusUnit, TnpscTopic } from './tnpsc';
 
@@ -59,6 +61,8 @@ for (const sub of SYLLABUS) {
 }
 // The pattern and the subject list spell the third subject with "and", the sheet with "&".
 NAMES.set('General Intelligence and Reasoning', NAMES.get('General Intelligence & Reasoning') ?? {});
+// SSC CHSL is read through the same names. NTPC's own wording stays where both exams use a name.
+for (const [en, ta, hi] of SSC_CHSL_NAMES) if (!NAMES.has(en)) NAMES.set(en, { ta, hi });
 
 /**
  * A subject, unit or topic name in the chosen language: its translation where there is one, its English where there

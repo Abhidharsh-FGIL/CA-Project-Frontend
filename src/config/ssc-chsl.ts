@@ -336,3 +336,58 @@ export const SSC_CHSL_STAGE: Record<string, string> = {
   'ssc-chsl-tier-1': 'ssc-chsl-tier-1-exam',
   'ssc-chsl-tier-2': 'ssc-chsl-tier-2-exam',
 };
+
+/**
+ * The names an SSC CHSL aspirant reads in Tamil or Hindi: every subject, section and unit of both tiers, as
+ * `[English, Tamil, Hindi]`. Registered with the RRB NTPC names (`ntpcLabel`), which is what the Exams pages translate
+ * through for both exams. Where NTPC already has a name ("Classification", "Mensuration", "General Science"), NTPC's
+ * wording is kept, so the two exams read alike.
+ */
+export const SSC_CHSL_NAMES: ReadonlyArray<readonly [en: string, ta: string, hi: string]> = [
+  // Subjects and sections
+  ['English Language', 'ஆங்கில மொழி', 'अंग्रेज़ी भाषा'],
+  ['Quantitative Aptitude', 'அளவுசார் திறனறிவு', 'मात्रात्मक योग्यता'],
+  ['Computer Knowledge', 'கணினி அறிவு', 'कंप्यूटर ज्ञान'],
+  ['Mathematical Abilities', 'கணிதத் திறன்கள்', 'गणितीय क्षमताएँ'],
+  ['Reasoning and General Intelligence', 'பகுத்தறிவு மற்றும் பொது அறிவுத்திறன்', 'तर्कशक्ति एवं सामान्य बुद्धिमत्ता'],
+  ['English Language and Comprehension', 'ஆங்கில மொழி மற்றும் புரிதல்', 'अंग्रेज़ी भाषा एवं बोधगम्यता'],
+  ['Computer Knowledge Test', 'கணினி அறிவுத் தேர்வு', 'कंप्यूटर ज्ञान परीक्षा'],
+  // English Language
+  ['Vocabulary', 'சொல்லகராதி', 'शब्दावली'],
+  ['Spelling', 'எழுத்துக்கூட்டல்', 'वर्तनी'],
+  ['Grammar', 'இலக்கணம்', 'व्याकरण'],
+  ['Sentence Transformation', 'வாக்கிய மாற்றம்', 'वाक्य रूपांतरण'],
+  ['Comprehension', 'புரிந்துகொள்ளுதல்', 'बोधगम्यता'],
+  // General Intelligence and Reasoning
+  ['Analogy', 'ஒப்புமை', 'सादृश्यता'],
+  ['Classification', 'வகைப்படுத்துதல்', 'वर्गीकरण'],
+  ['Series and Patterns', 'தொடர்கள் மற்றும் வடிவங்கள்', 'श्रृंखला और पैटर्न'],
+  ['Coding and Operations', 'குறியீடாக்கம் மற்றும் செயல்பாடுகள்', 'कोडिंग और संक्रियाएँ'],
+  ['Spatial and Non-Verbal Reasoning', 'இடஞ்சார்ந்த மற்றும் சொல்லற்ற பகுத்தறிவு', 'स्थानिक और गैर-मौखिक तर्कशक्ति'],
+  ['Logical and Analytical Reasoning', 'தருக்க மற்றும் பகுப்பாய்வுப் பகுத்தறிவு', 'तार्किक और विश्लेषणात्मक तर्कशक्ति'],
+  ['Intelligence and Social Reasoning', 'அறிவுத்திறன் மற்றும் சமூகப் பகுத்தறிவு', 'बुद्धिमत्ता और सामाजिक तर्कशक्ति'],
+  // Quantitative Aptitude / Mathematical Abilities
+  ['Number Systems', 'எண் முறைமைகள்', 'संख्या पद्धतियाँ'],
+  ['Fundamental Arithmetic', 'அடிப்படை எண்கணிதம்', 'मूल अंकगणित'],
+  ['Algebra', 'இயற்கணிதம்', 'बीजगणित'],
+  ['Geometry', 'வடிவியல்', 'ज्यामिति'],
+  ['Mensuration', 'அளவியல்', 'क्षेत्रमिति'],
+  ['Trigonometry', 'முக்கோணவியல்', 'त्रिकोणमिति'],
+  ['Data Interpretation', 'தரவு விளக்கம்', 'आँकड़ों की व्याख्या'],
+  ['Statistics and Probability', 'புள்ளியியல் மற்றும் நிகழ்தகவு', 'सांख्यिकी और प्रायिकता'],
+  // General Awareness
+  ['Current Affairs', 'நடப்பு நிகழ்வுகள்', 'समसामयिक घटनाएँ'],
+  ['History', 'வரலாறு', 'इतिहास'],
+  ['Geography', 'புவியியல்', 'भूगोल'],
+  ['Indian Polity and General Policy', 'இந்திய அரசியல் மற்றும் பொதுக் கொள்கை', 'भारतीय राजव्यवस्था और सामान्य नीति'],
+  ['Economy', 'பொருளாதாரம்', 'अर्थव्यवस्था'],
+  ['General Science', 'பொது அறிவியல்', 'सामान्य विज्ञान'],
+  ['Culture and Miscellaneous General Knowledge', 'பண்பாடு மற்றும் பல்வகை பொது அறிவு', 'संस्कृति और विविध सामान्य ज्ञान'],
+  // Computer Knowledge (Tier II)
+  ['Computer Fundamentals', 'கணினி அடிப்படைகள்', 'कंप्यूटर के मूल सिद्धांत'],
+  ['Operating Systems', 'இயக்க முறைமைகள்', 'ऑपरेटिंग सिस्टम'],
+  ['Microsoft Office', 'மைக்ரோசாஃப்ட் ஆஃபீஸ்', 'माइक्रोसॉफ्ट ऑफिस'],
+  ['Internet and Email', 'இணையம் மற்றும் மின்னஞ்சல்', 'इंटरनेट और ईमेल'],
+  ['Networking', 'கணினி வலையமைப்பு', 'नेटवर्किंग'],
+  ['Cyber Security', 'இணையப் பாதுகாப்பு', 'साइबर सुरक्षा'],
+];

@@ -128,3 +128,24 @@ describe('SSC CHSL Tier I unit split', () => {
     ]);
   });
 });
+
+describe('SSC CHSL names in Tamil and Hindi', () => {
+  it('every subject, section and unit of both tiers has a Tamil and a Hindi name', async () => {
+    const { ntpcLabel } = await import('./rrb-ntpc');
+    const names = new Set<string>();
+    for (const n of [1, 2] as const) {
+      const st = stage(n);
+      st.subjects.forEach(s => names.add(s.name));
+      st.pattern!.sections.forEach(sec => {
+        names.add(sec.name);
+        sec.units!.forEach(u => names.add(u.name));
+      });
+    }
+    for (const name of names) {
+      expect(ntpcLabel(name, 'tamil'), name).not.toBe(name);
+      expect(ntpcLabel(name, 'tamil'), name).toMatch(/[஀-௿]/);
+      expect(ntpcLabel(name, 'hindi'), name).toMatch(/[ऀ-ॿ]/);
+      expect(ntpcLabel(name, 'english')).toBe(name);
+    }
+  });
+});

@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp, Loader2, Pencil, Plus, Trash2 } from 'lucide-re
 import { Switch } from '@/components/ui/switch';
 import { ExamCardEditor } from '@/components/admin/ExamCardEditor';
 import { TNPSC_GROUPS } from '@/config/tnpsc';
-import { adminCardList, builtInCard, legacyEntries, type ExamCard } from '@/config/exam-cards';
+import { adminCardList, builtInCard, legacyEntries, moveWithin, type ExamCard } from '@/config/exam-cards';
 import { useAdminExamCards, useSaveExamCards } from '@/hooks/use-exam-cards';
 import { useAdminExams, useSetExamOpen } from '@/hooks/use-exam-availability';
 import { OPEN_EXAM_IDS } from '@/lib/exam-listing';
@@ -75,6 +75,12 @@ export function ExamCardsManager() {
     persist(list.filter((_, k) => k !== i), `${card.name} removed.`);
   };
 
+  /** Where the open exams sit in the list: these are the cards aspirants see first, in this order. */
+  const openSlots = useMemo(
+    () => list.map((c, i) => (realIds.has(c.id) && isExamOpen(items, c.id, OPEN_EXAM_IDS) ? i : -1)).filter(i => i >= 0),
+    [list, realIds, items],
+  );
+
   const editingCard = editing && editing.index !== null ? list[editing.index] : null;
   const busy = save.isPending;
 
@@ -104,6 +110,45 @@ export function ExamCardsManager() {
           <Plus className="h-3.5 w-3.5" /> Add exam
         </button>
       </div>
+
+      {!cards.isLoading && openSlots.length > 0 && (
+        <section className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-900 dark:bg-emerald-950/20">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Order of active exams</h3>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            Active exams are shown first on the Exams page, in this order. Move one up or down; Coming soon cards keep their places.
+          </p>
+          <ol className="mt-3 space-y-1.5">
+            {openSlots.map((slot, k) => {
+              const c = list[slot];
+              return (
+                <li key={c.id} className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-gray-800 dark:bg-gray-900">
+                  <span className="w-5 text-right text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-300">{k + 1}</span>
+                  <img src={c.logo_url ? logoSrc(c.logo_url) : examLogo(c.id).src} alt="" className="h-7 w-7 shrink-0 object-contain" draggable={false} />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100">{c.name}</span>
+                  <button
+                    type="button"
+                    className={ICON_BTN}
+                    disabled={busy || k === 0}
+                    onClick={() => persist(moveWithin(list, openSlots, k, -1), 'Order saved.')}
+                    aria-label={`Move ${c.name} up among active exams`}
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className={ICON_BTN}
+                    disabled={busy || k === openSlots.length - 1}
+                    onClick={() => persist(moveWithin(list, openSlots, k, 1), 'Order saved.')}
+                    aria-label={`Move ${c.name} down among active exams`}
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      )}
 
       {cards.isLoading ? (
         <Loader2 className="h-5 w-5 animate-spin text-gray-400" />

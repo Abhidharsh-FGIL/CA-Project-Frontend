@@ -235,3 +235,15 @@ describe('small helpers', () => {
     expect(logoFileProblem({ type: 'image/png', size: 2 * 1024 * 1024 })).toMatch(/MB/);
   });
 });
+
+describe('moveWithin — reordering the active exams only', () => {
+  it('swaps a card with its neighbour in the set and leaves the rest in place', async () => {
+    const { moveWithin } = await import('./exam-cards');
+    const list = ['g4', 'soon1', 'ntpc', 'soon2', 'chsl'];
+    const active = [0, 2, 4];
+    expect(moveWithin(list, active, 2, -1)).toEqual(['g4', 'soon1', 'chsl', 'soon2', 'ntpc']);
+    expect(moveWithin(list, active, 0, 1)).toEqual(['ntpc', 'soon1', 'g4', 'soon2', 'chsl']);
+    expect(moveWithin(list, active, 0, -1)).toBe(list);
+    expect(moveWithin(list, active, 2, 1)).toBe(list);
+  });
+});
